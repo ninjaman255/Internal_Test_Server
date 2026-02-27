@@ -1,0 +1,8 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Tournament-Test-10-28/assets/net-games/menus/menu-by-caseofthematts-and-shadisnx255/_full-elements/menu-options-full.png"
+
+anim IDLE
+frame dur=5f x=0 y=0 w=72 h=15 originx=0 originy=0
+
+anim ACTIVE
+frame dur=5f x=0 y=16 w=72 h=15 originx=0 originy=0

@@ -1,0 +1,5 @@
+animation state="ACTIVE"
+frame duration="0.0833333" x="0" y="16" w="72" h="15" originx="0" originy="0"
+
+animation state="IDLE"
+frame duration="0.0833333" x="0" y="0" w="72" h="15" originx="0" originy="0"  

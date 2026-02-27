@@ -1,0 +1,8 @@
+imagePath="D:/ONB/Teblat Wonterk Server/resources/mods/cards/EXE5-012-PulseBeam1/pulsebeam/gfx/pulseshot.png"
+
+animation state="0"
+frame duration="0.017" x="29" y="0" w="8" h="14" originx="13" originy="10" flipx="0" flipy="0"
+frame duration="0.033" x="29" y="14" w="6" h="10" originx="12" originy="8" flipx="0" flipy="0"
+frame duration="0.033" x="0" y="24" w="18" h="20" originx="13" originy="13" flipx="0" flipy="0"
+frame duration="0.033" x="0" y="0" w="29" h="24" originx="13" originy="15" flipx="0" flipy="0"
+frame duration="0.05" x="18" y="24" w="20" h="18" originx="7" originy="12" flipx="0" flipy="0"
