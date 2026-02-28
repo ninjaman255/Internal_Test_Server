@@ -340,33 +340,36 @@ function Nameplate:update(player_id, player_data, box_data, dt)
     local bob = math.floor((math.sin(np.bob_t) * (np.bob_amp or 0)) + 0.5)
     local y = math.floor(((np.base_y or np.y) + bob) + 0.5)
 
-    -- Draw left slice
+    -- Draw left slice (base)
     Net.player_draw_sprite(player_id, assets.base_left, {
         id = np.idp .. "_L",
         x = left_x, y = y, z = z,
         sx = scale, sy = scale,
-        r = 255, g = 255, b = 255, a = 255,
+        r = 255, g = 255, b = 255,
+        opacity = 255, a = 255,
         color_mode = 0,
     })
 
-    -- Draw right slice
+    -- Draw right slice (base)
     local right_x = left_x + self.w_left * scale + mids * np.mid_w
     Net.player_draw_sprite(player_id, assets.base_right, {
         id = np.idp .. "_R",
         x = right_x, y = y, z = z,
         sx = scale, sy = scale,
-        r = 255, g = 255, b = 255, a = 255,
+        r = 255, g = 255, b = 255,
+        opacity = 255, a = 255,
         color_mode = 0,
     })
 
-    -- Draw middle pieces
+    -- Draw middle pieces (base)
     for i = 0, mids - 1 do
         local mx = left_x + self.w_left * scale + i * np.mid_w
         Net.player_draw_sprite(player_id, assets.base_mid[i], {
             id = np.idp .. "_M" .. i,
             x = mx, y = y, z = z,
             sx = scale, sy = scale,
-            r = 255, g = 255, b = 255, a = 255,
+            r = 255, g = 255, b = 255,
+            opacity = 255, a = 255,
             color_mode = 0,
         })
     end
@@ -384,7 +387,8 @@ function Nameplate:update(player_id, player_data, box_data, dt)
             id = np.idp .. "_FL",
             x = left_x, y = y, z = fz,
             sx = scale, sy = scale,
-            r = fr, g = fg, b = fb, a = fa,
+            r = fr, g = fg, b = fb,
+            opacity = 255, a = fa,   -- overall opacity 255, alpha for tint is fa
             color_mode = fmode,
         })
 
@@ -392,7 +396,8 @@ function Nameplate:update(player_id, player_data, box_data, dt)
             id = np.idp .. "_FR",
             x = right_x, y = y, z = fz,
             sx = scale, sy = scale,
-            r = fr, g = fg, b = fb, a = fa,
+            r = fr, g = fg, b = fb,
+            opacity = 255, a = fa,
             color_mode = fmode,
         })
 
@@ -402,7 +407,8 @@ function Nameplate:update(player_id, player_data, box_data, dt)
                 id = np.idp .. "_FM" .. i,
                 x = mx, y = y, z = fz,
                 sx = scale, sy = scale,
-                r = fr, g = fg, b = fb, a = fa,
+                r = fr, g = fg, b = fb,
+                opacity = 255, a = fa,
                 color_mode = fmode,
             })
         end
@@ -436,7 +442,8 @@ function Nameplate:update(player_id, player_data, box_data, dt)
                 local inst_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y, {
                     scale = np.text_scale,
                     z = z + 2,
-                    r = 255, g = 255, b = 255
+                    r = 255, g = 255, b = 255,
+                    opacity = 255, a = 255,
                 })
                 if inst_id then
                     table.insert(glyph_ids, inst_id)

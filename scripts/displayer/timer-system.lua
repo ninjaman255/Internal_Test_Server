@@ -67,7 +67,6 @@ function Timer:handlePlayerLeave(player_id)
 end
 
 function Timer:updateTimers(delta)
-    -- Add safety check for nil or invalid delta
     if delta == nil or delta <= 0 then
         return
     end
@@ -178,7 +177,7 @@ function Timer:updateTimers(delta)
 
             local current_floor = math.floor(countdown_data.current)
             if current_floor ~= previous_floor then
-                print("Emitting global countdown update for ID:", countdown_id)
+                print("Emitting global countdown update for ID:", countdown_id, "current:", countdown_data.current)
                 self:emitToAllPlayers("countdown_global_update", {
                     countdown_id = countdown_id,
                     current = countdown_data.current
@@ -195,7 +194,7 @@ function Timer:updateTimers(delta)
                 else
                     countdown_data.remaining = countdown_data.duration or 0
                     countdown_data.current = countdown_data.remaining
-                    print("Emitting global countdown update for ID:", countdown_id)
+                    print("Emitting global countdown update for ID:", countdown_id, "current:", countdown_data.current)
                     self:emitToAllPlayers("countdown_global_update", {
                         countdown_id = countdown_id,
                         current = countdown_data.current
@@ -206,10 +205,13 @@ function Timer:updateTimers(delta)
     end
 end
 
--- Helper function to emit to all connected players
+-- Helper function to emit to all connected players (includes player_id in data)
 function Timer:emitToAllPlayers(event_name, data)
     for player_id, _ in pairs(self.player_data) do
-        Net:emit(event_name, player_id, data)
+        local event_data = {}
+        for k, v in pairs(data) do event_data[k] = v end
+        event_data.player_id = player_id  -- add player_id to the data
+        Net:emit(event_name, event_data)
     end
 end
 
@@ -353,7 +355,8 @@ end
 -- Sync methods for new players
 function Timer:syncGlobalTimers(player_id)
     for timer_id, timer_data in pairs(self.global_timers) do
-        Net:emit("timer_global_create", player_id, {
+        Net:emit("timer_global_create", {
+            player_id = player_id,
             timer_id = timer_id,
             duration = timer_data.duration,
             loop = timer_data.loop,
@@ -361,12 +364,13 @@ function Timer:syncGlobalTimers(player_id)
         })
 
         if timer_data.paused then
-            Net:emit("timer_global_pause", player_id, {timer_id = timer_id})
+            Net:emit("timer_global_pause", {player_id = player_id, timer_id = timer_id})
         end
     end
 
     for countdown_id, countdown_data in pairs(self.global_countdowns) do
-        Net:emit("countdown_global_create", player_id, {
+        Net:emit("countdown_global_create", {
+            player_id = player_id,
             countdown_id = countdown_id,
             duration = countdown_data.duration,
             loop = countdown_data.loop,
@@ -374,7 +378,7 @@ function Timer:syncGlobalTimers(player_id)
         })
 
         if countdown_data.paused then
-            Net:emit("countdown_global_pause", player_id, {countdown_id = countdown_id})
+            Net:emit("countdown_global_pause", {player_id = player_id, countdown_id = countdown_id})
         end
     end
 end

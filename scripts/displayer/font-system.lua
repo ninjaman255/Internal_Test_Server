@@ -270,7 +270,8 @@ function FontSystem:getGlyphDimensions(font_name, char)
     end
     local metrics = GLYPH_METRICS[font_name][state]
     if metrics then
-        print(string.format("Glyph dims: font=%s, char=%s, state=%s, w=%d, h=%d", font_name, char, state, metrics.w, metrics.h))
+        -- Optional debug print
+        -- print(string.format("Glyph dims: font=%s, char=%s, state=%s, w=%d, h=%d", font_name, char, state, metrics.w, metrics.h))
         return metrics.w, metrics.h
     end
     return 6, 12
@@ -372,6 +373,7 @@ end
 ---@field oy? integer
 ---@field color_mode? integer
 ---@field instance_id? string
+---@field char? string   -- new character to change to (used in updates)
 
 -- Draw a single glyph.
 ---@param player_id string
@@ -394,6 +396,7 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
     local sprite_id = self:ensureAssetAllocated(player_id, font_name)
     local instance_id = options.instance_id or self:nextInstanceId(player_id, "glyph")
 
+    -- Build draw table with explicit defaults
     local draw = {
         id = instance_id,
         x = x,
@@ -402,20 +405,20 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
         sx = scale,
         sy = scale,
         anim_state = state,
+        r = options.r or 255,
+        g = options.g or 255,
+        b = options.b or 255,
+        opacity = options.opacity or 255,
+        a = options.a or 255,
+        ro = options.ro or 0,
+        color_mode = options.color_mode or 0,
     }
-
-    if options.r then draw.r = options.r end
-    if options.g then draw.g = options.g end
-    if options.b then draw.b = options.b end
-    if options.opacity then draw.opacity = options.opacity end
-    if options.a then draw.a = options.a end
-    if options.ro then draw.ro = options.ro end
     if options.ox then draw.ox = options.ox end
     if options.oy then draw.oy = options.oy end
-    if options.color_mode then draw.color_mode = options.color_mode end
 
     Net.player_draw_sprite(player_id, sprite_id, draw)
 
+    -- Store all properties for later updates
     if not self.player_instances then self.player_instances = {} end
     if not self.player_instances[player_id] then
         self.player_instances[player_id] = {}
@@ -427,6 +430,15 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
             x = x, y = y, z = z,
             scale = scale,
             state = state,
+            r = draw.r,
+            g = draw.g,
+            b = draw.b,
+            opacity = draw.opacity,
+            a = draw.a,
+            ro = draw.ro,
+            color_mode = draw.color_mode,
+            ox = draw.ox,
+            oy = draw.oy,
         }
     }
 
@@ -436,7 +448,7 @@ end
 -- Update an existing glyph.
 ---@param player_id string
 ---@param instance_id string
----@param updates GlyphOptions
+---@param updates GlyphOptions   -- can include 'char' to change the character
 function FontSystem:updateGlyph(player_id, instance_id, updates)
     if not self.player_instances or not self.player_instances[player_id] then
         return
@@ -446,6 +458,20 @@ function FontSystem:updateGlyph(player_id, instance_id, updates)
         return
     end
 
+    -- If char update requested, compute new state and update stored char
+    if updates.char then
+        local new_char = updates.char
+        if new_char ~= inst.char then
+            local new_state = self:getGlyphState(inst.font, new_char)
+            if new_state then
+                inst.char = new_char
+                inst.props.state = new_state
+            end
+        end
+        updates.char = nil -- remove so it doesn't get stored as a prop
+    end
+
+    -- Apply other updates to stored props
     for k, v in pairs(updates) do
         inst.props[k] = v
     end
@@ -456,6 +482,7 @@ function FontSystem:updateGlyph(player_id, instance_id, updates)
         return
     end
 
+    -- Rebuild draw table from stored props
     local draw = {
         id = instance_id,
         x = inst.props.x,
@@ -464,15 +491,16 @@ function FontSystem:updateGlyph(player_id, instance_id, updates)
         sx = inst.props.scale,
         sy = inst.props.scale,
         anim_state = inst.props.state,
+        r = inst.props.r or 255,
+        g = inst.props.g or 255,
+        b = inst.props.b or 255,
+        opacity = inst.props.opacity or 255,
+        a = inst.props.a or 255,
+        ro = inst.props.ro or 0,
+        color_mode = inst.props.color_mode or 0,
     }
-    if inst.props.r then draw.r = inst.props.r end
-    if inst.props.g then draw.g = inst.props.g end
-    if inst.props.b then draw.b = inst.props.b end
-    if inst.props.opacity then draw.opacity = inst.props.opacity end
-    if inst.props.ro then draw.ro = inst.props.ro end
     if inst.props.ox then draw.ox = inst.props.ox end
     if inst.props.oy then draw.oy = inst.props.oy end
-    if inst.props.color_mode then draw.color_mode = inst.props.color_mode end
 
     Net.player_draw_sprite(player_id, sprite_id, draw)
 end

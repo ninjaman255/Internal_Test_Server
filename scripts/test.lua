@@ -63,7 +63,7 @@ local steps = {
     function()
         print("3. Testing Text.drawMarquee")
         displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 150,
-            displayer.Builder.marquee({ speed = 80, loops = 2, font = "THICK", scale = 2, r = 0, g = 255, b = 255 })
+            displayer.Builder.marquee({ speed = 80, loops = 2, font = "THICK", scale = 2, r = 0, g = 255, b = 0, color_mode = 2, a = 255 })
         )
         -- Marquee will auto-remove after loops, just wait enough
         schedule(5, function()
@@ -83,8 +83,10 @@ local steps = {
                 font = "THICK",
                 scale = 2,
                 speed = 20,
-                type_sound = "/server/assets/net-games/sfx/text.ogg",  -- optional
-                r = 255, g = 255, b = 255,
+                type_sound = "/server/assets/net-games/sfx/text.ogg", -- optional
+                r = 255,
+                g = 255,
+                b = 255,
             })
         )
         schedule(2, function()
@@ -127,14 +129,15 @@ local steps = {
     -- Step 6: Global countdown display (visible to all players)
     function()
         print("6. Testing TimerDisplay.createGlobalCountdownDisplay (8 sec global countdown)")
-        -- Create the visual for all players (current and future)
-        displayer.TimerDisplay.createGlobalCountdownDisplay("global_cd_test", 0, 0,
-            displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 100, g = 255, b = 100 } })
-        )
+
         -- Start the actual global countdown timer (matches the display ID)
         displayer.Timer.createGlobalCountdown("global_cd_test", 8, function()
             print("Global countdown finished!")
         end, false)
+        -- Create the visual for all players (current and future)
+        displayer.TimerDisplay.createGlobalCountdown("global_cd_test", 0, 0,
+            displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 100, g = 255, b = 100 } })
+        )
         schedule(9, function()
             next_step()
         end)
@@ -171,9 +174,9 @@ local steps = {
     function()
         print("8. Testing ScrollingSprite.createList")
         local sprites = {
-            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { width = 16, height = 16, sx = 2, sy = 2 }),
-            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { width = 16, height = 16, sx = 2, sy = 2 }),
-            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { width = 16, height = 16, sx = 2, sy = 2 }),
+            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
+            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
+            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
         }
         Test.sprite_list_id = "scroll_sprite_1"
         displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
@@ -215,6 +218,7 @@ end
 -- Main entry point
 function test_displayer(player_id)
     Test.player_id = player_id
+    Net.toggle_player_hud(player_id)
     print("===== Starting Displayer Test for player " .. player_id .. " =====")
     Test.step = 0
     next_step()

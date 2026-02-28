@@ -24,8 +24,8 @@ Sub‑APIs:
 ---@field r? integer                  # Red tint 0‑255 (default 255)
 ---@field g? integer                  # Green tint 0‑255 (default 255)
 ---@field b? integer                  # Blue tint 0‑255 (default 255)
----@field opacity? integer            # Opacity 0‑255 (default 255)
----@field a? integer                  # Alias for opacity
+---@field opacity? integer            # Overall sprite opacity 0‑255 (default 255)
+---@field a? integer                  # Alpha for color tint (used with color_mode) 0‑255 (default 255)
 ---@field ro? number                  # Rotation in degrees
 ---@field ox? integer                 # Origin X offset (overrides animation origin)
 ---@field oy? integer                 # Origin Y offset (overrides animation origin)
@@ -39,7 +39,8 @@ Sub‑APIs:
 ---@field r? integer                    # Global red tint 0‑255
 ---@field g? integer                    # Global green tint 0‑255
 ---@field b? integer                    # Global blue tint 0‑255
----@field opacity? integer               # Global opacity 0‑255
+---@field opacity? integer               # Global overall opacity 0‑255
+---@field a? integer                     # Global alpha for color tint 0‑255
 ---@field ro? number                     # Global rotation in degrees
 ---@field color_mode? integer             # Global color mode
 ---@field perChar? fun(charIndex:integer, char:string):table|nil  # Per‑character override callback returning a table with any GlyphOptions fields
@@ -53,7 +54,8 @@ Sub‑APIs:
 ---@field r? integer                    # Red tint 0‑255
 ---@field g? integer                    # Green tint 0‑255
 ---@field b? integer                    # Blue tint 0‑255
----@field opacity? integer               # Opacity 0‑255
+---@field opacity? integer               # Overall opacity 0‑255
+---@field a? integer                     # Alpha for color tint 0‑255
 ---@field ro? number                     # Rotation in degrees
 ---@field color_mode? integer             # Color mode
 
@@ -67,7 +69,8 @@ Sub‑APIs:
 ---@field r? integer                    # Global red tint 0‑255
 ---@field g? integer                    # Global green tint 0‑255
 ---@field b? integer                    # Global blue tint 0‑255
----@field opacity? integer               # Global opacity 0‑255
+---@field opacity? integer               # Global overall opacity 0‑255
+---@field a? integer                     # Global alpha for color tint 0‑255
 ---@field ro? number                     # Global rotation in degrees
 ---@field color_mode? integer             # Global color mode
 ---@field perChar? fun(page:integer, line:integer, charIndex:integer, char:string):table|nil  # Per‑character override callback
@@ -77,7 +80,8 @@ Sub‑APIs:
 ---@field scale? number      # Scale factor (default 2.0)
 ---@field z? number          # Z‑order (default 100)
 ---@field color? {r:integer, g:integer, b:integer}  # Tint color (default white)
----@field opacity? integer   # Opacity 0‑255 (default 255)
+---@field opacity? integer   # Overall opacity 0‑255 (default 255)
+---@field a? integer         # Alpha for color tint 0‑255 (default 255)
 ---@field ro? number         # Rotation in degrees
 ---@field color_mode? integer # Color mode (0=multiply, 1=additive, 2=colorize)
 
@@ -107,7 +111,7 @@ Sub‑APIs:
 ---@field row_spacing? number               # Vertical spacing between rows (default 5)
 ---@field align? "left"|"center"|"right"    # Horizontal alignment (default "left")
 ---@field backdrop? table                    # Optional backdrop definition
----@field sprites? table[]                    # Array of sprite definitions (each with texture_path, anim_path?, sx?, sy?, anim_state?, etc.)
+---@field sprites? table[]                    # Array of sprite definitions (each with texture_path, anim_path?, sx?, sy?, anim_state?, r?, g?, b?, opacity?, a?, ro?, color_mode?)
 
 -- --------------------------------------------------------------------
 -- Displayer main module
@@ -126,24 +130,24 @@ local timerSystem
 
 function Displayer:init()
     -- Initialize sub‑API tables
-    self.Font = {}
-    self.Text = {}
-    self.TimerDisplay = {}
-    self.Nameplate = {}
-    self.ScrollingText = {}
+    self.Font            = {}
+    self.Text            = {}
+    self.TimerDisplay    = {}
+    self.Nameplate       = {}
+    self.ScrollingText   = {}
     self.ScrollingSprite = {}
-    self.Timer = {}
-    self.Builder = {}   -- will be populated after subsystems are loaded
+    self.Timer           = {}
+    self.Builder         = {} -- will be populated after subsystems are loaded
 
     -- Load all subsystems
-    fontSystem          = require("scripts/displayer/font-system")
-    textDisplay         = require("scripts/displayer/text-display")
-    timerDisplay        = require("scripts/displayer/timer-display")
+    fontSystem           = require("scripts/displayer/font-system")
+    textDisplay          = require("scripts/displayer/text-display")
+    timerDisplay         = require("scripts/displayer/timer-display")
     local NameplateClass = require("scripts/displayer/nameplate")
     nameplateInstance    = NameplateClass:new(fontSystem)
-    scrollingTextList   = require("scripts/displayer/scrolling-text-list")
-    scrollingSpriteList = require("scripts/displayer/scrolling-sprite-list")
-    timerSystem         = require("scripts/displayer/timer-system")
+    scrollingTextList    = require("scripts/displayer/scrolling-text-list")
+    scrollingSpriteList  = require("scripts/displayer/scrolling-sprite-list")
+    timerSystem          = require("scripts/displayer/timer-system")
 
     -- Set up sub‑APIs
     self:_setupFontAPI()
@@ -175,6 +179,7 @@ function Displayer:_setupBuilderAPI()
             g = 255,
             b = 255,
             opacity = 255,
+            a = 255,
             ro = 0,
             color_mode = 0,
         }
@@ -196,6 +201,7 @@ function Displayer:_setupBuilderAPI()
             g = 255,
             b = 255,
             opacity = 255,
+            a = 255,
             ro = 0,
             color_mode = 0,
         }
@@ -214,11 +220,12 @@ function Displayer:_setupBuilderAPI()
             scale = 2.0,
             z = 100,
             speed = 60,
-            loops = nil,  -- infinite
+            loops = nil, -- infinite
             r = 255,
             g = 255,
             b = 255,
             opacity = 255,
+            a = 255,
             ro = 0,
             color_mode = 0,
         }
@@ -243,6 +250,7 @@ function Displayer:_setupBuilderAPI()
             g = 255,
             b = 255,
             opacity = 255,
+            a = 255,
             ro = 0,
             color_mode = 0,
         }
@@ -262,6 +270,7 @@ function Displayer:_setupBuilderAPI()
             z = 100,
             color = { r = 255, g = 255, b = 255 },
             opacity = 255,
+            a = 255,
             ro = 0,
             color_mode = 0,
         }
@@ -336,8 +345,9 @@ function Displayer:_setupBuilderAPI()
     ---@param g? integer
     ---@param b? integer
     ---@param opacity? integer
+    ---@param a? integer
     ---@return table
-    function api.backdrop(x, y, width, height, padding_x, padding_y, r, g, b, opacity)
+    function api.backdrop(x, y, width, height, padding_x, padding_y, r, g, b, opacity, a)
         return {
             x = x,
             y = y,
@@ -349,12 +359,13 @@ function Displayer:_setupBuilderAPI()
             g = g or 0,
             b = b or 0,
             opacity = opacity or 200,
+            a = a or 255,
         }
     end
 
     --- Create a sprite definition for scrolling sprite lists.
     ---@param texture_path string
-    ---@param overrides? table   # optional fields: anim_path, sx, sy, width, height, anim_state, r, g, b, opacity, ro, color_mode
+    ---@param overrides? table   # optional fields: anim_path, sx, sy, width, height, anim_state, r, g, b, opacity, a, ro, color_mode
     ---@return table
     function api.spriteDef(texture_path, overrides)
         local def = {
@@ -363,6 +374,13 @@ function Displayer:_setupBuilderAPI()
             sy = 1,
             width = 16,
             height = 16,
+            r = 255,
+            g = 255,
+            b = 255,
+            opacity = 255,
+            a = 255,
+            ro = 0,
+            color_mode = 0,
         }
         if overrides then
             for k, v in pairs(overrides) do def[k] = v end

@@ -99,6 +99,7 @@ TextBox.__index = TextBox
 ---@field g? integer
 ---@field b? integer
 ---@field opacity? integer
+---@field a? integer
 ---@field ro? number
 ---@field color_mode? integer
 ---@field perChar? fun(page:integer, line:integer, charIndex:integer, char:string):table|nil
@@ -139,6 +140,7 @@ function TextBox.new(box_id, player_id, text, x, y, width, height, options)
         g = options.g or 255,
         b = options.b or 255,
         opacity = options.opacity or 255,
+        a = options.a or 255,
         ro = options.ro or 0,
         color_mode = options.color_mode or 0,
     }
@@ -205,6 +207,7 @@ function TextBox:printNextChar()
         g = self.global_props.g,
         b = self.global_props.b,
         opacity = self.global_props.opacity,
+        a = self.global_props.a,
         ro = self.global_props.ro,
         color_mode = self.global_props.color_mode,
     }
@@ -338,6 +341,7 @@ end
 ---@field g? integer
 ---@field b? integer
 ---@field opacity? integer
+---@field a? integer
 ---@field ro? number
 ---@field color_mode? integer
 ---@field perChar? fun(charIndex:integer, char:string):table|nil
@@ -376,6 +380,7 @@ function TextDisplay:drawStatic(player_id, text_id, text, x, y, options)
                 z = z,
                 r = options.r, g = options.g, b = options.b,
                 opacity = options.opacity,
+                a = options.a,
                 ro = options.ro,
                 color_mode = options.color_mode,
             }
@@ -425,6 +430,7 @@ end
 ---@field g? integer
 ---@field b? integer
 ---@field opacity? integer
+---@field a? integer
 ---@field ro? number
 ---@field color_mode? integer
 
@@ -467,6 +473,7 @@ function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
                 z = z,
                 r = options.r, g = options.g, b = options.b,
                 opacity = options.opacity,
+                a = options.a,
                 ro = options.ro,
                 color_mode = options.color_mode,
             })

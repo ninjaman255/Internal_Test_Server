@@ -294,10 +294,14 @@ function ScrollingSpriteList:_drawEntry(player_id, list_id, entry_idx, list_data
         sx = def.sx or def.scale or 1,
         sy = def.sy or def.scale or 1,
         anim_state = def.anim_state,
-        r = def.r, g = def.g, b = def.b,
-        opacity = def.opacity,
-        ro = def.ro,
-        color_mode = def.color_mode,
+        -- Provide defaults for color fields
+        r = def.r or 255,
+        g = def.g or 255,
+        b = def.b or 255,
+        opacity = def.opacity or 255,
+        a = def.a or 255,
+        ro = def.ro or 0,
+        color_mode = def.color_mode or 0,
     }
 
     Net.player_draw_sprite(player_id, sprite_id, draw)
@@ -323,8 +327,12 @@ function ScrollingSpriteList:_drawBackdrop(player_id, list_id, config)
             z = config.z_order - 1,
             sx = config.backdrop.width,
             sy = config.backdrop.height,
-            r = config.backdrop.r, g = config.backdrop.g, b = config.backdrop.b,
-            opacity = config.backdrop.opacity,
+            r = config.backdrop.r or 0,
+            g = config.backdrop.g or 0,
+            b = config.backdrop.b or 0,
+            opacity = config.backdrop.opacity or 200,
+            a = config.backdrop.a or 255,
+            color_mode = 0,  -- multiply by default
         }
     )
     return backdrop_id
