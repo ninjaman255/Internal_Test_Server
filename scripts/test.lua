@@ -5,6 +5,8 @@ Run this after a player joins, passing their player_id.
 ]]
 
 local displayer = require("scripts/displayer/displayer")
+local ColorPicker = require("scripts/color-picker/color-picker")   -- added for rainbow
+
 displayer:init()
 
 -- Test runner state
@@ -59,11 +61,34 @@ local steps = {
         end)
     end,
 
-    -- Step 3: Marquee
+    -- Step 3: Marquee with rainbow per‑character animation
     function()
-        print("3. Testing Text.drawMarquee")
+        print("3. Testing Text.drawMarquee with rainbow animation")
+
+        -- Prepare rainbow colors from color-picker
+        local cp = ColorPicker:new()
+        local rainbow = cp.RainbowArray   -- array of {r,g,b} in order
+
+        -- Per‑character update function: cycles through rainbow
+        local function rainbowUpdate(text_index, char, elapsed)
+            local speed = 2.0                 -- cycles per second
+            local phase = (text_index - 1) * 0.5  -- offset per character for ripple effect
+            local idx = math.floor(elapsed * speed + phase) % #rainbow + 1
+            local color = rainbow[idx]
+            return { r = color.r, g = color.g, b = color.b }
+        end
+
         displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 150,
-            displayer.Builder.marquee({ speed = 80, loops = 2, font = "THICK", scale = 2, r = 0, g = 255, b = 0, color_mode = 2, a = 255 })
+            displayer.Builder.marquee({
+                speed = 80,
+                loops = 2,                     -- will disappear after two loops
+                font = "THICK",
+                scale = 2,
+                r = 255, g = 255, b = 255,         -- base color (overridden by updateChar)
+                color_mode = 2,
+                a = 255,
+                updateChar = rainbowUpdate      -- <-- the magic!
+            })
         )
         -- Marquee will auto-remove after loops, just wait enough
         schedule(5, function()

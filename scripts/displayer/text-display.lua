@@ -311,6 +311,7 @@ function TextDisplay:updateAll(delta)
 
     for player_id, marquees in pairs(self.player_marquees) do
         for marquee_id, data in pairs(marquees) do
+            -- Move marquee horizontally
             data.current_x = data.current_x - data.speed * delta
             if data.current_x + data.total_width < 0 then
                 data.current_x = data.start_x
@@ -324,6 +325,19 @@ function TextDisplay:updateAll(delta)
             for i, inst_id in ipairs(data.glyph_ids) do
                 local x = data.current_x + data.offsets[i]
                 fontSystem:updateGlyph(player_id, inst_id, { x = x })
+            end
+
+            -- Per‑character color animation if callback is present
+            if data.updateChar then
+                data.time_accum = data.time_accum + delta
+                for idx, inst_id in ipairs(data.glyph_ids) do
+                    local ch = data.chars[idx]
+                    local text_index = data.char_indices[idx]
+                    local updates = data.updateChar(text_index, ch, data.time_accum)
+                    if updates and next(updates) then
+                        fontSystem:updateGlyph(player_id, inst_id, updates)
+                    end
+                end
             end
             ::continue::
         end
@@ -433,6 +447,7 @@ end
 ---@field a? integer
 ---@field ro? number
 ---@field color_mode? integer
+---@field updateChar? fun(text_index:integer, char:string, elapsed:number):table|nil  -- Called each frame to get per‑character property updates
 
 ---@param player_id string
 ---@param marquee_id string
@@ -464,6 +479,9 @@ function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
     local start_x = 480
     local glyph_ids = {}
     local offsets = {}
+    local chars = {}          -- store the character for each drawn glyph
+    local char_indices = {}    -- store the original text index
+
     local current_x = start_x
     for i = 1, #text do
         local ch = text:sub(i,i)
@@ -480,6 +498,8 @@ function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
             if inst_id then
                 table.insert(glyph_ids, inst_id)
                 table.insert(offsets, current_x - start_x)
+                table.insert(chars, ch)
+                table.insert(char_indices, i)   -- store the text position
             end
         end
         current_x = current_x + char_widths[i] + 1 * scale
@@ -489,11 +509,15 @@ function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
     self.player_marquees[player_id][marquee_id] = {
         glyph_ids = glyph_ids,
         offsets = offsets,
+        chars = chars,
+        char_indices = char_indices,
         current_x = start_x,
         start_x = start_x,
         total_width = total_width,
         speed = speed,
         loops = loops,
+        updateChar = options.updateChar,   -- store the callback
+        time_accum = 0,                    -- time accumulator for animation
     }
 
     return marquee_id

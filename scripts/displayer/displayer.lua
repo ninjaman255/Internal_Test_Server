@@ -58,6 +58,7 @@ Sub‑APIs:
 ---@field a? integer                     # Alpha for color tint 0‑255
 ---@field ro? number                     # Rotation in degrees
 ---@field color_mode? integer             # Color mode
+---@field updateChar? fun(text_index:integer, char:string, elapsed:number):table|nil  # Called each frame to get per‑character property updates
 
 ---@class TextBoxOptions
 ---@field font? string                 # Font name (default "THICK")
@@ -228,6 +229,7 @@ function Displayer:_setupBuilderAPI()
             a = 255,
             ro = 0,
             color_mode = 0,
+            updateChar = nil,   -- per‑character animation callback
         }
         if overrides then
             for k, v in pairs(overrides) do opts[k] = v end
