@@ -32,6 +32,19 @@ function Nameplate:new(font_system)
 
     o.player_assets = {}
 
+    -- Clean up when a player disconnects
+    Net:on("player_disconnect", function(event)
+        local ok, err = pcall(function()
+            local player_id = event.player_id
+            if player_id then
+                o:cleanupPlayer(player_id)
+            end
+        end)
+        if not ok then
+            print("Error in nameplate player_disconnect:", err)
+        end
+    end)
+
     return o
 end
 

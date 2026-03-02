@@ -51,10 +51,10 @@ local steps = {
     -- Step 2: Static text
     function()
         print("2. Testing Text.drawStatic")
-        displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 120, 80,
-            displayer.Builder.staticText({ font = "THICK", scale = 2, r = 255, g = 255, b = 255 })
+        displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 10, 40,
+            displayer.Builder.staticText({ font = "SHIMMER", scale = 4, r = 255, g = 0, b = 0, a = 128, color_mode = 1 })
         )
-        schedule(2, function()
+        schedule(10, function()
             displayer.Text.removeStatic(Test.player_id, "static1")
             print("Static text removed")
             next_step()
@@ -75,18 +75,17 @@ local steps = {
             local phase = (text_index - 1) * 0.5  -- offset per character for ripple effect
             local idx = math.floor(elapsed * speed + phase) % #rainbow + 1
             local color = rainbow[idx]
-            return { r = color.r, g = color.g, b = color.b }
+            return { r = color.r, g = color.g, b = color.b, a = 188}
         end
 
         displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 150,
             displayer.Builder.marquee({
                 speed = 80,
                 loops = 2,                     -- will disappear after two loops
-                font = "THICK",
+                font = "SHIMMER",
                 scale = 2,
                 r = 255, g = 255, b = 255,         -- base color (overridden by updateChar)
                 color_mode = 2,
-                a = 255,
                 updateChar = rainbowUpdate      -- <-- the magic!
             })
         )

@@ -68,6 +68,12 @@ local FONTS = {
         anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_TALL"
     },
+    -- Shimmer font (light)
+    SHIMMER = {
+        texture_path = "/server/assets/net-games/fonts/fonts_shimmer.png",
+        anim_path    = "assets/net-games/fonts/fonts_shimmer.animation",
+        prefix = "SHIMMER"
+    },
 
     -- Dark variants (dark sheet)
     THICK_BLACK = {
@@ -119,6 +125,12 @@ local FONTS = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
         anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_TALL"
+    },
+    -- Shimmer font (dark)
+    SHIMMER_BLACK = {
+        texture_path = "/server/assets/net-games/fonts/fonts_shimmer.png",
+        anim_path    = "assets/net-games/fonts/fonts_shimmer.animation",
+        prefix = "SHIMMER"
     },
 }
 
@@ -462,7 +474,7 @@ function FontSystem:updateGlyph(player_id, instance_id, updates)
     if updates.char then
         local new_char = updates.char
         if new_char ~= inst.char then
-            local new_state = self:getGlyphState(inst.font, new_char)
+            local new_state = self:getGlyphState(inst.font, new_char or "IDLE")
             if new_state then
                 inst.char = new_char
                 inst.props.state = new_state
@@ -535,7 +547,12 @@ function FontSystem:init()
 
     Net:on("player_request", function(event)
         local ok, err = pcall(function()
-            self:setupPlayer(event.player_id)
+            local player_id = event.player_id
+            self:setupPlayer(player_id)
+            -- Pre-allocate sprite assets for all fonts
+            for font_name, _ in pairs(FONTS) do
+                self:ensureAssetAllocated(player_id, font_name)
+            end
         end)
         if not ok then
             print("Error in player_request handler:", err)

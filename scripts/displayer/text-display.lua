@@ -295,6 +295,45 @@ function TextDisplay:init()
         end
     end)
 
+    -- Clean up when a player disconnects
+    Net:on("player_disconnect", function(event)
+        local ok, err = pcall(function()
+            local player_id = event.player_id
+            if not player_id then return end
+
+            -- Remove all text boxes for this player
+            if self.player_boxes[player_id] then
+                for box_id, box in pairs(self.player_boxes[player_id]) do
+                    box:close()  -- erases all glyphs
+                end
+                self.player_boxes[player_id] = nil
+            end
+
+            -- Remove all static texts
+            if self.player_static[player_id] then
+                for text_id, ids in pairs(self.player_static[player_id]) do
+                    for _, inst_id in ipairs(ids) do
+                        fontSystem:eraseGlyph(player_id, inst_id)
+                    end
+                end
+                self.player_static[player_id] = nil
+            end
+
+            -- Remove all marquees
+            if self.player_marquees[player_id] then
+                for marquee_id, data in pairs(self.player_marquees[player_id]) do
+                    for _, inst_id in ipairs(data.glyph_ids) do
+                        fontSystem:eraseGlyph(player_id, inst_id)
+                    end
+                end
+                self.player_marquees[player_id] = nil
+            end
+        end)
+        if not ok then
+            print("Error in text-display player_disconnect:", err)
+        end
+    end)
+
     return self
 end
 
