@@ -9,6 +9,7 @@ FontSystem.__index = FontSystem
 
 -- Load boom for parsing .animation files
 local boom = require("scripts/boom/main")
+local async = require("scripts/utils/async")  -- assume Async.sleep is available
 
 -- --------------------------------------------------------------------
 -- Global font definitions (paths and prefixes)
@@ -292,16 +293,30 @@ end
 -- --------------------------------------------------------------------
 -- Per‑player asset management
 -- --------------------------------------------------------------------
+-- --------------------------------------------------------------------
+-- Per‑player asset management
+-- --------------------------------------------------------------------
 ---@param player_id string
 function FontSystem:setupPlayer(player_id)
     self.player_assets = self.player_assets or {}      -- player_id -> { font_name = sprite_id }
     self.player_instances = self.player_instances or {} -- player_id -> { instance_id = { font, char, props } }
     self.next_instance_id = self.next_instance_id or {} -- player_id -> counter
-    self.pending_fonts = self.pending_fonts or {}       -- player_id -> { font_name, ... }
 
     self.player_assets[player_id] = {}
     self.player_instances[player_id] = {}
     self.next_instance_id[player_id] = 1
+
+    -- Eagerly provide all font assets (textures + animation files)
+    self:provideAllFontAssets(player_id)
+end
+
+--- Provide all font textures and animation files for a player.
+---@param player_id string
+function FontSystem:provideAllFontAssets(player_id)
+    for font_name, font_def in pairs(FONTS) do
+        Net.provide_asset_for_player(player_id, font_def.texture_path)
+        Net.provide_asset_for_player(player_id, "/server/" .. font_def.anim_path)
+    end
 end
 
 ---@param player_id string
@@ -322,10 +337,6 @@ function FontSystem:cleanupPlayer(player_id)
 
     if self.next_instance_id then
         self.next_instance_id[player_id] = nil
-    end
-
-    if self.pending_fonts then
-        self.pending_fonts[player_id] = nil
     end
 end
 
@@ -553,26 +564,34 @@ function FontSystem:eraseGlyphsByPrefix(player_id, prefix)
 end
 
 -- --------------------------------------------------------------------
--- Pending font allocation (one per tick to avoid overloading)
+-- Asynchronous font allocation (one font every 0.5 seconds)
 -- --------------------------------------------------------------------
-function FontSystem:processPendingFonts()
-    if not self.pending_fonts then return end
-    -- Process one font per player per tick
-    for player_id, pending in pairs(self.pending_fonts) do
-        if #pending > 0 then
-            -- Check if player is still connected (player_assets exists)
-            if self.player_assets and self.player_assets[player_id] then
-                local font_name = table.remove(pending, 1)
-                self:ensureAssetAllocated(player_id, font_name)
-            else
-                -- Player disconnected, clear queue
-                self.pending_fonts[player_id] = nil
-            end
-        else
-            -- Queue empty, remove entry
-            self.pending_fonts[player_id] = nil
+function FontSystem:allocateAllFontsForPlayer(player_id)
+    -- Run in a coroutine so we can sleep without blocking
+    return async.run(function()
+        -- Collect all font names
+        local font_names = {}
+        for name, _ in pairs(FONTS) do
+            table.insert(font_names, name)
         end
-    end
+
+        for _, font_name in ipairs(font_names) do
+            -- Check if player is still connected (player_assets table exists)
+            if not self.player_assets or not self.player_assets[player_id] then
+                print("Player " .. player_id .. " disconnected during font allocation, aborting.")
+                return
+            end
+
+            -- Allocate this font
+            self:ensureAssetAllocated(player_id, font_name)
+
+            -- Wait 0.5 seconds before next allocation (if not the last)
+            if _ < #font_names then
+                async.await(Async.sleep(1))
+            end
+        end
+        print("All fonts allocated for player " .. player_id)
+    end)
 end
 
 -- --------------------------------------------------------------------
@@ -586,11 +605,8 @@ function FontSystem:init()
             local player_id = event.player_id
             self:setupPlayer(player_id)
 
-            -- Queue all fonts for allocation (one per tick)
-            self.pending_fonts[player_id] = {}
-            for font_name, _ in pairs(FONTS) do
-                table.insert(self.pending_fonts[player_id], font_name)
-            end
+            -- Start asynchronous font allocation (one every 0.5 sec)
+            self:allocateAllFontsForPlayer(player_id)
         end)
         if not ok then
             print("Error in player_request handler:", err)

@@ -1,14 +1,18 @@
 --[[
-test_displayer.lua – Comprehensive test script for displayer API.
+test_Displayer.lua – Comprehensive test script for Displayer API.
 Non‑blocking version using the timer system for sequencing.
 Run this after a player joins, passing their player_id.
 Now safely cancels all steps if the player disconnects.
 ]]
 
-local displayer = require("scripts/displayer/displayer")
+local Displayer = require("scripts/displayer/displayer")
 local ColorPicker = require("scripts/color-picker/color-picker")   -- added for rainbow
 
-displayer:init()
+if not Displayer:init() then
+    print("Failed to initialize Displayer API")
+    return false
+end
+
 
 -- Test runner state (single player assumed)
 local Test = {
@@ -30,7 +34,7 @@ local disconnect_handler_registered = false
 local function schedule(delay, callback)
     local target_player = Test.player_id
     local timer_id = "test_timer_" .. tostring(os.clock()) .. "_" .. math.random(1000)
-    displayer.Timer.createGlobalTimer(timer_id, delay, function()
+    Displayer.Timer.createGlobalTimer(timer_id, delay, function()
         -- Only proceed if this player is still the active test
         if target_player == Test.player_id and Test.active then
             callback()
@@ -45,15 +49,15 @@ local steps = {
     -- Step 1: Font glyph
     function()
         print("1. Testing Font.drawGlyph and updateGlyph")
-        Test.glyph_id = displayer.Font.drawGlyph(Test.player_id, "THICK", "A", 50, 50,
-            displayer.Builder.glyph({ scale = 3, r = 255, g = 0, b = 0, ro = 0 })
+        Test.glyph_id = Displayer.Font.drawGlyph(Test.player_id, "THICK", "A", 50, 50,
+            Displayer.Builder.glyph({ scale = 3, r = 255, g = 0, b = 0, ro = 0 })
         )
         schedule(1, function()
-            displayer.Font.updateGlyph(Test.player_id, Test.glyph_id,
-                displayer.Builder.glyph({ r = 0, g = 255, b = 0, ro = 45 })
+            Displayer.Font.updateGlyph(Test.player_id, Test.glyph_id,
+                Displayer.Builder.glyph({ r = 0, g = 255, b = 0, ro = 45 })
             )
             schedule(1, function()
-                displayer.Font.eraseGlyph(Test.player_id, Test.glyph_id)
+                Displayer.Font.eraseGlyph(Test.player_id, Test.glyph_id)
                 print("Font test complete")
                 next_step()
             end)
@@ -63,11 +67,11 @@ local steps = {
     -- Step 2: Static text
     function()
         print("2. Testing Text.drawStatic")
-        displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 10, 40,
-            displayer.Builder.staticText({ font = "SHIMMER", scale = 2, r = 255, g = 0, b = 0, a = 255, color_mode = 1 })
+        Displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 10, 40,
+            Displayer.Builder.staticText({ font = "SHIMMER", scale = 2, r = 255, g = 0, b = 0, a = 255, color_mode = 1 })
         )
         schedule(10, function()
-            displayer.Text.removeStatic(Test.player_id, "static1")
+            Displayer.Text.removeStatic(Test.player_id, "static1")
             print("Static text removed")
             next_step()
         end)
@@ -90,8 +94,8 @@ local steps = {
             return { r = color.r, g = color.g, b = color.b, a = 188}
         end
 
-        displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 150,
-            displayer.Builder.marquee({
+        Displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 150,
+            Displayer.Builder.marquee({
                 speed = 80,
                 loops = 2,                     -- will disappear after two loops
                 font = "SHIMMER",
@@ -112,10 +116,10 @@ local steps = {
     function()
         print("4. Testing Text.createTextBox and Nameplate.attach")
         Test.box_id = "box1"
-        displayer.Text.createTextBox(Test.player_id, Test.box_id,
+        Displayer.Text.createTextBox(Test.player_id, Test.box_id,
             "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it.",
             50, 180, 400, 100,
-            displayer.Builder.textBox({
+            Displayer.Builder.textBox({
                 font = "THICK",
                 scale = 2,
                 speed = 20,
@@ -127,19 +131,19 @@ local steps = {
         )
         schedule(2, function()
             -- Attach nameplate
-            displayer.Nameplate.attach(Test.player_id, {}, Test.box_id,
-                displayer.Text.getTextBoxData(Test.player_id, Test.box_id), "Speaker")
+            Displayer.Nameplate.attach(Test.player_id, {}, Test.box_id,
+                Displayer.Text.getTextBoxData(Test.player_id, Test.box_id), "Speaker")
             schedule(5, function()
                 -- Advance text box
                 print("Advancing text box")
-                displayer.Text.advanceTextBox(Test.player_id, Test.box_id)
+                Displayer.Text.advanceTextBox(Test.player_id, Test.box_id)
                 schedule(3, function()
                     -- Begin closing
                     print("Closing nameplate and text box")
-                    displayer.Nameplate.begin_close(Test.player_id, {},
-                        displayer.Text.getTextBoxData(Test.player_id, Test.box_id))
+                    Displayer.Nameplate.begin_close(Test.player_id, {},
+                        Displayer.Text.getTextBoxData(Test.player_id, Test.box_id))
                     schedule(1, function()
-                        displayer.Text.closeTextBox(Test.player_id, Test.box_id)
+                        Displayer.Text.closeTextBox(Test.player_id, Test.box_id)
                         print("Text box closed")
                         next_step()
                     end)
@@ -151,10 +155,10 @@ local steps = {
     -- Step 5: Player-specific countdown display
     function()
         print("5. Testing TimerDisplay.createPlayerCountdown (10 sec countdown)")
-        displayer.TimerDisplay.createPlayerCountdown(Test.player_id, "cd_test", 200, 150,
-            displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 255, g = 200, b = 0 } })
+        Displayer.TimerDisplay.createPlayerCountdown(Test.player_id, "cd_test", 200, 150,
+            Displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 255, g = 200, b = 0 } })
         )
-        displayer.Timer.createPlayerCountdown(Test.player_id, "cd_test", 10, function()
+        Displayer.Timer.createPlayerCountdown(Test.player_id, "cd_test", 10, function()
             print("Player countdown finished!")
         end, false)
         schedule(11, function()
@@ -167,12 +171,12 @@ local steps = {
         print("6. Testing TimerDisplay.createGlobalCountdownDisplay (8 sec global countdown)")
 
         -- Start the actual global countdown timer (matches the display ID)
-        displayer.Timer.createGlobalCountdown("global_cd_test", 8, function()
+        Displayer.Timer.createGlobalCountdown("global_cd_test", 8, function()
             print("Global countdown finished!")
         end, false)
         -- Create the visual for all players (current and future)
-        displayer.TimerDisplay.createGlobalCountdown("global_cd_test", 0, 0,
-            displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 100, g = 255, b = 100 } })
+        Displayer.TimerDisplay.createGlobalCountdown("global_cd_test", 0, 0,
+            Displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 100, g = 255, b = 100 } })
         )
         schedule(9, function()
             next_step()
@@ -183,8 +187,8 @@ local steps = {
     function()
         print("7. Testing ScrollingText.createList")
         Test.text_list_id = "scroll_text_1"
-        displayer.ScrollingText.createList(Test.player_id, Test.text_list_id, 0, 0, 240, 160,
-            displayer.Builder.textList({
+        Displayer.ScrollingText.createList(Test.player_id, Test.text_list_id, 0, 0, 240, 160,
+            Displayer.Builder.textList({
                 font = "THICK",
                 scale = 1.5,
                 scroll_speed = 40,
@@ -196,11 +200,11 @@ local steps = {
                     "Third entry",
                     "Fourth entry",
                 },
-                backdrop = displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 0, 0, 0, 200)
+                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 0, 0, 0, 200)
             })
         )
         schedule(8, function()
-            displayer.ScrollingText.removeList(Test.player_id, Test.text_list_id)
+            Displayer.ScrollingText.removeList(Test.player_id, Test.text_list_id)
             print("Scrolling text list removed")
             next_step()
         end)
@@ -210,13 +214,13 @@ local steps = {
     function()
         print("8. Testing ScrollingSprite.createList")
         local sprites = {
-            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
-            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
-            displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
+            Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
+            Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
+            Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
         }
         Test.sprite_list_id = "scroll_sprite_1"
-        displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
-            displayer.Builder.spriteList({
+        Displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
+            Displayer.Builder.spriteList({
                 scroll_speed = 50,
                 entry_delay = 1.5,
                 max_columns = 2,
@@ -224,11 +228,11 @@ local steps = {
                 row_spacing = 10,
                 align = "center",
                 sprites = sprites,
-                backdrop = displayer.Builder.backdrop(0, 0, 240, 160, nil, nil, 50, 50, 50, 150)
+                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, nil, nil, 50, 50, 50, 150)
             })
         )
         schedule(10, function()
-            displayer.ScrollingSprite.removeList(Test.player_id, Test.sprite_list_id)
+            Displayer.ScrollingSprite.removeList(Test.player_id, Test.sprite_list_id)
             print("Scrolling sprite list removed")
             next_step()
         end)
@@ -256,7 +260,7 @@ function next_step()
 end
 
 -- Main entry point
-function test_displayer(player_id)
+function test_Displayer(player_id)
     -- Register disconnect handler once
     if not disconnect_handler_registered then
         Net:on("player_disconnect", function(event)
@@ -278,5 +282,5 @@ end
 
 -- Example usage (if run in a player join event):
 Net:on("player_join", function(event)
-    test_displayer(event.player_id)
+    test_Displayer(event.player_id)
 end)

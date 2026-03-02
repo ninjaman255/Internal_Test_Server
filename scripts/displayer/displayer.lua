@@ -160,6 +160,11 @@ function Displayer:init()
     self:_setupTimerAPI()
     self:_setupBuilderAPI()
 
+    Net:on("player_request", function(event)
+        local player_id = event.player_id
+        fontSystem:allocateAllFontsForPlayer(player_id)
+    end)
+
     return self
 end
 
@@ -430,6 +435,10 @@ function Displayer:_setupFontAPI()
     ---@return number width, number height
     api.getGlyphDimensions = function(font_name, char)
         return fontSystem:getGlyphDimensions(font_name, char)
+    end
+
+    api.allocateAllFontsForPlayer = function (player_id)
+        return fontSystem:allocateAllFontsForPlayer(player_id);
     end
 end
 
