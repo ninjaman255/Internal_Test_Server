@@ -64,9 +64,9 @@ local steps = {
         end)
     end,
 
-    -- Step 2: Static text
+    -- Step 2: Static text (legacy wrapper)
     function()
-        print("2. Testing Text.drawStatic")
+        print("2. Testing Text.drawStatic (legacy)")
         Displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 10, 40,
             Displayer.Builder.staticText({ font = "SHIMMER", scale = 2, r = 255, g = 0, b = 0, a = 255, color_mode = 1 })
         )
@@ -77,9 +77,9 @@ local steps = {
         end)
     end,
 
-    -- Step 3: Marquee with rainbow per‑character animation
+    -- Step 3: Marquee with rainbow per‑character animation (legacy wrapper)
     function()
-        print("3. Testing Text.drawMarquee with rainbow animation")
+        print("3. Testing Text.drawMarquee (legacy) with rainbow animation")
 
         -- Prepare rainbow colors from color-picker
         local cp = ColorPicker:new()
@@ -106,15 +106,15 @@ local steps = {
             })
         )
         -- Marquee will auto-remove after loops, just wait enough
-        schedule(5, function()
+        schedule(2, function()
             print("Marquee test ongoing (should disappear after loops)")
             next_step()
         end)
     end,
 
-    -- Step 4: Text box with nameplate
+    -- Step 4: Text box with nameplate (legacy wrapper)
     function()
-        print("4. Testing Text.createTextBox and Nameplate.attach")
+        print("4. Testing Text.createTextBox and Nameplate.attach (legacy)")
         Test.box_id = "box1"
         Displayer.Text.createTextBox(Test.player_id, Test.box_id,
             "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it.",
@@ -152,9 +152,58 @@ local steps = {
         end)
     end,
 
-    -- Step 5: Player-specific countdown display
+    -- Step 5: Unified Text API demonstration (static, marquee, typewriter)
     function()
-        print("5. Testing TimerDisplay.createPlayerCountdown (10 sec countdown)")
+        print("5. Testing unified Text.draw (static, marquee, typewriter)")
+
+        -- Unified static text
+        Displayer.Text.draw(Test.player_id, "unified_static", "Unified Static Text", 10, 70,
+            Displayer.Builder.text("static", { font = "THIN", scale = 2, r = 0, g = 255, b = 0 })
+        )
+
+        schedule(2, function()
+            -- Unified marquee text
+            Displayer.Text.draw(Test.player_id, "unified_marquee", "Unified Marquee Scrolls...", 0, 120,
+                Displayer.Builder.text("marquee", {
+                    font = "SHIMMER",
+                    scale = 2,
+                    marquee = { speed = 70, loops = 1 },
+                    perChar = function(idx, ch, ctx)
+                        if ctx.elapsed then
+                            local hue = (ctx.elapsed * 50 + idx * 10) % 255
+                            return { r = hue, g = 255 - hue, b = 128 }
+                        end
+                    end
+                })
+            )
+            schedule(3, function()
+                -- Unified typewriter text box
+                Displayer.Text.draw(Test.player_id, "unified_typewriter",
+                    "This is a unified typewriter box. It should reveal characters one by one.", 50, 200,
+                    Displayer.Builder.text("typewriter", {
+                        width = 400, height = 80,
+                        font = "THICK",
+                        scale = 2,
+                        typewriter = { speed = 25, sound = "/server/assets/net-games/sfx/text.ogg" },
+                        perChar = function(idx, ch, ctx)
+                            if ctx.isNew and ch:match("%u") then
+                                return { r = 255, g = 255, b = 0 }  -- highlight capitals
+                            end
+                        end
+                    })
+                )
+                schedule(5, function()
+                    Displayer.Text.closeTextBox(Test.player_id, "unified_typewriter")  -- legacy wrapper works
+                    print("Unified typewriter closed")
+                    next_step()
+                end)
+            end)
+        end)
+    end,
+
+    -- Step 6: Player-specific countdown display
+    function()
+        print("6. Testing TimerDisplay.createPlayerCountdown (10 sec countdown)")
         Displayer.TimerDisplay.createPlayerCountdown(Test.player_id, "cd_test", 200, 150,
             Displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 255, g = 200, b = 0 } })
         )
@@ -166,9 +215,9 @@ local steps = {
         end)
     end,
 
-    -- Step 6: Global countdown display (visible to all players)
+    -- Step 7: Global countdown display (visible to all players)
     function()
-        print("6. Testing TimerDisplay.createGlobalCountdownDisplay (8 sec global countdown)")
+        print("7. Testing TimerDisplay.createGlobalCountdownDisplay (8 sec global countdown)")
 
         -- Start the actual global countdown timer (matches the display ID)
         Displayer.Timer.createGlobalCountdown("global_cd_test", 8, function()
@@ -183,9 +232,9 @@ local steps = {
         end)
     end,
 
-    -- Step 7: Scrolling Text List
+    -- Step 8: Scrolling Text List
     function()
-        print("7. Testing ScrollingText.createList")
+        print("8. Testing ScrollingText.createList")
         Test.text_list_id = "scroll_text_1"
         Displayer.ScrollingText.createList(Test.player_id, Test.text_list_id, 0, 0, 240, 160,
             Displayer.Builder.textList({
@@ -210,9 +259,9 @@ local steps = {
         end)
     end,
 
-    -- Step 8: Scrolling Sprite List
+    -- Step 9: Scrolling Sprite List
     function()
-        print("8. Testing ScrollingSprite.createList")
+        print("9. Testing ScrollingSprite.createList")
         local sprites = {
             Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
             Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
@@ -238,9 +287,9 @@ local steps = {
         end)
     end,
 
-    -- Step 9: Done
+    -- Step 10: Done
     function()
-        print("9. All tests completed.")
+        print("10. All tests completed.")
         print("===== Displayer Test Completed =====")
     end,
 }

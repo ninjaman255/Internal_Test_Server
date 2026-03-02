@@ -1,23 +1,40 @@
 --[[
-text-display.lua – High‑level text rendering with static, marquee, and text box modes.
-Uses FontSystem for glyph management and follows sprite API caching patterns.
+text-display.lua – Unified text rendering with static, marquee, and typewriter modes.
+Uses FontSystem for glyph management. Supports bounding boxes, alignment, and per‑character callbacks.
 ]]
 
----@class TextDisplay
 local TextDisplay = {}
 TextDisplay.__index = TextDisplay
 
 local fontSystem = require("scripts/displayer/font-system")
 
 -- --------------------------------------------------------------------
--- Helper: word wrapping using pixel widths
+-- Helper: normalize loops option
+--   nil or true → infinite (nil)
+--   false or "once" → 1
+--   number ≥1 → that many passes
 -- --------------------------------------------------------------------
----@param text string
----@param font_name string
----@param scale number
----@param max_width number
----@return string[] lines
+local function _normalize_loops(v)
+    if v == nil or v == true then return nil end
+    if v == false or v == "once" then return 1 end
+    local n = tonumber(v)
+    if n then
+        n = math.floor(n)
+        if n < 1 then return 1 end
+        return n
+    end
+    return nil  -- fallback to infinite
+end
+
+-- --------------------------------------------------------------------
+-- Word wrapping utility
+-- --------------------------------------------------------------------
 local function wrapText(text, font_name, scale, max_width)
+    if not max_width then
+        -- No wrapping: return a single line
+        return { text }
+    end
+
     local lines = {}
     local words = {}
     for word in text:gmatch("%S+") do
@@ -59,83 +76,97 @@ local function wrapText(text, font_name, scale, max_width)
 end
 
 -- --------------------------------------------------------------------
--- Text box state machine
+-- Layout: compute per‑glyph positions (relative to bounding box top‑left)
+-- Returns:
+--   lines: array of strings
+--   flat_glyphs: array of { char, x, y, line, col } (flat list for bulk operations)
+--   glyph_grid: 2D table [line][col] = { char, x, y } or nil for spaces
+--   total_width, total_height
 -- --------------------------------------------------------------------
----@class TextBox
----@field box_id string
----@field player_id string
----@field text string
----@field x number
----@field y number
----@field width number
----@field height number
----@field font string
----@field scale number
----@field z number
----@field speed number
----@field char_delay number
----@field type_sound string|nil
----@field type_sound_min_dt number
----@field global_props table
----@field per_char_cb function|nil
----@field pages string[][]
----@field current_page integer
----@field current_line integer
----@field current_char integer
----@field timer number
----@field state "printing"|"waiting"|"completed"|"closing"
----@field printed_glyphs string[]
-local TextBox = {}
-TextBox.__index = TextBox
+local function layoutText(text, font, scale, box_x, box_y, box_width, box_height, halign, valign)
+    local lines = wrapText(text, font, scale, box_width)
+    local line_height = 12 * scale  -- approximate; could be improved with actual max glyph height
 
----@class TextBoxOptions
----@field font? string
----@field scale? number
----@field z? number
----@field speed? number
----@field type_sound? string
----@field type_sound_min_dt? number
----@field r? integer
----@field g? integer
----@field b? integer
----@field opacity? integer
----@field a? integer
----@field ro? number
----@field color_mode? integer
----@field perChar? fun(page:integer, line:integer, charIndex:integer, char:string):table|nil
+    -- Determine total content width and height
+    local total_width = 0
+    for _, line in ipairs(lines) do
+        local line_width = 0
+        for i = 1, #line do
+            local ch = line:sub(i,i)
+            local w, _ = fontSystem:getGlyphDimensions(font, ch)
+            line_width = line_width + w * scale
+            if i < #line then line_width = line_width + 1 * scale end
+        end
+        if line_width > total_width then total_width = line_width end
+    end
+    local total_height = #lines * line_height
 
----@param box_id string
----@param player_id string
----@param text string
----@param x number
----@param y number
----@param width number
----@param height number
----@param options TextBoxOptions|nil
----@return TextBox
-function TextBox.new(box_id, player_id, text, x, y, width, height, options)
-    if type(options) ~= "table" then
-        options = {}
+    -- Compute starting offsets within bounding box (or at box_x, box_y if no box)
+    local start_x = box_x
+    local start_y = box_y
+
+    if box_width and box_height then
+        if halign == "center" then
+            start_x = box_x + (box_width - total_width) / 2
+        elseif halign == "right" then
+            start_x = box_x + box_width - total_width
+        end
+        if valign == "middle" then
+            start_y = box_y + (box_height - total_height) / 2
+        elseif valign == "bottom" then
+            start_y = box_y + box_height - total_height
+        end
     end
 
-    local self = setmetatable({}, TextBox)
-    self.box_id = box_id
-    self.player_id = player_id
-    self.text = text
-    self.x = x
-    self.y = y
-    self.width = width
-    self.height = height
-    self.font = options.font or "THICK"
-    self.scale = options.scale or 2.0
-    self.z = options.z or 100
-    self.speed = options.speed or 30
-    self.char_delay = 1.0 / self.speed
-    self.type_sound = options.type_sound
-    self.type_sound_min_dt = options.type_sound_min_dt or 0.1
-    self.per_char_cb = options.perChar
+    -- Build glyph grid and flat list
+    local glyph_grid = {}
+    local flat_glyphs = {}
+    for line_idx, line in ipairs(lines) do
+        glyph_grid[line_idx] = {}
+        local x = start_x
+        local y = start_y + (line_idx - 1) * line_height
+        for col = 1, #line do
+            local ch = line:sub(col, col)
+            if ch ~= " " then
+                local glyph = {
+                    char = ch,
+                    x = x,
+                    y = y,
+                    line = line_idx,
+                    col = col,
+                }
+                glyph_grid[line_idx][col] = glyph
+                table.insert(flat_glyphs, glyph)
+            else
+                glyph_grid[line_idx][col] = nil  -- space, no glyph
+            end
+            local w, _ = fontSystem:getGlyphDimensions(font, ch)
+            x = x + w * scale + 1 * scale
+        end
+    end
 
-    self.global_props = {
+    return lines, flat_glyphs, glyph_grid, total_width, total_height
+end
+
+-- --------------------------------------------------------------------
+-- TextDisplay class (unified)
+-- --------------------------------------------------------------------
+local TextDisplayInstance = {}
+TextDisplayInstance.__index = TextDisplayInstance
+
+function TextDisplayInstance:new(player_id, text_id, text, x, y, options)
+    local o = setmetatable({}, TextDisplayInstance)
+    o.player_id = player_id
+    o.text_id = text_id
+    o.text = text
+    o.x = x
+    o.y = y
+    o.width = options.width          -- may be nil
+    o.height = options.height         -- may be nil
+    o.font = options.font or "THICK"
+    o.scale = options.scale or 2.0
+    o.z = options.z or 100
+    o.global = {
         r = options.r or 255,
         g = options.g or 255,
         b = options.b or 255,
@@ -144,28 +175,120 @@ function TextBox.new(box_id, player_id, text, x, y, width, height, options)
         ro = options.ro or 0,
         color_mode = options.color_mode or 0,
     }
+    o.halign = options.halign or "left"
+    o.valign = options.valign or "top"
+    o.perChar = options.perChar      -- function(index, char, context) -> overrides
 
-    self.pages = {}
-    local lines = wrapText(text, self.font, self.scale, self.width)
-    self.pages[1] = lines
+    o.mode = options.mode or "static"
+    -- Mode‑specific options
+    if o.mode == "marquee" then
+        -- Normalize loops: first check unified marquee subtable, then legacy top-level
+        local loops_raw = (options.marquee and options.marquee.loops) or options.loops
+        o.loops = _normalize_loops(loops_raw)   -- nil = infinite, number = finite passes
+        o.speed = (options.marquee and options.marquee.speed) or options.speed or 60
+        o.scroll_x = nil   -- will be set after layout
+    elseif o.mode == "typewriter" then
+        local tw = options.typewriter or {}
+        o.speed = tw.speed or options.speed or 30   -- chars per second
+        o.char_delay = 1.0 / o.speed
+        o.sound = tw.sound or options.type_sound
+        o.sound_min_dt = tw.sound_min_dt or options.type_sound_min_dt or 0.1
+        o.current_page = 1
+        o.current_line = 1
+        o.current_char = 0
+        o.timer = 0
+        o.state = "printing"
+        o.printed_glyphs = {}   -- instance ids of printed glyphs (for easy cleanup)
+        o._last_sound = 0
+    end
 
-    self.current_page = 1
-    self.current_line = 1
-    self.current_char = 0
-    self.timer = 0
-    self.state = "printing"
-    self.printed_glyphs = {}
+    -- Layout data
+    o.lines = nil
+    o.flat_glyphs = nil          -- flat list of all glyphs (non‑space)
+    o.glyph_grid = nil           -- 2D grid [line][col] = glyph data (includes instance_id when drawn)
+    o.total_width = 0
+    o.total_height = 0
 
-    return self
+    o:relayout()
+
+    return o
 end
 
--- Print the next character in the sequence
----@return boolean continue
-function TextBox:printNextChar()
-    local page = self.pages[self.current_page]
-    if not page then return false end
+function TextDisplayInstance:relayout()
+    self.lines, self.flat_glyphs, self.glyph_grid, self.total_width, self.total_height =
+        layoutText(self.text, self.font, self.scale,
+                   self.x, self.y, self.width, self.height,
+                   self.halign, self.valign)
 
-    local line = page[self.current_line]
+    -- For marquee, set initial scroll position
+    if self.mode == "marquee" then
+        self.scroll_x = self.x + self.total_width   -- start off‑screen to the right
+    end
+end
+
+-- Draw or update all glyphs based on current mode and state
+function TextDisplayInstance:redraw()
+    if self.mode == "static" then
+        self:_drawAllGlyphs()
+    elseif self.mode == "marquee" then
+        self:_drawMarqueeGlyphs()
+    elseif self.mode == "typewriter" then
+        self:_drawTypewriterGlyphs()
+    end
+end
+
+function TextDisplayInstance:_drawAllGlyphs(overrides)
+    -- overrides is an optional table of global overrides (e.g., for marquee offset)
+    overrides = overrides or {}
+    for i, glyph in ipairs(self.flat_glyphs) do
+        local opts = {
+            scale = self.scale,
+            z = self.z,
+            r = self.global.r,
+            g = self.global.g,
+            b = self.global.b,
+            opacity = self.global.opacity,
+            a = self.global.a,
+            ro = self.global.ro,
+            color_mode = self.global.color_mode,
+            x = (overrides.x_offset and glyph.x + overrides.x_offset) or glyph.x,
+            y = glyph.y,
+        }
+        -- Apply per‑character callback if present
+        if self.perChar then
+            local context = {}
+            if self.mode == "marquee" then
+                context.elapsed = overrides.elapsed
+            end
+            local over = self.perChar(i, glyph.char, context)
+            if over then
+                for k, v in pairs(over) do opts[k] = v end
+            end
+        end
+        local inst_id = glyph.instance_id
+        if not inst_id then
+            inst_id = fontSystem:drawGlyph(self.player_id, self.font, glyph.char, opts.x, opts.y, opts)
+            glyph.instance_id = inst_id
+        else
+            fontSystem:updateGlyph(self.player_id, inst_id, opts)
+        end
+    end
+end
+
+function TextDisplayInstance:_drawMarqueeGlyphs()
+    -- Draw all glyphs with an x offset = scroll_x
+    self:_drawAllGlyphs({ x_offset = self.scroll_x, elapsed = self.elapsed })
+end
+
+function TextDisplayInstance:_drawTypewriterGlyphs()
+    -- Nothing to do here; glyphs are drawn incrementally in update/printNextChar
+end
+
+-- Typewriter: print next character
+function TextDisplayInstance:printNextChar()
+    if self.state ~= "printing" then return false end
+
+    local line = self.lines[self.current_line]
     if not line then
         self.state = "waiting"
         return false
@@ -175,61 +298,61 @@ function TextBox:printNextChar()
     if self.current_char > #line then
         self.current_line = self.current_line + 1
         self.current_char = 0
-        if self.current_line > #page then
+        if self.current_line > #self.lines then
             self.state = "waiting"
         end
         return false
     end
 
     local ch = line:sub(self.current_char, self.current_char)
-    if ch == " " then
+    if ch == " " then return true end
+
+    -- Get the glyph from the grid using current line and char position
+    local glyph = self.glyph_grid[self.current_line][self.current_char]
+    if not glyph then
+        -- Should not happen if character is not a space
         return true
     end
-
-    local line_height = 12 * self.scale
-    local line_y = self.y + (self.current_line - 1) * line_height
-    local x_offset = 0
-    for i = 1, self.current_char - 1 do
-        local c = line:sub(i,i)
-        if c ~= " " then
-            local w, _ = fontSystem:getGlyphDimensions(self.font, c)
-            x_offset = x_offset + w * self.scale + 1 * self.scale
-        else
-            x_offset = x_offset + 6 * self.scale + 1 * self.scale
-        end
-    end
-    local char_x = self.x + x_offset
 
     local opts = {
         scale = self.scale,
         z = self.z,
-        r = self.global_props.r,
-        g = self.global_props.g,
-        b = self.global_props.b,
-        opacity = self.global_props.opacity,
-        a = self.global_props.a,
-        ro = self.global_props.ro,
-        color_mode = self.global_props.color_mode,
+        r = self.global.r,
+        g = self.global.g,
+        b = self.global.b,
+        opacity = self.global.opacity,
+        a = self.global.a,
+        ro = self.global.ro,
+        color_mode = self.global.color_mode,
+        x = glyph.x,
+        y = glyph.y,
     }
-
-    if self.per_char_cb then
-        local overrides = self.per_char_cb(self.current_page, self.current_line, self.current_char, ch)
-        if overrides and type(overrides) == "table" then
-            for k, v in pairs(overrides) do
-                opts[k] = v
+    if self.perChar then
+        local context = { page = 1, line = self.current_line, isNew = true }
+        -- Find index in flat_glyphs (optional, for backward compatibility)
+        local flat_idx = nil
+        for idx, g in ipairs(self.flat_glyphs) do
+            if g == glyph then
+                flat_idx = idx
+                break
             end
+        end
+        local over = self.perChar(flat_idx or 0, ch, context)
+        if over then
+            for k, v in pairs(over) do opts[k] = v end
         end
     end
 
-    local instance_id = fontSystem:drawGlyph(self.player_id, self.font, ch, char_x, line_y, opts)
-    if instance_id then
-        table.insert(self.printed_glyphs, instance_id)
+    local inst_id = fontSystem:drawGlyph(self.player_id, self.font, ch, opts.x, opts.y, opts)
+    if inst_id then
+        glyph.instance_id = inst_id
+        table.insert(self.printed_glyphs, inst_id)
     end
 
-    if self.type_sound then
+    if self.sound then
         local now = os.clock()
-        if not self._last_sound or now - self._last_sound >= self.type_sound_min_dt then
-            Net.play_sound_for_player(self.player_id, self.type_sound)
+        if now - self._last_sound >= self.sound_min_dt then
+            Net.play_sound_for_player(self.player_id, self.sound)
             self._last_sound = now
         end
     end
@@ -237,11 +360,24 @@ function TextBox:printNextChar()
     return true
 end
 
--- Update the text box (called every tick)
----@param delta number
-function TextBox:update(delta)
-    if self.state == "printing" then
-        self.timer = self.timer + delta
+function TextDisplayInstance:update(dt)
+    if self.mode == "marquee" then
+        self.elapsed = (self.elapsed or 0) + dt
+        self.scroll_x = self.scroll_x - self.speed * dt
+        if self.scroll_x + self.total_width < self.x then
+            self.scroll_x = self.x + self.total_width
+            if self.loops then
+                if self.loops > 1 then
+                    self.loops = self.loops - 1
+                elseif self.loops == 1 then
+                    self.state = "completed"   -- finished after last loop
+                end
+            end
+        end
+        self:_drawMarqueeGlyphs()
+
+    elseif self.mode == "typewriter" and self.state == "printing" then
+        self.timer = self.timer + dt
         while self.timer >= self.char_delay do
             self.timer = self.timer - self.char_delay
             local cont = self:printNextChar()
@@ -250,15 +386,15 @@ function TextBox:update(delta)
     end
 end
 
--- Advance to next page immediately (skip printing)
-function TextBox:advance()
+-- Advance typewriter to next page (skip remaining characters)
+function TextDisplayInstance:advance()
+    if self.mode ~= "typewriter" then return end
     for _, id in ipairs(self.printed_glyphs) do
         fontSystem:eraseGlyph(self.player_id, id)
     end
     self.printed_glyphs = {}
-
     self.current_page = self.current_page + 1
-    if self.current_page > #self.pages then
+    if self.current_page > 1 then   -- we only have one page currently
         self.state = "completed"
     else
         self.current_line = 1
@@ -267,11 +403,20 @@ function TextBox:advance()
     end
 end
 
--- Close the text box (erase all glyphs)
-function TextBox:close()
-    self.state = "closing"
-    for _, id in ipairs(self.printed_glyphs) do
-        fontSystem:eraseGlyph(self.player_id, id)
+-- Close/remove all glyphs
+function TextDisplayInstance:close()
+    -- Erase all glyphs from flat list
+    for _, glyph in ipairs(self.flat_glyphs) do
+        if glyph.instance_id then
+            fontSystem:eraseGlyph(self.player_id, glyph.instance_id)
+            glyph.instance_id = nil
+        end
+    end
+    -- Also clear grid references (optional)
+    for line_idx, line in ipairs(self.glyph_grid or {}) do
+        for col, glyph in pairs(line) do
+            glyph.instance_id = nil
+        end
     end
     self.printed_glyphs = {}
     self.state = "completed"
@@ -282,9 +427,7 @@ end
 -- --------------------------------------------------------------------
 function TextDisplay:init()
     self.font_system = fontSystem
-    self.player_boxes = {}   -- player_id -> { box_id = TextBox }
-    self.player_static = {}  -- player_id -> { text_id = { instance_ids } }
-    self.player_marquees = {} -- player_id -> { marquee_id = MarqueeData }
+    self.player_texts = {}   -- player_id -> { text_id = TextDisplayInstance }
 
     Net:on("tick", function(event)
         local ok, err = pcall(function()
@@ -295,352 +438,136 @@ function TextDisplay:init()
         end
     end)
 
-    -- Clean up when a player disconnects
     Net:on("player_disconnect", function(event)
         local ok, err = pcall(function()
-            local player_id = event.player_id
-            if not player_id then return end
-
-            -- Remove all text boxes for this player
-            if self.player_boxes[player_id] then
-                for box_id, box in pairs(self.player_boxes[player_id]) do
-                    box:close()  -- erases all glyphs
-                end
-                self.player_boxes[player_id] = nil
-            end
-
-            -- Remove all static texts
-            if self.player_static[player_id] then
-                for text_id, ids in pairs(self.player_static[player_id]) do
-                    for _, inst_id in ipairs(ids) do
-                        fontSystem:eraseGlyph(player_id, inst_id)
-                    end
-                end
-                self.player_static[player_id] = nil
-            end
-
-            -- Remove all marquees
-            if self.player_marquees[player_id] then
-                for marquee_id, data in pairs(self.player_marquees[player_id]) do
-                    for _, inst_id in ipairs(data.glyph_ids) do
-                        fontSystem:eraseGlyph(player_id, inst_id)
-                    end
-                end
-                self.player_marquees[player_id] = nil
-            end
+            self:cleanupPlayer(event.player_id)
         end)
         if not ok then
-            print("Error in text-display player_disconnect:", err)
+            print("Error in player_disconnect:", err)
         end
     end)
 
     return self
 end
 
----@param delta number
-function TextDisplay:updateAll(delta)
-    for player_id, boxes in pairs(self.player_boxes) do
-        for box_id, box in pairs(boxes) do
-            box:update(delta)
-            if box.state == "completed" then
-                boxes[box_id] = nil
-            end
-        end
+function TextDisplay:cleanupPlayer(player_id)
+    if not self.player_texts[player_id] then return end
+    for _, display in pairs(self.player_texts[player_id]) do
+        display:close()
     end
+    self.player_texts[player_id] = nil
+end
 
-    for player_id, marquees in pairs(self.player_marquees) do
-        for marquee_id, data in pairs(marquees) do
-            -- Move marquee horizontally
-            data.current_x = data.current_x - data.speed * delta
-            if data.current_x + data.total_width < 0 then
-                data.current_x = data.start_x
-                if data.loops and data.loops > 1 then
-                    data.loops = data.loops - 1
-                elseif data.loops == 1 then
-                    self:removeMarquee(player_id, marquee_id)
-                    goto continue
-                end
+function TextDisplay:updateAll(dt)
+    for player_id, displays in pairs(self.player_texts) do
+        for text_id, display in pairs(displays) do
+            display:update(dt)
+            if display.state == "completed" then
+                display:close()               -- erase glyphs before removal
+                displays[text_id] = nil
             end
-            for i, inst_id in ipairs(data.glyph_ids) do
-                local x = data.current_x + data.offsets[i]
-                fontSystem:updateGlyph(player_id, inst_id, { x = x })
-            end
-
-            -- Per‑character color animation if callback is present
-            if data.updateChar then
-                data.time_accum = data.time_accum + delta
-                for idx, inst_id in ipairs(data.glyph_ids) do
-                    local ch = data.chars[idx]
-                    local text_index = data.char_indices[idx]
-                    local updates = data.updateChar(text_index, ch, data.time_accum)
-                    if updates and next(updates) then
-                        fontSystem:updateGlyph(player_id, inst_id, updates)
-                    end
-                end
-            end
-            ::continue::
         end
     end
 end
 
 -- --------------------------------------------------------------------
--- Static text
+-- Unified draw function
 -- --------------------------------------------------------------------
----@class StaticTextOptions
----@field font? string
----@field scale? number
----@field z? number
----@field r? integer
----@field g? integer
----@field b? integer
----@field opacity? integer
----@field a? integer
----@field ro? number
----@field color_mode? integer
----@field perChar? fun(charIndex:integer, char:string):table|nil
-
 ---@param player_id string
 ---@param text_id string
 ---@param text string
 ---@param x number
 ---@param y number
----@param options? StaticTextOptions|number
+---@param options table   (see documentation)
 ---@return string text_id
-function TextDisplay:drawStatic(player_id, text_id, text, x, y, options)
-    if type(options) ~= "table" then
-        options = {}
+function TextDisplay:draw(player_id, text_id, text, x, y, options)
+    options = options or {}
+    self.player_texts[player_id] = self.player_texts[player_id] or {}
+
+    -- If text_id already exists, remove it first
+    if self.player_texts[player_id][text_id] then
+        self.player_texts[player_id][text_id]:close()
     end
 
-    local font = options.font or "THICK"
-    local scale = options.scale or 2.0
-    local z = options.z or 100
-
-    if self.player_static[player_id] and self.player_static[player_id][text_id] then
-        for _, inst_id in ipairs(self.player_static[player_id][text_id]) do
-            fontSystem:eraseGlyph(player_id, inst_id)
-        end
-    end
-
-    self.player_static[player_id] = self.player_static[player_id] or {}
-    local instance_ids = {}
-
-    local current_x = x
-    for i = 1, #text do
-        local ch = text:sub(i,i)
-        if ch ~= " " then
-            local opts = {
-                scale = scale,
-                z = z,
-                r = options.r, g = options.g, b = options.b,
-                opacity = options.opacity,
-                a = options.a,
-                ro = options.ro,
-                color_mode = options.color_mode,
-            }
-            if options.perChar then
-                local overrides = options.perChar(i, ch)
-                if overrides and type(overrides) == "table" then
-                    for k, v in pairs(overrides) do
-                        opts[k] = v
-                    end
-                end
-            end
-
-            local inst_id = fontSystem:drawGlyph(player_id, font, ch, current_x, y, opts)
-            if inst_id then
-                table.insert(instance_ids, inst_id)
-            end
-        end
-        local w, _ = fontSystem:getGlyphDimensions(font, ch)
-        current_x = current_x + w * scale + 1 * scale
-    end
-
-    self.player_static[player_id][text_id] = instance_ids
+    local display = TextDisplayInstance:new(player_id, text_id, text, x, y, options)
+    display:redraw()   -- initial draw (static/marquee only; typewriter does nothing)
+    self.player_texts[player_id][text_id] = display
     return text_id
 end
 
----@param player_id string
----@param text_id string
-function TextDisplay:removeStatic(player_id, text_id)
-    if self.player_static[player_id] and self.player_static[player_id][text_id] then
-        for _, inst_id in ipairs(self.player_static[player_id][text_id]) do
-            fontSystem:eraseGlyph(player_id, inst_id)
-        end
-        self.player_static[player_id][text_id] = nil
-    end
+-- --------------------------------------------------------------------
+-- Backward compatibility wrappers
+-- --------------------------------------------------------------------
+function TextDisplay:drawStatic(player_id, text_id, text, x, y, options)
+    if type(options) ~= "table" then options = {} end
+    options.mode = "static"
+    return self:draw(player_id, text_id, text, x, y, options)
 end
 
--- --------------------------------------------------------------------
--- Marquee
--- --------------------------------------------------------------------
----@class MarqueeOptions
----@field font? string
----@field scale? number
----@field z? number
----@field speed? number
----@field loops? integer|nil
----@field r? integer
----@field g? integer
----@field b? integer
----@field opacity? integer
----@field a? integer
----@field ro? number
----@field color_mode? integer
----@field updateChar? fun(text_index:integer, char:string, elapsed:number):table|nil  -- Called each frame to get per‑character property updates
-
----@param player_id string
----@param marquee_id string
----@param text string
----@param y number
----@param options? MarqueeOptions|number
----@return string marquee_id
 function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
-    if type(options) ~= "table" then
-        options = {}
-    end
-
-    local font = options.font or "THICK"
-    local scale = options.scale or 2.0
-    local z = options.z or 100
-    local speed = options.speed or 60
-    local loops = options.loops or nil
-
-    local total_width = 0
-    local char_widths = {}
-    for i = 1, #text do
-        local ch = text:sub(i,i)
-        local w, _ = fontSystem:getGlyphDimensions(font, ch)
-        table.insert(char_widths, w * scale)
-        total_width = total_width + w * scale
-        if i < #text then total_width = total_width + 1 * scale end
-    end
-
-    local start_x = 480
-    local glyph_ids = {}
-    local offsets = {}
-    local chars = {}          -- store the character for each drawn glyph
-    local char_indices = {}    -- store the original text index
-
-    local current_x = start_x
-    for i = 1, #text do
-        local ch = text:sub(i,i)
-        if ch ~= " " then
-            local inst_id = fontSystem:drawGlyph(player_id, font, ch, current_x, y, {
-                scale = scale,
-                z = z,
-                r = options.r, g = options.g, b = options.b,
-                opacity = options.opacity,
-                a = options.a,
-                ro = options.ro,
-                color_mode = options.color_mode,
-            })
-            if inst_id then
-                table.insert(glyph_ids, inst_id)
-                table.insert(offsets, current_x - start_x)
-                table.insert(chars, ch)
-                table.insert(char_indices, i)   -- store the text position
-            end
-        end
-        current_x = current_x + char_widths[i] + 1 * scale
-    end
-
-    self.player_marquees[player_id] = self.player_marquees[player_id] or {}
-    self.player_marquees[player_id][marquee_id] = {
-        glyph_ids = glyph_ids,
-        offsets = offsets,
-        chars = chars,
-        char_indices = char_indices,
-        current_x = start_x,
-        start_x = start_x,
-        total_width = total_width,
-        speed = speed,
-        loops = loops,
-        updateChar = options.updateChar,   -- store the callback
-        time_accum = 0,                    -- time accumulator for animation
-    }
-
-    return marquee_id
+    if type(options) ~= "table" then options = {} end
+    options.mode = "marquee"
+    options.x = 0   -- marquee uses full screen width; we could allow x override
+    return self:draw(player_id, marquee_id, text, 0, y, options)
 end
 
----@param player_id string
----@param marquee_id string
-function TextDisplay:removeMarquee(player_id, marquee_id)
-    local data = self.player_marquees[player_id] and self.player_marquees[player_id][marquee_id]
-    if data then
-        for _, inst_id in ipairs(data.glyph_ids) do
-            fontSystem:eraseGlyph(player_id, inst_id)
-        end
-        self.player_marquees[player_id][marquee_id] = nil
-    end
-end
-
--- --------------------------------------------------------------------
--- Text boxes
--- --------------------------------------------------------------------
----@param player_id string
----@param box_id string
----@param text string
----@param x number
----@param y number
----@param width number
----@param height number
----@param options? TextBoxOptions|number
----@return string box_id
 function TextDisplay:createTextBox(player_id, box_id, text, x, y, width, height, options)
-    if type(options) ~= "table" then
-        options = {}
-    end
-
-    self.player_boxes[player_id] = self.player_boxes[player_id] or {}
-    if self.player_boxes[player_id][box_id] then
-        self:removeTextBox(player_id, box_id)
-    end
-
-    local box = TextBox.new(box_id, player_id, text, x, y, width, height, options)
-    self.player_boxes[player_id][box_id] = box
-    return box_id
+    if type(options) ~= "table" then options = {} end
+    options.mode = "typewriter"
+    options.width = width
+    options.height = height
+    -- Note: x and y are already passed
+    return self:draw(player_id, box_id, text, x, y, options)
 end
 
----@param player_id string
----@param box_id string
-function TextDisplay:advanceTextBox(player_id, box_id)
-    local box = self.player_boxes[player_id] and self.player_boxes[player_id][box_id]
-    if box then
-        box:advance()
+-- Additional helper functions (unchanged except they now look up in player_texts)
+function TextDisplay:removeStatic(player_id, text_id)
+    local displays = self.player_texts[player_id]
+    if displays and displays[text_id] then
+        displays[text_id]:close()
+        displays[text_id] = nil
     end
 end
 
----@param player_id string
----@param box_id string
+function TextDisplay:removeMarquee(player_id, marquee_id)
+    self:removeStatic(player_id, marquee_id)
+end
+
 function TextDisplay:closeTextBox(player_id, box_id)
-    local box = self.player_boxes[player_id] and self.player_boxes[player_id][box_id]
-    if box then
-        box:close()
-        self.player_boxes[player_id][box_id] = nil
+    self:removeStatic(player_id, box_id)
+end
+
+function TextDisplay:advanceTextBox(player_id, box_id)
+    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
+    if display and display.mode == "typewriter" then
+        display:advance()
     end
 end
 
----@param player_id string
----@param box_id string
-function TextDisplay:removeTextBox(player_id, box_id)
-    self:closeTextBox(player_id, box_id)
-end
-
----@param player_id string
----@param box_id string
----@return string "printing"|"waiting"|"completed"|"closing"
 function TextDisplay:getTextBoxState(player_id, box_id)
-    local box = self.player_boxes[player_id] and self.player_boxes[player_id][box_id]
-    return box and box.state or "completed"
+    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
+    if not display then return "completed" end
+    if display.mode == "typewriter" then
+        return display.state
+    else
+        return "completed"   -- for other modes
+    end
 end
 
----@param player_id string
----@param box_id string
----@return table|nil
 function TextDisplay:getTextBoxData(player_id, box_id)
-    local player_data = self.player_boxes[player_id]
-    if not player_data then return nil end
-    return player_data[box_id]
+    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
+    if not display then return nil end
+    -- Return a table compatible with old nameplate expectations
+    return {
+        x = display.x,
+        y = display.y,
+        width = display.width,
+        height = display.height,
+        scale = display.scale,
+        z_order = display.z,
+        nameplate = display.nameplate,   -- nameplate may attach this later
+        backdrop = nil,
+    }
 end
 
 -- Initialize singleton

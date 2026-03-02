@@ -129,7 +129,7 @@ local FONTS = {
     },
     -- Shimmer font (dark)
     SHIMMER_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_shimmer.png",
+        texture_path = "/server/assets/net-games/fonts/fonts_black_shimmer.png",
         anim_path    = "assets/net-games/fonts/fonts_shimmer.animation",
         prefix = "SHIMMER"
     },
@@ -343,7 +343,7 @@ end
 -- Ensure the sprite asset for a given font is allocated for the player
 ---@param player_id string
 ---@param font_name string
----@return string sprite_id
+---@return string? sprite_id
 function FontSystem:ensureAssetAllocated(player_id, font_name)
     if not self.player_assets then self.player_assets = {} end
     if not self.player_assets[player_id] then

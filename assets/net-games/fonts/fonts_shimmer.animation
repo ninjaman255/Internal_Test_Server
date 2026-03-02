@@ -789,7 +789,6 @@ frame duration="0.0833333" x="96" y="812" w="8" h="14" originx="0" originy="0"
 frame duration="0.0833333" x="104" y="812" w="8" h="14" originx="0" originy="0"
 
 animation state="SHIMMER_LOWER_F"
-frame duration="1" x="6" y="93" w="6" h="10" originx="0" originy="0"
 frame duration="0.0833333" x="0" y="798" w="8" h="14" originx="0" originy="0"
 frame duration="0.0833333" x="8" y="798" w="8" h="14" originx="0" originy="0"
 frame duration="0.0833333" x="16" y="798" w="8" h="14" originx="0" originy="0"

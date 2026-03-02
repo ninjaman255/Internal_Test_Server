@@ -160,7 +160,7 @@ function Displayer:init()
     self:_setupTimerAPI()
     self:_setupBuilderAPI()
 
-    Net:on("player_request", function(event)
+    Net:on("player_join", function(event)
         local player_id = event.player_id
         fontSystem:allocateAllFontsForPlayer(player_id)
     end)
@@ -394,6 +394,35 @@ function Displayer:_setupBuilderAPI()
         end
         return def
     end
+
+    --- Create options for unified text drawing.
+    ---@param mode "static"|"marquee"|"typewriter"
+    ---@param overrides? table   # Overrides for the chosen mode
+    ---@return table
+    function api.text(mode, overrides)
+        local base = {
+            mode = mode,
+            font = "THICK",
+            scale = 2.0,
+            z = 100,
+            r = 255, g = 255, b = 255,
+            opacity = 255, a = 255,
+            ro = 0, color_mode = 0,
+            halign = "left", valign = "top",
+            width = nil, height = nil,
+            perChar = nil,
+        }
+        if overrides then
+            for k, v in pairs(overrides) do base[k] = v end
+        end
+        -- Mode‑specific defaults
+        if mode == "marquee" then
+            base.marquee = base.marquee or { speed = 60, loops = nil }
+        elseif mode == "typewriter" then
+            base.typewriter = base.typewriter or { speed = 30, sound = nil, sound_min_dt = 0.1 }
+        end
+        return base
+    end
 end
 
 -- --------------------------------------------------------------------
@@ -443,88 +472,64 @@ function Displayer:_setupFontAPI()
 end
 
 -- --------------------------------------------------------------------
--- Text API (static, marquee, text boxes)
+-- Text API (unified)
 -- --------------------------------------------------------------------
 function Displayer:_setupTextAPI()
     local api = self.Text
 
-    --- Draw static text (all characters appear immediately).
+    --- Unified text drawing with modes.
     ---@param player_id string
     ---@param text_id string
     ---@param text string
     ---@param x number
     ---@param y number
-    ---@param options? StaticTextOptions|number
+    ---@param options? table   # See documentation for modes and options
     ---@return string text_id
+    api.draw = function(player_id, text_id, text, x, y, options)
+        return textDisplay:draw(player_id, text_id, text, x, y, options)
+    end
+
+    --- Draw static text (all characters appear immediately). (Legacy wrapper)
     api.drawStatic = function(player_id, text_id, text, x, y, options)
         return textDisplay:drawStatic(player_id, text_id, text, x, y, options)
     end
 
-    --- Remove static text.
-    ---@param player_id string
-    ---@param text_id string
+    --- Remove static text. (Legacy wrapper)
     api.removeStatic = function(player_id, text_id)
         textDisplay:removeStatic(player_id, text_id)
     end
 
-    --- Draw a marquee (scrolling text).
-    ---@param player_id string
-    ---@param marquee_id string
-    ---@param text string
-    ---@param y number
-    ---@param options? MarqueeOptions|number
-    ---@return string marquee_id
+    --- Draw a marquee (scrolling text). (Legacy wrapper)
     api.drawMarquee = function(player_id, marquee_id, text, y, options)
         return textDisplay:drawMarquee(player_id, marquee_id, text, y, options)
     end
 
-    --- Remove a marquee.
-    ---@param player_id string
-    ---@param marquee_id string
+    --- Remove a marquee. (Legacy wrapper)
     api.removeMarquee = function(player_id, marquee_id)
         textDisplay:removeMarquee(player_id, marquee_id)
     end
 
-    --- Create a text box with character‑by‑character reveal.
-    ---@param player_id string
-    ---@param box_id string
-    ---@param text string
-    ---@param x number
-    ---@param y number
-    ---@param width number
-    ---@param height number
-    ---@param options? TextBoxOptions|number
-    ---@return string box_id
+    --- Create a text box with character‑by‑character reveal. (Legacy wrapper)
     api.createTextBox = function(player_id, box_id, text, x, y, width, height, options)
         return textDisplay:createTextBox(player_id, box_id, text, x, y, width, height, options)
     end
 
-    --- Advance to the next page immediately (skip remaining characters).
-    ---@param player_id string
-    ---@param box_id string
+    --- Advance to the next page immediately (skip remaining characters). (Legacy wrapper)
     api.advanceTextBox = function(player_id, box_id)
         textDisplay:advanceTextBox(player_id, box_id)
     end
 
-    --- Close a text box (erase all glyphs).
-    ---@param player_id string
-    ---@param box_id string
+    --- Close a text box (erase all glyphs). (Legacy wrapper)
     api.closeTextBox = function(player_id, box_id)
         textDisplay:closeTextBox(player_id, box_id)
     end
 
-    --- Get the current state of a text box.
-    ---@param player_id string
-    ---@param box_id string
-    ---@return string "printing"|"waiting"|"completed"|"closing"
+    --- Get the current state of a text box. (Legacy wrapper)
     api.getTextBoxState = function(player_id, box_id)
         return textDisplay:getTextBoxState(player_id, box_id)
     end
 
-    --- Get the internal data table of a text box (for advanced manipulation).
-    ---@param player_id string
-    ---@param box_id string
-    ---@return table|nil
+    --- Get the internal data table of a text box (for advanced manipulation). (Legacy wrapper)
     api.getTextBoxData = function(player_id, box_id)
         return textDisplay:getTextBoxData(player_id, box_id)
     end
