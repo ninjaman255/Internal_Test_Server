@@ -205,13 +205,16 @@ function Timer:updateTimers(delta)
     end
 end
 
--- Helper function to emit to all connected players (includes player_id in data)
+-- Helper function to emit to all connected players (with error protection)
 function Timer:emitToAllPlayers(event_name, data)
     for player_id, _ in pairs(self.player_data) do
         local event_data = {}
         for k, v in pairs(data) do event_data[k] = v end
         event_data.player_id = player_id  -- add player_id to the data
-        Net:emit(event_name, event_data)
+        local ok, err = pcall(Net.emit, Net, event_name, event_data)
+        if not ok then
+            print("Error emitting", event_name, "to", player_id, ":", err)
+        end
     end
 end
 

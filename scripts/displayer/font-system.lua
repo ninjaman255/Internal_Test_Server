@@ -297,6 +297,7 @@ function FontSystem:setupPlayer(player_id)
     self.player_assets = self.player_assets or {}      -- player_id -> { font_name = sprite_id }
     self.player_instances = self.player_instances or {} -- player_id -> { instance_id = { font, char, props } }
     self.next_instance_id = self.next_instance_id or {} -- player_id -> counter
+    self.pending_fonts = self.pending_fonts or {}       -- player_id -> { font_name, ... }
 
     self.player_assets[player_id] = {}
     self.player_instances[player_id] = {}
@@ -322,6 +323,10 @@ function FontSystem:cleanupPlayer(player_id)
     if self.next_instance_id then
         self.next_instance_id[player_id] = nil
     end
+
+    if self.pending_fonts then
+        self.pending_fonts[player_id] = nil
+    end
 end
 
 -- Ensure the sprite asset for a given font is allocated for the player
@@ -331,7 +336,8 @@ end
 function FontSystem:ensureAssetAllocated(player_id, font_name)
     if not self.player_assets then self.player_assets = {} end
     if not self.player_assets[player_id] then
-        self:setupPlayer(player_id)
+        -- Player already cleaned up? Then do nothing.
+        return nil
     end
 
     if self.player_assets[player_id][font_name] then
@@ -406,6 +412,10 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
     end
 
     local sprite_id = self:ensureAssetAllocated(player_id, font_name)
+    if not sprite_id then
+        -- Player may have disconnected; fail silently.
+        return nil
+    end
     local instance_id = options.instance_id or self:nextInstanceId(player_id, "glyph")
 
     -- Build draw table with explicit defaults
@@ -488,7 +498,10 @@ function FontSystem:updateGlyph(player_id, instance_id, updates)
         inst.props[k] = v
     end
 
-    local font_def = FONTS[inst.font]
+    -- Safety check: player assets may have been cleaned up if disconnected
+    if not self.player_assets[player_id] then
+        return
+    end
     local sprite_id = self.player_assets[player_id][inst.font]
     if not sprite_id then
         return
@@ -540,6 +553,29 @@ function FontSystem:eraseGlyphsByPrefix(player_id, prefix)
 end
 
 -- --------------------------------------------------------------------
+-- Pending font allocation (one per tick to avoid overloading)
+-- --------------------------------------------------------------------
+function FontSystem:processPendingFonts()
+    if not self.pending_fonts then return end
+    -- Process one font per player per tick
+    for player_id, pending in pairs(self.pending_fonts) do
+        if #pending > 0 then
+            -- Check if player is still connected (player_assets exists)
+            if self.player_assets and self.player_assets[player_id] then
+                local font_name = table.remove(pending, 1)
+                self:ensureAssetAllocated(player_id, font_name)
+            else
+                -- Player disconnected, clear queue
+                self.pending_fonts[player_id] = nil
+            end
+        else
+            -- Queue empty, remove entry
+            self.pending_fonts[player_id] = nil
+        end
+    end
+end
+
+-- --------------------------------------------------------------------
 -- Initialization and event hooks
 -- --------------------------------------------------------------------
 function FontSystem:init()
@@ -549,10 +585,11 @@ function FontSystem:init()
         local ok, err = pcall(function()
             local player_id = event.player_id
             self:setupPlayer(player_id)
-            -- Pre-allocate sprite assets for all fonts
+
+            -- Queue all fonts for allocation (one per tick)
+            self.pending_fonts[player_id] = {}
             for font_name, _ in pairs(FONTS) do
-                self:ensureAssetAllocated(player_id, font_name)
-                await(Async.sleep(0.1))
+                table.insert(self.pending_fonts[player_id], font_name)
             end
         end)
         if not ok then

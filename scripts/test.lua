@@ -2,6 +2,7 @@
 test_displayer.lua – Comprehensive test script for displayer API.
 Non‑blocking version using the timer system for sequencing.
 Run this after a player joins, passing their player_id.
+Now safely cancels all steps if the player disconnects.
 ]]
 
 local displayer = require("scripts/displayer/displayer")
@@ -9,9 +10,10 @@ local ColorPicker = require("scripts/color-picker/color-picker")   -- added for 
 
 displayer:init()
 
--- Test runner state
+-- Test runner state (single player assumed)
 local Test = {
     player_id = nil,
+    active = false,        -- becomes false on disconnect
     step = 0,
     glyph_id = nil,
     box_id = nil,
@@ -19,12 +21,22 @@ local Test = {
     sprite_list_id = nil,
 }
 
--- Schedule a function after a delay using the global timer system
+-- Ensure disconnect handler is registered only once
+local disconnect_handler_registered = false
+
+-- Schedule a function after a delay using the global timer system.
+-- Captures the player_id at scheduling time and only runs the callback
+-- if that player is still the active test.
 local function schedule(delay, callback)
+    local target_player = Test.player_id
     local timer_id = "test_timer_" .. tostring(os.clock()) .. "_" .. math.random(1000)
     displayer.Timer.createGlobalTimer(timer_id, delay, function()
-        callback()
-        -- Timer auto-removes (non-looping)
+        -- Only proceed if this player is still the active test
+        if target_player == Test.player_id and Test.active then
+            callback()
+        else
+            -- Silently discard – test was cancelled
+        end
     end, false)
 end
 
@@ -231,6 +243,10 @@ local steps = {
 
 -- Advance to next step
 function next_step()
+    if not Test.active then
+        print("Test cancelled – player disconnected.")
+        return
+    end
     Test.step = Test.step + 1
     if steps[Test.step] then
         steps[Test.step]()
@@ -241,10 +257,22 @@ end
 
 -- Main entry point
 function test_displayer(player_id)
+    -- Register disconnect handler once
+    if not disconnect_handler_registered then
+        Net:on("player_disconnect", function(event)
+            if event.player_id == Test.player_id then
+                Test.active = false
+                print("Player " .. event.player_id .. " disconnected – test cancelled.")
+            end
+        end)
+        disconnect_handler_registered = true
+    end
+
     Test.player_id = player_id
+    Test.active = true
+    Test.step = 0
     Net.toggle_player_hud(player_id)
     print("===== Starting Displayer Test for player " .. player_id .. " =====")
-    Test.step = 0
     next_step()
 end
 
