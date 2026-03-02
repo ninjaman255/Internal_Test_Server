@@ -52,7 +52,7 @@ local steps = {
     function()
         print("2. Testing Text.drawStatic")
         displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 10, 40,
-            displayer.Builder.staticText({ font = "SHIMMER", scale = 4, r = 255, g = 0, b = 0, a = 128, color_mode = 1 })
+            displayer.Builder.staticText({ font = "SHIMMER", scale = 2, r = 255, g = 0, b = 0, a = 255, color_mode = 1 })
         )
         schedule(10, function()
             displayer.Text.removeStatic(Test.player_id, "static1")

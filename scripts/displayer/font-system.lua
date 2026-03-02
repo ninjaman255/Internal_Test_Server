@@ -552,6 +552,7 @@ function FontSystem:init()
             -- Pre-allocate sprite assets for all fonts
             for font_name, _ in pairs(FONTS) do
                 self:ensureAssetAllocated(player_id, font_name)
+                await(Async.sleep(0.1))
             end
         end)
         if not ok then
