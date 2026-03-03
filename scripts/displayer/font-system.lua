@@ -2,6 +2,9 @@
 font-system.lua – Unified font rendering with per‑player sprite asset management.
 Uses boom to load animation data.
 Each font has its own texture and animation file.
+
+Path convention: All texture and animation paths MUST include the "/server/" prefix.
+This prefix is stripped only when loading animation data via boom.load.
 ]]
 
 local FontSystem = {}
@@ -12,125 +15,125 @@ local boom = require("scripts/boom/main")
 local async = require("scripts/utils/async")  -- assume Async.sleep is available
 
 -- --------------------------------------------------------------------
--- Global font definitions (paths and prefixes)
+-- Global font definitions (paths with "/server/" prefix)
 -- texture_path: absolute (with /server/) for client asset provisioning
--- anim_path:    relative (no leading slash) for server-side boom.load
+-- anim_path:    absolute (with /server/) for client asset provisioning, stripped for boom
 -- --------------------------------------------------------------------
 ---@type table<string, {texture_path:string, anim_path:string, prefix:string}>
 local FONTS = {
     -- Light variants (compressed sheet)
     THICK = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_thick.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_thick.animation",
         prefix = "THICK"
     },
     THIN = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_thin.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_thin.animation",
         prefix = "THIN"
     },
     WIDE = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_wide.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_wide.animation",
         prefix = "WIDE"
     },
     TINY = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_tiny.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_tiny.animation",
         prefix = "TINY"
     },
     BATTLE = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_battle.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_battle.animation",
         prefix = "BATTLE"
     },
     GRADIENT = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT"
     },
     GRADIENT_GOLD = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_GOLD"
     },
     GRADIENT_ORANGE = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_ORANGE"
     },
     GRADIENT_GREEN = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_GREEN"
     },
     GRADIENT_TALL = {
         texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_TALL"
     },
     -- Shimmer font (light)
     SHIMMER = {
         texture_path = "/server/assets/net-games/fonts/fonts_shimmer.png",
-        anim_path    = "assets/net-games/fonts/fonts_shimmer.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_shimmer.animation",
         prefix = "SHIMMER"
     },
 
     -- Dark variants (dark sheet)
     THICK_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_thick.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_thick.animation",
         prefix = "THICK"
     },
     THIN_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_thin.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_thin.animation",
         prefix = "THIN"
     },
     WIDE_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_wide.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_wide.animation",
         prefix = "WIDE"
     },
     TINY_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_tiny.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_tiny.animation",
         prefix = "TINY"
     },
     BATTLE_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_battle.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_battle.animation",
         prefix = "BATTLE"
     },
     GRADIENT_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT"
     },
     GRADIENT_GOLD_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_GOLD"
     },
     GRADIENT_ORANGE_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_ORANGE"
     },
     GRADIENT_GREEN_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_GREEN"
     },
     GRADIENT_TALL_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "assets/net-games/fonts/fonts_gradient.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
         prefix = "GRADIENT_TALL"
     },
     -- Shimmer font (dark)
     SHIMMER_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_black_shimmer.png",
-        anim_path    = "assets/net-games/fonts/fonts_shimmer.animation",
+        anim_path    = "/server/assets/net-games/fonts/fonts_shimmer.animation",
         prefix = "SHIMMER"
     },
 }
@@ -143,13 +146,14 @@ local GLYPH_METRICS = {}          -- font_name -> state -> { w, h, ox, oy }
 local AVAILABLE_STATES = {}       -- font_name -> set of state names
 
 -- --------------------------------------------------------------------
--- Helper: load animation data using boom
+-- Helper: load animation data using boom (strip "/server/" prefix)
 -- --------------------------------------------------------------------
----@param anim_path string
+---@param anim_path string   # full path with "/server/"
 ---@return table<string, {w:number, h:number, ox:number, oy:number}> metrics
 ---@return table<string, boolean> states
 local function load_animation_metrics(anim_path)
-    local anim_data = boom.load(anim_path)
+    local boom_path = anim_path:gsub("^/server/", "")
+    local anim_data = boom.load(boom_path)
     if not anim_data then
         print("ERROR: Could not load animation: " .. tostring(anim_path))
         return {}, {}
@@ -283,16 +287,11 @@ function FontSystem:getGlyphDimensions(font_name, char)
     end
     local metrics = GLYPH_METRICS[font_name][state]
     if metrics then
-        -- Optional debug print
-        -- print(string.format("Glyph dims: font=%s, char=%s, state=%s, w=%d, h=%d", font_name, char, state, metrics.w, metrics.h))
         return metrics.w, metrics.h
     end
     return 6, 12
 end
 
--- --------------------------------------------------------------------
--- Per‑player asset management
--- --------------------------------------------------------------------
 -- --------------------------------------------------------------------
 -- Per‑player asset management
 -- --------------------------------------------------------------------
@@ -315,7 +314,7 @@ end
 function FontSystem:provideAllFontAssets(player_id)
     for font_name, font_def in pairs(FONTS) do
         Net.provide_asset_for_player(player_id, font_def.texture_path)
-        Net.provide_asset_for_player(player_id, "/server/" .. font_def.anim_path)
+        Net.provide_asset_for_player(player_id, font_def.anim_path)  -- already with /server/
     end
 end
 
@@ -361,13 +360,12 @@ function FontSystem:ensureAssetAllocated(player_id, font_name)
     end
 
     Net.provide_asset_for_player(player_id, font_def.texture_path)
-    -- Client needs /server/ prefix for animation path
-    Net.provide_asset_for_player(player_id, "/server/" .. font_def.anim_path)
+    Net.provide_asset_for_player(player_id, font_def.anim_path)  -- already with /server/
 
     local sprite_id = "font_" .. font_name .. "_" .. player_id
     Net.player_alloc_sprite(player_id, sprite_id, {
         texture_path = font_def.texture_path,
-        anim_path    = "/server/" .. font_def.anim_path,
+        anim_path    = font_def.anim_path,  -- full path
         anim_state   = "IDLE"   -- some default state
     })
 
@@ -408,8 +406,8 @@ end
 ---@param player_id string
 ---@param font_name string
 ---@param char string
----@param x number
----@param y number
+---@param x number       # virtual 240×160 coordinate
+---@param y number       # virtual 240×160 coordinate
 ---@param options? GlyphOptions
 ---@return string|nil instance_id
 function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
@@ -429,11 +427,15 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
     end
     local instance_id = options.instance_id or self:nextInstanceId(player_id, "glyph")
 
+    -- Scale virtual coordinates to screen space
+    local screen_x = x * 2
+    local screen_y = y * 2
+
     -- Build draw table with explicit defaults
     local draw = {
         id = instance_id,
-        x = x,
-        y = y,
+        x = screen_x,
+        y = screen_y,
         z = z,
         sx = scale,
         sy = scale,
@@ -451,7 +453,7 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
 
     Net.player_draw_sprite(player_id, sprite_id, draw)
 
-    -- Store all properties for later updates
+    -- Store all properties for later updates (store scaled screen_x, screen_y)
     if not self.player_instances then self.player_instances = {} end
     if not self.player_instances[player_id] then
         self.player_instances[player_id] = {}
@@ -460,7 +462,7 @@ function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
         font = font_name,
         char = char,
         props = {
-            x = x, y = y, z = z,
+            x = screen_x, y = screen_y, z = z,
             scale = scale,
             state = state,
             r = draw.r,
@@ -481,7 +483,7 @@ end
 -- Update an existing glyph.
 ---@param player_id string
 ---@param instance_id string
----@param updates GlyphOptions   -- can include 'char' to change the character
+---@param updates GlyphOptions   -- can include 'char', 'x', 'y' in virtual space
 function FontSystem:updateGlyph(player_id, instance_id, updates)
     if not self.player_instances or not self.player_instances[player_id] then
         return
@@ -489,6 +491,14 @@ function FontSystem:updateGlyph(player_id, instance_id, updates)
     local inst = self.player_instances[player_id][instance_id]
     if not inst then
         return
+    end
+
+    -- Scale virtual coordinates in updates if present
+    if updates.x then
+        updates.x = updates.x * 2
+    end
+    if updates.y then
+        updates.y = updates.y * 2
     end
 
     -- If char update requested, compute new state and update stored char

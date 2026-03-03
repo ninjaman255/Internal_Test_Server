@@ -1,7 +1,12 @@
 --[[
 scrolling-sprite-list.lua – Scrolling grid of sprite instances.
-Manages its own sprite assets and updates instance positions each tick.
-All sprites are pre‑allocated per player and drawn with unique instance IDs.
+Each entry is represented by a SpriteEntry object that can be modified individually.
+The list returns an object with methods to manage entries.
+
+COORDINATES: All x, y, width, height passed to public functions are in virtual 240×160 space.
+They are automatically multiplied by 2 before internal layout and drawing.
+
+Path convention: All texture and animation paths MUST include the "/server/" prefix.
 ]]
 
 local ScrollingSpriteList = {}
@@ -10,22 +15,122 @@ ScrollingSpriteList.__index = ScrollingSpriteList
 -- Path to a 1x1 white pixel texture used for backdrops
 local BACKDROP_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
 
+-- --------------------------------------------------------------------
+-- SpriteEntry class – represents a single sprite in the list
+-- --------------------------------------------------------------------
+local SpriteEntry = {}
+SpriteEntry.__index = SpriteEntry
+
+function SpriteEntry:new(list_obj, player_id, list_id, index, def)
+    local o = setmetatable({}, SpriteEntry)
+    o.list = list_obj               -- reference to parent list object (has .config and .parent)
+    o.player_id = player_id
+    o.list_id = list_id
+    o.index = index
+    o.def = def
+    o.props = {
+        x = 0,
+        y = 0,
+        r = def.r or 255,
+        g = def.g or 255,
+        b = def.b or 255,
+        a = def.a or 255,
+        opacity = def.opacity or 255,
+        sx = def.sx or 1,
+        sy = def.sy or 1,
+        ro = def.ro or 0,
+        color_mode = def.color_mode or 0,
+        anim_state = def.anim_state,
+    }
+    o.instance_id = nil
+    -- Use parent system to ensure asset is allocated
+    o.sprite_asset_id = list_obj.parent:ensureSpriteAsset(player_id, def)
+    o.y_offset = 0
+    o.state = "waiting"
+    o.timer = 0
+    o.start_delay = 0
+    o.grid_x = 0
+    o.grid_y = 0
+    return o
+end
+
+function SpriteEntry:setPosition(x, y)
+    self.props.x = x
+    self.props.y = y
+    self:redraw()
+end
+
+function SpriteEntry:setColor(r, g, b, a)
+    self.props.r = r or self.props.r
+    self.props.g = g or self.props.g
+    self.props.b = b or self.props.b
+    self.props.a = a or self.props.a
+    self:redraw()
+end
+
+function SpriteEntry:setScale(sx, sy)
+    self.props.sx = sx or self.props.sx
+    self.props.sy = sy or self.props.sy
+    self:redraw()
+end
+
+function SpriteEntry:setAnimationState(state)
+    self.props.anim_state = state
+    self:redraw()
+end
+
+function SpriteEntry:redraw()
+    if not self.sprite_asset_id then return end
+    if not self.list or not self.list.config then return end
+    local draw = {
+        id = self.instance_id or (self.list_id .. "_entry_" .. self.index),
+        x = self.props.x,
+        y = self.props.y,
+        z = self.list.config.z_order,
+        sx = self.props.sx,
+        sy = self.props.sy,
+        anim_state = self.props.anim_state,
+        r = self.props.r,
+        g = self.props.g,
+        b = self.props.b,
+        opacity = self.props.opacity,
+        a = self.props.a,
+        ro = self.props.ro,
+        color_mode = self.props.color_mode,
+        -- Force origin to top‑left to match grid positioning
+        ox = 0,
+        oy = 0,
+    }
+    if not self.instance_id then
+        self.instance_id = draw.id
+    end
+    Net.player_draw_sprite(self.player_id, self.sprite_asset_id, draw)
+end
+
+function SpriteEntry:destroy()
+    if self.instance_id then
+        Net.player_erase_sprite(self.player_id, self.instance_id)
+    end
+end
+
+-- --------------------------------------------------------------------
+-- ScrollingSpriteList main class
+-- --------------------------------------------------------------------
 function ScrollingSpriteList:init()
-    self.player_lists = {}        -- player_id -> { active_lists = { list_id = list_data } }
-    self.player_assets = {}       -- player_id -> { [asset_key] = sprite_id } for reusing sprites
-    self.player_backdrop_sprite = {} -- player_id -> sprite_id for the backdrop
+    self.player_lists = self.player_lists or {}        -- player_id -> { active_lists = { list_id = list_data } }
+    self.player_assets = self.player_assets or {}       -- player_id -> { [asset_key] = sprite_id } for reusing sprites
+    self.player_backdrop_sprite = self.player_backdrop_sprite or {} -- player_id -> sprite_id for the backdrop
 
     self.default_config = {
         z_order = 100,
         scroll_speed = 30,
-        entry_spacing = 10,
         entry_delay = 1.0,
         loop = false,
         destroy_when_finished = true,
         destroy_delay = 1.0,
         max_columns = 1,
-        column_spacing = 5,
-        row_spacing = 5,
+        column_spacing = 5,      -- virtual pixels
+        row_spacing = 5,         -- virtual pixels
         align = "left"
     }
 
@@ -66,32 +171,37 @@ function ScrollingSpriteList:init()
 end
 
 function ScrollingSpriteList:setupPlayer(player_id)
-    self.player_lists[player_id] = { active_lists = {} }
-    self.player_assets[player_id] = {}
+    if not self.player_lists then self.player_lists = {} end
+    self.player_lists[player_id] = self.player_lists[player_id] or { active_lists = {} }
+    self.player_assets[player_id] = self.player_assets[player_id] or {}
 
     -- Allocate a backdrop sprite for this player
-    local backdrop_sprite_id = "backdrop_" .. player_id
-    Net.provide_asset_for_player(player_id, BACKDROP_TEXTURE)
-    Net.player_alloc_sprite(player_id, backdrop_sprite_id, { texture_path = BACKDROP_TEXTURE })
-    self.player_backdrop_sprite[player_id] = backdrop_sprite_id
+    if not self.player_backdrop_sprite[player_id] then
+        local backdrop_sprite_id = "backdrop_" .. player_id
+        Net.provide_asset_for_player(player_id, BACKDROP_TEXTURE)
+        Net.player_alloc_sprite(player_id, backdrop_sprite_id, { texture_path = BACKDROP_TEXTURE })
+        self.player_backdrop_sprite[player_id] = backdrop_sprite_id
+    end
 end
 
 function ScrollingSpriteList:cleanupPlayer(player_id)
-    if self.player_lists[player_id] then
-        for list_id, list_data in pairs(self.player_lists[player_id].active_lists) do
-            self:removeScrollingList(player_id, list_id)
+    if self.player_lists and self.player_lists[player_id] then
+        for list_id, list_object in pairs(self.player_lists[player_id].active_lists) do
+            if list_object and list_object.destroy then
+                list_object:destroy()
+            end
         end
         self.player_lists[player_id] = nil
     end
 
-    if self.player_assets[player_id] then
+    if self.player_assets and self.player_assets[player_id] then
         for _, sprite_id in pairs(self.player_assets[player_id]) do
             Net.player_dealloc_sprite(player_id, sprite_id)
         end
         self.player_assets[player_id] = nil
     end
 
-    if self.player_backdrop_sprite[player_id] then
+    if self.player_backdrop_sprite and self.player_backdrop_sprite[player_id] then
         Net.player_dealloc_sprite(player_id, self.player_backdrop_sprite[player_id])
         self.player_backdrop_sprite[player_id] = nil
     end
@@ -99,10 +209,15 @@ end
 
 -- Ensure a sprite asset (texture + optional animation) is allocated.
 ---@param player_id string
----@param sprite_def table   -- with fields texture_path, anim_path (optional)
+---@param sprite_def table   -- with fields texture_path, anim_path (optional) – both full paths with /server/
 ---@return string sprite_id
 function ScrollingSpriteList:ensureSpriteAsset(player_id, sprite_def)
-    local asset_key = sprite_def.texture_path .. "|" .. (sprite_def.anim_path or "")
+    if not self.player_assets then self.player_assets = {} end
+    if not self.player_assets[player_id] then
+        self:setupPlayer(player_id)
+    end
+    local anim_path = sprite_def.anim_path
+    local asset_key = sprite_def.texture_path .. "|" .. (anim_path or "")
     if self.player_assets[player_id][asset_key] then
         return self.player_assets[player_id][asset_key]
     end
@@ -110,116 +225,26 @@ function ScrollingSpriteList:ensureSpriteAsset(player_id, sprite_def)
     local sprite_id = "sprite_" .. tostring(#self.player_assets[player_id] + 1) .. "_" .. player_id
 
     Net.provide_asset_for_player(player_id, sprite_def.texture_path)
-    if sprite_def.anim_path then
-        Net.provide_asset_for_player(player_id, sprite_def.anim_path)
+    if anim_path then
+        Net.provide_asset_for_player(player_id, anim_path)
     end
 
     Net.player_alloc_sprite(player_id, sprite_id, {
         texture_path = sprite_def.texture_path,
-        anim_path = sprite_def.anim_path or "",
+        anim_path = anim_path or "",
     })
 
     self.player_assets[player_id][asset_key] = sprite_id
     return sprite_id
 end
 
----@class SpriteListConfig
----@field x? number
----@field y? number
----@field width? number
----@field height? number
----@field z_order? number
----@field scroll_speed? number
----@field entry_delay? number
----@field max_columns? integer
----@field column_spacing? number
----@field row_spacing? number
----@field align? "left"|"center"|"right"
----@field backdrop? table
----@field sprites? table[]
-
----@param player_id string
----@param list_id string
----@param x number
----@param y number
----@param width number
----@param height number
----@param config SpriteListConfig
----@return string|nil list_id
-function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width, height, config)
-    config = config or {}
-
-    if not self.player_lists[player_id] then
-        self:setupPlayer(player_id)
-    end
-
-    local list_config = {}
-    for k, v in pairs(self.default_config) do
-        list_config[k] = config[k] ~= nil and config[k] or v
-    end
-
-    list_config.x = x or 0
-    list_config.y = y or 0
-    list_config.width = width or 200
-    list_config.height = height or 100
-    list_config.backdrop = config.backdrop
-    list_config.sprites = config.sprites or {}
-    list_config.entry_states = {}
-
-    if list_config.backdrop then
-        local pad_x = list_config.backdrop.padding_x or 8
-        local pad_y = list_config.backdrop.padding_y or 6
-        list_config.bounds_left   = list_config.backdrop.x + pad_x
-        list_config.bounds_right  = list_config.backdrop.x + list_config.backdrop.width - pad_x
-        list_config.bounds_top    = list_config.backdrop.y + pad_y
-        list_config.bounds_bottom = list_config.backdrop.y + list_config.backdrop.height - pad_y
-    else
-        list_config.bounds_left   = list_config.x
-        list_config.bounds_right  = list_config.x + list_config.width
-        list_config.bounds_top    = list_config.y
-        list_config.bounds_bottom = list_config.y + list_config.height
-    end
-    list_config.bounds_width  = list_config.bounds_right - list_config.bounds_left
-    list_config.bounds_height = list_config.bounds_bottom - list_config.bounds_top
-
-    -- Pre‑allocate all unique sprite assets for this list
-    for _, sprite_def in ipairs(list_config.sprites) do
-        self:ensureSpriteAsset(player_id, sprite_def)
-    end
-
-    self:_initEntryGrid(list_config)
-
-    local list_data = {
-        config = list_config,
-        backdrop_id = nil,
-        state = self.states.waiting,
-        start_time = os.clock(),
-        all_finished = false,
-        finished_timer = 0,
-        marked_for_removal = false,
-    }
-
-    if list_config.backdrop then
-        list_data.backdrop_id = self:_drawBackdrop(player_id, list_id, list_config)
-    end
-
-    self.player_lists[player_id].active_lists[list_id] = list_data
-
-    if #list_config.sprites > 0 and list_config.entry_delay <= 0 then
-        list_config.entry_states[1].state = "scrolling"
-        list_data.state = self.states.scrolling
-        self:_drawEntry(player_id, list_id, 1, list_data)
-    end
-
-    return list_id
-end
-
--- Compute grid positions for each entry.
-function ScrollingSpriteList:_initEntryGrid(list_config)
-    local sprites = list_config.sprites
-    local max_cols = list_config.max_columns or 1
-    local col_spacing = list_config.column_spacing or 5
-    local row_spacing = list_config.row_spacing or 5
+-- Compute grid positions for entries based on config.
+function ScrollingSpriteList:_computeGridPositions(config)
+    local sprites = config.sprites
+    local max_cols = config.max_columns or 1
+    -- Convert virtual spacing to screen pixels
+    local col_spacing = (config.column_spacing or 5) * 2
+    local row_spacing = (config.row_spacing or 5) * 2
 
     local max_w, max_h = 0, 0
     for _, def in ipairs(sprites) do
@@ -231,85 +256,37 @@ function ScrollingSpriteList:_initEntryGrid(list_config)
 
     local cell_w = max_w + col_spacing
     local cell_h = max_h + row_spacing
-    local cols = math.min(max_cols, math.floor(list_config.bounds_width / cell_w))
+    local cols = math.min(max_cols, math.floor(config.bounds_width / cell_w))
     if cols < 1 then cols = 1 end
 
     local align_offset = 0
-    if list_config.align == "center" then
+    if config.align == "center" then
         local total_grid_w = cols * cell_w - col_spacing
-        align_offset = (list_config.bounds_width - total_grid_w) / 2
-    elseif list_config.align == "right" then
+        align_offset = (config.bounds_width - total_grid_w) / 2
+    elseif config.align == "right" then
         local total_grid_w = cols * cell_w - col_spacing
-        align_offset = list_config.bounds_width - total_grid_w
+        align_offset = config.bounds_width - total_grid_w
     end
 
-    list_config.entry_states = {}
+    local positions = {}
     for i, def in ipairs(sprites) do
         local row = math.floor((i - 1) / cols)
         local col = (i - 1) % cols
-        local grid_x = list_config.bounds_left + align_offset + col * cell_w
-        local grid_y = list_config.bounds_bottom + row * cell_h   -- start below bottom
-
-        list_config.entry_states[i] = {
-            def = def,
-            y_offset = 0,
+        local grid_x = config.bounds_left + align_offset + col * cell_w
+        local grid_y = config.bounds_bottom + row * cell_h
+        local start_delay = row * (config.entry_delay or 0)
+        positions[i] = {
             grid_x = grid_x,
             grid_y = grid_y,
-            state = "waiting",
-            instance_id = nil,
-            start_delay = row * (list_config.entry_delay or 0),
-            timer = 0,
+            start_delay = start_delay,
         }
     end
-end
-
--- Draw a single entry (create or update its sprite instance).
-function ScrollingSpriteList:_drawEntry(player_id, list_id, entry_idx, list_data)
-    local config = list_data.config
-    local entry = config.entry_states[entry_idx]
-    if not entry then return end
-
-    local def = entry.def
-    local sprite_id = self:ensureSpriteAsset(player_id, def)
-
-    local x = entry.grid_x
-    local y = entry.grid_y + entry.y_offset
-
-    local margin = 50
-    if y + margin < config.bounds_top or y - margin > config.bounds_bottom then
-        if entry.instance_id then
-            Net.player_erase_sprite(player_id, entry.instance_id)
-            entry.instance_id = nil
-        end
-        return
-    end
-
-    local instance_id = entry.instance_id or (list_id .. "_entry_" .. entry_idx .. "_" .. player_id)
-
-    local draw = {
-        id = instance_id,
-        x = x,
-        y = y,
-        z = config.z_order,
-        sx = def.sx or def.scale or 1,
-        sy = def.sy or def.scale or 1,
-        anim_state = def.anim_state,
-        -- Provide defaults for color fields
-        r = def.r or 255,
-        g = def.g or 255,
-        b = def.b or 255,
-        opacity = def.opacity or 255,
-        a = def.a or 255,
-        ro = def.ro or 0,
-        color_mode = def.color_mode or 0,
-    }
-
-    Net.player_draw_sprite(player_id, sprite_id, draw)
-    entry.instance_id = instance_id
+    return positions
 end
 
 -- Draw the backdrop using the player's allocated backdrop sprite.
 function ScrollingSpriteList:_drawBackdrop(player_id, list_id, config)
+    if not config or not config.backdrop then return nil end
     local backdrop_id = list_id .. "_backdrop"
     local backdrop_sprite_id = self.player_backdrop_sprite[player_id]
     if not backdrop_sprite_id then
@@ -332,40 +309,254 @@ function ScrollingSpriteList:_drawBackdrop(player_id, list_id, config)
             b = config.backdrop.b or 0,
             opacity = config.backdrop.opacity or 200,
             a = config.backdrop.a or 255,
-            color_mode = 0,  -- multiply by default
+            color_mode = 0,
         }
     )
     return backdrop_id
 end
 
+-- Create a new scrolling sprite list. Returns a list object with methods.
+---@param player_id string
+---@param list_id string
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
+---@param width number    # virtual width
+---@param height number   # virtual height
+---@param config SpriteListConfig
+---@return table|nil list_object
+function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width, height, config)
+    config = config or {}
+
+    if not self.player_lists then self.player_lists = {} end
+    if not self.player_lists[player_id] then
+        self:setupPlayer(player_id)
+    end
+
+    local list_config = {}
+    for k, v in pairs(self.default_config) do
+        list_config[k] = config[k] ~= nil and config[k] or v
+    end
+
+    -- Scale virtual coordinates/dimensions to screen pixels
+    list_config.x = (x or 0) * 2
+    list_config.y = (y or 0) * 2
+    list_config.width = (width or 240) * 2
+    list_config.height = (height or 160) * 2
+
+    list_config.backdrop = config.backdrop
+    if list_config.backdrop then
+        list_config.backdrop.x = (list_config.backdrop.x or 0) * 2
+        list_config.backdrop.y = (list_config.backdrop.y or 0) * 2
+        list_config.backdrop.width = (list_config.backdrop.width or 240) * 2
+        list_config.backdrop.height = (list_config.backdrop.height or 160) * 2
+        -- Scale padding as well
+        if list_config.backdrop.padding_x then
+            list_config.backdrop.padding_x = list_config.backdrop.padding_x * 2
+        end
+        if list_config.backdrop.padding_y then
+            list_config.backdrop.padding_y = list_config.backdrop.padding_y * 2
+        end
+    end
+
+    list_config.sprites = config.sprites or {}
+
+    if list_config.backdrop then
+        local pad_x = list_config.backdrop.padding_x or 16   -- 8 virtual * 2
+        local pad_y = list_config.backdrop.padding_y or 12   -- 6 virtual * 2
+        list_config.bounds_left   = list_config.backdrop.x + pad_x
+        list_config.bounds_right  = list_config.backdrop.x + list_config.backdrop.width - pad_x
+        list_config.bounds_top    = list_config.backdrop.y + pad_y
+        list_config.bounds_bottom = list_config.backdrop.y + list_config.backdrop.height - pad_y
+    else
+        list_config.bounds_left   = list_config.x
+        list_config.bounds_right  = list_config.x + list_config.width
+        list_config.bounds_top    = list_config.y
+        list_config.bounds_bottom = list_config.y + list_config.height
+    end
+    list_config.bounds_width  = list_config.bounds_right - list_config.bounds_left
+    list_config.bounds_height = list_config.bounds_bottom - list_config.bounds_top
+
+    -- Pre‑allocate all unique sprite assets (optional, but good for early error detection)
+    for _, sprite_def in ipairs(list_config.sprites) do
+        self:ensureSpriteAsset(player_id, sprite_def)
+    end
+
+    -- Compute grid positions
+    local grid_positions = self:_computeGridPositions(list_config)
+    list_config.grid_positions = grid_positions
+
+    -- Create backdrop
+    local backdrop_id = nil
+    if list_config.backdrop then
+        backdrop_id = self:_drawBackdrop(player_id, list_id, list_config)
+    end
+
+    -- Create list object (without entries yet)
+    local list_object = {
+        parent = self,               -- reference to the system (for asset management)
+        player_id = player_id,
+        list_id = list_id,
+        config = list_config,
+        backdrop_id = backdrop_id,
+        state = self.states.waiting,
+        all_finished = false,
+        finished_timer = 0,
+        marked_for_removal = false,
+    }
+
+    -- Create entry objects, giving them a reference to the list object
+    local entries = {}
+    for i, def in ipairs(list_config.sprites) do
+        local entry = SpriteEntry:new(list_object, player_id, list_id, i, def)
+        entry.grid_x = grid_positions[i].grid_x
+        entry.grid_y = grid_positions[i].grid_y
+        entry.start_delay = grid_positions[i].start_delay
+        entry:setPosition(entry.grid_x, entry.grid_y)
+        entries[i] = entry
+    end
+    list_object.config.entries = entries
+
+    -- Add methods to list_object
+    function list_object:getEntry(index)
+        return self.config and self.config.entries and self.config.entries[index]
+    end
+
+    function list_object:addSprite(sprite_def)
+        if not self.config then return end
+        self.parent:ensureSpriteAsset(self.player_id, sprite_def)
+        table.insert(self.config.sprites, sprite_def)
+        self:_recreateEntries()
+    end
+
+    function list_object:setSprites(sprites)
+        if not self.config then return end
+        self.config.sprites = sprites or {}
+        self:_recreateEntries()
+    end
+
+    function list_object:setSpeed(speed)
+        if self.config then
+            self.config.scroll_speed = speed or self.parent.default_config.scroll_speed
+        end
+    end
+
+    function list_object:setPosition(x, y)
+        if not self.config then return end
+        local screen_x = x * 2
+        local screen_y = y * 2
+        self.config.x = screen_x
+        self.config.y = screen_y
+
+        if self.config.backdrop then
+            self.config.backdrop.x = screen_x
+            self.config.backdrop.y = screen_y
+            if self.backdrop_id then
+                Net.player_erase_sprite(self.player_id, self.backdrop_id)
+            end
+            self.backdrop_id = self.parent:_drawBackdrop(self.player_id, self.list_id, self.config)
+        else
+            self.config.bounds_left = screen_x
+            self.config.bounds_top = screen_y
+            self.config.bounds_right = screen_x + self.config.width
+            self.config.bounds_bottom = screen_y + self.config.height
+        end
+
+        self:_recreateEntries()
+    end
+
+    function list_object:destroy()
+        if self.config and self.config.entries then
+            for _, entry in ipairs(self.config.entries) do
+                if entry and entry.destroy then
+                    entry:destroy()
+                end
+            end
+        end
+        if self.backdrop_id then
+            Net.player_erase_sprite(self.player_id, self.backdrop_id)
+        end
+        if self.parent.player_lists and self.parent.player_lists[self.player_id] then
+            self.parent.player_lists[self.player_id].active_lists[self.list_id] = nil
+        end
+    end
+
+    function list_object:_recreateEntries()
+        if not self.config then return end
+        -- Erase old entries
+        if self.config.entries then
+            for _, entry in ipairs(self.config.entries) do
+                if entry and entry.destroy then
+                    entry:destroy()
+                end
+            end
+        end
+        -- Recompute grid positions
+        self.config.grid_positions = self.parent:_computeGridPositions(self.config)
+        -- Create new entries
+        local new_entries = {}
+        for i, def in ipairs(self.config.sprites) do
+            local entry = SpriteEntry:new(self, self.player_id, self.list_id, i, def)
+            entry.grid_x = self.config.grid_positions[i].grid_x
+            entry.grid_y = self.config.grid_positions[i].grid_y
+            entry.start_delay = self.config.grid_positions[i].start_delay
+            entry:setPosition(entry.grid_x, entry.grid_y)
+            new_entries[i] = entry
+        end
+        self.config.entries = new_entries
+        -- Reset state
+        self.state = self.parent.states.waiting
+        self.all_finished = false
+        self.finished_timer = 0
+        self.marked_for_removal = false
+    end
+
+    -- Store in player_lists
+    self.player_lists[player_id].active_lists[list_id] = list_object
+
+    -- If no delay, start first entry immediately
+    if #list_config.entries > 0 and list_config.entry_delay <= 0 then
+        list_object.state = self.states.scrolling
+        if list_config.entries[1] then
+            list_config.entries[1].state = "scrolling"
+            list_config.entries[1]:redraw()
+        end
+    end
+
+    return list_object
+end
+
 function ScrollingSpriteList:updateAll(delta)
     if not delta or delta <= 0 then return end
+    if not self.player_lists then return end
 
     for player_id, player_data in pairs(self.player_lists) do
-        for list_id, list_data in pairs(player_data.active_lists) do
-            if list_data.marked_for_removal then
-                self:removeScrollingList(player_id, list_id)
-            elseif list_data.state ~= self.states.finished then
-                self:_updateList(player_id, list_id, list_data, delta)
-            else
-                self:_updateFinishedList(player_id, list_id, list_data, delta)
+        if player_data and player_data.active_lists then
+            for list_id, list_object in pairs(player_data.active_lists) do
+                if list_object and list_object.marked_for_removal then
+                    self:removeScrollingList(player_id, list_id)
+                elseif list_object and list_object.state ~= self.states.finished then
+                    self:_updateList(list_object, delta)
+                elseif list_object then
+                    self:_updateFinishedList(list_object, delta)
+                end
             end
         end
     end
 end
 
-function ScrollingSpriteList:_updateList(player_id, list_id, list_data, delta)
-    local config = list_data.config
+function ScrollingSpriteList:_updateList(list_object, delta)
+    if not list_object or not list_object.config then return end
+    local config = list_object.config
     local all_finished = true
     local any_scrolling = false
 
-    for i, entry in ipairs(config.entry_states) do
+    for i, entry in ipairs(config.entries) do
         if entry.state == "waiting" then
             entry.timer = entry.timer + delta
             if entry.timer >= entry.start_delay then
                 entry.state = "scrolling"
-                list_data.state = self.states.scrolling
-                self:_drawEntry(player_id, list_id, i, list_data)
+                list_object.state = self.states.scrolling
+                entry:redraw()
             else
                 all_finished = false
             end
@@ -373,180 +564,109 @@ function ScrollingSpriteList:_updateList(player_id, list_id, list_data, delta)
 
         if entry.state == "scrolling" then
             any_scrolling = true
-            entry.y_offset = entry.y_offset - (config.scroll_speed * delta)
-            self:_drawEntry(player_id, list_id, i, list_data)
+            entry.y_offset = (entry.y_offset or 0) - (config.scroll_speed * delta)
+            entry:setPosition(entry.grid_x, entry.grid_y + entry.y_offset)
 
-            local sprite_h = (entry.def.height or 16) * (entry.def.sy or entry.def.scale or 1)
-            if entry.y_offset + config.bounds_bottom + sprite_h < config.bounds_top then
+            -- Correct finish condition: when the bottom of the sprite passes the top of the visible area
+            local sprite_h = (entry.def.height or 16) * (entry.props.sy or 1)
+            if entry.props.y + sprite_h < config.bounds_top then
                 entry.state = "finished"
-                if entry.instance_id then
-                    Net.player_erase_sprite(player_id, entry.instance_id)
-                    entry.instance_id = nil
-                end
+                entry:destroy()
             else
                 all_finished = false
             end
         end
     end
 
-    if all_finished and #config.entry_states > 0 then
-        list_data.state = self.states.finished
-        list_data.all_finished = true
+    if all_finished and #config.entries > 0 then
+        list_object.state = self.states.finished
+        list_object.all_finished = true
         if config.destroy_when_finished then
-            list_data.finished_timer = 0
+            list_object.finished_timer = 0
         end
-    elseif not any_scrolling and list_data.state == self.states.scrolling then
-        list_data.state = self.states.waiting
+    elseif not any_scrolling and list_object.state == self.states.scrolling then
+        list_object.state = self.states.waiting
     end
 end
 
-function ScrollingSpriteList:_updateFinishedList(player_id, list_id, list_data, delta)
-    if list_data.config.destroy_when_finished and list_data.all_finished then
-        list_data.finished_timer = list_data.finished_timer + delta
-        if list_data.finished_timer >= list_data.config.destroy_delay then
-            list_data.marked_for_removal = true
-        end
-    end
-end
-
-function ScrollingSpriteList:addSpriteToList(player_id, list_id, sprite_def)
-    local player_data = self.player_lists[player_id]
-    if not player_data then return false end
-    local list_data = player_data.active_lists[list_id]
-    if not list_data then return false end
-
-    local config = list_data.config
-
-    if list_data.state == self.states.finished then
-        list_data.state = self.states.waiting
-        list_data.all_finished = false
-        list_data.finished_timer = 0
-        list_data.marked_for_removal = false
-    end
-
-    self:ensureSpriteAsset(player_id, sprite_def)
-    table.insert(config.sprites, sprite_def)
-    self:_initEntryGrid(config)
-
-    return true
-end
-
-function ScrollingSpriteList:setListSprites(player_id, list_id, sprites)
-    local player_data = self.player_lists[player_id]
-    if not player_data then return false end
-    local list_data = player_data.active_lists[list_id]
-    if not list_data then return false end
-
-    for _, entry in ipairs(list_data.config.entry_states) do
-        if entry.instance_id then
-            Net.player_erase_sprite(player_id, entry.instance_id)
+function ScrollingSpriteList:_updateFinishedList(list_object, delta)
+    if not list_object or not list_object.config then return end
+    if list_object.config.destroy_when_finished and list_object.all_finished then
+        list_object.finished_timer = (list_object.finished_timer or 0) + delta
+        if list_object.finished_timer >= list_object.config.destroy_delay then
+            list_object.marked_for_removal = true
         end
     end
-
-    list_data.config.sprites = sprites or {}
-    list_data.config.entry_states = {}
-    list_data.state = self.states.waiting
-    list_data.all_finished = false
-    list_data.finished_timer = 0
-    list_data.marked_for_removal = false
-
-    for _, def in ipairs(sprites) do
-        self:ensureSpriteAsset(player_id, def)
-    end
-
-    self:_initEntryGrid(list_data.config)
-
-    if #sprites > 0 and list_data.config.entry_delay <= 0 then
-        list_data.config.entry_states[1].state = "scrolling"
-        list_data.state = self.states.scrolling
-        self:_drawEntry(player_id, list_id, 1, list_data)
-    end
-
-    return true
 end
 
-function ScrollingSpriteList:getListState(player_id, list_id)
-    local player_data = self.player_lists[player_id]
-    if not player_data then return nil end
-    local list_data = player_data.active_lists[list_id]
-    if not list_data then return nil end
-
-    local active = 0
-    for _, e in ipairs(list_data.config.entry_states) do
-        if e.state == "scrolling" then active = active + 1 end
-    end
-    return {
-        state = list_data.state,
-        all_finished = list_data.all_finished,
-        total_entries = #list_data.config.sprites,
-        active_entries = active,
-        marked_for_removal = list_data.marked_for_removal,
-    }
+-- Legacy API wrappers
+function ScrollingSpriteList:getList(player_id, list_id)
+    if not self.player_lists or not self.player_lists[player_id] then return nil end
+    return self.player_lists[player_id].active_lists[list_id]
 end
 
-function ScrollingSpriteList:pauseList(player_id, list_id) return false end
-function ScrollingSpriteList:resumeList(player_id, list_id) return false end
+function ScrollingSpriteList:removeScrollingList(player_id, list_id)
+    local list_object = self:getList(player_id, list_id)
+    if list_object then
+        list_object:destroy()
+    end
+end
 
-function ScrollingSpriteList:setListSpeed(player_id, list_id, speed)
-    local list_data = self.player_lists[player_id] and self.player_lists[player_id].active_lists[list_id]
-    if list_data then
-        list_data.config.scroll_speed = speed or self.default_config.scroll_speed
+function ScrollingSpriteList:setListPosition(player_id, list_id, x, y)
+    local list_object = self:getList(player_id, list_id)
+    if list_object then
+        list_object:setPosition(x, y)
         return true
     end
     return false
 end
 
-function ScrollingSpriteList:removeScrollingList(player_id, list_id)
-    local player_data = self.player_lists[player_id]
-    if not player_data then return end
-    local list_data = player_data.active_lists[list_id]
-    if not list_data then return end
-
-    for _, entry in ipairs(list_data.config.entry_states) do
-        if entry.instance_id then
-            Net.player_erase_sprite(player_id, entry.instance_id)
-        end
+function ScrollingSpriteList:setListSpeed(player_id, list_id, speed)
+    local list_object = self:getList(player_id, list_id)
+    if list_object then
+        list_object:setSpeed(speed)
+        return true
     end
-
-    if list_data.backdrop_id then
-        Net.player_erase_sprite(player_id, list_data.backdrop_id)
-    end
-
-    player_data.active_lists[list_id] = nil
+    return false
 end
 
-function ScrollingSpriteList:setListPosition(player_id, list_id, x, y)
-    local list_data = self.player_lists[player_id] and self.player_lists[player_id].active_lists[list_id]
-    if not list_data then return false end
-
-    local config = list_data.config
-    config.x = x
-    config.y = y
-
-    if config.backdrop then
-        config.backdrop.x = x
-        config.backdrop.y = y
-        if list_data.backdrop_id then
-            Net.player_erase_sprite(player_id, list_data.backdrop_id)
-        end
-        list_data.backdrop_id = self:_drawBackdrop(player_id, list_id, config)
-    else
-        config.bounds_left = x
-        config.bounds_top = y
-        config.bounds_right = x + config.width
-        config.bounds_bottom = y + config.height
+function ScrollingSpriteList:addSpriteToList(player_id, list_id, sprite_def)
+    local list_object = self:getList(player_id, list_id)
+    if list_object then
+        list_object:addSprite(sprite_def)
+        return true
     end
-
-    self:_initEntryGrid(config)
-    for i, entry in ipairs(config.entry_states) do
-        if entry.state == "scrolling" then
-            self:_drawEntry(player_id, list_id, i, list_data)
-        end
-    end
-
-    return true
+    return false
 end
 
+function ScrollingSpriteList:setListSprites(player_id, list_id, sprites)
+    local list_object = self:getList(player_id, list_id)
+    if list_object then
+        list_object:setSprites(sprites)
+        return true
+    end
+    return false
+end
+
+function ScrollingSpriteList:getListState(player_id, list_id)
+    local list_object = self:getList(player_id, list_id)
+    if not list_object or not list_object.config then return nil end
+    local active = 0
+    if list_object.config.entries then
+        for _, e in ipairs(list_object.config.entries) do
+            if e.state == "scrolling" then active = active + 1 end
+        end
+    end
+    return {
+        state = list_object.state,
+        all_finished = list_object.all_finished,
+        total_entries = list_object.config.entries and #list_object.config.entries or 0,
+        active_entries = active,
+        marked_for_removal = list_object.marked_for_removal,
+    }
+end
+
+-- Initialize singleton
 local scrollingSpriteListSystem = setmetatable({}, ScrollingSpriteList)
 scrollingSpriteListSystem:init()
 return scrollingSpriteListSystem

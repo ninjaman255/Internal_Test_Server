@@ -1,6 +1,9 @@
 --[[
 text-display.lua – Unified text rendering with static, marquee, and typewriter modes.
 Uses FontSystem for glyph management. Supports bounding boxes, alignment, and per‑character callbacks.
+
+COORDINATES: All x, y, width, height passed to public functions are in virtual 240×160 space.
+They are automatically multiplied by 2 before internal layout and drawing.
 ]]
 
 local TextDisplay = {}
@@ -27,7 +30,7 @@ local function _normalize_loops(v)
 end
 
 -- --------------------------------------------------------------------
--- Word wrapping utility
+-- Word wrapping utility (operates in screen pixels after scaling)
 -- --------------------------------------------------------------------
 local function wrapText(text, font_name, scale, max_width)
     if not max_width then
@@ -82,6 +85,7 @@ end
 --   flat_glyphs: array of { char, x, y, line, col } (flat list for bulk operations)
 --   glyph_grid: 2D table [line][col] = { char, x, y } or nil for spaces
 --   total_width, total_height
+-- All coordinates are in screen pixels (480×320) after scaling.
 -- --------------------------------------------------------------------
 local function layoutText(text, font, scale, box_x, box_y, box_width, box_height, halign, valign)
     local lines = wrapText(text, font, scale, box_width)
@@ -159,10 +163,13 @@ function TextDisplayInstance:new(player_id, text_id, text, x, y, options)
     o.player_id = player_id
     o.text_id = text_id
     o.text = text
-    o.x = x
-    o.y = y
-    o.width = options.width          -- may be nil
-    o.height = options.height         -- may be nil
+
+    -- Scale virtual coordinates/dimensions to screen pixels
+    o.x = x * 2
+    o.y = y * 2
+    o.width = options.width and (options.width * 2) or nil
+    o.height = options.height and (options.height * 2) or nil
+
     o.font = options.font or "THICK"
     o.scale = options.scale or 2.0
     o.z = options.z or 100
@@ -182,7 +189,6 @@ function TextDisplayInstance:new(player_id, text_id, text, x, y, options)
     o.mode = options.mode or "static"
     -- Mode‑specific options
     if o.mode == "marquee" then
-        -- Normalize loops: first check unified marquee subtable, then legacy top-level
         local loops_raw = (options.marquee and options.marquee.loops) or options.loops
         o.loops = _normalize_loops(loops_raw)   -- nil = infinite, number = finite passes
         o.speed = (options.marquee and options.marquee.speed) or options.speed or 60
@@ -267,10 +273,19 @@ function TextDisplayInstance:_drawAllGlyphs(overrides)
         end
         local inst_id = glyph.instance_id
         if not inst_id then
-            inst_id = fontSystem:drawGlyph(self.player_id, self.font, glyph.char, opts.x, opts.y, opts)
+            local virtual_x = opts.x / 2
+            local virtual_y = opts.y / 2
+            inst_id = fontSystem:drawGlyph(self.player_id, self.font, glyph.char, virtual_x, virtual_y, opts)
             glyph.instance_id = inst_id
         else
-            fontSystem:updateGlyph(self.player_id, inst_id, opts)
+            -- Convert screen coordinates to virtual before update
+            local update_opts = {}
+            for k, v in pairs(opts) do
+                update_opts[k] = v
+            end
+            update_opts.x = opts.x / 2
+            update_opts.y = opts.y / 2
+            fontSystem:updateGlyph(self.player_id, inst_id, update_opts)
         end
     end
 end
@@ -329,7 +344,6 @@ function TextDisplayInstance:printNextChar()
     }
     if self.perChar then
         local context = { page = 1, line = self.current_line, isNew = true }
-        -- Find index in flat_glyphs (optional, for backward compatibility)
         local flat_idx = nil
         for idx, g in ipairs(self.flat_glyphs) do
             if g == glyph then
@@ -343,7 +357,10 @@ function TextDisplayInstance:printNextChar()
         end
     end
 
-    local inst_id = fontSystem:drawGlyph(self.player_id, self.font, ch, opts.x, opts.y, opts)
+    -- Convert screen coordinates to virtual before calling fontSystem
+    local virtual_x = opts.x / 2
+    local virtual_y = opts.y / 2
+    local inst_id = fontSystem:drawGlyph(self.player_id, self.font, ch, virtual_x, virtual_y, opts)
     if inst_id then
         glyph.instance_id = inst_id
         table.insert(self.printed_glyphs, inst_id)
@@ -476,8 +493,8 @@ end
 ---@param player_id string
 ---@param text_id string
 ---@param text string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 ---@param options table   (see documentation)
 ---@return string text_id
 function TextDisplay:draw(player_id, text_id, text, x, y, options)
@@ -507,7 +524,7 @@ end
 function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
     if type(options) ~= "table" then options = {} end
     options.mode = "marquee"
-    options.x = 0   -- marquee uses full screen width; we could allow x override
+    -- x = 0 in virtual space (left edge)
     return self:draw(player_id, marquee_id, text, 0, y, options)
 end
 
@@ -516,7 +533,6 @@ function TextDisplay:createTextBox(player_id, box_id, text, x, y, width, height,
     options.mode = "typewriter"
     options.width = width
     options.height = height
-    -- Note: x and y are already passed
     return self:draw(player_id, box_id, text, x, y, options)
 end
 
@@ -559,7 +575,13 @@ function TextDisplay:getTextBoxData(player_id, box_id)
     if not display then return nil end
     -- Return a table compatible with old nameplate expectations
     return {
-        x = display.x,
+        x = display.x / 2,   -- convert back to virtual for external use? The nameplate expects virtual? 
+        -- Actually nameplate uses box_data.x and y to position itself, and those should be in screen pixels because nameplate does its own layout in screen pixels.
+        -- But the nameplate attach function receives box_data.x etc. from this table. In nameplate.lua, we used box_data.x as screen pixels.
+        -- So we should return the scaled values (screen pixels) for nameplate to use.
+        -- However, nameplate also multiplies by scale and adds gaps based on scale. That's fine.
+        -- To keep consistent, we'll return the stored screen pixels (which are the scaled values).
+        -- x = display.x,
         y = display.y,
         width = display.width,
         height = display.height,

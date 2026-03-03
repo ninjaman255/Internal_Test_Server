@@ -3,6 +3,9 @@ timer-display.lua – Displays timers and countdowns using the font system.
 Listens to timer events and updates the displayed text.
 Now updates individual glyphs without erasing and redrawing all.
 When a global display is created, it immediately shows the current timer value.
+
+COORDINATES: All x, y passed to public functions are in virtual 240×160 space.
+They are automatically multiplied by 2 before drawing/updating.
 ]]
 
 ---@class TimerDisplay
@@ -78,17 +81,17 @@ function TimerDisplay:init()
 
     -- Global timer updates (update all players that have this display)
     Net:on("timer_global_update", function(event)
-        print("timer_global_update handler triggered, event =", dump(event))
+        -- print("timer_global_update handler triggered, event =", dump(event))
         local ok, err = pcall(function()
             if event and event.timer_id then
-                print("timer_global_update received for", event.timer_id, "value:", event.current)
+               -- print("timer_global_update received for", event.timer_id, "value:", event.current)
                 for player_id, displays in pairs(self.displays) do
                     if displays[event.timer_id] then
                         self:updateTimerDisplay(player_id, event.timer_id, event.current)
                     end
                 end
             else
-                print("timer_global_update missing timer_id, event =", dump(event))
+               -- print("timer_global_update missing timer_id, event =", dump(event))
             end
         end)
         if not ok then
@@ -97,7 +100,7 @@ function TimerDisplay:init()
     end)
 
     Net:on("countdown_global_update", function(event)
-        print("countdown_global_update handler triggered, event =", dump(event))
+        --print("countdown_global_update handler triggered, event =", dump(event))
         local ok, err = pcall(function()
             if event and event.countdown_id then
                 print("countdown_global_update received for", event.countdown_id, "value:", event.current)
@@ -107,7 +110,7 @@ function TimerDisplay:init()
                     end
                 end
             else
-                print("countdown_global_update missing countdown_id, event =", dump(event))
+               -- print("countdown_global_update missing countdown_id, event =", dump(event))
             end
         end)
         if not ok then
@@ -117,17 +120,17 @@ function TimerDisplay:init()
 
     -- Global create events – set initial value for all players that have this display
     Net:on("timer_global_create", function(event)
-        print("timer_global_create handler triggered, event =", dump(event))
+       -- print("timer_global_create handler triggered, event =", dump(event))
         local ok, err = pcall(function()
             if event and event.timer_id then
-                print("timer_global_create received for", event.timer_id)
+             --   print("timer_global_create received for", event.timer_id)
                 for player_id, displays in pairs(self.displays) do
                     if displays[event.timer_id] then
                         self:updateTimerDisplay(player_id, event.timer_id, event.current or 0)
                     end
                 end
             else
-                print("timer_global_create missing timer_id, event =", dump(event))
+             --   print("timer_global_create missing timer_id, event =", dump(event))
             end
         end)
         if not ok then
@@ -136,17 +139,17 @@ function TimerDisplay:init()
     end)
 
     Net:on("countdown_global_create", function(event)
-        print("countdown_global_create handler triggered, event =", dump(event))
+       -- print("countdown_global_create handler triggered, event =", dump(event))
         local ok, err = pcall(function()
             if event and event.countdown_id then
-                print("countdown_global_create received for", event.countdown_id)
+               -- print("countdown_global_create received for", event.countdown_id)
                 for player_id, displays in pairs(self.displays) do
                     if displays[event.countdown_id] then
                         self:updateCountdownDisplay(player_id, event.countdown_id, event.current or 0)
                     end
                 end
             else
-                print("countdown_global_create missing countdown_id, event =", dump(event))
+               -- print("countdown_global_create missing countdown_id, event =", dump(event))
             end
         end)
         if not ok then
@@ -156,7 +159,7 @@ function TimerDisplay:init()
 
     -- Global remove events – remove from all players and delete global definition
     Net:on("timer_global_remove", function(event)
-        print("timer_global_remove handler triggered, event =", dump(event))
+        --print("timer_global_remove handler triggered, event =", dump(event))
         local ok, err = pcall(function()
             if not event or not event.timer_id then
                 return
@@ -240,8 +243,8 @@ end
 
 ---@param player_id string
 ---@param display_id string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 ---@param options? TimerDisplayOptions
 function TimerDisplay:createPlayerTimerDisplay(player_id, display_id, x, y, options)
     options = options or {}
@@ -250,8 +253,8 @@ end
 
 ---@param player_id string
 ---@param display_id string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 ---@param options? TimerDisplayOptions
 function TimerDisplay:createPlayerCountdownDisplay(player_id, display_id, x, y, options)
     options = options or {}
@@ -259,8 +262,8 @@ function TimerDisplay:createPlayerCountdownDisplay(player_id, display_id, x, y, 
 end
 
 ---@param display_id string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 ---@param options? TimerDisplayOptions
 function TimerDisplay:createGlobalTimerDisplay(display_id, x, y, options)
     options = options or {}
@@ -281,8 +284,8 @@ function TimerDisplay:createGlobalTimerDisplay(display_id, x, y, options)
 end
 
 ---@param display_id string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 ---@param options? TimerDisplayOptions
 function TimerDisplay:createGlobalCountdownDisplay(display_id, x, y, options)
     options = options or {}
@@ -302,8 +305,8 @@ end
 
 ---@param player_id string
 ---@param display_id string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 ---@param type string
 ---@param options TimerDisplayOptions
 function TimerDisplay:_createDisplay(player_id, display_id, x, y, type, options)
@@ -313,10 +316,14 @@ function TimerDisplay:_createDisplay(player_id, display_id, x, y, type, options)
         self:removeDisplay(player_id, display_id)
     end
 
+    -- Scale virtual coordinates to screen pixels
+    local screen_x = x * 2
+    local screen_y = y * 2
+
     self.displays[player_id][display_id] = {
         type = type,
-        x = x,
-        y = y,
+        x = screen_x,
+        y = screen_y,
         font = options.font or "THICK",
         scale = options.scale or 2.0,
         z = options.z or 100,
@@ -392,7 +399,7 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
 
     local old_data = disp.glyph_data or {}
     local new_data = {}
-    local x = disp.x
+    local x = disp.x   -- screen x
 
     -- Iterate through each character in the new text
     for i = 1, #text do
@@ -404,11 +411,11 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
             local old = old_data[i]
             if old.char ~= ch then
                 print("Updating glyph", old.instance_id, "from", old.char, "to", ch)
-                -- Character changed: update it
+                -- Character changed: update it. The x and y are already screen pixels.
                 fontSystem:updateGlyph(player_id, old.instance_id, {
                     char = ch,
-                    x = x,
-                    y = disp.y,
+                    x = x / 2,   -- convert back to virtual for fontSystem
+                    y = disp.y / 2,
                     scale = disp.scale,
                     z = disp.z,
                     r = disp.color.r,
@@ -419,13 +426,14 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
                     ro = disp.ro,
                     color_mode = disp.color_mode,
                 })
-                -- Update stored char
+                -- Update stored char and x
                 old.char = ch
+                old.x = x
             else
                 -- Character unchanged, but position might have shifted if display was moved
                 if old.x ~= x then
                     print("Updating glyph position", old.instance_id, "x from", old.x, "to", x)
-                    fontSystem:updateGlyph(player_id, old.instance_id, { x = x })
+                    fontSystem:updateGlyph(player_id, old.instance_id, { x = x / 2 })
                 end
             end
             -- Keep reference
@@ -433,7 +441,10 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
         else
             -- Need a new glyph
             print("Drawing new glyph for char", ch, "at x", x)
-            local instance_id = fontSystem:drawGlyph(player_id, disp.font, ch, x, disp.y, base_opts)
+            -- Convert to virtual for drawGlyph
+            local virtual_x = x / 2
+            local virtual_y = disp.y / 2
+            local instance_id = fontSystem:drawGlyph(player_id, disp.font, ch, virtual_x, virtual_y, base_opts)
             if instance_id then
                 table.insert(new_data, {
                     instance_id = instance_id,
@@ -479,25 +490,28 @@ end
 
 ---@param player_id string
 ---@param display_id string
----@param x number
----@param y number
+---@param x number        # virtual 240×160 coordinate
+---@param y number        # virtual 240×160 coordinate
 function TimerDisplay:setDisplayPosition(player_id, display_id, x, y)
     local disp = self.displays[player_id] and self.displays[player_id][display_id]
     if not disp then return end
 
+    -- Scale virtual coordinates to screen pixels
+    local screen_x = x * 2
+    local screen_y = y * 2
+
     -- Update stored position
-    disp.x = x
-    disp.y = y
+    disp.x = screen_x
+    disp.y = screen_y
 
     -- Update each glyph's position
     if disp.glyph_data then
-        -- We need to recompute x positions because the whole line may shift
-        local current_x = x
+        local current_x = screen_x
         for i, glyph in ipairs(disp.glyph_data) do
-            -- Get char to compute width
             local ch = glyph.char
             local w, _ = fontSystem:getGlyphDimensions(disp.font, ch)
-            fontSystem:updateGlyph(player_id, glyph.instance_id, { x = current_x, y = y })
+            -- Convert to virtual for update
+            fontSystem:updateGlyph(player_id, glyph.instance_id, { x = current_x / 2, y = screen_y / 2 })
             glyph.x = current_x
             current_x = current_x + w * disp.scale + 1 * disp.scale
         end

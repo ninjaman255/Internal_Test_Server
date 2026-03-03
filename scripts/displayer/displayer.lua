@@ -12,6 +12,9 @@ Sub‑APIs:
   .ScrollingSprite – Grid‑based scrolling sprite lists.
   .Timer         – Timer system (creation, pausing, etc.) – directly from timer‑system.
   .Builder       – Helper functions to create option tables.
+
+Path convention: All texture and animation paths MUST include the "/server/" prefix.
+This prefix is stripped only when loading animation data via boom.load.
 ]]
 
 -- --------------------------------------------------------------------
@@ -173,6 +176,8 @@ end
 -- --------------------------------------------------------------------
 function Displayer:_setupBuilderAPI()
     local api = self.Builder
+    local boom = require("scripts/boom/main")
+    local anim_cache = {}   -- cache loaded animation data
 
     --- Create GlyphOptions with defaults.
     ---@param overrides? GlyphOptions
@@ -371,14 +376,27 @@ function Displayer:_setupBuilderAPI()
     end
 
     --- Create a sprite definition for scrolling sprite lists.
-    ---@param texture_path string
-    ---@param overrides? table   # optional fields: anim_path, sx, sy, width, height, anim_state, r, g, b, opacity, a, ro, color_mode
+    ---@param texture_path string   # Full path with "/server/" prefix
+    ---@param overrides? table       # optional fields:
+    ---   - anim_path: string (full path with "/server/" prefix)
+    ---   - anim_state: string (initial animation state, e.g., "IDLE")
+    ---   - sx, sy: number (scale factors, default 1)
+    ---   - width, height: number (base dimensions, extracted from animation if anim_path provided)
+    ---   - r, g, b: integer (tint, default 255)
+    ---   - opacity: integer (overall opacity, default 255)
+    ---   - a: integer (alpha for color_mode, default 255)
+    ---   - ro: number (rotation degrees, default 0)
+    ---   - color_mode: integer (0=multiply,1=additive,2=colorize)
     ---@return table
-    function api.spriteDef(texture_path, overrides)
+    function api.spriteDef(texture_path,anim_path, anim_state, overrides)
         local def = {
             texture_path = texture_path,
-            sx = 1,
-            sy = 1,
+            anim_state = anim_state or "",
+            anim_path = anim_path or "",
+            ox = 0,
+            oy = 0,
+            sx = 2,
+            sy = 2,
             width = 16,
             height = 16,
             r = 255,
@@ -389,9 +407,44 @@ function Displayer:_setupBuilderAPI()
             ro = 0,
             color_mode = 0,
         }
-        if overrides then
-            for k, v in pairs(overrides) do def[k] = v end
+
+        -- If an animation path is provided, load it to extract default dimensions
+        if overrides and overrides.anim_path then
+            def.anim_path = overrides.anim_path
+            -- Strip "/server/" prefix for boom.load
+            local boom_path = def.anim_path:gsub("^/server/", "")
+            local anim_data = anim_cache[def.anim_path]
+            if not anim_data then
+                anim_data = boom.load(boom_path)
+                if anim_data then
+                    anim_cache[def.anim_path] = anim_data
+                else
+                    print("ERROR: Could not load animation: " .. tostring(def.anim_path))
+                end
+            end
+
+            if anim_data and anim_data.states then
+                -- Find the first state with a framelist to get width/height
+                for _, state_data in pairs(anim_data.states) do
+                    if state_data.framelist and #state_data.framelist > 0 then
+                        local frame = state_data.framelist[1]
+                        if frame then
+                            def.width = frame.w or 16
+                            def.height = frame.h or 16
+                            break
+                        end
+                    end
+                end
+            end
         end
+
+        -- Apply overrides (they will overwrite any extracted values)
+        if overrides then
+            for k, v in pairs(overrides) do
+                def[k] = v
+            end
+        end
+
         return def
     end
 
@@ -644,7 +697,7 @@ function Displayer:_setupScrollingTextAPI()
     ---@param width number
     ---@param height number
     ---@param config? TextListConfig
-    ---@return string|nil list_id
+    ---@return table|nil list_object   # Returns a list object with methods
     api.createList = function(player_id, list_id, x, y, width, height, config)
         return scrollingTextList:createScrollingList(player_id, list_id, x, y, width, height, config)
     end
@@ -716,7 +769,7 @@ function Displayer:_setupScrollingSpriteAPI()
     ---@param width number
     ---@param height number
     ---@param config? SpriteListConfig
-    ---@return string|nil list_id
+    ---@return table|nil list_object   # Returns a list object with methods
     api.createList = function(player_id, list_id, x, y, width, height, config)
         return scrollingSpriteList:createScrollingList(player_id, list_id, x, y, width, height, config)
     end

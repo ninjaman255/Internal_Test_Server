@@ -1,5 +1,6 @@
 --[[
 test_Displayer.lua – Comprehensive test script for Displayer API.
+All coordinates are now in 240×160 virtual space.
 Non‑blocking version using the timer system for sequencing.
 Run this after a player joins, passing their player_id.
 Now safely cancels all steps if the player disconnects.
@@ -49,7 +50,7 @@ local steps = {
     -- Step 1: Font glyph
     function()
         print("1. Testing Font.drawGlyph and updateGlyph")
-        Test.glyph_id = Displayer.Font.drawGlyph(Test.player_id, "THICK", "A", 50, 50,
+        Test.glyph_id = Displayer.Font.drawGlyph(Test.player_id, "THICK", "A", 25, 25,
             Displayer.Builder.glyph({ scale = 3, r = 255, g = 0, b = 0, ro = 0 })
         )
         schedule(1, function()
@@ -67,7 +68,7 @@ local steps = {
     -- Step 2: Static text (legacy wrapper)
     function()
         print("2. Testing Text.drawStatic (legacy)")
-        Displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 10, 40,
+        Displayer.Text.drawStatic(Test.player_id, "static1", "Hello Static!", 5, 20,
             Displayer.Builder.staticText({ font = "SHIMMER", scale = 2, r = 255, g = 0, b = 0, a = 255, color_mode = 1 })
         )
         schedule(10, function()
@@ -94,7 +95,7 @@ local steps = {
             return { r = color.r, g = color.g, b = color.b, a = 188}
         end
 
-        Displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 150,
+        Displayer.Text.drawMarquee(Test.player_id, "marquee1", "This is a scrolling marquee...", 70,
             Displayer.Builder.marquee({
                 speed = 80,
                 loops = 2,                     -- will disappear after two loops
@@ -118,7 +119,7 @@ local steps = {
         Test.box_id = "box1"
         Displayer.Text.createTextBox(Test.player_id, Test.box_id,
             "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it.",
-            50, 180, 400, 100,
+            25, 90, 200, 50,
             Displayer.Builder.textBox({
                 font = "THICK",
                 scale = 2,
@@ -157,13 +158,13 @@ local steps = {
         print("5. Testing unified Text.draw (static, marquee, typewriter)")
 
         -- Unified static text
-        Displayer.Text.draw(Test.player_id, "unified_static", "Unified Static Text", 10, 70,
+        Displayer.Text.draw(Test.player_id, "unified_static", "Unified Static Text", 5, 35,
             Displayer.Builder.text("static", { font = "THIN", scale = 2, r = 0, g = 255, b = 0 })
         )
 
         schedule(2, function()
             -- Unified marquee text
-            Displayer.Text.draw(Test.player_id, "unified_marquee", "Unified Marquee Scrolls...", 0, 120,
+            Displayer.Text.draw(Test.player_id, "unified_marquee", "Unified Marquee Scrolls...", 0, 20,
                 Displayer.Builder.text("marquee", {
                     font = "SHIMMER",
                     scale = 2,
@@ -179,9 +180,9 @@ local steps = {
             schedule(3, function()
                 -- Unified typewriter text box
                 Displayer.Text.draw(Test.player_id, "unified_typewriter",
-                    "This is a unified typewriter box. It should reveal characters one by one.", 50, 200,
+                    "This is a unified typewriter box. It should reveal characters one by one.", 25, 50,
                     Displayer.Builder.text("typewriter", {
-                        width = 400, height = 80,
+                        width = 120, height = 30,
                         font = "THICK",
                         scale = 2,
                         typewriter = { speed = 25, sound = "/server/assets/net-games/sfx/text.ogg" },
@@ -204,7 +205,7 @@ local steps = {
     -- Step 6: Player-specific countdown display
     function()
         print("6. Testing TimerDisplay.createPlayerCountdown (10 sec countdown)")
-        Displayer.TimerDisplay.createPlayerCountdown(Test.player_id, "cd_test", 200, 150,
+        Displayer.TimerDisplay.createPlayerCountdown(Test.player_id, "cd_test", 60, 40,
             Displayer.Builder.timerDisplay({ font = "THICK", scale = 3, color = { r = 255, g = 200, b = 0 } })
         )
         Displayer.Timer.createPlayerCountdown(Test.player_id, "cd_test", 10, function()
@@ -263,23 +264,32 @@ local steps = {
     function()
         print("9. Testing ScrollingSprite.createList")
         local sprites = {
-            Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
-            Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
-            Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { sx = 2, sy = 2 }),
+           -- Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png")
+             --Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { anim_path = "/server/assets/net-games/meters/order_points.animation", anim_state = "7POINT" }),
+             -- Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { anim_path = "/server/assets/net-games/meters/order_points.animation", anim_state = "6POINT" }),
         }
         Test.sprite_list_id = "scroll_sprite_1"
-        Displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
+        local sprite_list = Displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
             Displayer.Builder.spriteList({
-                scroll_speed = 50,
-                entry_delay = 1.5,
+                scroll_speed = 100,
+                entry_delay = 0.5,
                 max_columns = 2,
                 column_spacing = 10,
                 row_spacing = 10,
                 align = "center",
-                sprites = sprites,
-                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, nil, nil, 50, 50, 50, 150)
+                sprites = {},  -- start empty
+                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 50, 50, 50, 150)
             })
         )
+
+        if sprite_list then
+            sprite_list:addSprite(Displayer.Builder.spriteDef(
+                "/server/assets/net-games/meters/order_points.png", {anim_path = "/server/assets/net-games/meters/order_points.animation"}
+            ))
+        else
+            print("Failed to create sprite list")
+        end
+             
         schedule(10, function()
             Displayer.ScrollingSprite.removeList(Test.player_id, Test.sprite_list_id)
             print("Scrolling sprite list removed")
