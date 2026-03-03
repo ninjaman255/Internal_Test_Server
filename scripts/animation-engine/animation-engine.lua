@@ -7,8 +7,8 @@ _G.AnimationEngine = AnimationEngine
 AnimationEngine.__index = AnimationEngine
 
 -- Load core dependencies
-AnimationEngine.AnimEnums = require("scripts/net-games/animation-engine/animation-enums")
-local MathUtils = require("scripts/net-games/animation-engine/math-utils")
+AnimationEngine.AnimEnums = require("scripts/animation-engine/animation-enums")
+local MathUtils = require("scripts/animation-engine/math-utils")
 AnimationEngine.MathUtils = MathUtils
 
 -- ---------------------------------------------------------------------------
@@ -950,7 +950,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Load Sequences (after everything is defined)
 -- ---------------------------------------------------------------------------
-local AnimationSequences = require("scripts/net-games/animation-engine/animation-sequences")
+local AnimationSequences = require("scripts/animation-engine/animation-sequences")
 AnimationEngine.Sequences = AnimationSequences
 
 -- ---------------------------------------------------------------------------

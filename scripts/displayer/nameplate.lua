@@ -1,16 +1,14 @@
 --[[
 nameplate.lua – BN‑style nameplate with 3‑slice sprite and text.
-Uses the font system for the name text and manages its own sprite assets.
-All sprite instances are tracked for reliable updates and cleanup.
+Uses AnimationEngine for unfolding and bob animations.
 ]]
 
 local Nameplate = {}
 Nameplate.__index = Nameplate
 
+local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local ceil_div = function(a, b) return math.floor((a + b - 1) / b) end
 
----@class Nameplate
----@param font_system FontSystem
 function Nameplate:new(font_system)
     local o = setmetatable({}, self)
     o.font_system = font_system
@@ -32,7 +30,6 @@ function Nameplate:new(font_system)
 
     o.player_assets = {}
 
-    -- Clean up when a player disconnects
     Net:on("player_disconnect", function(event)
         local ok, err = pcall(function()
             local player_id = event.player_id
@@ -49,7 +46,6 @@ function Nameplate:new(font_system)
 end
 
 -- Ensure all required sprite assets are allocated for a player.
----@param player_id string
 function Nameplate:ensureAssets(player_id)
     if self.player_assets[player_id] then return end
 
@@ -90,7 +86,6 @@ function Nameplate:ensureAssets(player_id)
 end
 
 -- Deallocate all nameplate assets for a player.
----@param player_id string
 function Nameplate:cleanupPlayer(player_id)
     local assets = self.player_assets[player_id]
     if not assets then return end
@@ -109,21 +104,144 @@ function Nameplate:cleanupPlayer(player_id)
     self.player_assets[player_id] = nil
 end
 
--- Attach a nameplate to a text box.
----@param player_id string
----@param player_data table   # (unused, kept for compatibility)
----@param box_id string
----@param box_data table      # text box data containing position, scale, etc.
----@param cfg string|table    # configuration: either a string (the name) or a table with options
-function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
-    if not cfg then
-        return
+-- Redraw the nameplate based on current np.mids_drawn, np.y, etc.
+function Nameplate:_redraw(player_id, np, assets)
+    local scale = np.scale
+    local z = np.z
+    local y = np.y   -- already includes bob offset
+    local mids = np.mids_drawn or 0
+
+    local total_w = (self.w_left + self.w_right) * scale + (mids * np.mid_w)
+    local left_x = math.floor((np.center_x - total_w / 2) + 0.5)
+
+    -- Base left
+    Net.player_draw_sprite(player_id, assets.base_left, {
+        id = np.idp .. "_L",
+        x = left_x, y = y, z = z,
+        sx = scale, sy = scale,
+        r = 255, g = 255, b = 255,
+        opacity = 255, a = 255,
+        color_mode = 0,
+    })
+
+    -- Base right
+    local right_x = left_x + self.w_left * scale + mids * np.mid_w
+    Net.player_draw_sprite(player_id, assets.base_right, {
+        id = np.idp .. "_R",
+        x = right_x, y = y, z = z,
+        sx = scale, sy = scale,
+        r = 255, g = 255, b = 255,
+        opacity = 255, a = 255,
+        color_mode = 0,
+    })
+
+    -- Base middle pieces
+    for i = 0, mids - 1 do
+        local mx = left_x + self.w_left * scale + i * np.mid_w
+        Net.player_draw_sprite(player_id, assets.base_mid[i], {
+            id = np.idp .. "_M" .. i,
+            x = mx, y = y, z = z,
+            sx = scale, sy = scale,
+            r = 255, g = 255, b = 255,
+            opacity = 255, a = 255,
+            color_mode = 0,
+        })
+    end
+    for i = mids, self.MAX_MIDS - 1 do
+        Net.player_erase_sprite(player_id, np.idp .. "_M" .. i)
     end
 
-    local text = type(cfg) == "string" and cfg or cfg.text
-    if not text or text == "" then
-        return
+    -- Frame overlay
+    if np.frame and np.frame.a > 0 then
+        local fz = z + 1
+        local fr, fg, fb, fa, fmode = np.frame.r, np.frame.g, np.frame.b, np.frame.a, np.frame.color_mode
+
+        Net.player_draw_sprite(player_id, assets.frame_left, {
+            id = np.idp .. "_FL",
+            x = left_x, y = y, z = fz,
+            sx = scale, sy = scale,
+            r = fr, g = fg, b = fb,
+            opacity = 255, a = fa,
+            color_mode = fmode,
+        })
+
+        Net.player_draw_sprite(player_id, assets.frame_right, {
+            id = np.idp .. "_FR",
+            x = right_x, y = y, z = fz,
+            sx = scale, sy = scale,
+            r = fr, g = fg, b = fb,
+            opacity = 255, a = fa,
+            color_mode = fmode,
+        })
+
+        for i = 0, mids - 1 do
+            local mx = left_x + self.w_left * scale + i * np.mid_w
+            Net.player_draw_sprite(player_id, assets.frame_mid[i], {
+                id = np.idp .. "_FM" .. i,
+                x = mx, y = y, z = fz,
+                sx = scale, sy = scale,
+                r = fr, g = fg, b = fb,
+                opacity = 255, a = fa,
+                color_mode = fmode,
+            })
+        end
+        for i = mids, self.MAX_MIDS - 1 do
+            Net.player_erase_sprite(player_id, np.idp .. "_FM" .. i)
+        end
+    else
+        Net.player_erase_sprite(player_id, np.idp .. "_FL")
+        Net.player_erase_sprite(player_id, np.idp .. "_FR")
+        for i = 0, self.MAX_MIDS - 1 do
+            Net.player_erase_sprite(player_id, np.idp .. "_FM" .. i)
+        end
     end
+
+    -- Draw name text when fully unfolded and not closing
+    if np.complete and not np.closing and np.text then
+        local text_x = math.floor((left_x + self.w_left * scale + np.pad_px) + 0.5)
+        local text_y = math.floor((y + (3 * scale) + 2) + 0.5)
+
+        if np.text_glyph_ids then
+            for _, id in ipairs(np.text_glyph_ids) do
+                self.font_system:eraseGlyph(player_id, id)
+            end
+        end
+
+        local glyph_ids = {}
+        local cx = text_x
+        for i = 1, #np.text do
+            local ch = np.text:sub(i,i)
+            if ch ~= " " then
+                local inst_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y, {
+                    scale = np.text_scale,
+                    z = z + 2,
+                    r = 255, g = 255, b = 255,
+                    opacity = 255, a = 255,
+                })
+                if inst_id then
+                    table.insert(glyph_ids, inst_id)
+                end
+            end
+            local w, _ = self.font_system:getGlyphDimensions(np.font, ch)
+            cx = cx + w * np.text_scale + 1 * np.text_scale
+        end
+        np.text_glyph_ids = glyph_ids
+    else
+        if np.text_glyph_ids then
+            for _, id in ipairs(np.text_glyph_ids) do
+                self.font_system:eraseGlyph(player_id, id)
+            end
+            np.text_glyph_ids = nil
+        end
+    end
+end
+
+-- Attach a nameplate to a text box.
+function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
+    if not cfg then return end
+
+    local text = type(cfg) == "string" and cfg or cfg.text
+    if not text or text == "" then return end
 
     self:ensureAssets(player_id)
 
@@ -155,10 +273,8 @@ function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
     end
 
     local inner_needed = math.max(1, math.floor(text_w + pad_px * 2))
-
     local mid_w = self.w_mid * scale
     local mids_target = math.min(self.MAX_MIDS, math.max(1, ceil_div(inner_needed, mid_w)))
-
     local total_w = (self.w_left + self.w_right) * scale + (mids_target * mid_w)
 
     local gap_x = (type(cfg) == "table" and cfg.gap_x) or (6 * scale)
@@ -204,58 +320,94 @@ function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
         }
     end
 
-    box_data.nameplate = {
+    local assets = self.player_assets[player_id]
+
+        local np = {
         idp = idp,
         text = text,
         font = font_name,
         text_scale = text_scale,
         pad_px = pad_px,
 
-        x = x,
+        scale = scale,                     -- ← ADD THIS LINE
+
+        base_x = x, base_y = y,
         y = y,
-        base_y = y,
         z = z,
 
         frame = frame_tint,
 
-        bob_t = 0,
         bob_amp = (type(cfg) == "table" and cfg.bob_amp) or (3 * scale),
         bob_speed = (type(cfg) == "table" and cfg.bob_speed) or 1.0,
+        bob_offset = 0,
 
         mids_target = mids_target,
         mid_w = mid_w,
         total_w_full = total_w,
         center_x = center_x,
 
-        t = 0,
-        dur = (type(cfg) == "table" and cfg.dur) or 0.14,
-        close_dur = (type(cfg) == "table" and cfg.close_dur) or nil,
         mids_drawn = 0,
         complete = false,
 
-        text_display_id = "nameplate:" .. tostring(box_id),
-
+        text_glyph_ids = nil,
         closing = false,
-        close_t = 0,
+
+        unfold_anim_id = nil,
+        bob_anim_id = nil,
+        close_anim_id = nil,
     }
+
+    -- Unfold animation: progress 0 → 1 over dur
+    np.unfold_anim_id = AnimationEngine.animate(
+        { progress = 0 },
+        { progress = 1 },
+        (type(cfg) == "table" and cfg.dur) or 0.14,
+        {
+            easing = "ease_out",
+            on_update = function(values)
+                np.mids_drawn = math.max(1, math.floor(np.mids_target * values.progress + 0.5))
+                if values.progress >= 1 then
+                    np.complete = true
+                end
+                self:_redraw(player_id, np, assets)
+            end,
+        }
+    )
+
+    -- Bob animation: loop ping‑pong on bob_offset
+    np.bob_anim_id = AnimationEngine.animate(
+        { offset = 0 },
+        { offset = np.bob_amp },
+        np.bob_speed * 2,   -- period for a full up‑down cycle
+        {
+            easing = "sine_in_out",
+            loop = true,
+            ping_pong = true,
+            on_update = function(values)
+                np.bob_offset = values.offset
+                np.y = np.base_y + np.bob_offset
+                self:_redraw(player_id, np, assets)
+            end,
+        }
+    )
+
+    box_data.nameplate = np
 end
 
--- Erase a nameplate (remove all its sprite instances).
----@param player_id string
----@param player_data table
----@param box_data table
+-- Erase a nameplate (remove all its sprite instances and stop animations).
 function Nameplate:erase(player_id, player_data, box_data)
-    -- Guard against nil box_data or missing nameplate
-    if not box_data or not box_data.nameplate then
-        return
-    end
+    if not box_data or not box_data.nameplate then return end
 
     local np = box_data.nameplate
     local assets = self.player_assets[player_id]
-    if not assets then
-        return
-    end
+    if not assets then return end
 
+    -- Stop any running animations
+    if np.unfold_anim_id then AnimationEngine.stop_animation(np.unfold_anim_id) end
+    if np.bob_anim_id then AnimationEngine.stop_animation(np.bob_anim_id) end
+    if np.close_anim_id then AnimationEngine.stop_animation(np.close_anim_id) end
+
+    -- Erase sprites
     Net.player_erase_sprite(player_id, np.idp .. "_L")
     Net.player_erase_sprite(player_id, np.idp .. "_R")
     for i = 0, self.MAX_MIDS - 1 do
@@ -278,24 +430,35 @@ function Nameplate:erase(player_id, player_data, box_data)
 end
 
 -- Begin the closing animation (reverse unfold).
----@param player_id string
----@param player_data table
----@param box_data table
----@param cfg? table   # optional overrides
 function Nameplate:begin_close(player_id, player_data, box_data, cfg)
-    -- Guard against nil box_data or missing nameplate
-    if not box_data or not box_data.nameplate then
-        return
-    end
+    if not box_data or not box_data.nameplate then return end
 
     local np = box_data.nameplate
     if np.closing then return end
 
     np.closing = true
-    np.close_t = 0
+    local close_dur = (cfg and cfg.close_dur) or np.close_dur or (cfg and cfg.dur) or np.dur or 0.12
 
-    local cd = (cfg and cfg.close_dur) or np.close_dur or (cfg and cfg.dur) or np.dur or 0.12
-    np.close_dur = cd
+    -- Stop unfold and bob animations
+    if np.unfold_anim_id then AnimationEngine.stop_animation(np.unfold_anim_id); np.unfold_anim_id = nil end
+    if np.bob_anim_id then AnimationEngine.stop_animation(np.bob_anim_id); np.bob_anim_id = nil end
+
+    -- Start closing animation (progress 1 → 0)
+    np.close_anim_id = AnimationEngine.animate(
+        { progress = 1 },
+        { progress = 0 },
+        close_dur,
+        {
+            easing = "ease_in",
+            on_update = function(values)
+                np.mids_drawn = math.max(0, math.floor(np.mids_target * values.progress + 0.5))
+                self:_redraw(player_id, np, self.player_assets[player_id])
+            end,
+            on_complete = function()
+                self:erase(player_id, player_data, box_data)
+            end,
+        }
+    )
 
     if np.text_glyph_ids then
         for _, id in ipairs(np.text_glyph_ids) do
@@ -305,175 +468,9 @@ function Nameplate:begin_close(player_id, player_data, box_data, cfg)
     end
 end
 
--- Update nameplate animation (called every tick).
----@param player_id string
----@param player_data table
----@param box_data table
----@param dt number
+-- Update is now a no‑op (animations handled by AnimationEngine).
 function Nameplate:update(player_id, player_data, box_data, dt)
-    -- Guard against nil box_data or missing nameplate
-    if not box_data or not box_data.nameplate then
-        return
-    end
-
-    local np = box_data.nameplate
-    dt = math.min(dt or 0, 1/30)
-
-    local assets = self.player_assets[player_id]
-    if not assets then
-        return
-    end
-
-    local scale = box_data.scale or 2.0
-    local z = np.z
-
-    if np.closing then
-        np.close_t = np.close_t + dt
-        local p = np.close_t / np.close_dur
-        if p >= 1 then
-            self:erase(player_id, player_data, box_data)
-            return
-        end
-        local remain = 1 - p
-        np.mids_drawn = math.max(0, math.floor(np.mids_target * remain + 0.0001))
-    else
-        if not np.complete then
-            np.t = np.t + dt
-            local p = np.t / np.dur
-            if p >= 1 then p = 1; np.complete = true end
-            np.mids_drawn = math.max(1, math.floor(np.mids_target * p + 0.0001))
-        end
-    end
-
-    local mids = np.mids_drawn
-    local total_w = (self.w_left + self.w_right) * scale + (mids * np.mid_w)
-    local left_x = math.floor((np.center_x - total_w / 2) + 0.5)
-
-    np.bob_t = (np.bob_t or 0) + dt * (np.bob_speed or 1.0)
-    local bob = math.floor((math.sin(np.bob_t) * (np.bob_amp or 0)) + 0.5)
-    local y = math.floor(((np.base_y or np.y) + bob) + 0.5)
-
-    -- Draw left slice (base)
-    Net.player_draw_sprite(player_id, assets.base_left, {
-        id = np.idp .. "_L",
-        x = left_x, y = y, z = z,
-        sx = scale, sy = scale,
-        r = 255, g = 255, b = 255,
-        opacity = 255, a = 255,
-        color_mode = 0,
-    })
-
-    -- Draw right slice (base)
-    local right_x = left_x + self.w_left * scale + mids * np.mid_w
-    Net.player_draw_sprite(player_id, assets.base_right, {
-        id = np.idp .. "_R",
-        x = right_x, y = y, z = z,
-        sx = scale, sy = scale,
-        r = 255, g = 255, b = 255,
-        opacity = 255, a = 255,
-        color_mode = 0,
-    })
-
-    -- Draw middle pieces (base)
-    for i = 0, mids - 1 do
-        local mx = left_x + self.w_left * scale + i * np.mid_w
-        Net.player_draw_sprite(player_id, assets.base_mid[i], {
-            id = np.idp .. "_M" .. i,
-            x = mx, y = y, z = z,
-            sx = scale, sy = scale,
-            r = 255, g = 255, b = 255,
-            opacity = 255, a = 255,
-            color_mode = 0,
-        })
-    end
-    -- Erase unused middle pieces
-    for i = mids, self.MAX_MIDS - 1 do
-        Net.player_erase_sprite(player_id, np.idp .. "_M" .. i)
-    end
-
-    -- Draw frame overlay if tinted
-    if np.frame and np.frame.a > 0 then
-        local fz = z + 1
-        local fr, fg, fb, fa, fmode = np.frame.r, np.frame.g, np.frame.b, np.frame.a, np.frame.color_mode
-
-        Net.player_draw_sprite(player_id, assets.frame_left, {
-            id = np.idp .. "_FL",
-            x = left_x, y = y, z = fz,
-            sx = scale, sy = scale,
-            r = fr, g = fg, b = fb,
-            opacity = 255, a = fa,   -- overall opacity 255, alpha for tint is fa
-            color_mode = fmode,
-        })
-
-        Net.player_draw_sprite(player_id, assets.frame_right, {
-            id = np.idp .. "_FR",
-            x = right_x, y = y, z = fz,
-            sx = scale, sy = scale,
-            r = fr, g = fg, b = fb,
-            opacity = 255, a = fa,
-            color_mode = fmode,
-        })
-
-        for i = 0, mids - 1 do
-            local mx = left_x + self.w_left * scale + i * np.mid_w
-            Net.player_draw_sprite(player_id, assets.frame_mid[i], {
-                id = np.idp .. "_FM" .. i,
-                x = mx, y = y, z = fz,
-                sx = scale, sy = scale,
-                r = fr, g = fg, b = fb,
-                opacity = 255, a = fa,
-                color_mode = fmode,
-            })
-        end
-        for i = mids, self.MAX_MIDS - 1 do
-            Net.player_erase_sprite(player_id, np.idp .. "_FM" .. i)
-        end
-    else
-        Net.player_erase_sprite(player_id, np.idp .. "_FL")
-        Net.player_erase_sprite(player_id, np.idp .. "_FR")
-        for i = 0, self.MAX_MIDS - 1 do
-            Net.player_erase_sprite(player_id, np.idp .. "_FM" .. i)
-        end
-    end
-
-    -- Draw name text when fully unfolded and not closing
-    if np.complete and not np.closing then
-        local text_x = math.floor((left_x + self.w_left * scale + np.pad_px) + 0.5)
-        local text_y = math.floor((y + (3 * scale) + 2) + 0.5)
-
-        if np.text_glyph_ids then
-            for _, id in ipairs(np.text_glyph_ids) do
-                self.font_system:eraseGlyph(player_id, id)
-            end
-        end
-
-        local glyph_ids = {}
-        local cx = text_x
-        for i = 1, #np.text do
-            local ch = np.text:sub(i,i)
-            if ch ~= " " then
-                local inst_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y, {
-                    scale = np.text_scale,
-                    z = z + 2,
-                    r = 255, g = 255, b = 255,
-                    opacity = 255, a = 255,
-                })
-                if inst_id then
-                    table.insert(glyph_ids, inst_id)
-                end
-            end
-            local w, _ = self.font_system:getGlyphDimensions(np.font, ch)
-            cx = cx + w * np.text_scale + 1 * np.text_scale
-        end
-        np.text_glyph_ids = glyph_ids
-    else
-        if np.text_glyph_ids then
-            for _, id in ipairs(np.text_glyph_ids) do
-                self.font_system:eraseGlyph(player_id, id)
-            end
-            np.text_glyph_ids = nil
-        end
-    end
+    -- Nothing to do
 end
 
 return Nameplate
