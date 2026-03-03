@@ -42,7 +42,7 @@ function SpriteEntry:new(list_obj, player_id, list_id, index, def)
     o.state = "waiting"
     o.anim_id = nil
     o.delay_id = nil
-    o.destroying = false                     -- ← ADDED
+    o.destroying = false
     return o
 end
 
@@ -99,8 +99,8 @@ function SpriteEntry:redraw()
 end
 
 function SpriteEntry:destroy()
-    if self.destroying then return end      -- ← ADDED
-    self.destroying = true                   -- ← ADDED
+    if self.destroying then return end
+    self.destroying = true
 
     if self.anim_id then
         AnimationEngine.stop_animation(self.anim_id)
@@ -128,6 +128,7 @@ end
 
 function SpriteEntry:_beginScroll(distance, speed)
     if self.state ~= "waiting" then return end
+    print("Beginning scroll for sprite entry", self.index)
     self.state = "scrolling"
     local duration = distance / speed
     local start_y = self.grid_y
@@ -146,7 +147,7 @@ function SpriteEntry:_beginScroll(distance, speed)
             end,
             on_complete = function()
                 self.state = "finished"
-                if not self.destroying then          -- ← ADDED guard
+                if not self.destroying then
                     self:destroy()
                 end
                 if self.list then
@@ -371,6 +372,7 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         backdrop_id = self:_drawBackdrop(player_id, list_id, list_config)
     end
 
+    -- Create list object
     local list_object = {
         parent = self,
         player_id = player_id,
@@ -383,6 +385,7 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         remove_delay_id = nil,
     }
 
+    -- Create entry objects
     for i, def in ipairs(list_config.sprites) do
         local entry = SpriteEntry:new(list_object, player_id, list_id, i, def)
         entry.grid_x = grid_positions[i].grid_x
@@ -397,6 +400,7 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         entry:startScroll(entry.start_delay, distance, list_config.scroll_speed)
     end
 
+    -- Define methods
     function list_object:onEntryFinished()
         self.active_count = self.active_count - 1
         if self.active_count <= 0 then
@@ -414,6 +418,7 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
     end
 
     function list_object:addSprite(sprite_def)
+        print("addSprite called with", sprite_def)  -- Debug
         self.parent:ensureSpriteAsset(self.player_id, sprite_def)
         table.insert(self.config.sprites, sprite_def)
         self:_recreateEntries()
@@ -490,6 +495,9 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         end
         self.finished = false
     end
+
+    -- Debug: confirm methods are attached
+    print("List object created, addSprite type:", type(list_object.addSprite))
 
     self.player_lists[player_id].active_lists[list_id] = list_object
     return list_object

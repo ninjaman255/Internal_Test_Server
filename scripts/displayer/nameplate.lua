@@ -6,7 +6,7 @@ Uses AnimationEngine for unfolding and bob animations.
 local Nameplate = {}
 Nameplate.__index = Nameplate
 
-local AnimationEngine = require("scripts/animation-engine/animation-engine")
+local AnimationEngine = _G.AnimationEngine
 local ceil_div = function(a, b) return math.floor((a + b - 1) / b) end
 
 function Nameplate:new(font_system)
@@ -322,14 +322,15 @@ function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
 
     local assets = self.player_assets[player_id]
 
-        local np = {
+    -- Nameplate data (no manual timers)
+    local np = {
         idp = idp,
         text = text,
         font = font_name,
         text_scale = text_scale,
         pad_px = pad_px,
 
-        scale = scale,                     -- ← ADD THIS LINE
+        scale = scale,                     -- ← ADDED
 
         base_x = x, base_y = y,
         y = y,

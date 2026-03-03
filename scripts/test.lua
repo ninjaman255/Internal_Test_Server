@@ -259,15 +259,10 @@ local steps = {
             next_step()
         end)
     end,
-
-    -- Step 9: Scrolling Sprite List
+-- Step 9: Scrolling Sprite List
     function()
         print("9. Testing ScrollingSprite.createList")
-        local sprites = {
-           -- Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png")
-             --Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { anim_path = "/server/assets/net-games/meters/order_points.animation", anim_state = "7POINT" }),
-             -- Displayer.Builder.spriteDef("/server/assets/net-games/meters/order_points.png", { anim_path = "/server/assets/net-games/meters/order_points.animation", anim_state = "6POINT" }),
-        }
+        local sprites = {}
         Test.sprite_list_id = "scroll_sprite_1"
         local sprite_list = Displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
             Displayer.Builder.spriteList({
@@ -283,24 +278,21 @@ local steps = {
         )
 
         if sprite_list then
+            -- ✅ Correct call: texture_path, anim_path, anim_state, overrides
             sprite_list:addSprite(Displayer.Builder.spriteDef(
-                "/server/assets/net-games/meters/order_points.png", {anim_path = "/server/assets/net-games/meters/order_points.animation"}
+                "/server/assets/net-games/meters/order_points.png",
+                "/server/assets/net-games/meters/order_points.animation",
+                "7POINT"
             ))
         else
             print("Failed to create sprite list")
         end
-             
+
         schedule(10, function()
             Displayer.ScrollingSprite.removeList(Test.player_id, Test.sprite_list_id)
             print("Scrolling sprite list removed")
             next_step()
         end)
-    end,
-
-    -- Step 10: Done
-    function()
-        print("10. All tests completed.")
-        print("===== Displayer Test Completed =====")
     end,
 }
 

@@ -40,7 +40,7 @@ function TextEntry:new(list_obj, player_id, list_id, index, text, config)
     o.state = "waiting"   -- waiting, scrolling, finished
     o.anim_id = nil
     o.delay_id = nil
-    o.destroying = false                     -- ← ADDED
+    o.destroying = false
     return o
 end
 
@@ -55,7 +55,11 @@ function TextEntry:_createGlyphs(y_offset)
 
     local bounds_left = self.list.config.bounds_left
     local bounds_width = self.list.config.bounds_width
-    if not bounds_left or not bounds_width then return end
+    if not bounds_left or not bounds_width then
+        print("WARNING: bounds_left or bounds_width is nil for entry", self.index, bounds_left, bounds_width)
+        return
+    end
+    print("Creating glyphs for entry", self.index, "bounds_left:", bounds_left, "bounds_width:", bounds_width)
 
     local total_width = 0
     for i = 1, #self.text do
@@ -137,8 +141,8 @@ function TextEntry:setScale(scale)
 end
 
 function TextEntry:destroy()
-    if self.destroying then return end      -- ← ADDED
-    self.destroying = true                   -- ← ADDED
+    if self.destroying then return end
+    self.destroying = true
 
     if self.anim_id then
         AnimationEngine.stop_animation(self.anim_id)
@@ -170,6 +174,7 @@ end
 
 function TextEntry:_beginScroll(distance, speed)
     if self.state ~= "waiting" then return end
+    print("Beginning scroll for entry", self.index)
     self.state = "scrolling"
     local duration = distance / speed
     self:_createGlyphs(0)   -- draw at starting position
@@ -185,7 +190,7 @@ function TextEntry:_beginScroll(distance, speed)
             end,
             on_complete = function()
                 self.state = "finished"
-                if not self.destroying then          -- ← ADDED guard
+                if not self.destroying then
                     self:destroy()
                 end
                 if self.list then
