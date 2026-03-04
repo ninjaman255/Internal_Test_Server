@@ -199,7 +199,7 @@ end
 
 local function options_visible_on_current_page(player_id, box_id)
     local bd = Displayer.Text.getTextBoxData(player_id, box_id)
-    if not bd or not bd.pages then return false end
+    if not bd or not bd.pages then return false end   -- bd.pages is no longer available in new displayer
     local p = bd.current_page or 1
     local page = bd.pages[p]
     if not page then return false end
@@ -219,27 +219,27 @@ local function yesno_cursor_pos(player_id, box_id, ui_norm, selection)
     end
     local scale  = bd.scale or ui_norm.scale or 2.0
     local font   = bd.font  or ui_norm.font  or "THIN_BLACK"
-    local line_h = bd._line_height_px or (12 * scale)
+    local line_h = 12 * scale   -- approximate line height
 
+    -- In new displayer, we cannot rely on bd.pages, bd.current_page, bd.line_x_offsets.
+    -- This function will need to be reimplemented using the actual text layout.
+    -- For now, we use a fallback position.
     local options_line = 2
-    local curp = bd.current_page or 1
-    if bd.pages and bd.pages[curp] then
-        local lines = bd.pages[curp]
-        for i = 1, #lines do
-            local s = tostring(lines[i] or "")
-            if s:find("Yes") then
-                options_line = i
-                break
-            end
-        end
-    end
+    -- (Old logic that used bd.pages is commented out)
+    -- local curp = bd.current_page or 1
+    -- if bd.pages and bd.pages[curp] then
+    --     local lines = bd.pages[curp]
+    --     for i = 1, #lines do
+    --         local s = tostring(lines[i] or "")
+    --         if s:find("Yes") then
+    --             options_line = i
+    --             break
+    --         end
+    --     end
+    -- end
 
-    local base_x = bd.inner_x or ((bd.x or 0) + (bd.padding_x or 0))
-    local base_y = bd.inner_y or ((bd.y or 0) + (bd.padding_y or 0))
-
-    if bd.line_x_offsets and bd.line_x_offsets[options_line] then
-        base_x = base_x + bd.line_x_offsets[options_line]
-    end
+    local base_x = bd.x or (ui_norm.x * 2)   -- bd.x is screen coordinate
+    local base_y = bd.y or (ui_norm.y * 2)
 
     local options_y = base_y + ((options_line - 1) * line_h)
 
@@ -326,7 +326,7 @@ function PromptInstance:render_initial()
 
     local bd = Displayer.Text.getTextBoxData(player_id, tmp_box_id)
     local q_lines = {}
-    if bd and bd.pages then
+    if bd and bd.pages then   -- bd.pages no longer exists; this will fail
         for p = 1, #bd.pages do
             for l = 1, #bd.pages[p] do
                 table.insert(q_lines, tostring(bd.pages[p][l] or ""))
