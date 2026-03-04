@@ -104,6 +104,7 @@ end
 function SpriteEntry:destroy()
     if self.destroying then return end
     self.destroying = true
+    print("SpriteEntry:destroy called for entry", self.index)
 
     if self.anim_id then
         AnimationEngine.stop_animation(self.anim_id)
@@ -145,9 +146,13 @@ function SpriteEntry:_beginScroll(distance, speed)
 
     print("Beginning scroll for sprite entry", self.index, "distance:", distance, "speed:", speed)
     self.state = "scrolling"
-    local duration = distance / speed
+    local duration = (distance / speed) * 1000   -- convert to milliseconds (test)
     local start_y = self.grid_y
     local target_y = self.grid_y - distance
+
+    -- DEBUG: print the computed duration and positions
+    print("DEBUG: duration =", duration, "type =", type(duration))
+    print("DEBUG: start_y =", start_y, "target_y =", target_y)
 
     self:setPosition(self.grid_x, start_y)   -- draw at start
 
@@ -158,9 +163,11 @@ function SpriteEntry:_beginScroll(distance, speed)
         {
             easing = "linear",
             on_update = function(values)
+                print("DEBUG on_update: y =", values.y)   -- see if we get updates
                 self:setPosition(self.grid_x, values.y)
             end,
             on_complete = function()
+                print("SpriteEntry", self.index, "animation on_complete")
                 self.state = "finished"
                 if not self.destroying then
                     self:destroy()
@@ -171,6 +178,7 @@ function SpriteEntry:_beginScroll(distance, speed)
             end,
         }
     )
+    print("SpriteEntry", self.index, "animation started with id", self.anim_id)
 end
 
 -- --------------------------------------------------------------------
