@@ -1,4 +1,4 @@
--- scripts/net-games/input/input.lua
+-- scripts/input/input.lua
 --
 -- Net Games Input Helper (sticky-state)
 -- - Listens to Net:on("virtual_input") once
