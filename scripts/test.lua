@@ -119,7 +119,7 @@ local steps = {
         Test.box_id = "box1"
         Displayer.Text.createTextBox(Test.player_id, Test.box_id,
             "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it. I'm going to add more text here so when we advance there's actually more text.",
-            25, 90, 200, 50,
+            70, 90, 200, 50,
             Displayer.Builder.textBox({
                 font = "THICK",
                 scale = 2,
@@ -253,33 +253,52 @@ local steps = {
                 backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 0, 0, 0, 200)
             })
         )
-        schedule(8, function()
+        schedule(14, function()
             Displayer.ScrollingText.removeList(Test.player_id, Test.text_list_id)
             print("Scrolling text list removed")
             next_step()
         end)
     end,
--- Step 9: Scrolling Sprite List
+
+       -- Step 9: Scrolling Sprite List (debug mode)
     function()
-        print("9. Testing ScrollingSprite.createList")
-        local sprites = {}
-        Test.sprite_list_id = "scroll_sprite_1"
-        local sprite_list = Displayer.ScrollingSprite.createList(Test.player_id, Test.sprite_list_id, 0, 0, 240, 160,
+        print("9. Testing ScrollingSprite.createList (debug mode)")
+
+        -- Draw a red 'A' to confirm fonts work
+        Displayer.Font.drawGlyph(Test.player_id, "THICK", "A", 10, 10,
+            Displayer.Builder.glyph({ scale = 3, r = 255, g = 0, b = 0 })
+        )
+
+        local sprite_list = Displayer.ScrollingSprite.createList(Test.player_id, "scroll_sprite_1", 0, 0, 240, 160,
             Displayer.Builder.spriteList({
                 scroll_speed = 100,
-                entry_delay = 0.5,
+                entry_delay = 0,
                 max_columns = 2,
                 column_spacing = 10,
                 row_spacing = 10,
                 align = "center",
-                sprites = {},  -- start empty
-                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 50, 50, 50, 150)
+                sprites = {},
+                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 50, 50, 50, 150),
+                destroy_when_finished = true,   -- prevent auto-removal
             })
         )
 
         if sprite_list then
-            -- ✅ Correct call: texture_path, anim_path, anim_state, overrides
             sprite_list:addSprite(Displayer.Builder.spriteDef(
+                "/server/assets/net-games/meters/order_points.png",
+                "/server/assets/net-games/meters/order_points.animation",
+                "3POINT"
+            ))
+
+            sprite_list:addSprite(
+            Displayer.Builder.spriteDef(
+                "/server/assets/net-games/meters/order_points.png",
+                "/server/assets/net-games/meters/order_points.animation",
+                "7POINT"
+            ))
+            
+            sprite_list:addSprite(
+            Displayer.Builder.spriteDef(
                 "/server/assets/net-games/meters/order_points.png",
                 "/server/assets/net-games/meters/order_points.animation",
                 "7POINT"
@@ -288,11 +307,11 @@ local steps = {
             print("Failed to create sprite list")
         end
 
-        schedule(10, function()
-            Displayer.ScrollingSprite.removeList(Test.player_id, Test.sprite_list_id)
-            print("Scrolling sprite list removed")
-            next_step()
-        end)
+        -- schedule(40, function()
+        --     Displayer.ScrollingSprite.removeList(Test.player_id, "scroll_sprite_1")
+        --     print("Scrolling sprite list removed")
+        --     next_step()
+        -- end)
     end,
 }
 

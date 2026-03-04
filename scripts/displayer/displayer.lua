@@ -383,22 +383,33 @@ function Displayer:_setupBuilderAPI()
 
     --- Create a sprite definition for scrolling sprite lists.
     ---@param texture_path string   # Full path with "/server/" prefix
+    ---@param anim_path? string     # Full path with "/server/" prefix (optional)
+    ---@param anim_state? string    # Initial animation state (optional, auto‑detected if anim_path provided)
     ---@param overrides? table       # optional fields:
-    ---   - anim_path: string (full path with "/server/" prefix)
-    ---   - anim_state: string (initial animation state, e.g., "IDLE")
-    ---   - sx, sy: number (scale factors, default 1)
-    ---   - width, height: number (base dimensions, extracted from animation if anim_path provided)
+    ---   - sx, sy: number (scale factors, default 2)
+    ---   - width, height: number (base dimensions, auto‑detected from animation if anim_path provided)
     ---   - r, g, b: integer (tint, default 255)
     ---   - opacity: integer (overall opacity, default 255)
     ---   - a: integer (alpha for color_mode, default 255)
     ---   - ro: number (rotation degrees, default 0)
     ---   - color_mode: integer (0=multiply,1=additive,2=colorize)
     ---@return table
-    function api.spriteDef(texture_path,anim_path, anim_state, overrides)
+    function api.spriteDef(texture_path, anim_path, anim_state, overrides)
+        -- Normalize arguments: allow anim_path to be optional
+        if type(anim_path) == "table" then
+            overrides = anim_path
+            anim_path = nil
+            anim_state = nil
+        elseif type(anim_state) == "table" then
+            overrides = anim_state
+            anim_state = nil
+        end
+        overrides = overrides or {}
+
         local def = {
             texture_path = texture_path,
-            anim_state = anim_state or "",
             anim_path = anim_path or "",
+            anim_state = anim_state or "",
             ox = 0,
             oy = 0,
             sx = 2,
@@ -414,30 +425,42 @@ function Displayer:_setupBuilderAPI()
             color_mode = 0,
         }
 
-        -- If an animation path is provided, load it to extract default dimensions
-        if overrides and overrides.anim_path then
-            def.anim_path = overrides.anim_path
+        -- If animation path provided, load it to extract dimensions and first state
+        if anim_path and anim_path ~= "" then
             -- Strip "/server/" prefix for boom.load
-            local boom_path = def.anim_path:gsub("^/server/", "")
-            local anim_data = anim_cache[def.anim_path]
+            local boom_path = anim_path:gsub("^/server/", "")
+            local anim_data = anim_cache[anim_path]
             if not anim_data then
                 anim_data = boom.load(boom_path)
                 if anim_data then
-                    anim_cache[def.anim_path] = anim_data
+                    anim_cache[anim_path] = anim_data
                 else
-                    print("ERROR: Could not load animation: " .. tostring(def.anim_path))
+                    print("ERROR: Could not load animation: " .. tostring(anim_path))
                 end
             end
 
             if anim_data and anim_data.states then
-                -- Find the first state with a framelist to get width/height
-                for _, state_data in pairs(anim_data.states) do
-                    if state_data.framelist and #state_data.framelist > 0 then
+                -- Find a valid state to use as default for dimensions
+                local first_state = nil
+                for state_name, state_data in pairs(anim_data.states) do
+                    if not first_state then first_state = state_name end
+                    if state_name == def.anim_state then
+                        -- Exact match, use it
+                        first_state = state_name
+                        break
+                    end
+                end
+                if first_state then
+                    if def.anim_state == "" then
+                        def.anim_state = first_state
+                    end
+                    -- Get dimensions from the first frame of that state
+                    local state_data = anim_data.states[first_state]
+                    if state_data and state_data.framelist and #state_data.framelist > 0 then
                         local frame = state_data.framelist[1]
                         if frame then
                             def.width = frame.w or 16
                             def.height = frame.h or 16
-                            break
                         end
                     end
                 end
@@ -445,10 +468,8 @@ function Displayer:_setupBuilderAPI()
         end
 
         -- Apply overrides (they will overwrite any extracted values)
-        if overrides then
-            for k, v in pairs(overrides) do
-                def[k] = v
-            end
+        for k, v in pairs(overrides) do
+            def[k] = v
         end
 
         return def

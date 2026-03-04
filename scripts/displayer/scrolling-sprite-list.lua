@@ -9,6 +9,10 @@ ScrollingSpriteList.__index = ScrollingSpriteList
 local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local BACKDROP_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
 
+-- Cache for animation data to extract available states
+local boom = require("scripts/boom/main")
+local anim_cache = {}
+
 -- --------------------------------------------------------------------
 -- SpriteEntry class
 -- --------------------------------------------------------------------
@@ -77,6 +81,7 @@ function SpriteEntry:redraw()
         return
     end
     if not self.list or not self.list.config then return end
+
     local draw = {
         id = self.instance_id or (self.list_id .. "_entry_" .. self.index),
         x = self.props.x,
@@ -84,7 +89,6 @@ function SpriteEntry:redraw()
         z = self.list.config.z_order,
         sx = self.props.sx,
         sy = self.props.sy,
-        anim_state = self.props.anim_state,
         r = self.props.r,
         g = self.props.g,
         b = self.props.b,
@@ -95,9 +99,19 @@ function SpriteEntry:redraw()
         ox = 0,
         oy = 0,
     }
+
+    if self.props.anim_state and self.props.anim_state ~= "" then
+        draw.anim_state = self.props.anim_state
+    end
+
     if not self.instance_id then
         self.instance_id = draw.id
     end
+
+    -- DEBUG: print draw info
+    print(string.format("SpriteEntry %d redraw: state='%s', x=%.1f, y=%.1f",
+        self.index, draw.anim_state or "nil", draw.x, draw.y))
+
     Net.player_draw_sprite(self.player_id, self.sprite_asset_id, draw)
 end
 
@@ -110,7 +124,6 @@ function SpriteEntry:destroy()
         AnimationEngine.stop_animation(self.anim_id)
         self.anim_id = nil
     end
-    -- delay_id cannot be cancelled, ignore
     if self.instance_id then
         Net.player_erase_sprite(self.player_id, self.instance_id)
     end
@@ -133,7 +146,6 @@ end
 function SpriteEntry:_beginScroll(distance, speed)
     if self.state ~= "waiting" then return end
 
-    -- **FIX: Guard against zero or negative distance**
     if distance <= 0 then
         print("WARNING: SpriteEntry", self.index, "distance <= 0 ("..distance..") – destroying immediately")
         self.state = "finished"
@@ -146,15 +158,14 @@ function SpriteEntry:_beginScroll(distance, speed)
 
     print("Beginning scroll for sprite entry", self.index, "distance:", distance, "speed:", speed)
     self.state = "scrolling"
-    local duration = (distance / speed) * 1000   -- convert to milliseconds (test)
+    local duration = distance / speed   -- seconds (fixed)
     local start_y = self.grid_y
     local target_y = self.grid_y - distance
 
-    -- DEBUG: print the computed duration and positions
-    print("DEBUG: duration =", duration, "type =", type(duration))
+    print("DEBUG: duration =", duration, "seconds")
     print("DEBUG: start_y =", start_y, "target_y =", target_y)
 
-    self:setPosition(self.grid_x, start_y)   -- draw at start
+    self:setPosition(self.grid_x, start_y)
 
     self.anim_id = AnimationEngine.animate(
         { y = start_y },
@@ -163,8 +174,8 @@ function SpriteEntry:_beginScroll(distance, speed)
         {
             easing = "linear",
             on_update = function(values)
-                print("DEBUG on_update: y =", values.y)   -- see if we get updates
                 self:setPosition(self.grid_x, values.y)
+                print("DEBUG update: y =", values.y)   -- will show movement
             end,
             on_complete = function()
                 print("SpriteEntry", self.index, "animation on_complete")
@@ -182,7 +193,7 @@ function SpriteEntry:_beginScroll(distance, speed)
 end
 
 -- --------------------------------------------------------------------
--- ScrollingSpriteList main class
+-- ScrollingSpriteList main class (unchanged except where noted)
 -- --------------------------------------------------------------------
 function ScrollingSpriteList:init()
     self.player_lists = {}
@@ -249,11 +260,38 @@ function ScrollingSpriteList:cleanupPlayer(player_id)
     end
 end
 
+-- Helper: get first available animation state from an animation file
+local function getFirstState(anim_path)
+    if not anim_path then return nil end
+    if anim_cache[anim_path] then
+        local anim_data = anim_cache[anim_path]
+        if anim_data and anim_data.states then
+            for state_name, _ in pairs(anim_data.states) do
+                return state_name
+            end
+        end
+    else
+        local boom_path = anim_path:gsub("^/server/", "")
+        local anim_data = boom.load(boom_path)
+        if anim_data then
+            anim_cache[anim_path] = anim_data
+            if anim_data and anim_data.states then
+                for state_name, _ in pairs(anim_data.states) do
+                    return state_name
+                end
+            end
+        end
+    end
+    return nil
+end
+
 function ScrollingSpriteList:ensureSpriteAsset(player_id, sprite_def)
     if not self.player_assets then self.player_assets = {} end
     if not self.player_assets[player_id] then self:setupPlayer(player_id) end
+
     local anim_path = sprite_def.anim_path
     local asset_key = sprite_def.texture_path .. "|" .. (anim_path or "")
+
     if self.player_assets[player_id][asset_key] then
         return self.player_assets[player_id][asset_key]
     end
@@ -261,12 +299,26 @@ function ScrollingSpriteList:ensureSpriteAsset(player_id, sprite_def)
     local sprite_id = "sprite_" .. tostring(#self.player_assets[player_id] + 1) .. "_" .. player_id
 
     Net.provide_asset_for_player(player_id, sprite_def.texture_path)
-    if anim_path then Net.provide_asset_for_player(player_id, anim_path) end
+    if anim_path then
+        Net.provide_asset_for_player(player_id, anim_path)
+    end
 
-    Net.player_alloc_sprite(player_id, sprite_id, {
+    local alloc_params = {
         texture_path = sprite_def.texture_path,
         anim_path = anim_path or "",
-    })
+    }
+
+    if anim_path then
+        local first_state = getFirstState(anim_path)
+        if first_state then
+            alloc_params.anim_state = first_state
+            print("DEBUG: Setting default anim_state for asset", asset_key, "to", first_state)
+        else
+            print("WARNING: No states found in animation", anim_path)
+        end
+    end
+
+    Net.player_alloc_sprite(player_id, sprite_id, alloc_params)
 
     self.player_assets[player_id][asset_key] = sprite_id
     return sprite_id
@@ -395,7 +447,6 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         backdrop_id = self:_drawBackdrop(player_id, list_id, list_config)
     end
 
-    -- Create list object
     local list_object = {
         parent = self,
         player_id = player_id,
@@ -408,7 +459,6 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         remove_delay_id = nil,
     }
 
-    -- Create entry objects
     for i, def in ipairs(list_config.sprites) do
         local entry = SpriteEntry:new(list_object, player_id, list_id, i, def)
         entry.grid_x = grid_positions[i].grid_x
@@ -417,18 +467,15 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         list_object.entries[i] = entry
         list_object.active_count = list_object.active_count + 1
 
-        -- Scroll distance: from grid_y to off‑screen above bounds_top
         local sprite_h = (def.height or 16) * (def.sy or def.scale or 1)
         local distance = (entry.grid_y - list_config.bounds_top) + sprite_h
 
-        -- DEBUG: print the computed values
         print(string.format("Entry %d: grid_y=%.2f, bounds_top=%.2f, sprite_h=%.2f, distance=%.2f",
             i, entry.grid_y, list_config.bounds_top, sprite_h, distance))
 
         entry:startScroll(entry.start_delay, distance, list_config.scroll_speed)
     end
 
-    -- Define methods
     function list_object:onEntryFinished()
         self.active_count = self.active_count - 1
         if self.active_count <= 0 then
@@ -470,16 +517,24 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         if self.config.backdrop then
             self.config.backdrop.x = screen_x
             self.config.backdrop.y = screen_y
+            local pad_x = self.config.backdrop.padding_x or 16
+            local pad_y = self.config.backdrop.padding_y or 12
+            self.config.bounds_left   = self.config.backdrop.x + pad_x
+            self.config.bounds_right  = self.config.backdrop.x + self.config.backdrop.width - pad_x
+            self.config.bounds_top    = self.config.backdrop.y + pad_y
+            self.config.bounds_bottom = self.config.backdrop.y + self.config.backdrop.height - pad_y
             if self.backdrop_id then
                 Net.player_erase_sprite(self.player_id, self.backdrop_id)
             end
             self.backdrop_id = self.parent:_drawBackdrop(self.player_id, self.list_id, self.config)
         else
-            self.config.bounds_left = screen_x
-            self.config.bounds_top = screen_y
-            self.config.bounds_right = screen_x + self.config.width
+            self.config.bounds_left   = screen_x
+            self.config.bounds_top    = screen_y
+            self.config.bounds_right  = screen_x + self.config.width
             self.config.bounds_bottom = screen_y + self.config.height
         end
+        self.config.bounds_width  = self.config.bounds_right - self.config.bounds_left
+        self.config.bounds_height = self.config.bounds_bottom - self.config.bounds_top
 
         self:_recreateEntries()
     end
@@ -524,7 +579,6 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         self.finished = false
     end
 
-    -- Debug: confirm methods are attached
     print("List object created, addSprite type:", type(list_object.addSprite))
 
     self.player_lists[player_id].active_lists[list_id] = list_object
@@ -533,7 +587,7 @@ end
 
 function ScrollingSpriteList:updateAll(delta) end
 
--- Legacy API wrappers (unchanged)
+-- Legacy API wrappers
 function ScrollingSpriteList:getList(player_id, list_id)
     if not self.player_lists or not self.player_lists[player_id] then return nil end
     return self.player_lists[player_id].active_lists[list_id]
