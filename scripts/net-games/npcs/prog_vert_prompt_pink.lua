@@ -205,45 +205,39 @@ local function build_ui_config(box_id)
   }
 end
 
+-- ====================================================
+-- Reset a text box by creating a new one with the same ID
+-- (uses the backdrop coordinates from ui)
+-- ====================================================
 local function reset_box_text(player_id, box_id, ui, text, indicator_enabled)
-  local ops = {
-    page_advance = "wait_for_confirm",
-    auto_advance_seconds = 999999,
-    confirm_during_typing = true,
-    type_sfx_path = ui.type_sfx_path,
-    type_sfx_min_dt = ui.type_sfx_min_dt,
-    mugshot = ui.mugshot,
-    wrap_opts = { allow_leading_spaces = true },
-
-    -- IMPORTANT: avoid nameplate "close/open" flicker when reusing the box
-    nameplate = nil,
+  -- Build options table for createTextBox
+  local options = {
+    font = ui.font,
+    scale = ui.scale,
+    z = ui.z,
+    speed = ui.typing_speed,
+    type_sound = ui.type_sfx_path,
+    type_sound_min_dt = ui.type_sfx_min_dt,
+    -- do not pass nameplate – it will be re‑attached separately
   }
 
-  local bd = ui.backdrop
-  if bd and bd.indicator and indicator_enabled ~= nil then
-    bd.indicator.enabled = indicator_enabled and true or false
+  if indicator_enabled ~= nil and ui.backdrop and ui.backdrop.indicator then
+    ui.backdrop.indicator.enabled = indicator_enabled
   end
 
-  if Displayer.Text.reset_text_box then
-    Displayer.Text.reset_text_box(
-      player_id, box_id, text,
-      ui.x or 8, ui.y or 110, ui.w or 224, ui.h or 42,
-      ui.font or "THIN_BLACK", ui.scale or 2.0, ui.z or 100,
-      bd,
-      ui.typing_speed or 12,
-      ops
-    )
-  else
-    -- camelCase fallback (if your Displayer exposes it this way)
-    Displayer.Text:resetTextBox(
-      player_id, box_id, text,
-      ui.x or 8, ui.y or 110, ui.w or 224, ui.h or 42,
-      ui.font or "THIN_BLACK", ui.scale or 2.0, ui.z or 100,
-      bd,
-      ui.typing_speed or 12,
-      ops
-    )
-  end
+  -- Use backdrop coordinates (virtual 240×160)
+  local x = ui.backdrop.x
+  local y = ui.backdrop.y
+  local w = ui.backdrop.width
+  local h = ui.backdrop.height
+
+  Displayer.Text.createTextBox(
+    player_id,
+    box_id,
+    text,
+    x, y, w, h,
+    options
+  )
 end
 
 -- (kept for debugging / legacy callsites; not relied on for indicator correctness)
@@ -410,7 +404,7 @@ Net:on("tick", function()
       -- While printing, allow confirm to fast-forward
       if st == "printing" then
         if Input.pop(player_id, "confirm") then
-          Displayer.Text.advance_text_box(player_id, p.box_id)
+          Displayer.Text.advanceTextBox(player_id, p.box_id)
           Input.consume(player_id)
           Input.require_release(player_id, { "confirm" })
         end

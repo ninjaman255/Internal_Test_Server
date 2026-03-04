@@ -2337,9 +2337,10 @@ end
 Net:on("tick", function(event)
     -- AnimationEngine.tick is already called by the engine itself,
     -- so we don't need to call it here.
-
+    
     -- Poll input for each player that has a cursor
     for player_id, cursors in pairs(ui_cache) do
+    Input.consume(player_id)
         for cursor_id, element in pairs(cursors) do
             if element.is_cursor then
                 local cursor_options = element.cursor_options
@@ -2351,21 +2352,21 @@ Net:on("tick", function(event)
 
                     -- Direction handling
                     if movement == "vertical" then
-                        if Input.pop(player_id, "up") then
+                        if Input.is_down(player_id, "up") then
                             new_index = (current_index == 1) and #selections or (current_index - 1)
-                        elseif Input.pop(player_id, "down") then
+                        elseif Input.is_down(player_id, "down") then
                             new_index = (current_index == #selections) and 1 or (current_index + 1)
                         end
                     elseif movement == "horizontal" then
-                        if Input.pop(player_id, "left") then
+                        if Input.is_down(player_id, "left") then
                             new_index = (current_index == 1) and #selections or (current_index - 1)
-                        elseif Input.pop(player_id, "right") then
+                        elseif Input.is_down(player_id, "right") then
                             new_index = (current_index == #selections) and 1 or (current_index + 1)
                         end
                     elseif movement == "shoulder" then
-                        if Input.pop(player_id, "shoulderl") then
+                        if Input.is_down(player_id, "shoulderl") then
                             new_index = (current_index == 1) and #selections or (current_index - 1)
-                        elseif Input.pop(player_id, "shoulderr") then
+                        elseif Input.is_down(player_id, "shoulderr") then
                             new_index = (current_index == #selections) and 1 or (current_index + 1)
                         end
                     end
@@ -2382,7 +2383,7 @@ Net:on("tick", function(event)
                     end
 
                     -- Confirm selection
-                    if Input.pop(player_id, "confirm") then
+                    if Input.pressed(player_id, "confirm") then
                         local selection = selections[current_index]
                         if selection and selection.name then
                             Net:emit("cursor_selection", {

@@ -120,9 +120,9 @@ local function spawn_simon()
           warp_in=false
         })
         Logger:load():and_then(function ()
-        Logger:setKey(area_id .. "_simon", {Spawned = true, PlayersWhoPlayed = {}})
-        Logger:save()  
-      end)
+          Logger:setKey(area_id .. "_simon", {Spawned = true, PlayersWhoPlayed = {}})
+          Logger:save()  
+        end)
       end
     end
   end

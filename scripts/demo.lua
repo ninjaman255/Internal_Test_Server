@@ -1,4 +1,3 @@
-
 --[[
 * ---------------------------------------------------------- *
           Net Games Demo by Indiana - Version 0.06
@@ -13,6 +12,10 @@ local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local AnimationSequences = require("scripts/animation-engine/animation-sequences")
 
 NetHelpers.patch_net()
+
+-- Attach input helper (must be done before any virtual_input handlers)
+local Input = require("scripts/input/input")
+Input.attach_virtual_input_listener()
 
 NetHelpers.safe_require("scripts/net-games/dialogue/startup")
 
@@ -90,7 +93,7 @@ local backdrop_config = {
     y = 130,        -- Text will be automatically centered
     width = 240,    -- Width of the backdrop we currently are using
     height = 30,    -- Backdrop height (text will be centered within this)
-    loops = 1,      -- (int : optional) Set loops to how many times you would like it to show before removing or using a custom `on_finish` function to be called when the loops for marquee text have completed.
+    loops = 0,      -- (int : optional) Set loops to how many times you would like it to show before removing or using a custom `on_finish` function to be called when the loops for marquee text have completed.
                     --      - If nil or 0 is provided it will default to infinite be on screen until it is manually removed by the programmer.
 --  EXTRA OPTIONAL FIELDS NOT LISTED ABOVE
 --  on_finish     = (function : optional) some_x_function() end 
@@ -102,7 +105,7 @@ local backdrop_config = {
 Net:on("actor_interaction", function(event)
     if event.actor_id == "marquee_demo" and event.button == 0 and (marquee_active[event.player_id] ~= true) then
         -- Create a marquee with backdrop
-        games.draw_marquee_text("demo_marquee", event.player_id, "Welcome to the Net Games Demo! This is a scrolling marquee text!", 15, "THICK", 2.0, 100, "medium", backdrop_config)
+       games.draw_marquee_text("demo_marquee", event.player_id, "Welcome to the Net Games Demo! This is a scrolling marquee text!", 15, "THICK", 2.0, 100, 60, backdrop_config)
         marquee_active[event.player_id] = true
         Net.message_player(event.player_id, "Marquee text activated! Watch it scroll across the screen.")
     elseif event.actor_id == "marquee_demo" and event.button == 0 and marquee_active[event.player_id] == true then
@@ -136,42 +139,51 @@ end)
 --------------------------------------------------------------
 
 local bat_active = {} 
+local points_per_player = {}  -- per‑player points
 
 Net.create_bot("bat", { area_id="default", warp_in=false, texture_path="/server/assets/demo/cyber_bat.png", animation_path="/server/assets/demo/cyber_bat.animation", x=26, y=21, z=0, solid=true})
 
+-- Virtual input handler for the bat UI – now uses Input helper
 Net:on("virtual_input", function(event)
-    if bat_active[event.player_id] == true then 
-        for i,button in next,event.events do 
-            if button.name == "Shoulder R" and button.state == 1 then 
-                if points > 0 then
-                    points = points - 1 
-                    games.set_ui_animation("points",event.player_id,tostring(points.."POINT"))
-                else
-                    points = 8
-                    games.set_ui_animation("points",event.player_id,tostring(points.."POINT"))
-                end
-            elseif button.name == "Shoulder L" and button.state == 1 then
-                if points < 8 then
-                    points = points + 1 
-                    games.set_ui_animation("points",event.player_id,tostring(points.."POINT"))
-                else
-                    points = 0
-                    games.set_ui_animation("points",event.player_id,tostring(points.."POINT"))
-                end
-            elseif button.name == "Move Down" or button.name == "Move Left" or button.name == "Move Right" or button.name == "Move Up" and button.state == 1 then
-                games.remove_ui_element("points",event.player_id)
-                bat_active[event.player_id] = false
-                Net.unlock_player_input(event.player_id)
-            end 
-        end 
-    end 
+    local player_id = event.player_id
+    if bat_active[player_id] ~= true then return end
+
+    -- Shoulder R – decrease points
+    if Input.pop(player_id, "shoulderr") then
+        local points = points_per_player[player_id] or 8
+        if points > 0 then
+            points = points - 1
+        else
+            points = 8
+        end
+        points_per_player[player_id] = points
+        games.set_ui_animation("points", player_id, tostring(points .. "POINT"))
+
+    -- Shoulder L – increase points
+    elseif Input.pop(player_id, "shoulderl") then
+        local points = points_per_player[player_id] or 8
+        if points < 8 then
+            points = points + 1
+        else
+            points = 0
+        end
+        points_per_player[player_id] = points
+        games.set_ui_animation("points", player_id, tostring(points .. "POINT"))
+
+    -- Any direction key – deactivate UI
+    elseif Input.pop(player_id, "left") or Input.pop(player_id, "right") or
+           Input.pop(player_id, "up") or Input.pop(player_id, "down") then
+        games.remove_ui_element("points", player_id)
+        bat_active[player_id] = false
+        Net.unlock_player_input(player_id)
+    end
 end)
 
 Net:on("actor_interaction", function (event)
 
     if event.actor_id == "bat" and event.button == 0 and bat_active[event.player_id] == false then
-        points = 8
-        Net.message_player(event.player_id, "Press Left Shoulder to incfease and Right Shoulder to decrease. Press any arrow key to stop.","","") 
+        points_per_player[event.player_id] = 8
+        Net.message_player(event.player_id, "Press Left Shoulder to increase and Right Shoulder to decrease. Press any arrow key to stop.","","") 
         Net.lock_player_input(event.player_id)
         
     ------------------------------------------------------------------------
@@ -208,15 +220,15 @@ Net:on("actor_interaction", function (event)
         games.set_ui_animation((spr_id.."b"), pid, "7POINT")
         games.set_ui_animation((spr_id.."a"), pid, "6POINT")
 
-AnimationSequences.series(
-    {spr1 = eprops1,spr2 = eprops2,spr3 = eprops3},
-  function(obj, opts)
-    opts.loop = 1         -- force a single pulse per sprite
-    opts.ping_pong = true
-    return AnimationSequences.pulse(obj, opts)
-  end,
-  { delay_between = 0.05, loop = true, anim_options = { duration = 0.18, scale_to = 1.15 } }
-)
+        AnimationSequences.series(
+            {spr1 = eprops1,spr2 = eprops2,spr3 = eprops3},
+          function(obj, opts)
+            opts.loop = 1         -- force a single pulse per sprite
+            opts.ping_pong = true
+            return AnimationSequences.pulse(obj, opts)
+          end,
+          { delay_between = 0.05, loop = true, anim_options = { duration = 0.18, scale_to = 1.15 } }
+        )
         await(Async.sleep(2))
 
         ---- bob test:
@@ -252,9 +264,7 @@ AnimationSequences.series(
         games.bob_ui_element(spr_id.."a",pid, 5, 2)
 
                 ---- second slide test
-        games.summon_ui_element_relative(spr_id.."b",pid,161, 151, 2.0,3,20,1.1, 2, AnimationEngine.AnimEnums.EasingFns.cubic, function ()
-            
-        end)
+        games.summon_ui_element_relative(spr_id.."b",pid,161, 151, 2.0,3,20,1.1, 2, AnimationEngine.AnimEnums.EasingFns.cubic, function () end)
     
         games.color_pulse_from_current(spr_id.."b",pid, {r = 10, g = 122, b = 125, a = 255})
 
@@ -317,6 +327,7 @@ Net:on("actor_interaction", function (event)
     if event.actor_id == "changer" and event.button == 0 then
         local green_cursor_texture = "/server/assets/net-games/cursors/text_cursor.png"
         local green_cursor_anim = "/server/assets/net-games/cursors/text_cursor.animation"
+        -- Input.consume(event.player_id)
         local cursor_options
         cursor_options = {
             texture=green_cursor_texture,
@@ -328,13 +339,17 @@ Net:on("actor_interaction", function (event)
                 { x=35,y=85,z=0,name='protoman',state="CURSOR_RIGHT" }
             }, 
         }
+        Input.pop(event.player_id, "confirm")
+        --Input.require_release(event.player_id, {"confirm"})
         -- games.add_ui_element("navi_changer", event.player_id, green_cursor_texture, green_cursor_anim, "CURSOR_RIGHT", cursor_options.selections[1].x, cursor_options.selections[1].y, cursor_options.selections[1].z)
         games.spawn_cursor("navi_changer", event.player_id, cursor_options)
+
+
         games.menu_cursor_ui_element("navi_changer", event.player_id, 20, 1.8, 1, 10, "horizontal")
         games.color_pulse_from_current("navi_changer", event.player_id, {r = 0, g = 0, b = 255, a = 128})
         -- games.slide_ui_element("navi_changer", event.player_id, 100, 100, 2)
         games.draw_text("roll_label",event.player_id,"<Roll_EXE>",40,40,100,"BATTLE")
-        games.draw_advanced_text(event.player_id,"Megaman_EXE",{display_id = "megaman_label", x=80,y=120,z=100,font="BATTLE" , tint = {r = 125, g = 125, b =125, a =255, color_mode = 1}})
+        games.draw_text("megaman_label", event.player_id,"Megaman_EXE",40,60,100,"BATTLE")
         games.draw_text("protoman_label",event.player_id,"<PROTOMAN_EXE>",40,80,100,"BATTLE")
     end 
 
