@@ -1,14 +1,17 @@
 -- main.lua (Entry Point)
+
+-- 1. Set up the new input module (listener must be attached before CameraManager's listener)
+local Input = require("scripts/input/input")
+Input.attach_virtual_input_listener()   -- uses default bindings (includes directions)
+
+-- 2. Initialise the camera system
 local CameraManager = require("scripts/camera/camera-manager")
 local cancel = { "Cancel", "Shoot", "Run" }
--- Initialize the camera system
 CameraManager:init(cancel)
 
--- That's it! The system now:
--- 1. Automatically creates camera controllers for each player on join
--- 2. Automatically activates camera control for players on L press.
--- 3. Handles input for camera movement
--- 4. Manages camera position updates
+-- The system now:
+-- - Uses Input for robust direction detection (including combos and memory)
+-- - Activates camera on L press only if not already active
+-- - Deactivates correctly with the keep_camera_position flag
 
--- Optional: You can still use the CameraManager API if needed
 return CameraManager
