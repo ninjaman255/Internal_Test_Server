@@ -156,6 +156,9 @@ function TextDisplayInstance:new(player_id, text_id, text, x, y, options)
     o.anim_id = nil          -- for marquee animation
     o.next_char_delay = nil   -- for typewriter scheduling
 
+    -- Flag to prevent auto-removal while nameplate is attached
+    o.keep_alive = false
+
     -- Mode‑specific setup
     if o.mode == "marquee" then
         local loops_raw = (options.marquee and options.marquee.loops) or options.loops
@@ -448,8 +451,9 @@ end
 function TextDisplay:updateAll(dt)
     for player_id, displays in pairs(self.player_texts) do
         for text_id, display in pairs(displays) do
-            -- No per‑frame update needed, but check if completed
-            if display.state == "completed" then
+            -- Only auto-remove completed displays that do not have keep_alive flag
+            if display.state == "completed" and not display.keep_alive then
+                print("Auto-removing completed display", text_id)
                 display:close()
                 displays[text_id] = nil
             end
@@ -527,7 +531,11 @@ end
 
 function TextDisplay:getTextBoxData(player_id, box_id)
     local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
-    if not display then return nil end
+    if not display then
+        print("getTextBoxData: no display for box_id", box_id)
+        return nil
+    end
+    print("getTextBoxData returning for box_id", box_id, "_box_id =", box_id)
     return {
         x = display.x,
         y = display.y,
@@ -537,7 +545,17 @@ function TextDisplay:getTextBoxData(player_id, box_id)
         z_order = display.z,
         nameplate = display.nameplate,
         backdrop = nil,
+        _box_id = box_id,
     }
+end
+
+-- New methods for nameplate integration
+function TextDisplay:setKeepAlive(player_id, box_id, keep)
+    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
+    if display then
+        display.keep_alive = keep
+        print("setKeepAlive for box", box_id, "to", keep)
+    end
 end
 
 local textDisplay = setmetatable({}, TextDisplay)

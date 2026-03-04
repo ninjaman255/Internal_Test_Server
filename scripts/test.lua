@@ -118,7 +118,7 @@ local steps = {
         print("4. Testing Text.createTextBox and Nameplate.attach (legacy)")
         Test.box_id = "box1"
         Displayer.Text.createTextBox(Test.player_id, Test.box_id,
-            "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it.",
+            "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it. I'm going to add more text here so when we advance there's actually more text.",
             25, 90, 200, 50,
             Displayer.Builder.textBox({
                 font = "THICK",

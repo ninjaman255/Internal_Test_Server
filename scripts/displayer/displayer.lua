@@ -155,8 +155,14 @@ function Displayer:init()
 
     -- Set up sub‑APIs
     self:_setupFontAPI()
-    self:_setupTextAPI()
+    self:_setupTextAPI()               -- Text API is now complete
     self:_setupTimerDisplayAPI()
+
+    -- Inject the Text API into the nameplate instance
+    if nameplateInstance then
+        nameplateInstance:setTextAPI(self.Text)
+    end
+
     self:_setupNameplateAPI()
     self:_setupScrollingTextAPI()
     self:_setupScrollingSpriteAPI()
@@ -585,6 +591,14 @@ function Displayer:_setupTextAPI()
     --- Get the internal data table of a text box (for advanced manipulation). (Legacy wrapper)
     api.getTextBoxData = function(player_id, box_id)
         return textDisplay:getTextBoxData(player_id, box_id)
+    end
+
+    --- Set whether a text box should stay alive (prevent auto‑removal). Used by nameplates.
+    ---@param player_id string
+    ---@param box_id string
+    ---@param keep boolean
+    api.setKeepAlive = function(player_id, box_id, keep)
+        textDisplay:setKeepAlive(player_id, box_id, keep)
     end
 end
 

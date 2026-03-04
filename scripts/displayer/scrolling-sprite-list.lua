@@ -6,7 +6,7 @@ Uses AnimationEngine for entry delays and scrolling tweens.
 local ScrollingSpriteList = {}
 ScrollingSpriteList.__index = ScrollingSpriteList
 
-local AnimationEngine = _G.AnimationEngine
+local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local BACKDROP_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
 
 -- --------------------------------------------------------------------
@@ -72,7 +72,10 @@ function SpriteEntry:setAnimationState(state)
 end
 
 function SpriteEntry:redraw()
-    if not self.sprite_asset_id then return end
+    if not self.sprite_asset_id then
+        print("ERROR: SpriteEntry:redraw - no sprite_asset_id for entry", self.index)
+        return
+    end
     if not self.list or not self.list.config then return end
     local draw = {
         id = self.instance_id or (self.list_id .. "_entry_" .. self.index),
@@ -128,7 +131,19 @@ end
 
 function SpriteEntry:_beginScroll(distance, speed)
     if self.state ~= "waiting" then return end
-    print("Beginning scroll for sprite entry", self.index)
+
+    -- **FIX: Guard against zero or negative distance**
+    if distance <= 0 then
+        print("WARNING: SpriteEntry", self.index, "distance <= 0 ("..distance..") – destroying immediately")
+        self.state = "finished"
+        self:destroy()
+        if self.list then
+            self.list:onEntryFinished()
+        end
+        return
+    end
+
+    print("Beginning scroll for sprite entry", self.index, "distance:", distance, "speed:", speed)
     self.state = "scrolling"
     local duration = distance / speed
     local start_y = self.grid_y
@@ -397,6 +412,11 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
         -- Scroll distance: from grid_y to off‑screen above bounds_top
         local sprite_h = (def.height or 16) * (def.sy or def.scale or 1)
         local distance = (entry.grid_y - list_config.bounds_top) + sprite_h
+
+        -- DEBUG: print the computed values
+        print(string.format("Entry %d: grid_y=%.2f, bounds_top=%.2f, sprite_h=%.2f, distance=%.2f",
+            i, entry.grid_y, list_config.bounds_top, sprite_h, distance))
+
         entry:startScroll(entry.start_delay, distance, list_config.scroll_speed)
     end
 
@@ -418,7 +438,7 @@ function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width
     end
 
     function list_object:addSprite(sprite_def)
-        print("addSprite called with", sprite_def)  -- Debug
+        print("addSprite called with", sprite_def)
         self.parent:ensureSpriteAsset(self.player_id, sprite_def)
         table.insert(self.config.sprites, sprite_def)
         self:_recreateEntries()
