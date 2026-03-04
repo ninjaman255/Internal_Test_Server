@@ -119,7 +119,7 @@ local steps = {
         Test.box_id = "box1"
         Displayer.Text.createTextBox(Test.player_id, Test.box_id,
             "This is a test of the text box system. It will type out character by character, and then we'll attach a nameplate above it. I'm going to add more text here so when we advance there's actually more text.",
-            70, 90, 200, 50,
+            70, 90, 160, 50,
             Displayer.Builder.textBox({
                 font = "THICK",
                 scale = 2,
@@ -243,7 +243,7 @@ local steps = {
                 scale = 1.5,
                 scroll_speed = 40,
                 entry_delay = 1.0,
-                line_spacing = 20,
+                line_spacing = 5,
                 texts = {
                     "First entry",
                     "Second entry",
@@ -254,10 +254,10 @@ local steps = {
             })
         )
         schedule(14, function()
-            Displayer.ScrollingText.removeList(Test.player_id, Test.text_list_id)
-            print("Scrolling text list removed")
-            next_step()
-        end)
+        --     Displayer.ScrollingText.removeList(Test.player_id, Test.text_list_id)
+        --     print("Scrolling text list removed")
+             next_step()
+         end)
     end,
 
        -- Step 9: Scrolling Sprite List (debug mode)
@@ -274,12 +274,12 @@ local steps = {
                 scroll_speed = 100,
                 entry_delay = 0,
                 max_columns = 2,
-                column_spacing = 10,
-                row_spacing = 10,
+                column_spacing = 2,
+                row_spacing = 2,
                 align = "center",
                 sprites = {},
-                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 50, 50, 50, 150),
-                destroy_when_finished = true,   -- prevent auto-removal
+                backdrop = Displayer.Builder.backdrop(0, 0, 240, 160, 10, 10, 0, 0, 0, 0),
+                destroy_when_finished = false,   -- prevent auto-removal
             })
         )
 
@@ -307,11 +307,11 @@ local steps = {
             print("Failed to create sprite list")
         end
 
-        -- schedule(40, function()
+         schedule(40, function()
         --     Displayer.ScrollingSprite.removeList(Test.player_id, "scroll_sprite_1")
         --     print("Scrolling sprite list removed")
-        --     next_step()
-        -- end)
+           next_step()
+        end)
     end,
 }
 
