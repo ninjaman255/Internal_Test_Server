@@ -6,16 +6,25 @@
 - `Net.get_player_fragments(player_id)`
 - `Net.set_player_fragments(player_id, count)`
 - `Net.send_player_email(player_id, mail={})`
-- `Net.email_read(event={player_id, email_id})`
+- `Net:on("email_read", function(event={player_id, email_id}))`
 - `Net.player_alloc_sprite(player_id, sprite_id, params={})`
 - `Net.player_draw_sprite(player_id, sprite_id, obj={})`
 - `Net.player_erase_sprite(player_id, obj_id)`
 - `Net.player_dealloc_sprite(player_id, sprite_id)`
 - `Net.virtual_input(event={player_id, events={name, state}})`
+- `Net.provide_asset(area_id, asset_path, hint={asset_type, package_type})`
+- `Net.provide_asset_for_player(player_id, asset_path, hint={asset_type, package_type})`
   
 ## Changelog
+### 02/18/26
+- `Net.set_song_for_player(player_id, path)`.
+- `Net.stop_song_for_player(player_id)`.
+- Added `EmailIcon` enums to `enums.lua`.
+- Added `--version` to server.
+  
 ### 11/22/25
-- `Net.virtual_input(event)` added
+- `Net.virtual_input(event)` added.
+- `hint` param added for `Net.provide_asset` and `Net.provide_asset_for_player`.
 
 ### 11/21/25
 - `opacity` can now optionally be replaced with `a` for alpha channel.
@@ -182,3 +191,41 @@ The input states can be
 > When the player releases either `pressed` or `held`, a `release` event is emitted.
 > After `release`, there will be no more button states in the `events` table
 > for that button.
+
+## `Net.provide_asset`
+A new **OPTIONAL** `hint` parameter tells the server how to tag an asset.
+This parameter is a lua object and therefore a table `{}`.
+
+- `asset_type` - an enum identifying the asset as text, texture, audio, or data (other).
+- `package_type` - an **OPTIONAL** enum identifying the asset as a package (mod).
+
+### Asset Types
+- Text = `0`
+- Texture = `1`
+- Audio = `2`
+- Data = `3`
+  
+### Package Types
+- Blocks = `0`
+- Card = `1`
+- Encounter = `2`
+- Character = `3`
+- Library = `4`
+- Player = `5`
+
+## `Net.provide_asset_for_player`
+A new **OPTIONAL** `hint` parameter tells the server how to tag an asset.
+This parameter is a lua object and therefore a table `{}`.
+
+See: [`Net.provide_asset`](#netprovide_asset)
+
+## `Net.set_song_for_player`
+Where the old api method `Net.set_song(path)` changes the music for _everyone_ and also causes the map
+to rebuild and cache this change, this new api method simply tells the client given by `player_id`
+to loop the server asset found at `path`. 
+
+This is useful if you want to give one player a cinematic experience. For example during a cutscene
+without interrupting the other player's experiences on the same server.
+
+## `Net.stop_song_for_player`
+This api method will stop the music streaming on the client given by `player_id`.

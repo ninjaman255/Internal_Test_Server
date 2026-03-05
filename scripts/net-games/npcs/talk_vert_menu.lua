@@ -45,43 +45,11 @@ local function set_menu_locked(menu, locked)
     end
 end
 
-local function set_textbox_indicator(ui, enabled)
-    if not (ui and ui.backdrop and ui.backdrop.indicator) then return end
-    ui.backdrop.indicator.enabled = enabled and true or false
-end
-
--- ====================================================
--- Reset a text box by creating a new one with the same ID
--- (uses the backdrop coordinates from ui)
--- ====================================================
-local function reset_box_text(player_id, box_id, ui, text, indicator_enabled)
-    -- Build options table for createTextBox
-    local options = {
-        font = ui.font,
-        scale = ui.scale,
-        z = ui.z,
-        speed = ui.typing_speed,
-        type_sound = ui.type_sfx_path,
-        type_sound_min_dt = ui.type_sfx_min_dt,
-    }
-
-    if indicator_enabled ~= nil then
-        set_textbox_indicator(ui, indicator_enabled)
-    end
-
-    -- Use backdrop coordinates (virtual 240×160)
-    local x = ui.backdrop and ui.backdrop.x or 1
-    local y = ui.backdrop and ui.backdrop.y or 209
-    local w = ui.backdrop and ui.backdrop.width or 478
-    local h = ui.backdrop and ui.backdrop.height or 104
-
-    Displayer.Text.createTextBox(
-        player_id,
-        box_id,
-        text,
-        x, y, w, h,
-        options
-    )
+local function set_textbox_indicator(player_id, box_id, enabled)
+    local bd = Displayer.Text.getTextBoxData(player_id, box_id)
+    if not bd or not bd.backdrop then return end
+    bd.backdrop.indicator = bd.backdrop.indicator or {}
+    bd.backdrop.indicator.enabled = enabled and true or false
 end
 
 local function resolve_frame(frame_key_or_table)
@@ -106,7 +74,7 @@ local function apply_default_layout_frame(talk_cfg, layout)
 end
 
 --=====================================================
--- Tick loop (fixed getTextBoxData → getTextBoxState)
+-- Tick loop
 --=====================================================
 local function ensure_tick()
     if TICK_ATTACHED then return end
@@ -140,10 +108,15 @@ local function ensure_tick()
         for player_id, ex in pairs(exit_pending) do
             if not (PromptVertical.instances and PromptVertical.instances[player_id]) then
                 local box_id = ex.box_id
-                local ui = ex.ui          -- now contains normalized fields (x,y,w,h)
+                local ui = ex.ui
                 local flow = ex.flow
 
-                reset_box_text(player_id, box_id, ui, (flow.exit_goodbye_text or "Thanks for stopping by!"), true)
+                -- Use Dialogue.start for the goodbye line (preserves nameplate)
+                ui.backdrop.indicator.enabled = true
+                Dialogue.start(player_id, { flow.exit_goodbye_text or "Thanks for stopping by!" }, {
+                    reuse_existing_box = true,
+                    ui = ui,
+                })
 
                 pending_ack[player_id] = {
                     box_id = box_id,
@@ -186,7 +159,11 @@ local function ensure_tick()
                     on_yes = function()
                         play_sfx(player_id, flow.sfx.confirm)
                         local fmt = flow.post_select.text_format or 'You got "%s".'
-                        reset_box_text(player_id, box_id, ui, string.format(fmt, choice_text), true)
+                        ui.backdrop.indicator.enabled = true
+                        Dialogue.start(player_id, { string.format(fmt, choice_text) }, {
+                            reuse_existing_box = true,
+                            ui = ui,
+                        })
 
                         pending_ack[player_id] = {
                             box_id = box_id,
@@ -206,12 +183,14 @@ local function ensure_tick()
                             pcall(function() Net.lock_player_input(player_id) end)
                         end
 
-                        reset_box_text(
+                        ui.backdrop.indicator.enabled = false
+                        Dialogue.start(
                             player_id,
-                            box_id,
-                            ui,
-                            (flow.after_no_text or flow.after_text or "Is there anything else you'd like?"),
-                            false
+                            { (flow.after_no_text or flow.after_text or "Is there anything else you'd like?") },
+                            {
+                                reuse_existing_box = true,
+                                ui = ui,
+                            }
                         )
 
                         pending_ack[player_id] = {
@@ -253,7 +232,7 @@ local function ensure_tick()
 
                 elseif st == "waiting" then
                     if p.phase == 2 then
-                        set_textbox_indicator(p.ui, false)
+                        -- No need to toggle indicator here; it was set in the line
                         if p.menu then
                             set_menu_locked(p.menu, false)
                         end
@@ -277,12 +256,14 @@ local function ensure_tick()
                             return
                         end
 
-                        reset_box_text(
+                        p.ui.backdrop.indicator.enabled = false
+                        Dialogue.start(
                             player_id,
-                            p.box_id,
-                            p.ui,
-                            (p.flow.after_yes_text or p.flow.after_text or "Thank you!{p_1} Is there anything else you'd like?"),
-                            false
+                            { (p.flow.after_yes_text or p.flow.after_text or "Thank you!{p_1} Is there anything else you'd like?") },
+                            {
+                                reuse_existing_box = true,
+                                ui = p.ui,
+                            }
                         )
                         p.phase = 2
                     end
@@ -364,10 +345,9 @@ function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
             if choice_id == exit_id then
                 play_sfx(player_id, flow.sfx.close)
 
-                -- Store the normalized UI table for later reuse
                 exit_pending[player_id] = {
                     box_id = box_id,
-                    ui = ui,          -- ui already contains x,y,w,h
+                    ui = ui,
                     flow = flow,
                 }
 
@@ -389,7 +369,11 @@ function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
                 end
 
                 local fmt = flow.post_select.text_format or 'You got "%s".'
-                reset_box_text(player_id, box_id, ui, string.format(fmt, choice_text), true)
+                ui.backdrop.indicator.enabled = true
+                Dialogue.start(player_id, { string.format(fmt, choice_text) }, {
+                    reuse_existing_box = true,
+                    ui = ui,
+                })
 
                 pending_ack[player_id] = {
                     box_id = box_id,
