@@ -5,17 +5,17 @@
 * ---------------------------------------------------------- *
 ]]--
 
---the below line is required to access net-games functions
 local games = require("scripts/net-games/main")
 local NetHelpers = require("scripts/net-games/helpers/net-helpers")
 local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local AnimationSequences = require("scripts/animation-engine/animation-sequences")
+local InputSystem = require("scripts/input-controller/main")   -- per‑player input controllers
 
 NetHelpers.patch_net()
 
--- Attach input helper (must be done before any virtual_input handlers)
-local Input = require("scripts/input/input")
-Input.attach_virtual_input_listener()
+-- Remove the old Input helper
+-- local Input = require("scripts/input/input")
+-- Input.attach_virtual_input_listener()
 
 NetHelpers.safe_require("scripts/net-games/dialogue/startup")
 
@@ -27,6 +27,15 @@ end
 
 --purpose: Shorthand for await
 local function await(v) return Async.await(v) end
+
+-------------------------------------------
+-- DEBUG: print raw virtual_input
+-------------------------------------------
+Net:on("virtual_input", function(event)
+    for _, ev in ipairs(event.events) do
+        print("RAW INPUT:", ev.name, "state:", ev.state)
+    end
+end)
 
 -------------------------------------------
 -- DEMO CODE FOR NPC THAT LITTERALLY JUST TALK (WOW) --
@@ -118,16 +127,15 @@ end)
 Net:on("player_join", function(event)
     marquee_active[event.player_id] = false
 
--- Change palette later
--- holoshine.change_holoshine_colors(overlay, 2)  -- Switch to rainbow
-
--- Stop animation
--- holoshine.stop_holoshine_animation(overlay)
-
--- Clean up
--- holoshine.remove_holoshine_overlay(overlay)
--- Remove when done
--- holoshine.remove_holoshine_overlay(overlay, event.player_id)
+    -- Example of using the input controller: show a message when Start is pressed
+    local ctrl = InputSystem.get_controller(event.player_id)
+    if ctrl then
+        ctrl:on("button_pressed", function(ev)
+            if ev.action == "Start" then
+                Net.message_player(ev.player_id, "Start button pressed!")
+            end
+        end)
+    end
 end)
 
 Net:on("player_disconnect", function(event)
@@ -143,13 +151,16 @@ local points_per_player = {}  -- per‑player points
 
 Net.create_bot("bat", { area_id="default", warp_in=false, texture_path="/server/assets/demo/cyber_bat.png", animation_path="/server/assets/demo/cyber_bat.animation", x=26, y=21, z=0, solid=true})
 
--- Virtual input handler for the bat UI – now uses Input helper
+-- Virtual input handler for the bat UI – now uses the per‑player controller
 Net:on("virtual_input", function(event)
     local player_id = event.player_id
     if bat_active[player_id] ~= true then return end
 
+    local ctrl = InputSystem.get_controller(player_id)
+    if not ctrl then return end
+
     -- Shoulder R – decrease points
-    if Input.pop(player_id, "shoulderr") then
+    if ctrl:is_action_pressed("ShoulderR") then
         local points = points_per_player[player_id] or 8
         if points > 0 then
             points = points - 1
@@ -160,7 +171,7 @@ Net:on("virtual_input", function(event)
         games.set_ui_animation("points", player_id, tostring(points .. "POINT"))
 
     -- Shoulder L – increase points
-    elseif Input.pop(player_id, "shoulderl") then
+    elseif ctrl:is_action_pressed("ShoulderL") then
         local points = points_per_player[player_id] or 8
         if points < 8 then
             points = points + 1
@@ -171,8 +182,8 @@ Net:on("virtual_input", function(event)
         games.set_ui_animation("points", player_id, tostring(points .. "POINT"))
 
     -- Any direction key – deactivate UI
-    elseif Input.pop(player_id, "left") or Input.pop(player_id, "right") or
-           Input.pop(player_id, "up") or Input.pop(player_id, "down") then
+    elseif ctrl:is_action_pressed("dir_Left") or ctrl:is_action_pressed("dir_Right") or
+           ctrl:is_action_pressed("dir_Up") or ctrl:is_action_pressed("dir_Down") then
         games.remove_ui_element("points", player_id)
         bat_active[player_id] = false
         Net.unlock_player_input(player_id)
@@ -294,7 +305,7 @@ Net.create_bot("changer", { area_id="default", warp_in=false, texture_path="/ser
 
 Net:on("cursor_selection", function(event)
     if event.cursor == "navi_changer" then
-        print("Player ".. event.player_id .." used cursor "..event.cursor.." to select "..event.selection)
+        print("DEBUG: cursor_selection received for player", event.player_id, "selection:", event.selection)
         games.remove_text("roll_label",event.player_id)
         games.remove_text("megaman_label",event.player_id)
         games.remove_text("protoman_label",event.player_id)
@@ -319,38 +330,35 @@ Net:on("cursor_selection", function(event)
         Net.set_bot_avatar("changer",texture,animation)
         local keyframes = {{properties={{property="Animation",value="IDLE_DL"}},duration=0}}
         Net.animate_bot_properties("changer", keyframes)
-
     end
 end)
 
 Net:on("actor_interaction", function (event)
     if event.actor_id == "changer" and event.button == 0 then
+        print("DEBUG: Interacting with changer, spawning cursor for player", event.player_id)
+
         local green_cursor_texture = "/server/assets/net-games/cursors/text_cursor.png"
         local green_cursor_anim = "/server/assets/net-games/cursors/text_cursor.animation"
-        -- Input.consume(event.player_id)
-        local cursor_options
-        cursor_options = {
-            texture=green_cursor_texture,
-            animation=green_cursor_anim,
-            movement = "vertical", 
+        local cursor_options = {
+            texture = green_cursor_texture,
+            animation = green_cursor_anim,
+            movement = "vertical",
             selections = {
-                { x=35,y=45,z=0,name='roll',state="CURSOR_RIGHT" },
-                { x=35,y=65,z=0,name='megaman',state="CURSOR_RIGHT" },
-                { x=35,y=85,z=0,name='protoman',state="CURSOR_RIGHT" }
-            }, 
+                { x = 35, y = 45, z = 0, name = 'roll',      state = "CURSOR_RIGHT" },
+                { x = 35, y = 65, z = 0, name = 'megaman',   state = "CURSOR_RIGHT" },
+                { x = 35, y = 85, z = 0, name = 'protoman',  state = "CURSOR_RIGHT" }
+            },
         }
-        Input.pop(event.player_id, "confirm")
-        --Input.require_release(event.player_id, {"confirm"})
-        -- games.add_ui_element("navi_changer", event.player_id, green_cursor_texture, green_cursor_anim, "CURSOR_RIGHT", cursor_options.selections[1].x, cursor_options.selections[1].y, cursor_options.selections[1].z)
         games.spawn_cursor("navi_changer", event.player_id, cursor_options)
 
+        -- ❌ Removed the bob animation – it conflicts with cursor movement
+        -- games.menu_cursor_ui_element("navi_changer", event.player_id, 20, 1.8, 1, 10, "horizontal")
 
-        games.menu_cursor_ui_element("navi_changer", event.player_id, 20, 1.8, 1, 10, "horizontal")
+        -- ✅ Keep the color pulse (doesn't affect position)
         games.color_pulse_from_current("navi_changer", event.player_id, {r = 0, g = 0, b = 255, a = 128})
-        -- games.slide_ui_element("navi_changer", event.player_id, 100, 100, 2)
-        games.draw_text("roll_label",event.player_id,"<Roll_EXE>",40,40,100,"BATTLE")
-        games.draw_text("megaman_label", event.player_id,"Megaman_EXE",40,60,100,"BATTLE")
-        games.draw_text("protoman_label",event.player_id,"<PROTOMAN_EXE>",40,80,100,"BATTLE")
-    end 
 
+        games.draw_text("roll_label",     event.player_id, "<Roll_EXE>",     40, 40, 100, "BATTLE")
+        games.draw_text("megaman_label",  event.player_id, "Megaman_EXE",     40, 60, 100, "BATTLE")
+        games.draw_text("protoman_label", event.player_id, "<PROTOMAN_EXE>", 40, 80, 100, "BATTLE")
+    end
 end)

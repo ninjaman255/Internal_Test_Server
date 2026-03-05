@@ -10,8 +10,9 @@
 -- ===========================================================
 local Displayer = require("scripts/displayer/displayer")          -- updated path
 local AnimationEngine = require("scripts/animation-engine/animation-engine")
-local Input = require("scripts/input/input")                       -- new input helper
 local boom = require("scripts/boom/main")
+local InputSystem = require("scripts/input-controller/main")     -- unified input API
+
 local assets = {
         "/server/assets/net-games/fonts/fonts_compressed.png",
         "/server/assets/net-games/fonts/fonts_wide.animation",
@@ -29,7 +30,7 @@ local assets = {
 -- INITIALIZATION
 -- ===========================================================
 Displayer:init()   -- always returns self, no need for isValid check
-Input.attach_virtual_input_listener()  -- start listening to virtual_input
+-- Input.attach_virtual_input_listener()  -- removed, now handled by InputSystem
 
 -- ===========================================================
 -- CACHE MANAGEMENT
@@ -48,6 +49,9 @@ local text_cache = {}        -- player_id -> { [text_id] = {x, y, font, scale, z
 local marquee_cache = {}     -- player_id -> { [marquee_id] = {text, x, y, opts} }
 local timer_cache = {}       -- player_id -> { [timer_id] = {callback, loop} }
 local countdown_cache = {}   -- player_id -> { [countdown_id] = {callback, loop} }
+
+-- (No longer used for cursor repeats, but kept for potential other uses)
+local repeat_state = {}      -- player_id -> { dir = nil, elapsed = 0, stage = 0 }
 
 -- ===========================================================
 -- HELPER FUNCTIONS
@@ -2330,60 +2334,75 @@ local function splitter(inputstr, sep)
 end
 
 -- ===========================================================
--- INPUT POLLING (replaces virtual_input handler)
+-- CURSOR INPUT HANDLING (now using virtual_input)
 -- ===========================================================
 
--- Process cursor input in tick
-Net:on("tick", function(event)
-    -- AnimationEngine.tick is already called by the engine itself,
-    -- so we don't need to call it here.
-    
-    -- Poll input for each player that has a cursor
-    for player_id, cursors in pairs(ui_cache) do
-    Input.consume(player_id)
-        for cursor_id, element in pairs(cursors) do
-            if element.is_cursor then
-                local cursor_options = element.cursor_options
-                if not cursor_options.locked then
-                    local movement = cursor_options.movement or "vertical"
-                    local selections = cursor_options.selections
-                    local current_index = cursor_options.current_index or 1
-                    local new_index = current_index
+Net:on("virtual_input", function(event)
+    local player_id = event.player_id
+    local cursors = ui_cache[player_id]
+    if not cursors then return end
 
-                    -- Direction handling
+    for cursor_id, element in pairs(cursors) do
+        if element.is_cursor then
+            local cursor_options = element.cursor_options
+            if cursor_options.locked then
+                goto continue_cursor
+            end
+
+            local movement = cursor_options.movement or "vertical"
+            local selections = cursor_options.selections
+            local current_index = cursor_options.current_index or 1
+
+            for _, ev in ipairs(event.events) do
+                local name = ev.name
+                local state = ev.state
+
+                -- Movement: only consider press (1) and repeat (4)
+                if state == 1 or state == 4 then
+                    local dir = nil
                     if movement == "vertical" then
-                        if Input.is_down(player_id, "up") then
-                            new_index = (current_index == 1) and #selections or (current_index - 1)
-                        elseif Input.is_down(player_id, "down") then
-                            new_index = (current_index == #selections) and 1 or (current_index + 1)
+                        if name == "Move Up" or name == "UI Up" then
+                            dir = "up"
+                        elseif name == "Move Down" or name == "UI Down" then
+                            dir = "down"
                         end
                     elseif movement == "horizontal" then
-                        if Input.is_down(player_id, "left") then
-                            new_index = (current_index == 1) and #selections or (current_index - 1)
-                        elseif Input.is_down(player_id, "right") then
-                            new_index = (current_index == #selections) and 1 or (current_index + 1)
+                        if name == "Move Left" or name == "UI Left" then
+                            dir = "left"
+                        elseif name == "Move Right" or name == "UI Right" then
+                            dir = "right"
                         end
                     elseif movement == "shoulder" then
-                        if Input.is_down(player_id, "shoulderl") then
-                            new_index = (current_index == 1) and #selections or (current_index - 1)
-                        elseif Input.is_down(player_id, "shoulderr") then
-                            new_index = (current_index == #selections) and 1 or (current_index + 1)
+                        if name == "Shoulder L" then
+                            dir = "left"
+                        elseif name == "Shoulder R" then
+                            dir = "right"
                         end
                     end
 
-                    -- If index changed, emit cursor_move event
-                    if new_index ~= current_index then
-                        cursor_options.current_index = new_index
-                        local selection = selections[new_index]
-                        Net:emit("cursor_move", {
-                            player_id = player_id,
-                            cursor = cursor_id,
-                            button = "auto"  -- Not used in handler, but keep for compatibility
-                        })
-                    end
+                    if dir then
+                        local new_index = current_index
+                        if dir == "up" or dir == "left" then
+                            new_index = (current_index == 1) and #selections or (current_index - 1)
+                        elseif dir == "down" or dir == "right" then
+                            new_index = (current_index == #selections) and 1 or (current_index + 1)
+                        end
 
-                    -- Confirm selection
-                    if Input.pressed(player_id, "confirm") then
+                        if new_index ~= current_index then
+                            cursor_options.current_index = new_index
+                            Net:emit("cursor_move", {
+                                player_id = player_id,
+                                cursor = cursor_id,
+                                button = "auto"
+                            })
+                        end
+                        -- Break after processing one direction per event? Not needed; direction unlikely to appear twice.
+                    end
+                end
+
+                -- Confirm selection: only press (1)
+                if state == 1 then
+                    if name == "Confirm" or name == "A" or name == "Interact" or name == "Use Card" then
                         local selection = selections[current_index]
                         if selection and selection.name then
                             Net:emit("cursor_selection", {
@@ -2395,8 +2414,18 @@ Net:on("tick", function(event)
                     end
                 end
             end
+
+            ::continue_cursor::
         end
     end
+end)
+
+-- ===========================================================
+-- TICK HANDLER (now only for non‑cursor purposes, e.g., animations)
+-- ===========================================================
+Net:on("tick", function(event)
+    -- This tick handler is now empty for cursor input, but can be used for other periodic updates.
+    -- If no other logic, it can be removed.
 end)
 
 -- ===========================================================
@@ -2451,6 +2480,9 @@ Net:on("player_join", function(event)
     ui_cache[event.player_id] = {}
     avatar_cache[event.player_id] = {}
     
+    -- Ensure input controller exists (the InputSystem already does this, but safe)
+    InputSystem.create_controller(event.player_id)
+    
     -- Hide player exclusive cosmetics
     for player_id, cosmetics in pairs(cosmetic_cache) do
         for cosmetic_id, cosmetic_data in pairs(cosmetics) do 
@@ -2471,6 +2503,7 @@ Net:on("player_disconnect", function(event)
     marquee_cache[event.player_id] = nil
     timer_cache[event.player_id] = nil
     countdown_cache[event.player_id] = nil
+    repeat_state[event.player_id] = nil   -- clean up repeat state
     
     -- Clean up any active animations for this player
     AnimationEngine.clear_all()
@@ -2499,6 +2532,9 @@ Net:on("player_disconnect", function(event)
         end
         cosmetic_cache[event.player_id] = nil
     end
+
+    -- Destroy input controller
+    InputSystem.destroy_controller(event.player_id)
 end)
 
 -- Player move event

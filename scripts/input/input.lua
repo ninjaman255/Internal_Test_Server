@@ -1,9 +1,11 @@
 -- scripts/input/input.lua
 --
--- Net Games Input Helper (sticky-state)
+-- Net Games Input Helper (sticky-state) with repeat support + EventEmitter
 -- - Listens to Net:on("virtual_input") once
 -- - Tracks per-player edge presses (confirm/cancel/dpad)
 -- - **Now also tracks release edges** (transition from down to up)
+-- - **Now also tracks repeat edges** (pulses while held, configurable)
+-- - **Provides an EventEmitter per player** for button_pressed / released / repeat
 -- - IMPORTANT: missing keys in event.events do NOT imply released
 --
 -- Input states (per docs):
@@ -19,11 +21,13 @@
 --
 -- Key behavior:
 -- - confirm/cancel: POP once per down. (Never repeat on hold. Scroll ignored.)
--- - directions: POP on down + repeat on Scroll pulses while held.
+-- - directions: POP on down + repeat on Scroll pulses while held (or via internal timer).
 -- - All other non‑directional keys (shoulderl, shoulderr, start, minimap, options, custommenu)
---   behave exactly like confirm/cancel.
+--   behave exactly like confirm/cancel unless marked repeatable.
 -- - Release events are generated whenever a key transitions from down to up
 --   (including timeout‑based release for non‑dir keys).
+-- - Repeat events are generated for keys marked repeatable after an initial delay (0.3s)
+--   and then every 0.1s while held. Repeats can be polled via repeated() / pop_repeated().
 --
 -- DIRECTION COMBOS (new):
 --   - get_active_direction() returns combined directions like "upleft", "downright", etc.
@@ -33,6 +37,10 @@
 -- Also supports:
 -- - swallow(player_id, seconds): ignore input briefly + clear edges and releases
 -- - require_release(player_id, {"confirm"}): ignore edges until a release is observed
+-- - on(player_id, event, callback): attach listener to player's emitter
+-- - get_emitter(player_id): retrieve the emitter for advanced use
+
+local Utility = require("scripts/utils/utility")   -- adjust path as needed; provides EventEmitter
 
 local Input = {}
 
@@ -73,6 +81,23 @@ local DEFAULT_BINDINGS = {
   down    = { "UI Down", "Move Down", "Down" },
 }
 
+-- Default repeatable settings:
+--   directions repeat, action buttons do not.
+local DEFAULT_REPEATABLE = {
+    confirm = false,
+    cancel = false,
+    shoulderl = false,
+    shoulderr = false,
+    start = false,
+    minimap = false,
+    options = false,
+    custommenu = false,
+    left = true,
+    right = true,
+    up = true,
+    down = true,
+}
+
 -- Direction combos (diagonals) for combined direction detection
 local DIRECTION_COMBOS = {
     upleft    = { "up", "left" },
@@ -99,6 +124,14 @@ local function refresh_non_dir_timeout(s)
       s.released[k] = true
       s.down[k] = false
       s.non_dir_armed[k] = true
+      -- Clear repeat state on release
+      s.repeat_edge[k] = nil
+      s.hold_time[k] = 0
+      s.repeat_phase[k] = 0
+      -- Emit release event
+      if s.emitter then
+        s.emitter:emit("button_released", { player_id = s.player_id, action = k, state = 3 })
+      end
     end
   end
 end
@@ -106,8 +139,11 @@ end
 local function ensure(player_id)
   if not st[player_id] then
     local s = {
+      player_id = player_id,
+      emitter = Utility.EventEmitter.new(),  -- per‑player event emitter
       edge = {},
       released = {},          -- release flags (true if key was just released)
+      repeat_edge = {},       -- repeat flags (true if a repeat pulse occurred this tick)
       swallow_until = 0,
       require_release = {},
 
@@ -116,6 +152,10 @@ local function ensure(player_id)
       non_dir_armed      = {},
 
       down = {},
+
+      -- hold timers for repeat logic
+      hold_time = {},
+      repeat_phase = {},      -- 0 = not yet repeated, 1 = after first repeat (fast repeats)
 
       -- combo state for direction memory
       combo = {
@@ -137,6 +177,9 @@ local function ensure(player_id)
       s.down[k] = false
       s.edge[k] = nil
       s.released[k] = nil
+      s.repeat_edge[k] = nil
+      s.hold_time[k] = 0
+      s.repeat_phase[k] = 0
       if k ~= "left" and k ~= "right" and k ~= "up" and k ~= "down" then
         s.non_dir_down_until[k] = 0
         s.non_dir_armed[k] = true
@@ -284,6 +327,7 @@ function Input.consume(player_id)
   local s = ensure(player_id)
   s.edge = {}
   s.released = {}   -- also clear release flags
+  s.repeat_edge = {} -- clear repeat flags
 end
 
 function Input.pop(player_id, key)
@@ -319,6 +363,22 @@ function Input.pop_released(player_id, key)
   return false
 end
 
+-- Returns true if a repeat event occurred for this key since the last update
+function Input.repeated(player_id, key)
+  local s = ensure(player_id)
+  return s.repeat_edge[key] == true
+end
+
+-- Returns true and clears the repeat flag (consumes it)
+function Input.pop_repeated(player_id, key)
+  local s = ensure(player_id)
+  if s.repeat_edge[key] then
+    s.repeat_edge[key] = nil
+    return true
+  end
+  return false
+end
+
 function Input.is_down(player_id, key)
   local s = ensure(player_id)
   refresh_non_dir_timeout(s)
@@ -330,6 +390,7 @@ function Input.swallow(player_id, seconds)
   s.swallow_until = math.max(s.swallow_until or 0, now() + (seconds or 0))
   s.edge = {}
   s.released = {}   -- also clear releases
+  s.repeat_edge = {}
 end
 
 function Input.require_release(player_id, keys)
@@ -485,9 +546,62 @@ function Input.debug_dump_last_packet(player_id)
     table.insert(release_parts, k .. "=" .. b(s.released[k]))
   end
   print("[InputDBG] release: " .. table.concat(release_parts, " "))
+  -- dump repeat state for all keys
+  local repeat_parts = {}
+  for _, k in ipairs(ALL_KEYS) do
+    table.insert(repeat_parts, k .. "=" .. b(s.repeat_edge[k]))
+  end
+  print("[InputDBG] repeat: " .. table.concat(repeat_parts, " "))
 end
 
-function Input.attach_virtual_input_listener(bindings)
+--[[
+  Must be called every tick/frame with the time elapsed since the last call.
+  It updates hold timers and generates repeat edges for repeatable keys that are down.
+  Typical repeat pattern: 0.3s delay, then 0.1s between repeats.
+]]
+function Input.update(delta_time)
+    for player_id, s in pairs(st) do
+        if s then
+            for _, k in ipairs(ALL_KEYS) do
+                -- Only consider keys that are down, repeatable, and not under require_release.
+                -- Directions are always repeatable even if not explicitly marked.
+                local repeatable = DEFAULT_REPEATABLE[k]   -- we need the repeatable table; see below.
+                if s.down[k] and (repeatable or is_dir_key(k)) and not s.require_release[k] then
+                    s.hold_time[k] = (s.hold_time[k] or 0) + delta_time
+
+                    if s.repeat_phase[k] == 0 and s.hold_time[k] >= 0.3 then
+                        -- First repeat
+                        s.repeat_edge[k] = true
+                        s.hold_time[k] = 0
+                        s.repeat_phase[k] = 1
+                        -- Emit repeat event
+                        s.emitter:emit("button_repeat", { player_id = player_id, action = k, state = 4 })
+                    elseif s.repeat_phase[k] == 1 and s.hold_time[k] >= 0.1 then
+                        -- Subsequent repeats
+                        s.repeat_edge[k] = true
+                        s.hold_time[k] = 0
+                        -- stay in phase 1
+                        s.emitter:emit("button_repeat", { player_id = player_id, action = k, state = 4 })
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Returns the event emitter for a player (for attaching listeners)
+function Input.get_emitter(player_id)
+    local s = ensure(player_id)
+    return s.emitter
+end
+
+-- Convenience: attach a listener to a player's emitter
+function Input.on(player_id, event, callback)
+    local s = ensure(player_id)
+    s.emitter:on(event, callback)
+end
+
+function Input.attach_virtual_input_listener(bindings, repeatable)
   if LISTENER_ATTACHED then
     print("[Input] listener already attached")
     return
@@ -496,6 +610,7 @@ function Input.attach_virtual_input_listener(bindings)
   print("[Input] attaching Net:on('virtual_input') listener")
 
   bindings = bindings or DEFAULT_BINDINGS
+  repeatable = repeatable or DEFAULT_REPEATABLE
 
   Net:on("virtual_input", function(event)
     local player_id = event.player_id
@@ -539,10 +654,19 @@ function Input.attach_virtual_input_listener(bindings)
           if saw_down_signal then
             s.non_dir_down_until[k] = t + NON_DIR_UP_TIMEOUT
             s.down[k] = true
+            -- Reset repeat timers on press
+            s.hold_time[k] = 0
+            s.repeat_phase[k] = 0
           elseif t >= (s.non_dir_down_until[k] or 0) then
             -- Release due to timeout
             if s.down[k] then
               s.released[k] = true
+              -- Emit release event
+              s.emitter:emit("button_released", { player_id = player_id, action = k, state = 3 })
+              -- Clear repeat state on release
+              s.repeat_edge[k] = nil
+              s.hold_time[k] = 0
+              s.repeat_phase[k] = 0
             end
             s.down[k] = false
             s.non_dir_armed[k] = true
@@ -556,6 +680,11 @@ function Input.attach_virtual_input_listener(bindings)
             if (not s.down[k]) and s.non_dir_armed[k] then
               s.edge[k] = true
               s.non_dir_armed[k] = false
+              -- Emit press event
+              s.emitter:emit("button_pressed", { player_id = player_id, action = k, state = 1 })
+              -- Reset repeat timers on press
+              s.hold_time[k] = 0
+              s.repeat_phase[k] = 0
             end
 
             s.down[k] = true
@@ -564,6 +693,12 @@ function Input.attach_virtual_input_listener(bindings)
             -- Release due to timeout
             if s.down[k] then
               s.released[k] = true
+              -- Emit release event
+              s.emitter:emit("button_released", { player_id = player_id, action = k, state = 3 })
+              -- Clear repeat state on release
+              s.repeat_edge[k] = nil
+              s.hold_time[k] = 0
+              s.repeat_phase[k] = 0
             end
             s.down[k] = false
             s.non_dir_armed[k] = true
@@ -578,6 +713,12 @@ function Input.attach_virtual_input_listener(bindings)
           if down_change == false then
             if s.down[k] then
               s.released[k] = true
+              -- Emit release event
+              s.emitter:emit("button_released", { player_id = player_id, action = k, state = 3 })
+              -- Clear repeat state on release
+              s.repeat_edge[k] = nil
+              s.hold_time[k] = 0
+              s.repeat_phase[k] = 0
             end
             s.require_release[k] = nil
             s.down[k] = false
@@ -587,9 +728,20 @@ function Input.attach_virtual_input_listener(bindings)
               s.down[k] = down_change
               if down_change == true and not was then
                 s.edge[k] = true
+                -- Emit press event
+                s.emitter:emit("button_pressed", { player_id = player_id, action = k, state = 1 })
+                -- Reset repeat timers on press
+                s.hold_time[k] = 0
+                s.repeat_phase[k] = 0
               end
               if down_change == false and was then
                 s.released[k] = true
+                -- Emit release event
+                s.emitter:emit("button_released", { player_id = player_id, action = k, state = 3 })
+                -- Clear repeat state on release
+                s.repeat_edge[k] = nil
+                s.hold_time[k] = 0
+                s.repeat_phase[k] = 0
               end
             end
           end
@@ -600,15 +752,30 @@ function Input.attach_virtual_input_listener(bindings)
             s.down[k] = down_change
             if down_change == true and not was then
               s.edge[k] = true
+              -- Emit press event
+              s.emitter:emit("button_pressed", { player_id = player_id, action = k, state = 1 })
+              -- Reset repeat timers on press
+              s.hold_time[k] = 0
+              s.repeat_phase[k] = 0
             end
             if down_change == false and was then
               s.released[k] = true
+              -- Emit release event
+              s.emitter:emit("button_released", { player_id = player_id, action = k, state = 3 })
+              -- Clear repeat state on release
+              s.repeat_edge[k] = nil
+              s.hold_time[k] = 0
+              s.repeat_phase[k] = 0
             end
           end
 
           -- repeat while held (Scroll pulses)
           if saw_scroll and s.down[k] then
             s.edge[k] = true
+            -- Scroll pulses are also considered repeat events
+            s.repeat_edge[k] = true
+            -- Emit repeat event
+            s.emitter:emit("button_repeat", { player_id = player_id, action = k, state = 4 })
           end
         end
       end
