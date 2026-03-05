@@ -237,7 +237,8 @@ function Nameplate:_redraw(player_id, np, assets)
                 end
             end
             local w, _ = self.font_system:getGlyphDimensions(np.font, ch)
-            cx = cx + w * np.text_scale + 1 * np.text_scale
+            local spacing = self.font_system:isBattleFont(np.font) and 0 or 1
+            cx = cx + w * np.text_scale + spacing * np.text_scale
         end
         np.text_glyph_ids = glyph_ids
     else
@@ -294,7 +295,10 @@ function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
         local ch = text:sub(i,i)
         local w, _ = self.font_system:getGlyphDimensions(font_name, ch)
         text_w = text_w + w * text_scale
-        if i < #text then text_w = text_w + 1 * text_scale end
+        if i < #text then
+            local spacing = self.font_system:isBattleFont(font_name) and 0 or 1
+            text_w = text_w + spacing * text_scale
+        end
     end
 
     local inner_needed = math.max(1, math.floor(text_w + pad_px * 2))

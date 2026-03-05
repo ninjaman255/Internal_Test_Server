@@ -292,6 +292,13 @@ function FontSystem:getGlyphDimensions(font_name, char)
     return 6, 12
 end
 
+--- Check if a font name is a battle variant (no extra spacing).
+---@param font_name string
+---@return boolean
+function FontSystem:isBattleFont(font_name)
+    return font_name == "BATTLE" or font_name == "BATTLE_BLACK"
+end
+
 -- --------------------------------------------------------------------
 -- Per‑player asset management
 -- --------------------------------------------------------------------

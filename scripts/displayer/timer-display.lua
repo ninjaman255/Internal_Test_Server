@@ -454,7 +454,8 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
             end
         end
 
-        x = x + w * disp.scale + 1 * disp.scale
+        local spacing = fontSystem:isBattleFont(disp.font) and 0 or 1
+        x = x + w * disp.scale + spacing * disp.scale
     end
 
     -- If old data had more glyphs than new text, erase the extras
@@ -513,7 +514,8 @@ function TimerDisplay:setDisplayPosition(player_id, display_id, x, y)
             -- Convert to virtual for update
             fontSystem:updateGlyph(player_id, glyph.instance_id, { x = current_x / 2, y = screen_y / 2 })
             glyph.x = current_x
-            current_x = current_x + w * disp.scale + 1 * disp.scale
+            local spacing = fontSystem:isBattleFont(disp.font) and 0 or 1
+            current_x = current_x + w * disp.scale + spacing * disp.scale
         end
     end
 end

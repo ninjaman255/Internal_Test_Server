@@ -7,7 +7,7 @@ local ScrollingTextList = {}
 ScrollingTextList.__index = ScrollingTextList
 
 local fontSystem = require("scripts/displayer/font-system")
-local AnimationEngine = _G.AnimationEngine
+local AnimationEngine = require("scripts/animation-engine/animation-engine")
 
 local BACKDROP_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
 
@@ -66,7 +66,10 @@ function TextEntry:_createGlyphs(y_offset)
         local ch = self.text:sub(i,i)
         local w, _ = fontSystem:getGlyphDimensions(self.font, ch)
         total_width = total_width + w * self.scale
-        if i < #self.text then total_width = total_width + 1 * self.scale end
+        if i < #self.text then
+            local spacing = fontSystem:isBattleFont(self.font) and 0 or 1
+            total_width = total_width + spacing * self.scale
+        end
     end
     local base_x = bounds_left + (bounds_width - total_width) / 2
     local base_y = self.grid_y + (y_offset or 0)
@@ -94,7 +97,8 @@ function TextEntry:_createGlyphs(y_offset)
             end
         end
         local w, _ = fontSystem:getGlyphDimensions(self.font, ch)
-        cx = cx + w * self.scale + 1 * self.scale
+        local spacing = fontSystem:isBattleFont(self.font) and 0 or 1
+        cx = cx + w * self.scale + spacing * self.scale
     end
     self.glyph_data = glyph_data
 end

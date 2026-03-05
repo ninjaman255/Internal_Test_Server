@@ -39,7 +39,10 @@ local function wrapText(text, font_name, scale, max_width)
             local ch = word:sub(i,i)
             local w, _ = fontSystem:getGlyphDimensions(font_name, ch)
             word_width = word_width + w * scale
-            if i < #word then word_width = word_width + 1 * scale end
+            if i < #word then
+                local spacing = fontSystem:isBattleFont(font_name) and 0 or 1
+                word_width = word_width + spacing * scale
+            end
         end
 
         if current_width + word_width <= max_width then
@@ -73,7 +76,10 @@ local function layoutText(text, font, scale, box_x, box_y, box_width, box_height
             local ch = line:sub(i,i)
             local w, _ = fontSystem:getGlyphDimensions(font, ch)
             line_width = line_width + w * scale
-            if i < #line then line_width = line_width + 1 * scale end
+            if i < #line then
+                local spacing = fontSystem:isBattleFont(font) and 0 or 1
+                line_width = line_width + spacing * scale
+            end
         end
         if line_width > total_width then total_width = line_width end
     end
@@ -111,7 +117,8 @@ local function layoutText(text, font, scale, box_x, box_y, box_width, box_height
                 glyph_grid[line_idx][col] = nil
             end
             local w, _ = fontSystem:getGlyphDimensions(font, ch)
-            x = x + w * scale + 1 * scale
+            local spacing = fontSystem:isBattleFont(font) and 0 or 1
+            x = x + w * scale + spacing * scale
         end
     end
 
