@@ -908,7 +908,7 @@ end
 -- ===================== Missing Animation Helpers =====================
 function ezmemory.play_anim_get(player_id)
     pcall(function()
-        Net.animate_player(player_id, "GET", false)
+        Net.animate_player(player_id, "ITEM_GET", false)
     end)
 end
 
