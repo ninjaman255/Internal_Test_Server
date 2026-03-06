@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="129">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="131">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -307,13 +307,26 @@
   <object id="127" type="Mystery Data" gid="59" x="928" y="800" width="14" height="43">
    <properties>
     <property name="Next 1" type="object" value="128"/>
-    <property name="Type" propertytype="MysteryType" value="tokens"/>
+    <property name="Type" propertytype="MysteryType" value="random"/>
    </properties>
   </object>
   <object id="128" name="100 Tokens" type="Mystery Option" x="928" y="864">
    <properties>
-    <property name="Amount" type="int" value="150"/>
-    <property name="Type" value="token"/>
+    <property name="Amount" type="int" value="100"/>
+    <property name="Type" propertytype="MysteryType" value="tokens"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="129" type="Mystery Data" gid="59" x="960" y="800" width="14" height="43">
+   <properties>
+    <property name="Next 1" type="object" value="130"/>
+    <property name="Type" propertytype="MysteryType" value="random"/>
+   </properties>
+  </object>
+  <object id="130" name="100 Tokens" type="Mystery Option" x="960" y="864">
+   <properties>
+    <property name="Amount" type="int" value="100"/>
+    <property name="Type" propertytype="MysteryType" value="fragments"/>
    </properties>
    <point/>
   </object>
