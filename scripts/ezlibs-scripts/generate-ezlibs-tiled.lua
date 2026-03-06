@@ -14,7 +14,7 @@ local Enums = {
     },
     MysteryType = {
         type = "string",
-        values = {"keyitem", "item", "money", "random", "quiz", "fragments", "tokens"}
+        values = {"keyitem", "item", "money", "random", "quiz", "fragments", "tokens", "encounter"}
     },
     WaypointType = {
         type = "string",
@@ -33,7 +33,6 @@ local Enums = {
         type = "string",
         values = {"money", "fragments", "tokens"}
     },
-    -- NEW enum for quiz failure handling
     QuizFailAction = {
         type = "string",
         values = {"retry", "hide_once", "hide_temp"}
@@ -84,7 +83,6 @@ local object_types = {
             prop("Amount", "number", 1),
             prop("Quiz List", "object", ""),
             prop("Failure Message", "string", ""),
-            -- NEW property for quiz failure behavior
             prop("On Fail", "string", "retry", "QuizFailAction"),
             -- Reward properties (used when Type = "quiz")
             prop("Reward Type", "string", "item", "ItemType"),

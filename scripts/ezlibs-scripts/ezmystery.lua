@@ -4,6 +4,7 @@ local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezlocks = require('scripts/ezlibs-scripts/ezlocks')
 local condition = require('scripts/ezlibs-scripts/condition')
+local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
 local math = require('math')
 
 local AvatarCache = require('scripts/avatar_utils/main')
@@ -335,18 +336,39 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
                 local randomly_selected_datum = ezcache.get_object_by_id_cached(area_id, random_selection_id)
                 await(collect_datum(player_id, randomly_selected_datum, datum_id_override, false))
             end
+
+        elseif item_info.type == "encounter" then
+            -- Start an encounter
+            local encounter_name = item_info.name
+            if not encounter_name or encounter_name == "" then
+                warn("[ezmystery] Encounter type missing Name property")
+                return
+            end
+
+            -- Hide temporarily during battle
+            ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)
+
+            -- Start the encounter
+            local results = await(ezencounters.begin_encounter_by_name(player_id, encounter_name))
+
+            -- After battle, always keep it hidden temporarily (no permanent hide)
+            -- No further action needed; it's already hidden till disconnect.
+
         else
+            -- Normal item/money/fragments/tokens reward
             ezmemory.play_anim_get(player_id)
             await(ezmemory.give_item_with_optional_notify(player_id, area_id, object.id, item_info))
             ezmemory.set_direction_anim(player_id, Net.get_player_direction(player_id))
         end
 
-        if is_property_true(object.custom_properties["Once"]) then
-            print("[ezmystery] Hiding permanently for player", player_id, "object", datum_id_override)
-            ezmemory.hide_object_from_player(player_id, area_id, datum_id_override)
+        -- For non-encounter types, apply hiding after reward
+        if item_info.type ~= "encounter" then
+            if is_property_true(object.custom_properties["Once"]) then
+                print("[ezmystery] Hiding permanently for player", player_id, "object", datum_id_override)
+                ezmemory.hide_object_from_player(player_id, area_id, datum_id_override)
+            end
+            ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)
         end
-
-        ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)
     end)
 end
 
