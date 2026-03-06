@@ -3,6 +3,7 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local CONFIG = require('scripts/ezlibs-scripts/ezconfig')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- added
 
 local ezencounters = {}
 local players_in_encounters = {}
@@ -135,7 +136,9 @@ ezencounters.begin_encounter = function (player_id,encounter_info,trigger_object
         --print('[ezencounters] beginning encounter for',player_id)
         players_in_encounters[player_id] = {encounter_info=encounter_info}
         ezencounters.clear_tiles_since_encounter(player_id)
+        ezbus:emit("encounter_started", player_id, encounter_info)   -- optional event
         local stats = await(Async.initiate_encounter(player_id,encounter_info.path,encounter_info))
+        ezbus:emit("encounter_finished", player_id, stats)           -- optional event
         return stats
     end)
 end

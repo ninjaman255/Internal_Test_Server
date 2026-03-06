@@ -4,6 +4,7 @@ local helpers = require('scripts/ezlibs-scripts/helpers')
 local table = require('table')
 local AvatarCache = require('scripts/avatar_utils/main')
 local AvatarUtils = require('scripts/avatar_utils/avatar_utils')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- added for global events
 
 local ezmemory = {}
 local player_memory = {}
@@ -57,17 +58,6 @@ end
 local function fetch_player_animation(player_id, state_name)
     local player_secret = Net.get_player_secret(player_id)
     return player_animations[player_secret]["animations"][state_name]
-end
-
-local function build_keyframes(player_id, state_name)
-    local player_anim = fetch_player_animation(player_id, state_name)        
-    local keyframes = {
-        { properties = { { property = "Animation", value = "ITEM_GET" } }, duration = tonumber(player_anim["total_duration_ms"]) * .0001 },
-    }
-    -- if set_to_after ~= nil then
-    --     table.insert(keyframes, { properties = { { property = "Animation", value = set_to_after } }, duration = 2 })
-    -- end
-    return keyframes 
 end
 
 function ezmemory.set_direction_anim(player_id, direction)
@@ -402,6 +392,8 @@ function ezmemory.give_player_item(player_id, name, amount)
     if name == "HPMem" then
         ezmemory.set_player_max_health(player_id, Net.get_player_max_health(player_id) + 20, true)
     end
+    -- Emit global event
+    ezbus:emit("item_gained", player_id, name, amount, player_memory.items[item_id])
     return player_memory.items[item_id]
 end
 
@@ -442,6 +434,8 @@ function ezmemory.spend_player_money(player_id, amount)
         Net.set_player_money(player_id, new_balance)
         player_memory.money = new_balance
         ezmemory.save_player_memory(safe_secret)
+        -- Emit global event
+        ezbus:emit("money_spent", player_id, amount, new_balance)
         return true
     end
     return false
@@ -680,14 +674,10 @@ end
 
 function ezmemory.play_anim_get(player_id)
     local player_animation = fetch_player_animation(player_id, "ITEM_GET")
-    local player_direction = Net.get_player_direction(player_id)
-    local player_return_to_anim = dir_to_anim[player_direction]
     if player_animation ~= nil then
-        --print("PLAYER HAS ITEM GET")
-        --Net.animate_player(player_id, "ITEM_GET", false)
-    local keyframes = build_keyframes(player_id, "ITEM_GET")
-    Net.animate_player_properties(player_id,keyframes)
-end    
+        print("PLAYER HAS ITEM GET")
+        Net.animate_player(player_id, "ITEM_GET", false)
+    end    
 end
 
 function ezmemory.give_item_with_optional_notify(player_id, area_id, item_object_id, item_info, notify_player)
@@ -720,7 +710,6 @@ function ezmemory.give_item_with_optional_notify(player_id, area_id, item_object
         end
         if get_message ~= nil and notify_player == true then
             Net.play_sound_for_player(player_id, sfx.item_get)
-            -- play_anim_get(player_id)
             await(Async.message_player(player_id, get_message))
         end
     end)

@@ -2,6 +2,7 @@ local ezmystery = {}
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local helpers = require('scripts/ezlibs-scripts/helpers')
+local ezlocks = require('scripts/ezlibs-scripts/ezlocks')
 local math = require('math')
 
 local AvatarCache = require('scripts/avatar_utils/main')
@@ -18,13 +19,17 @@ local player_avatars = {}
 local player_animations = {}
 --Type Mystery Data (or Mystery Datum) have these custom_properties
 --Locked (bool) do you need an unlocker to open this?
+--Password Locked (string) if set, requires this password to open
 --Once (bool) should this never respawn for this player?
---Type (string) either 'keyitem' or 'money'
---(for keyitem type)
---    Name (string) name of keyitem
---    Description (string) description of keyitem
---(for money type)
---    Amount (number) amount of money to give
+--Type (string) one of: 'keyitem', 'item', 'money', 'random', 'quiz'
+--(for keyitem/item/money types)
+--    Name (string) name of item
+--    Description (string) description of key item
+--    Amount (number) amount of money or item count
+--(for random type)
+--    Next 1..N (object IDs) possible mystery data to randomly pick
+--(for quiz type)
+--    Quiz List (object ID) reference to a Quiz List object
 
 local function object_is_mystery_data(object)
     if object.type == "Mystery Data" or object.type == "Mystery Datum" then
@@ -134,6 +139,65 @@ function ezmystery.handle_player_join(player_id)
     ezmystery.hide_random_data(player_id)
 end
 
+-- Quiz handling using a Quiz List object
+local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message)
+    local quiz_list = ezcache.get_object_by_id_cached(area_id, quiz_list_id)
+    if not quiz_list then
+        warn("[ezmystery] Quiz List object not found: " .. tostring(quiz_list_id))
+        return false
+    end
+
+    -- Extract numbered Next properties (pointing to quiz question objects)
+    local question_ids = helpers.extract_numbered_properties(quiz_list, "Next ")
+    if #question_ids == 0 then
+        warn("[ezmystery] Quiz List has no Next properties")
+        return false
+    end
+
+    for _, qid in ipairs(question_ids) do
+        local qobj = ezcache.get_object_by_id_cached(area_id, qid)
+        if not qobj then
+            warn("[ezmystery] Quiz question object not found: " .. tostring(qid))
+            return false
+        end
+
+        local question = qobj.custom_properties["Question"]
+        local opt1 = qobj.custom_properties["Option 1"]
+        local opt2 = qobj.custom_properties["Option 2"]
+        local opt3 = qobj.custom_properties["Option 3"]
+        local correct_answer = tonumber(qobj.custom_properties["Correct Answer"]) or 1
+
+        -- Build options table, ignoring empty strings
+        local options = {}
+        if opt1 and #opt1 > 0 then table.insert(options, opt1) end
+        if opt2 and #opt2 > 0 then table.insert(options, opt2) end
+        if opt3 and #opt3 > 0 then table.insert(options, opt3) end
+
+        if #options == 0 then
+            warn("[ezmystery] Quiz question " .. tostring(qid) .. " has no options")
+            return false
+        end
+
+        -- Validate correct answer index
+        if correct_answer < 1 or correct_answer > #options then
+            correct_answer = 1
+        end
+
+        -- Show question
+        await(Async.message_player(player_id, question))
+
+        -- Present options (quiz_player returns 0-based index)
+        local choice = await(Async.quiz_player(player_id, options[1], options[2], options[3]))
+        if choice == nil or choice < 0 or choice+1 ~= correct_answer then
+            if failure_message and #failure_message > 0 then
+                await(Async.message_player(player_id, failure_message))
+            end
+            return false
+        end
+    end
+    return true
+end
+
 function try_collect_datum(player_id, area_id, object)
     return async(function()
         if ezmemory.object_is_hidden_from_player(player_id, area_id, object.id) then
@@ -142,27 +206,50 @@ function try_collect_datum(player_id, area_id, object)
         end
         --anti spam lock
         local lock_id = player_id .. "_" .. area_id .. "_" .. object.id
-        --lock needs to have a unique id for interaction between this player, and object
         local lock = helpers.get_lock(player_id, lock_id)
         if not lock then
             return
         end
-        if object.custom_properties["Locked"] == "true" then
-            await(Async.message_player(player_id, "The Mystery Data is locked."))
-            if ezmemory.count_player_item(player_id, "Unlocker") > 0 then
-                local response = await(Async.question_player(player_id, "Use an Unlocker to open it?"))
-                if response == 1 then
-                    ezmemory.remove_player_item(player_id, "Unlocker", 1)
-                    await(collect_datum(player_id, object, object.id))
-                    lock.release()
-                end
+
+        -- Check for password lock first
+        local password = object.custom_properties["Password Locked"]
+        if password and #password > 0 then
+            local unlocked = await(ezlocks.check_password(player_id, "Enter password:", password))
+            if not unlocked then
+                lock.release()
+                return
             end
         else
-            --If the data is not locked, collect it
+            -- Fallback to old item-based lock
+            if object.custom_properties["Locked"] == "true" then
+                await(Async.message_player(player_id, "The Mystery Data is locked."))
+                local unlocked = await(ezlocks.check_item(player_id, "Use an Unlocker to open it?", "Unlocker", 1, true))
+                if not unlocked then
+                    lock.release()
+                    return
+                end
+            end
+        end
+
+        -- Now check type-specific collection conditions
+        local datum_type = object.custom_properties["Type"]
+        local can_collect = true
+        if datum_type == "quiz" then
+            local quiz_list_id = object.custom_properties["Quiz List"]
+            if not quiz_list_id or #quiz_list_id == 0 then
+                warn("[ezmystery] Quiz type missing Quiz List property")
+                can_collect = false
+            else
+                local failure_message = object.custom_properties["Failure Message"] or "Incorrect answer."
+                can_collect = await(run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message))
+            end
+        end
+
+        if can_collect then
             await(Async.message_player(player_id, "Accessing the mystery data\x01...\x01"))
             await(collect_datum(player_id, object, object.id))
-            lock.release()
         end
+        lock.release()
     end)
 end
 
@@ -190,7 +277,6 @@ function collect_datum(player_id, object, datum_id_override)
             return
         end
 
-        local is_key = item_info.type == "keyitem"
         if item_info.type == "random" then
             local random_options = helpers.extract_numbered_properties(object, "Next ")
             local random_selection_id = random_options[math.random(#random_options)]

@@ -8,6 +8,8 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezmystery = require('scripts/ezlibs-scripts/ezmystery')
 local ezweather = require('scripts/ezlibs-scripts/ezweather')
 local ezwarps = require('scripts/ezlibs-scripts/ezwarps/main')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- new global bus
+
 if CONFIG.EZFARMS_ENABLED then
     require('scripts/ezlibs-scripts/ezfarms')
 end
@@ -32,6 +34,13 @@ if custom_plugin then
 end
 
 eznpcs.load_npcs()
+
+-- Example global listener for lock attempts (can be moved or extended)
+ezbus:on("lock_attempt", function(player_id, lock_type, success, ...)
+    if success then
+        print(player_id .. " succeeded at " .. lock_type)
+    end
+end)
 
 Net:on("battle_results", function(event)
     local stats = {
@@ -181,4 +190,9 @@ Net:on("player_area_transfer", function(event)
             plugin.handle_player_transfer(event.player_id)
         end
     end
+end)
+
+-- Optional: destroy ezbus on server shutdown
+Net:on("shutdown", function()
+    ezbus:destroy()
 end)

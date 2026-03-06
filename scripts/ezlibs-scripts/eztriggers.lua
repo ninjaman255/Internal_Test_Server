@@ -1,4 +1,5 @@
 local helpers = require('scripts/ezlibs-scripts/helpers')
+local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')  -- custom emitter
 
 local eztriggers = {}
 
@@ -25,7 +26,6 @@ function eztriggers.add_location_event_trigger(area_id,object)
         elseif collision_shape_type == "rect" then
             emitter = eztriggers.add_rectangle_trigger(area_id, object, object.width, object.height)
         else
-            -- no satisfied condition
             warn("[eztriggers] No collision shape supported: "..collision_shape_type)
         end
     else
@@ -63,7 +63,7 @@ function eztriggers.add_interact_trigger(area_id,trigger_object)
         eztriggers.interact_triggers[area_id] = {}
     end
     if not eztriggers.interact_triggers[area_id][trigger_object.id] then
-        local emitter = Net.EventEmitter.new()
+        local emitter = EzEmitter.new()  -- use custom emitter
         eztriggers.interact_triggers[area_id][trigger_object.id] = {object=trigger_object,emitter=emitter}
         return emitter
     else
@@ -79,7 +79,7 @@ function eztriggers.add_radius_trigger(area_id,trigger_object,diameter_x,diamete
         eztriggers.radius_triggers[area_id] = {}
     end
     if not eztriggers.radius_triggers[area_id][trigger_object.id] then
-        local emitter = Net.EventEmitter.new()
+        local emitter = EzEmitter.new()  -- use custom emitter
         local trigger_info = {
             object=trigger_object,
             emitter=emitter,
@@ -104,7 +104,7 @@ function eztriggers.add_rectangle_trigger(area_id,trigger_object,width,height,ev
         eztriggers.rectangle_triggers[area_id] = {}
     end
     if not eztriggers.rectangle_triggers[area_id][trigger_object.id] then
-        local emitter = Net.EventEmitter.new()
+        local emitter = EzEmitter.new()  -- use custom emitter
         local trigger_info = {
             object=trigger_object,
             emitter=emitter,

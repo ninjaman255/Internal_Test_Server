@@ -61,18 +61,6 @@ local function ensure_directory(filepath)
     end
 end
 
--- Helper: copy a file synchronously (used internally)
-local function copy_file(source, destination)
-    return async(function()
-        local source_file = await(Async.read_file(source))
-        if not source_file then
-            error("Source file not found: " .. source)
-        end
-        await(Async.write_file(destination, source_file))
-        print('copied file', source, 'to', destination)
-    end)
-end
-
 -- Helper: register/update an asset with the server
 function set_or_update_asset(asset_path, asset_content)
     if Net.has_asset("/server/"..asset_path) then
@@ -150,24 +138,44 @@ avatar_utils.copy_player_avatar_to = function(player_id, new_texture_path, new_a
     return true
 end
 
---- Parse an animation file (.animation) into a Lua table.
---- @param avatar_path string path to the .animation file
---- @return table|nil parsed animation structure, or nil on failure
-avatar_utils.parse_animation_file = function(avatar_path)
-    local avatar = {
-        animations = {}
-    }
-    print('Parsing avatar: ' .. avatar_path)
-
-    -- Check file exists
-    local file = io.open(avatar_path, "r")
+--- Write content to a temporary file and return its path.
+--- @param content string
+--- @return string|nil temp file path, or nil on error
+local function write_temp_file(content)
+    local temp_path = os.tmpname()  -- returns a unique temporary filename
+    local file, err = io.open(temp_path, "wb")
     if not file then
-        print("Avatar file not found: " .. avatar_path)
+        print("Failed to create temp file:", err)
         return nil
     end
+    file:write(content)
     file:close()
+    return temp_path
+end
 
-    local yes_data = lua_yes_parser.parse(avatar_path)
+--- Parse animation data from a string (content of .animation file) into a Lua table.
+--- This function writes the content to a temporary file and uses lua_yes_parser.
+--- @param data string The content of the .animation file
+--- @return table|nil parsed animation structure, or nil on failure
+avatar_utils.parse_animation_data = function(data)
+    -- Write data to a temporary file
+    local temp_path = write_temp_file(data)
+    if not temp_path then
+        print("Failed to write temporary animation file")
+        return nil
+    end
+
+    -- Parse the temporary file
+    local ok, yes_data = pcall(lua_yes_parser.parse, temp_path)
+    -- Clean up temp file
+    os.remove(temp_path)
+
+    if not ok or not yes_data then
+        print("Failed to parse animation data:", yes_data)
+        return nil
+    end
+
+    local avatar = { animations = {} }
     local currently_parsing_animation_name = nil
 
     for _, value in ipairs(yes_data) do
@@ -204,6 +212,24 @@ avatar_utils.parse_animation_file = function(avatar_path)
     end
 
     return avatar
+end
+
+--- Parse an animation file (.animation) from disk into a Lua table.
+--- This function works for any .animation file path, not just those belonging to an avatar.
+--- @param filepath string path to the .animation file
+--- @return table|nil parsed animation structure, or nil on failure
+avatar_utils.parse_animation_file = function(filepath)
+    print('Parsing animation file: ' .. filepath)
+
+    local file, err = io.open(filepath, "r")
+    if not file then
+        print("Animation file not found: " .. filepath .. ", error: " .. tostring(err))
+        return nil
+    end
+    local content = file:read("*a")
+    file:close()
+
+    return avatar_utils.parse_animation_data(content)
 end
 
 return avatar_utils

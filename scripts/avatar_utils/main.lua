@@ -1,18 +1,24 @@
 -- NaviSpot.lua
--- Module to cache player avatar and mugshot assets locally on avatar change.
--- Exports functions to retrieve cached paths.
+-- Module to cache player and bot avatar/mugshot assets.
+-- For players: copies assets from engine to local files on avatar change.
+-- For bots: registers existing local asset paths (no copying).
 
 local avatar_utils = require('scripts/avatar_utils/avatar_utils')
 
--- Cache structure: cache[player_secret] = {
+-- Cache structure for players: cache[player_secret] = {
 --   sheet = { texture = path, animation = path },
 --   mug   = { texture = path, animation = path }
 -- }
-local cache = {}
+local player_cache = {}
 local handler_registered = false
 
+-- Cache structure for bots: bot_cache[bot_id] = {
+--   sheet = { texture = path, animation = path },
+--   mug   = { texture = path, animation = path }
+-- }
+local bot_cache = {}
+
 local function get_player_secret(player_id)
-    -- Retrieve the player's unique safe secret
     return Net.get_player_secret(player_id)
 end
 
@@ -57,7 +63,7 @@ local function update_player_avatar(player_id)
             animation = mug_animation_path
         }
     }
-    cache[secret] = entry
+    player_cache[secret] = entry
     return entry
 end
 
@@ -71,12 +77,11 @@ if not handler_registered then
     handler_registered = true
 end
 
---- Public API: retrieve cached avatar paths for a given player secret.
+--- Public API: retrieve cached player avatar paths for a given player secret.
 --- @param secret string the player's secret (from Net.get_player_secret)
 --- @return table|nil the cached sheet/mug paths or nil if not yet cached
 local function get_player_avatar_paths(secret)
-
-    return cache[secret]
+    return player_cache[secret]
 end
 
 --- Public API: force an immediate refresh for a player ID (useful if you need the data right away).
@@ -86,10 +91,68 @@ local function refresh_player_avatar(player_id)
     return update_player_avatar(player_id)
 end
 
+--- ======================== Bot Avatar Caching ========================
+
+--- Register or update a bot's avatar and mugshot asset paths.
+--- These are assumed to be existing local files or server assets; no copying is performed.
+--- @param bot_id string Unique identifier for the bot (e.g., bot name)
+--- @param sheet_texture_path string Path to the bot's sheet texture
+--- @param sheet_animation_path string Path to the bot's sheet animation file
+--- @param mug_texture_path string Path to the bot's mugshot texture
+--- @param mug_animation_path string Path to the bot's mugshot animation file
+--- @return table the stored entry
+local function register_bot_avatar(bot_id, sheet_texture_path, sheet_animation_path, mug_texture_path, mug_animation_path)
+    local entry = {
+        sheet = {
+            texture = sheet_texture_path,
+            animation = sheet_animation_path
+        },
+        mug = {
+            texture = mug_texture_path,
+            animation = mug_animation_path
+        }
+    }
+    bot_cache[bot_id] = entry
+    return entry
+end
+
+--- Retrieve cached bot avatar paths.
+--- @param bot_id string
+--- @return table|nil the cached sheet/mug paths or nil if not registered
+local function get_bot_avatar_paths(bot_id)
+    return bot_cache[bot_id]
+end
+
+--- Optionally parse a bot's animation file to get frame data.
+--- @param bot_id string
+--- @param type string "sheet" or "mug" to specify which animation to parse
+--- @return table|nil parsed animation structure or nil if missing/error
+local function parse_bot_animation(bot_id, type)
+    local entry = bot_cache[bot_id]
+    if not entry then
+        print("Bot: Bot not registered:", bot_id)
+        return nil
+    end
+    local anim_path = (type == "sheet" and entry.sheet.animation) or (type == "mug" and entry.mug.animation)
+    if not anim_path then
+        print("Bot: No animation path for bot", bot_id, "type", type)
+        return nil
+    end
+    return avatar_utils.parse_animation_file(anim_path)
+end
+
 -- Return the public interface
 return {
+    -- Player functions
     get_player_avatar_paths = get_player_avatar_paths,
     refresh_player_avatar = refresh_player_avatar,
+
+    -- Bot functions
+    register_bot_avatar = register_bot_avatar,
+    get_bot_avatar_paths = get_bot_avatar_paths,
+    parse_bot_animation = parse_bot_animation,
+
     -- For debugging/inspection
-    _cache = cache
+    _player_cache = player_cache,
+    _bot_cache = bot_cache
 }

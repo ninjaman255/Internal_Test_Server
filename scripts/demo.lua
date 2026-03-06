@@ -13,10 +13,6 @@ local InputSystem = require("scripts/input-controller/main")   -- per‑player i
 
 NetHelpers.patch_net()
 
--- Remove the old Input helper
--- local Input = require("scripts/input/input")
--- Input.attach_virtual_input_listener()
-
 NetHelpers.safe_require("scripts/net-games/dialogue/startup")
 
 --purpose: Shorthand for async
@@ -36,6 +32,68 @@ Net:on("virtual_input", function(event)
         print("RAW INPUT:", ev.name, "state:", ev.state)
     end
 end)
+
+-------------------------------------------
+-- AUTO-SPAWN NPCs FROM TILED OBJECTS
+-------------------------------------------
+
+-- Mapping from Tiled object name to bot ID and default assets
+local npc_config = {
+    MarqueeBat = {
+        bot_id = "marquee_demo",
+        texture = "/server/assets/demo/cyber_bat.png",
+        animation = "/server/assets/demo/cyber_bat.animation",
+        anim_state = nil
+    },
+    LiberationPointsBat = {
+        bot_id = "bat",
+        texture = "/server/assets/demo/cyber_bat.png",
+        animation = "/server/assets/demo/cyber_bat.animation",
+        anim_state = nil
+    },
+    NaviChanger = {
+        bot_id = "changer",
+        texture = "/server/assets/demo/protoman-bn5.png",
+        animation = "/server/assets/demo/protoman-bn5.animation",
+        anim_state = "IDLE_DL"
+    },
+    CosmeticRoll = {
+        bot_id = "cosmo",
+        texture = "/server/assets/demo/roll.png",
+        animation = "/server/assets/demo/roll.animation",
+        anim_state = nil
+    }
+}
+
+local function spawn_demo_npcs()
+    local areas = Net.list_areas()
+    for _, area_id in ipairs(areas) do
+        area_id = tostring(area_id)
+        local objects = Net.list_objects(area_id)
+        for _, object_id in ipairs(objects) do
+            local object = Net.get_object_by_id(area_id, object_id)
+            if object and npc_config[object.name] then
+                local config = npc_config[object.name]
+                Net.create_bot(config.bot_id, {
+                    name = "",
+                    area_id = area_id,
+                    texture_path = config.texture,
+                    animation_path = config.animation,
+                    animation = config.anim_state,
+                    x = object.x,
+                    y = object.y,
+                    z = object.z or 0,
+                    solid = true,
+                    warp_in = false
+                })
+                print("[demo] Spawned " .. config.bot_id .. " from Tiled object " .. object.name)
+            end
+        end
+    end
+end
+
+-- Spawn all NPCs defined in the map
+spawn_demo_npcs()
 
 -------------------------------------------
 -- DEMO CODE FOR NPC THAT LITTERALLY JUST TALK (WOW) --
@@ -63,7 +121,7 @@ require("scripts/net-games/npcs/prog_shop")
 -- DEMO CODE FOR NPC THAT GIVES COSMETIC --
 -------------------------------------------
 
-Net.create_bot("cosmo", { area_id="default", warp_in=false, texture_path="/server/assets/demo/roll.png", animation_path="/server/assets/demo/roll.animation", x=25.5, y=18.5, z=0, solid=true})
+-- Bot "cosmo" is now auto‑spawned from Tiled object "CosmeticRoll"
 local cosmo = {}
 
 Net:on("actor_interaction", function(event)
@@ -77,7 +135,6 @@ Net:on("actor_interaction", function(event)
     elseif event.actor_id == "cosmo" and event.button == 0 and cosmo[event.player_id] == true then
         cosmo[event.player_id] = false
         games.remove_cosmetic(cosmetic_id, event.player_id)
-
         Net.message_player(event.player_id, "Cosmetic removed!")
     end
 end)
@@ -88,33 +145,19 @@ end)
 ----------------------------------------------------------
 local marquee_active = {}
 
-Net.create_bot("marquee_demo", { 
-    area_id="default", 
-    warp_in=false, 
-    texture_path="/server/assets/demo/cyber_bat.png", 
-    animation_path="/server/assets/demo/cyber_bat.animation", 
-    x=24, y=21, z=0, 
-    solid=true
-})
+-- Bot "marquee_demo" is auto‑spawned from Tiled object "MarqueeBat"
 
 local backdrop_config = {
-    x = 0,          -- Just set backdrop position
-    y = 130,        -- Text will be automatically centered
-    width = 240,    -- Width of the backdrop we currently are using
-    height = 30,    -- Backdrop height (text will be centered within this)
-    loops = 0,      -- (int : optional) Set loops to how many times you would like it to show before removing or using a custom `on_finish` function to be called when the loops for marquee text have completed.
-                    --      - If nil or 0 is provided it will default to infinite be on screen until it is manually removed by the programmer.
---  EXTRA OPTIONAL FIELDS NOT LISTED ABOVE
---  on_finish     = (function : optional) some_x_function() end 
---      - If none is provided it will remove marquee text and its backdrop.
---  keep_backdrop = (bool : optional) true or false
---      - If none is provided then this will default to false.
+    x = 0,
+    y = 130,
+    width = 240,
+    height = 30,
+    loops = 0,
 }
 
 Net:on("actor_interaction", function(event)
     if event.actor_id == "marquee_demo" and event.button == 0 and (marquee_active[event.player_id] ~= true) then
-        -- Create a marquee with backdrop
-       games.draw_marquee_text("demo_marquee", event.player_id, "Welcome to the Net Games Demo! This is a scrolling marquee text!", 15, "THICK", 2.0, 100, 60, backdrop_config)
+        games.draw_marquee_text("demo_marquee", event.player_id, "Welcome to the Net Games Demo! This is a scrolling marquee text!", 15, "THICK", 2.0, 100, 60, backdrop_config)
         marquee_active[event.player_id] = true
         Net.message_player(event.player_id, "Marquee text activated! Watch it scroll across the screen.")
     elseif event.actor_id == "marquee_demo" and event.button == 0 and marquee_active[event.player_id] == true then
@@ -127,7 +170,6 @@ end)
 Net:on("player_join", function(event)
     marquee_active[event.player_id] = false
 
-    -- Example of using the input controller: show a message when Start is pressed
     local ctrl = InputSystem.get_controller(event.player_id)
     if ctrl then
         ctrl:on("button_pressed", function(ev)
@@ -146,12 +188,11 @@ end)
 -- DEMO CODE FOR THE BAT NPC THAT SPAWNS THE ORDER POINT UI --
 --------------------------------------------------------------
 
-local bat_active = {} 
-local points_per_player = {}  -- per‑player points
+local bat_active = {}
+local points_per_player = {}
 
-Net.create_bot("bat", { area_id="default", warp_in=false, texture_path="/server/assets/demo/cyber_bat.png", animation_path="/server/assets/demo/cyber_bat.animation", x=26, y=21, z=0, solid=true})
+-- Bot "bat" is auto‑spawned from Tiled object "LiberationPointsBat"
 
--- Virtual input handler for the bat UI – now uses the per‑player controller
 Net:on("virtual_input", function(event)
     local player_id = event.player_id
     if bat_active[player_id] ~= true then return end
@@ -159,7 +200,6 @@ Net:on("virtual_input", function(event)
     local ctrl = InputSystem.get_controller(player_id)
     if not ctrl then return end
 
-    -- Shoulder R – decrease points
     if ctrl:is_action_pressed("ShoulderR") then
         local points = points_per_player[player_id] or 8
         if points > 0 then
@@ -170,7 +210,6 @@ Net:on("virtual_input", function(event)
         points_per_player[player_id] = points
         games.set_ui_animation("points", player_id, tostring(points .. "POINT"))
 
-    -- Shoulder L – increase points
     elseif ctrl:is_action_pressed("ShoulderL") then
         local points = points_per_player[player_id] or 8
         if points < 8 then
@@ -181,7 +220,6 @@ Net:on("virtual_input", function(event)
         points_per_player[player_id] = points
         games.set_ui_animation("points", player_id, tostring(points .. "POINT"))
 
-    -- Any direction key – deactivate UI
     elseif ctrl:is_action_pressed("dir_Left") or ctrl:is_action_pressed("dir_Right") or
            ctrl:is_action_pressed("dir_Up") or ctrl:is_action_pressed("dir_Down") then
         games.remove_ui_element("points", player_id)
@@ -191,100 +229,56 @@ Net:on("virtual_input", function(event)
 end)
 
 Net:on("actor_interaction", function (event)
-
     if event.actor_id == "bat" and event.button == 0 and bat_active[event.player_id] == false then
         points_per_player[event.player_id] = 8
-        Net.message_player(event.player_id, "Press Left Shoulder to increase and Right Shoulder to decrease. Press any arrow key to stop.","","") 
+        Net.message_player(event.player_id, "Press Left Shoulder to increase and Right Shoulder to decrease. Press any arrow key to stop.","","")
         Net.lock_player_input(event.player_id)
-        
-    ------------------------------------------------------------------------
-    ----- re-use for initial params for most games.{x_name}_ui_element -----
-    ------------------------------------------------------------------------
-    local spr_id = "points"
-    local pid = event.player_id
-    ------------------------------------------------------------------------
-    
-    ------------------------------------------------------------------------
-    ---- TESTED AND WORKING FRAMEWORK API CALLS FOR {X_NAME}_UI_ELEMENT ----
-    ------------------------------------------------------------------------
-    games.add_ui_element(spr_id,pid,"/server/assets/demo/order_points.png","/server/assets/demo/order_points.animation","8POINT",0,0,0, 2,2, 240, 160)
-    games.add_ui_element(spr_id.."a",pid,"/server/assets/demo/order_points.png","/server/assets/demo/order_points.animation","8POINT",0,0,0, 2,2, 240, 160, "center", "middle")
-    games.add_ui_element(spr_id.."b",pid,"/server/assets/demo/order_points.png","/server/assets/demo/order_points.animation","8POINT",4,4,0, 2,2)
-    async(function()
-        ------------------------------------------------------------------------
-        ---------------- DEBUGGING REMOVE WHEN NO LONGER NEEDED ----------------
-        ------------------------------------------------------------------------
-        local eprops1 = games.get_ui_element_properties(spr_id,pid)
-        local eprops2 = games.get_ui_element_properties(spr_id.."a",pid)
-        local eprops3 = games.get_ui_element_properties(spr_id.."b",pid)
-        
-        print(eprops1)
-        ------------------------------------------------------------------------
-    
-        -- summon test
-        -- games.summon_ui_element("points",event.player_id, 120, 0, 0.5, 0, 140, 2.0, 3, 24, 1.35, 5, function() 
-        -- end)
 
-        -- await(Async.sleep(3))        
-        ---- complex summon test
-        games.complex_summon_ui_element_relative(spr_id,pid, 110, 50, 2.0, 4, 1, 2.0)
-        games.set_ui_animation((spr_id.."b"), pid, "7POINT")
-        games.set_ui_animation((spr_id.."a"), pid, "6POINT")
+        local spr_id = "points"
+        local pid = event.player_id
 
-        AnimationSequences.series(
-            {spr1 = eprops1,spr2 = eprops2,spr3 = eprops3},
-          function(obj, opts)
-            opts.loop = 1         -- force a single pulse per sprite
-            opts.ping_pong = true
-            return AnimationSequences.pulse(obj, opts)
-          end,
-          { delay_between = 0.05, loop = true, anim_options = { duration = 0.18, scale_to = 1.15 } }
-        )
-        await(Async.sleep(2))
+        games.add_ui_element(spr_id,pid,"/server/assets/demo/order_points.png","/server/assets/demo/order_points.animation","8POINT",0,0,0, 2,2, 240, 160)
+        games.add_ui_element(spr_id.."a",pid,"/server/assets/demo/order_points.png","/server/assets/demo/order_points.animation","8POINT",0,0,0, 2,2, 240, 160, "center", "middle")
+        games.add_ui_element(spr_id.."b",pid,"/server/assets/demo/order_points.png","/server/assets/demo/order_points.animation","8POINT",4,4,0, 2,2)
+        async(function()
+            local eprops1 = games.get_ui_element_properties(spr_id,pid)
+            local eprops2 = games.get_ui_element_properties(spr_id.."a",pid)
+            local eprops3 = games.get_ui_element_properties(spr_id.."b",pid)
 
-        ---- bob test:
-        -- games.bob_ui_element(spr_id, pid, 10, 2, AnimationEngine.AnimEnums.EasingFns.smootherstep, true, false)
+            print(eprops1)
 
-        ---- pulse scale test:
-        -- games.pulse_scale_ui_element(spr_id, pid, 0.0, 2.0, 10.0, AnimationEngine.AnimEnums.EasingFns.smootherstep, true)
-        
-        ---- color pulse  from sprite info test:
-        -- games.color_pulse_from_current(spr_id, pid, {r = 255, g = 125, b = 125, a = 125})
+            games.complex_summon_ui_element_relative(spr_id,pid, 110, 50, 2.0, 4, 1, 2.0)
+            games.set_ui_animation((spr_id.."b"), pid, "7POINT")
+            games.set_ui_animation((spr_id.."a"), pid, "6POINT")
 
-        ---- rotate in circle test
-        games.shake_ui_element(spr_id.."b",pid,1, 100, 10)
+            AnimationSequences.series(
+                {spr1 = eprops1,spr2 = eprops2,spr3 = eprops3},
+              function(obj, opts)
+                opts.loop = 1
+                opts.ping_pong = true
+                return AnimationSequences.pulse(obj, opts)
+              end,
+              { delay_between = 0.05, loop = true, anim_options = { duration = 0.18, scale_to = 1.15 } }
+            )
+            await(Async.sleep(2))
 
-        ---- fade test
-        -- games.set_opacity_ui_element(spr_id,pid,128, 2, AnimationEngine.AnimEnums.EasingFns.smoothstep)
+            games.shake_ui_element(spr_id.."b",pid,1, 100, 10)
 
-        ---- color pulse x -> y test
-        -- games.color_pulse_rgb(spr_id, pid, 122, 0, 127, 255, 125,127,155,255)
+            games.relative_slide_ui_element(spr_id, pid, 4, 141, 2, AnimationEngine.AnimEnums.EasingFns.cubic)
 
-        ---- slide test
-        games.relative_slide_ui_element(spr_id, pid, 4, 141, 2, AnimationEngine.AnimEnums.EasingFns.cubic)
+            games.menu_cursor_ui_element(spr_id, pid, 10, 1.1, 2,1, "horizontal")
 
-        ---- cursor bob test
-        games.menu_cursor_ui_element(spr_id, pid, 10, 1.1, 2,1, "horizontal")
+            games.set_ui_element_color(spr_id, pid, 214, 124, 111, 1, AnimationEngine.AnimEnums.EasingFns.bounce_in)
 
-        ---- set color test
-        games.set_ui_element_color(spr_id, pid, 214, 124, 111, 1, AnimationEngine.AnimEnums.EasingFns.bounce_in)
+            games.bob_ui_element(spr_id.."a",pid, 5, 2)
 
-        ---- second slide test
-        -- games.relative_slide_ui_element(spr_id.."a",pid,161, 4, 3, AnimationEngine.AnimEnums.EasingFns.linear)
-    
-        games.bob_ui_element(spr_id.."a",pid, 5, 2)
+            games.summon_ui_element_relative(spr_id.."b",pid,161, 151, 2.0,3,20,1.1, 2, AnimationEngine.AnimEnums.EasingFns.cubic, function () end)
 
-                ---- second slide test
-        games.summon_ui_element_relative(spr_id.."b",pid,161, 151, 2.0,3,20,1.1, 2, AnimationEngine.AnimEnums.EasingFns.cubic, function () end)
-    
-        games.color_pulse_from_current(spr_id.."b",pid, {r = 10, g = 122, b = 125, a = 255})
+            games.color_pulse_from_current(spr_id.."b",pid, {r = 10, g = 122, b = 125, a = 255})
+        end)
 
-    end)
-    ------------------------------------------------------------------------
-
-
-    bat_active[event.player_id] = true
-    end 
+        bat_active[event.player_id] = true
+    end
 end)
 
 Net:on("player_join", function(event)
@@ -299,9 +293,9 @@ end)
 -- DEMO CODE FOR THE NPC THAT SPAWNS A CURSOR TO CHANGE IT'S AVATAR --
 ----------------------------------------------------------------------
 
-local points = 8
+local points = 8   -- (unused variable kept for compatibility)
 
-Net.create_bot("changer", { area_id="default", warp_in=false, texture_path="/server/assets/demo/protoman-bn5.png", animation_path="/server/assets/demo/protoman-bn5.animation", animation="IDLE_DL", x=26, y=19.5, z=0, solid=true})
+-- Bot "changer" is auto‑spawned from Tiled object "NaviChanger"
 
 Net:on("cursor_selection", function(event)
     if event.cursor == "navi_changer" then
@@ -322,8 +316,8 @@ Net:on("cursor_selection", function(event)
             animation = "/server/assets/demo/roll.animation"
         elseif event.selection == "megaman" then
             texture = "/server/assets/demo/megaman.png"
-            animation = "/server/assets/demo/megaman.animation"    
-        end 
+            animation = "/server/assets/demo/megaman.animation"
+        end
         Net.provide_asset_for_player(event.player_id, texture)
         Net.provide_asset_for_player(event.player_id, animation)
 
@@ -351,10 +345,6 @@ Net:on("actor_interaction", function (event)
         }
         games.spawn_cursor("navi_changer", event.player_id, cursor_options)
 
-        -- ❌ Removed the bob animation – it conflicts with cursor movement
-        -- games.menu_cursor_ui_element("navi_changer", event.player_id, 20, 1.8, 1, 10, "horizontal")
-
-        -- ✅ Keep the color pulse (doesn't affect position)
         games.color_pulse_from_current("navi_changer", event.player_id, {r = 0, g = 0, b = 255, a = 128})
 
         games.draw_text("roll_label",     event.player_id, "<Roll_EXE>",     40, 40, 100, "BATTLE")

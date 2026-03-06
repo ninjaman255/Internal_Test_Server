@@ -1,5 +1,6 @@
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
+local ezlocks = require('scripts/ezlibs-scripts/ezlocks')   -- new module
 
 local ezcheckpoints = {}
 
@@ -27,61 +28,6 @@ Unlock Failed Message (string)
     override the message on failed unlock
 ]]
 
-local function password_check(player_id,prompt_message,correct_password)
-    return async(function ()
-        local passed = false
-        if #prompt_message > 0 then
-            await(Async.message_player(player_id,prompt_message))
-        end
-        local input = await(Async.prompt_player(player_id))
-        if input == correct_password then
-            passed = true
-        end
-        return passed
-    end)
-end
-
-local function money_check(player_id,prompt_message,amount,consume_money)
-    return async(function ()
-        local passed = false
-        local choice = 1
-        if #prompt_message > 0 then
-            choice = await(Async.question_player(player_id,prompt_message))
-            if choice == 0 then
-                return nil
-            end
-        end
-        if choice == 1 then
-            if consume_money then
-                passed = ezmemory.spend_player_money(player_id, amount)
-            else
-                passed = Net.get_player_money(player_id) >= amount
-            end
-        end
-        return passed
-    end)
-end
-
-local function item_check(player_id,prompt_message,required_item,amount,consume_item)
-    return async(function ()
-        local passed = false
-        local choice = 1
-        if #prompt_message > 0 then
-            choice = await(Async.question_player(player_id,prompt_message))
-            if choice == 0 then
-                return nil
-            end
-        end
-        if choice == 1 then
-            passed = ezmemory.count_player_item(player_id,required_item) >= amount
-            if passed and consume_item then
-                ezmemory.remove_player_item(player_id, required_item, amount)
-            end
-        end
-        return passed
-    end)
-end
-
 local function unlock_checkpoint_for_player(player_id,area_id,object_id,unlocking_asset_name,unlocking_sound_path,unlocking_animation_time,once)
     return async(function ()
         Net.lock_player_input(player_id)
@@ -93,20 +39,6 @@ local function unlock_checkpoint_for_player(player_id,area_id,object_id,unlockin
             ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, object_id)
         end
         if unlocking_animation_time > 0 then
-            --[[
-            local tileset = Net.get_tileset_for_tile(area_id, object.data.gid)
-            local first_gid = tileset.first_gid
-            object.data.gid = first_gid+tonumber(unlocking_frame_index)
-            local new_object_props = {
-                x=object.x,
-                y=object.y,
-                z=object.z,
-                width=object.width,
-                height=object.height,
-                rotation=object.data.rotation,
-                data=object.data
-            }
-            ]]
             local new_bot_props = {
                 x=object.x,
                 y=object.y,
@@ -119,11 +51,8 @@ local function unlock_checkpoint_for_player(player_id,area_id,object_id,unlockin
             }
             Net.provide_asset(area_id, new_bot_props.texture_path)
             
-            --local new_object_id = Net.create_object(area_id,new_object_props)
             local bot_id = Net.create_bot(new_bot_props)
-            --Net.set_object_data(area_id, object_id, object.data)
             await(Async.sleep(unlocking_animation_time))
-            --Net.remove_object(area_id,new_object_id)
             Net.remove_bot(bot_id, false)
         end
         Net.unlock_player_input(player_id)
@@ -140,7 +69,6 @@ Net:on("object_interaction", function(event)
     if checkpoint_object.type ~= "Checkpoint" then return end
     --anti spam lock
     local lock_id = player_id.."_"..area_id.."_"..checkpoint_object.id
-    --lock needs to have a unique id for interaction between this player, and object
     local lock = helpers.get_lock(player_id,lock_id)
     if not lock then
         return
@@ -148,8 +76,7 @@ Net:on("object_interaction", function(event)
     
     local cp = checkpoint_object.custom_properties
 
-    --Gather infomration from checkpoint object
-    --by default it will just ask for 1 money and vanish
+    --Gather information from checkpoint object
     local password = cp["Password"] or false
     local key_name = cp["Key Name"] or "money"
     local required_keys = tonumber(cp["Required Keys"] or 1)
@@ -185,7 +112,6 @@ Net:on("object_interaction", function(event)
                     prompt_message = "Show "..required_keys.." "..key_name.." to Unlock?"
                 end
             end
-            --password overrides if it exists
             if password then
                 prompt_message = "Please input the password"
                 prompt_type = "password"
@@ -194,11 +120,11 @@ Net:on("object_interaction", function(event)
 
         local unlocked = false
         if prompt_type == "password" then
-            unlocked = await(password_check(player_id,prompt_message,password))
+            unlocked = await(ezlocks.check_password(player_id, prompt_message, password))
         elseif prompt_type == "money" then
-            unlocked = await(money_check(player_id,prompt_message,required_keys,consume))
+            unlocked = await(ezlocks.check_money(player_id, prompt_message, required_keys, consume))
         else
-            unlocked = await(item_check(player_id,prompt_message,key_name,required_keys,consume))
+            unlocked = await(ezlocks.check_item(player_id, prompt_message, key_name, required_keys, consume))
         end
 
         if unlocked == true then
