@@ -313,21 +313,15 @@ Net:on("player_join", function(event)
     end
 end)
 
-print("[ezemail] email_read test listener registered")
-
+-- Handle email_read events: mark the email as read in player memory
 Net:on("email_read", function(event)
   local player_id = event.player_id
   local email_id = event.email_id
 
-  print("[ezemail] email_read fired:", tostring(player_id), tostring(email_id))
+  _dbg("email_read fired for player", player_id, "email", email_id)
 
-  -- show in-game too (no mugshot)
-  if player_id and Net.message_player then
-    Net.message_player(
-      player_id,
-      "email_read fired for: " .. tostring(email_id)
-    )
-  end
+  -- Mark the email as read in persistent memory
+  _mark_email_read(player_id, email_id)
 end)
 
 return ezemail

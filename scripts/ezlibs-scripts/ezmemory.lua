@@ -1,79 +1,25 @@
 local json = require('scripts/ezlibs-scripts/json')
-local CONFIG = require('scripts/ezlibs-scripts/ezconfig')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local table = require('table')
-local AvatarCache = require('scripts/avatar_utils/main')
-local AvatarUtils = require('scripts/avatar_utils/avatar_utils')
-local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- added for global events
-
 local ezmemory = {}
 local player_memory = {}
 local area_memory = {}
 local player_list = {}
 local player_avatar_details = {}
-local player_avatars = {}
-local player_animations = {}
 local items = {}
 local item_name_table = {}
 local objects_hidden_till_disconnect_for_player = {}
 local highest_item_id = 1
 
-local players_path = CONFIG.PLAYERS_PATH
-local items_path = CONFIG.ITEMS_PATH
-local area_path_prefix = CONFIG.AREA_PATH_FOLDER
-local player_path_prefix = CONFIG.PLAYER_PATH_FOLDER
-
-local dir_to_anim = {
-    ["Up"] = "IDLE_U",
-    ["Down"] = "IDLE_D",
-    ["Right"] = "IDLE_R",
-    ["Left"] = "IDLE_L",
-    ["Up Left"] = "IDLE_UL",
-    ["Up Right"] = "IDLE_UR",
-    ["Down Left"] = "IDLE_DL",
-    ["Down Right"] = "IDLE_DR"
-}
-
-local function fetch_player_avatar_and_details(player_id)
-    local player_secret = Net.get_player_secret(player_id)
-    local player_avatar = AvatarCache.get_player_avatar_paths(player_secret)
-    --print(player_avatar)
-
-    local texture_path = ""
-    local anim_path = ""
-    if player_avatar ~= nil then
-        if player_avatar.sheet ~= nil and player_avatar.sheet.texture ~= nil then
-            texture_path = player_avatar.sheet.texture
-        end
-        if player_avatar.sheet ~= nil and player_avatar.sheet.animation ~= nil then
-            anim_path = player_avatar.sheet.animation
-        end
-    end
-    player_avatars[player_secret] = { texture_path = texture_path, anim_path = anim_path }
-    local parsed = AvatarUtils.parse_animation_file(anim_path)
-    player_animations[player_secret] = parsed
-    --print(player_animations)
-end
-
-local function fetch_player_animation(player_id, state_name)
-    local player_secret = Net.get_player_secret(player_id)
-    return player_animations[player_secret]["animations"][state_name]
-end
-
-function ezmemory.set_direction_anim(player_id, direction)
-    local dir = dir_to_anim[direction]
-    Net.animate_player(player_id, dir, false)
-end
-
-Net:on("player_avatar_change", function(event)
-    local player_id = event.player_id
-    fetch_player_avatar_and_details(player_id)
-end)
+local players_path = './memory/players'
+local items_path = './memory/items'
+local area_path_prefix = './memory/area/'
+local player_path_prefix = './memory/player/'
 
 local memory_loaded_flags = {
-    area_memory = false,
-    player_memory = false,
-    items = false
+    area_memory=false,
+    player_memory=false,
+    items=false
 }
 
 local sfx = {
@@ -82,10 +28,8 @@ local sfx = {
 
 Net:on("handle_player_join", function(event)
     --Load sound effects for give_item_with_message
-    local player_id = event.player_id
-    fetch_player_avatar_and_details(player_id)
     for name, path in pairs(sfx) do
-        Net.provide_asset_for_player(player_id, path)
+        Net.provide_asset_for_player(event.player_id, path)
     end
 end)
 
@@ -97,20 +41,20 @@ Net:on("player_request", function(event)
 end)
 
 local function printd(...)
-    local arg = { ... }
-    print('[eznpcs]', table.unpack(arg))
+    local arg={...}
+    print('[ezmemory]',table.unpack(arg))
 end
 
 
 local function ezmemory_load_file(file_path)
-    return async(function()
+    return async(function ()
         local data = nil
         pcall(function()
-            data = json.decode(await(Async.read_file(file_path .. ".json")))
+            data = json.decode(await(Async.read_file(file_path..".json")))
         end)
         if data == nil then
             pcall(function()
-                data = json.decode(await(Async.read_file(file_path .. "_backup.json")))
+                data = json.decode(await(Async.read_file(file_path.."_backup.json")))
             end)
             if data == nil then
                 return {}
@@ -120,58 +64,120 @@ local function ezmemory_load_file(file_path)
     end)
 end
 
-local function ezmemory_save_file(file_path, value)
-    return async(function()
-        local json = json.encode(value, true)
-        await(Async.write_file(file_path .. "_backup.json", json))
-        await(Async.write_file(file_path .. ".json", json))
+local function ezmemory_save_file(file_path,value)
+    return async(function ()
+        local json = json.encode(value)
+        await(Async.write_file(file_path.."_backup.json",json))
+        await(Async.write_file(file_path..".json",json))
     end)
 end
 
-local function initialize_area_memory_file(area_id)
-    area_memory[area_id] = {
-        hidden_objects = {}
-    }
-    ezmemory.save_area_memory(area_id)
+-- Ensure that a player memory table has all required fields initialized
+local function normalize_player_memory(mem)
+    if not mem then return end
+    mem.items = mem.items or {}
+    mem.money = mem.money or 0
+    mem.fragments = mem.fragments or 0
+    mem.tokens = mem.tokens or 0
+    mem.meta = mem.meta or { joins = 0 }
+    mem.area_memory = mem.area_memory or {}
+    mem.emails = mem.emails or {}
+    mem.emails.by_id = mem.emails.by_id or {}
+    -- health/max_health might be missing; leave as nil
+    return mem
 end
 
+local function initialize_area_memory_file(area_id)
+    -- IMPORTANT: never overwrite an existing area memory file.
+    -- This is called both during boot-load and as a fallback from get_area_memory().
+    local loaded = nil
+    local io_ok = (io ~= nil and io.open ~= nil)
+
+    pcall(function()
+        if not io_ok then return end
+        local function _read(path)
+            local f = io.open(path, "rb")
+            if not f then return nil end
+            local s = f:read("*a")
+            f:close()
+            return s
+        end
+
+        local base = area_path_prefix .. area_id
+        local raw = _read(base .. ".json")
+        if raw then
+            local ok, data = pcall(function() return json.decode(raw) end)
+            if ok and type(data) == "table" and data.hidden_objects ~= nil then
+                loaded = data
+                return
+            end
+        end
+
+        raw = _read(base .. "_backup.json")
+        if raw then
+            local ok, data = pcall(function() return json.decode(raw) end)
+            if ok and type(data) == "table" and data.hidden_objects ~= nil then
+                loaded = data
+                return
+            end
+        end
+    end)
+
+    if loaded then
+        area_memory[area_id] = loaded
+        return area_memory[area_id]
+    end
+
+    area_memory[area_id] = { hidden_objects = {} }
+    -- If we can't access the filesystem directly (io is unavailable), don't write.
+    -- This avoids clobbering an existing file.
+    if io_ok then
+        ezmemory.save_area_memory(area_id)
+    end
+    return area_memory[area_id]
+end
+
+
 local function load_all_memory()
-    return async(function()
+    return async(function ()
         --Load items
         items = await(ezmemory_load_file(items_path))
         for item_id, item_data in pairs(items) do
             if item_data.key_item then
-                Net.create_item(item_id, item_data)
+                Net.create_item(item_id,item_data)
             end
             item_name_table[item_data.name] = item_id
             local number_item_id = tonumber(item_id)
             if number_item_id > highest_item_id then
                 highest_item_id = number_item_id
             end
-            printd('loaded item ' .. item_id .. ' = ' .. item_data.name)
+            printd('loaded item '..item_id..' = '..item_data.name)
         end
         memory_loaded_flags.items = true
 
         --Load player memory
         player_list = await(ezmemory_load_file(players_path))
         for safe_secret, name in pairs(player_list) do
-            player_memory[safe_secret] = await(ezmemory_load_file(player_path_prefix .. safe_secret))
-            printd('loaded memory for ' .. name)
+            local mem = await(ezmemory_load_file(player_path_prefix..safe_secret))
+            normalize_player_memory(mem)
+            player_memory[safe_secret] = mem
+            printd('loaded memory for '..name)
         end
         memory_loaded_flags.player_memory = true
 
         --Load area memory for every area
         local net_areas = Net.list_areas()
         for i, area_id in ipairs(net_areas) do
-            local mem = await(ezmemory_load_file(area_path_prefix .. area_id))
+            local mem = await(ezmemory_load_file(area_path_prefix..area_id))
             if mem.hidden_objects then
                 area_memory[area_id] = mem
             else
                 initialize_area_memory_file(area_id)
             end
-            printd('loaded area memory for ' .. area_id)
+            printd('loaded area memory for '..area_id)
         end
         memory_loaded_flags.area_memory = true
+
     end)
 end
 
@@ -206,22 +212,22 @@ local function update_player_health(player_id)
 
     --if we honor mystery data hp increases, calculate the modified max hp
     if honor_hp_memory_rules then
-        max_hp = ezmemory.calculate_player_modified_max_hp(player_id, max_hp, 20, "HPMem")
+        max_hp = ezmemory.calculate_player_modified_max_hp(player_id,max_hp,20,"HPMem")
     end
 
     if full_heal then
         hp = max_hp
     end
 
-    Net.set_player_max_health(player_id, max_hp, false)
-    hp = math.min(hp, max_hp)
-    Net.set_player_health(player_id, hp)
+    Net.set_player_max_health(player_id,max_hp,false)
+    hp = math.min(hp,max_hp)
+    Net.set_player_health(player_id,hp)
 end
 
 function ezmemory.wait_until_loaded()
-    return async(function()
+    return async(function ()
         while not ezmemory.is_loaded() do
-            await(Async.sleep(1))
+            await(Async.sleep(0.2))
         end
     end)
 end
@@ -242,7 +248,7 @@ function ezmemory.get_item_info(item_id)
     return nil
 end
 
-function ezmemory.create_or_update_item(item_name, item_description, is_key)
+function ezmemory.create_or_update_item(item_name,item_description,is_key)
     if not item_name or not item_description then
         warn('[ezmemory] item not created, missing name or description')
         return
@@ -251,18 +257,18 @@ function ezmemory.create_or_update_item(item_name, item_description, is_key)
     local new_item_id
     if existing_item_id ~= nil then
         new_item_id = existing_item_id
-        printd('item with name ' .. item_name .. ' already exists, overwriting')
+        printd('item with name '..item_name..' already exists, overwriting')
     else
         new_item_id = tostring(highest_item_id + 1)
         highest_item_id = tonumber(new_item_id)
     end
 
-    local new_item = { name = item_name, description = item_description, key_item = is_key }
+    local new_item = {name=item_name,description=item_description,key_item=is_key}
     items[new_item_id] = new_item
     item_name_table[item_name] = new_item_id
     ezmemory.save_items()
     if is_key then
-        Net.create_item(new_item_id, new_item)
+        Net.create_item(new_item_id,new_item)
     end
     return new_item_id
 end
@@ -275,43 +281,82 @@ function ezmemory.get_item_id_by_name(item_name)
         --If there is already an item with this name
         return item_name_table[item_name]
     end
-    printd('item ' .. item_name .. ' does not exist')
+    printd('item '..item_name..' does not exist')
     return nil
 end
 
-function ezmemory.get_or_create_item(item_name, item_description, is_key)
+function ezmemory.get_or_create_item(item_name,item_description,is_key)
     local existing_item_id = ezmemory.get_item_id_by_name(item_name)
     if existing_item_id ~= nil then
         return existing_item_id
     end
-    return ezmemory.create_or_update_item(item_name, item_description, is_key)
+    return ezmemory.create_or_update_item(item_name,item_description,is_key)
 end
 
 function ezmemory.save_items()
-    ezmemory_save_file(items_path, items)
+    ezmemory_save_file(items_path,items)
 end
 
 function ezmemory.save_area_memory(area_id)
-    ezmemory_save_file('./memory/area/' .. area_id, area_memory[area_id])
+    ezmemory_save_file('./memory/area/'..area_id,area_memory[area_id])
 end
 
 function ezmemory.save_player_memory(safe_secret)
-    ezmemory_save_file('./memory/player/' .. safe_secret, player_memory[safe_secret])
+    ezmemory_save_file('./memory/player/'..safe_secret,player_memory[safe_secret])
 end
 
-function ezmemory.dangerously_override_player_memory(safe_secret, new_memory)
+function ezmemory.dangerously_override_player_memory(safe_secret,new_memory)
     --Potentially really dangerous, might leave hanging references to the old memory and cause all kinds of trouble, use with absolute caution
-    if player_memory[safe_secret] then
-        ezmemory_save_file('./memory/player/' .. safe_secret, new_memory)
-    end
+        if player_memory[safe_secret] then
+            ezmemory_save_file('./memory/player/'..safe_secret,new_memory)
+        end
 end
 
 function ezmemory.get_area_memory(area_id)
     if area_memory[area_id] then
         return area_memory[area_id]
-    else
-        initialize_area_memory_file(area_id)
     end
+
+    -- If this area wasn't loaded at boot (or scripts are using a bucket area),
+    -- try to load the existing file from disk instead of overwriting it.
+    local loaded = nil
+    pcall(function()
+        local function _read(path)
+            local f = io.open(path, "rb")
+            if not f then return nil end
+            local s = f:read("*a")
+            f:close()
+            return s
+        end
+
+        local base = area_path_prefix .. area_id
+        local raw = _read(base .. ".json")
+        if raw then
+            local ok, data = pcall(function() return json.decode(raw) end)
+            if ok and type(data) == "table" and data.hidden_objects ~= nil then
+                loaded = data
+                return
+            end
+        end
+
+        raw = _read(base .. "_backup.json")
+        if raw then
+            local ok, data = pcall(function() return json.decode(raw) end)
+            if ok and type(data) == "table" and data.hidden_objects ~= nil then
+                loaded = data
+                return
+            end
+        end
+    end)
+
+    if loaded then
+        area_memory[area_id] = loaded
+        return area_memory[area_id]
+    end
+
+    -- New / missing / invalid: initialize minimal structure.
+    initialize_area_memory_file(area_id)
+    return area_memory[area_id]
 end
 
 function ezmemory.get_player_memory(safe_secret)
@@ -322,19 +367,21 @@ function ezmemory.get_player_memory(safe_secret)
         return player_memory[safe_secret]
     else
         player_memory[safe_secret] = {
-            items = {},
-            money = 0,
-            meta = {
-                joins = 0
+            items={},
+            money=0,
+            fragments=0,
+            tokens=0,
+            meta={
+                joins=0
             },
-            area_memory = {},
+            area_memory={},
         }
         ezmemory.save_player_memory(safe_secret)
         return player_memory[safe_secret]
     end
 end
 
-function ezmemory.get_player_area_memory(safe_secret, area_id)
+function ezmemory.get_player_area_memory(safe_secret,area_id)
     if not memory_loaded_flags.player_memory then
         error("ezmemory is still loading player_memory, please wait a bit")
     end
@@ -342,15 +389,15 @@ function ezmemory.get_player_area_memory(safe_secret, area_id)
     if player_memory.area_memory[area_id] then
         return player_memory.area_memory[area_id]
     else
-        player_memory.area_memory[area_id] = { hidden_objects = {} }
+        player_memory.area_memory[area_id] = {hidden_objects={}}
         ezmemory.save_player_memory(safe_secret)
         return player_memory.area_memory[area_id]
     end
 end
 
-function ezmemory.update_player_list(safe_secret, name)
+function ezmemory.update_player_list(safe_secret,name)
     player_list[safe_secret] = name
-    ezmemory_save_file(players_path, player_list)
+    ezmemory_save_file(players_path,player_list)
 end
 
 function ezmemory.get_player_name_from_safesecret(safe_secret)
@@ -358,7 +405,7 @@ function ezmemory.get_player_name_from_safesecret(safe_secret)
     if player_list[safe_secret] then
         name = player_list[safe_secret]
     end
-    print("NAME=", name)
+    print("NAME=",name)
     return name
 end
 
@@ -371,12 +418,12 @@ function ezmemory.give_player_item(player_id, name, amount)
     local player_memory = ezmemory.get_player_memory(safe_secret)
     local item_id = ezmemory.get_item_id_by_name(name)
     if item_id == nil then
-        printd('cant give player ' .. name .. ' because it has not been created')
+        printd('cant give player '..name..' because it has not been created')
         return 0
     end
     local item_info = ezmemory.get_item_info(item_id)
     if item_info.key_item then
-        for i = 1, amount do
+        for i=1,amount do
             Net.give_player_item(player_id, item_id)
         end
     end
@@ -387,13 +434,11 @@ function ezmemory.give_player_item(player_id, name, amount)
         --Otherwise create the item
         player_memory.items[item_id] = amount
     end
-    printd('gave ' .. player_id .. ' ' .. amount .. ' ' .. name .. ' now they have ' .. player_memory.items[item_id])
+    printd('gave '..player_id..' '..amount..' '..name..' now they have '..player_memory.items[item_id])
     ezmemory.save_player_memory(safe_secret)
     if name == "HPMem" then
-        ezmemory.set_player_max_health(player_id, Net.get_player_max_health(player_id) + 20, true)
+        ezmemory.set_player_max_health(player_id,Net.get_player_max_health(player_id)+20,true)
     end
-    -- Emit global event
-    ezbus:emit("item_gained", player_id, name, amount, player_memory.items[item_id])
     return player_memory.items[item_id]
 end
 
@@ -402,13 +447,13 @@ function ezmemory.remove_player_item(player_id, name, remove_quant)
     local player_memory = ezmemory.get_player_memory(safe_secret)
     local item_id = ezmemory.get_item_id_by_name(name)
     if item_id == nil then
-        printd('cant remove a ' .. name .. ' because it does not exist')
+        printd('cant remove a '..name..' because it does not exist')
         return 0
     end
     if player_memory.items[item_id] then
         --If the player has the item
         if items[item_id].key_item then
-            for i = 1, remove_quant do
+            for i=1,remove_quant do
                 Net.remove_player_item(player_id, item_id)
             end
         end
@@ -422,22 +467,192 @@ function ezmemory.remove_player_item(player_id, name, remove_quant)
         ezmemory.save_player_memory(safe_secret)
         return player_memory.items[item_id]
     end
-    printd('removed a ' .. name .. ' from ' .. player_id)
+    printd('removed a '..name..' from '..player_id)
     return 0
+end
+
+
+-- ===================== Money sync helper =====================
+-- Some systems (like Net.send_player_battle_rewards) may grant money outside ezmemory.
+-- This merges Net.get_player_money and ezmemory's stored pm.money upward (max),
+-- then writes the merged value back to BOTH so relog can't revert it.
+function ezmemory.get_player_money(player_id)
+    if not (Net.get_player_money and Net.set_player_money) then
+        return nil
+    end
+
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local pm = ezmemory.get_player_memory(safe_secret)
+
+    local net_money = tonumber(Net.get_player_money(player_id) or 0) or 0
+    local mem_money = tonumber(pm.money or net_money) or net_money
+
+    local merged = math.max(net_money, mem_money)
+
+    if pm.money ~= merged then
+        pm.money = merged
+        ezmemory.save_player_memory(safe_secret)
+    end
+
+    if net_money ~= merged then
+        Net.set_player_money(player_id, merged)
+    end
+
+    return merged
 end
 
 function ezmemory.spend_player_money(player_id, amount)
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local player_memory = ezmemory.get_player_memory(safe_secret)
     if player_memory.money >= amount then
-        local new_balance = player_memory.money - amount
+        local new_balance = player_memory.money-amount
         Net.set_player_money(player_id, new_balance)
         player_memory.money = new_balance
         ezmemory.save_player_memory(safe_secret)
-        -- Emit global event
-        ezbus:emit("money_spent", player_id, amount, new_balance)
         return true
     end
+    return false
+end
+
+-- ===================== Bug Fragment helpers =====================
+-- Mirrors the money helpers, but uses server APIs:
+--   Net.get_player_fragments(player_id)
+--   Net.set_player_fragments(player_id, fragments)
+-- Note: first time this runs on an existing server, fragments are seeded from server truth on join.
+
+function ezmemory.get_player_fragments(player_id)
+    if not (Net.get_player_fragments and Net.set_player_fragments) then
+        return nil
+    end
+
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local pm = ezmemory.get_player_memory(safe_secret)
+
+    local net_frags = tonumber(Net.get_player_fragments(player_id) or 0) or 0
+    local mem_frags = tonumber(pm.fragments or net_frags) or net_frags
+
+    -- Merge upward so we never "lose" frags that were granted outside ezmemory.
+    local merged = math.max(net_frags, mem_frags)
+
+    if pm.fragments ~= merged then
+        pm.fragments = merged
+        ezmemory.save_player_memory(safe_secret)
+    end
+
+    -- If net is behind memory (rare, but possible), keep client/server in sync too.
+    if net_frags ~= merged then
+        Net.set_player_fragments(player_id, merged)
+    end
+
+    return merged
+end
+
+
+function ezmemory.set_player_fragments(player_id, fragments)
+    if not (Net.get_player_fragments and Net.set_player_fragments) then
+        error("Fragments support isn't available on this server build (missing Net.get_player_fragments / Net.set_player_fragments).")
+    end
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local player_memory = ezmemory.get_player_memory(safe_secret)
+    Net.set_player_fragments(player_id, fragments)
+    player_memory.fragments = fragments
+    ezmemory.save_player_memory(safe_secret)
+end
+
+function ezmemory.add_player_fragments(player_id, amount)
+    if not (Net.get_player_fragments and Net.set_player_fragments) then
+        error("Fragments support isn't available on this server build (missing Net.get_player_fragments / Net.set_player_fragments).")
+    end
+    amount = tonumber(amount) or 0
+    if amount == 0 then return true end
+    local cur = ezmemory.get_player_fragments(player_id) or 0
+    ezmemory.set_player_fragments(player_id, cur + amount)
+    return true
+end
+
+function ezmemory.spend_player_fragments(player_id, amount)
+  if not (Net.get_player_fragments and Net.set_player_fragments) then
+    print("Fragments support isn't installed in ezmemory yet.")
+    return false
+  end
+
+  amount = tonumber(amount) or 0
+  if amount == 0 then
+    return true
+  end
+
+  local cur = tonumber(ezmemory.get_player_fragments(player_id) or 0) or 0
+
+  -- Same semantics as spend_player_money:
+  --  amount > 0 subtracts fragments
+  --  amount < 0 adds fragments
+  if cur >= amount then
+    ezmemory.set_player_fragments(player_id, cur - amount)
+    return true
+  end
+
+  return false
+end
+
+-- ===================== Token helpers =====================
+-- Tokens are ezmemory-only currency (no Net sync).
+-- Stored on disk in player_memory[safe_secret].tokens.
+local function _normalize_tokens(value)
+    value = tonumber(value) or 0
+    value = math.floor(value)
+    if value < 0 then value = 0 end
+    return value
+end
+
+function ezmemory.get_player_tokens(player_id)
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local pm = ezmemory.get_player_memory(safe_secret)
+    if pm.tokens == nil then
+        pm.tokens = 0
+        ezmemory.save_player_memory(safe_secret)
+    end
+    return _normalize_tokens(pm.tokens)
+end
+
+function ezmemory.set_player_tokens(player_id, tokens)
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local pm = ezmemory.get_player_memory(safe_secret)
+    tokens = _normalize_tokens(tokens)
+    pm.tokens = tokens
+    ezmemory.save_player_memory(safe_secret)
+    return tokens
+end
+
+function ezmemory.add_player_tokens(player_id, amount)
+    amount = tonumber(amount) or 0
+    if amount == 0 then
+        return ezmemory.get_player_tokens(player_id)
+    end
+    local cur = ezmemory.get_player_tokens(player_id)
+    return ezmemory.set_player_tokens(player_id, cur + amount)
+end
+
+function ezmemory.spend_player_tokens(player_id, amount)
+    amount = tonumber(amount) or 0
+    if amount == 0 then
+        return true
+    end
+
+    local cur = ezmemory.get_player_tokens(player_id)
+
+    -- Same semantics as spend_player_money / spend_player_fragments:
+    --  amount > 0 subtracts tokens (fails if insufficient)
+    --  amount < 0 adds tokens
+    if amount < 0 then
+        ezmemory.set_player_tokens(player_id, cur - amount)
+        return true
+    end
+
+    if cur >= amount then
+        ezmemory.set_player_tokens(player_id, cur - amount)
+        return true
+    end
+
     return false
 end
 
@@ -462,8 +677,8 @@ function ezmemory.count_player_item(player_id, item_name)
     return 0
 end
 
-function ezmemory.open_shop_async(player_id, shop_items, mugshot_texture_path, mugshot_animation_path)
-    return async(function()
+function ezmemory.open_shop_async(player_id,shop_items,mugshot_texture_path,mugshot_animation_path)
+    return async(function ()
         local shop = Net.open_shop(player_id, shop_items, mugshot_texture_path, mugshot_animation_path)
         local async_iter = shop:async_iter_all()
         local shop_items_by_name = {}
@@ -475,16 +690,16 @@ function ezmemory.open_shop_async(player_id, shop_items, mugshot_texture_path, m
         for event_name, event_data in Async.await(async_iter) do
             if event_name == 'shop_purchase' then
                 local item = shop_items_by_name[event_data.item_name]
-                if ezmemory.spend_player_money(player_id, item.price) then
-                    ezmemory.create_or_update_item(item.name, item.description, item.is_key)
-                    ezmemory.give_player_item(player_id, item.name, 1)
+                if ezmemory.spend_player_money(player_id,item.price) then
+                    ezmemory.create_or_update_item(item.name,item.description,item.is_key)
+                    ezmemory.give_player_item(player_id,item.name,1)
                 end
             end
         end
     end)
 end
 
-function ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, object_id)
+function ezmemory.hide_object_from_player_till_disconnect(player_id,area_id,object_id)
     object_id = tostring(object_id)
     local player_area = Net.get_player_area(player_id)
     if not objects_hidden_till_disconnect_for_player[player_id] then
@@ -500,11 +715,45 @@ function ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, ob
     end
 end
 
-function ezmemory.hide_object_from_player(player_id, area_id, object_id)
+function ezmemory.unhide_object_from_player_till_disconnect(player_id, area_id, object_id)
+    object_id = tostring(object_id)
+    local dict = objects_hidden_till_disconnect_for_player
+    if dict[player_id] and dict[player_id][area_id] then
+        dict[player_id][area_id][object_id] = nil
+        if next(dict[player_id][area_id]) == nil then
+            dict[player_id][area_id] = nil
+        end
+        if next(dict[player_id]) == nil then
+            dict[player_id] = nil
+        end
+    end
+
+    -- If the player is currently in this area, show it immediately
+    if Net.include_object_for_player and Net.get_player_area(player_id) == area_id then
+        pcall(Net.include_object_for_player, player_id, object_id)
+    end
+end
+
+function ezmemory.unhide_object_from_player(player_id, area_id, object_id)
     object_id = tostring(object_id)
     local player_area = Net.get_player_area(player_id)
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local player_area_memory = ezmemory.get_player_area_memory(safe_secret, area_id)
+    if player_area_memory.hidden_objects[object_id] then
+        player_area_memory.hidden_objects[object_id] = nil
+        ezmemory.save_player_memory(safe_secret)
+    end
+
+    if Net.include_object_for_player and player_area == area_id then
+        pcall(Net.include_object_for_player, player_id, object_id)
+    end
+end
+
+function ezmemory.hide_object_from_player(player_id,area_id,object_id)
+    object_id = tostring(object_id)
+    local player_area = Net.get_player_area(player_id)
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local player_area_memory = ezmemory.get_player_area_memory(safe_secret,area_id)
     if not player_area_memory.hidden_objects[object_id] then
         player_area_memory.hidden_objects[object_id] = true
         ezmemory.save_player_memory(safe_secret)
@@ -515,12 +764,12 @@ function ezmemory.hide_object_from_player(player_id, area_id, object_id)
     end
 end
 
-function ezmemory.object_is_hidden_from_player(player_id, area_id, object_id)
+function ezmemory.object_is_hidden_from_player(player_id,area_id,object_id)
     object_id = tostring(object_id)
     local safe_secret = helpers.get_safe_player_secret(player_id)
-    local player_area_memory = ezmemory.get_player_area_memory(safe_secret, area_id)
+    local player_area_memory = ezmemory.get_player_area_memory(safe_secret,area_id)
     local area_memory = ezmemory.get_area_memory(area_id)
-    if ezmemory.object_is_hidden_from_player_till_disconnect(player_id, area_id, object_id) then
+    if ezmemory.object_is_hidden_from_player_till_disconnect(player_id,area_id,object_id) then
         return true
     end
     if area_memory.hidden_objects[object_id] then
@@ -532,7 +781,7 @@ function ezmemory.object_is_hidden_from_player(player_id, area_id, object_id)
     return false
 end
 
-function ezmemory.object_is_hidden_from_player_till_disconnect(player_id, area_id, object_id)
+function ezmemory.object_is_hidden_from_player_till_disconnect(player_id,area_id,object_id)
     object_id = tostring(object_id)
     local dict = objects_hidden_till_disconnect_for_player
     if dict[player_id] and dict[player_id][area_id] and dict[player_id][area_id][object_id] == true then
@@ -546,27 +795,52 @@ function ezmemory.handle_player_disconnect(player_id)
     objects_hidden_till_disconnect_for_player = {}
 end
 
-function ezmemory.get_player_list()
-    return player_list
-end
-
 function ezmemory.handle_player_join(player_id)
     --record player to list of players that have joined
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local player_name = Net.get_player_name(player_id)
     --assumes that player memory has already been read from disk
     local player_memory = ezmemory.get_player_memory(safe_secret)
-    ezmemory.update_player_list(safe_secret, player_name)
+    -- Normalize again in case memory was loaded earlier without normalization (should already be normalized, but safe)
+    normalize_player_memory(player_memory)
+    ezmemory.update_player_list(safe_secret,player_name)
     --Send player key items
     for item_id, quantity in pairs(player_memory.items) do
         if items[item_id].key_item then
-            for i = 1, quantity do
+            for i=1,quantity do
                 Net.give_player_item(player_id, item_id)
             end
         end
     end
     --Send player money
-    Net.set_player_money(player_id, player_memory.money)
+    -- Merge any server-side money (if any) before pushing ezmemory money into Net.
+    if Net.get_player_money and Net.set_player_money then
+        local net_money = tonumber(Net.get_player_money(player_id) or 0) or 0
+        local mem_money = tonumber(player_memory.money or 0) or 0
+        local merged = math.max(net_money, mem_money)
+
+        if player_memory.money ~= merged then
+            player_memory.money = merged
+            ezmemory.save_player_memory(safe_secret)
+        end
+        Net.set_player_money(player_id, merged)
+    else
+        Net.set_player_money(player_id, player_memory.money)
+    end
+    --Send player bug fragments (frags)
+    -- We *migrate* on first run: if fragments aren't in ezmemory yet, seed from server truth.
+    if Net.get_player_fragments and Net.set_player_fragments then
+        if player_memory.fragments == nil then
+            local cur_frags = Net.get_player_fragments(player_id) or 0
+            player_memory.fragments = cur_frags
+            ezmemory.save_player_memory(safe_secret)
+        end
+        Net.set_player_fragments(player_id, player_memory.fragments or 0)
+    end
+    -- Add tokens to players who previously didn't have any
+    if player_memory.tokens == nil then
+        player_memory.tokens = 0
+    end
     --update join count
     player_memory.meta.joins = player_memory.meta.joins + 1
     --also treat join as player transfer to do per area logic
@@ -598,19 +872,19 @@ function ezmemory.handle_player_transfer(player_id)
     --load memory of area
     local area_memory = ezmemory.get_area_memory(area_id)
     if area_memory and area_memory.hidden_objects then
-        for index, object_id in ipairs(area_memory.hidden_objects) do
+        for index,object_id in ipairs(area_memory.hidden_objects) do
             Net.exclude_object_for_player(player_id, object_id)
         end
     end
     --load player's memory of area
-    local player_area_memory = ezmemory.get_player_area_memory(safe_secret, area_id)
+    local player_area_memory = ezmemory.get_player_area_memory(safe_secret,area_id)
     for object_id, is_hidden in pairs(player_area_memory.hidden_objects) do
         Net.exclude_object_for_player(player_id, object_id)
     end
-    printd('hid ' .. #player_area_memory.hidden_objects .. ' objects from ' .. player_name)
+    printd('hid '..#player_area_memory.hidden_objects..' objects from '..player_name)
 end
 
-function ezmemory.calculate_player_modified_max_hp(player_id, base_max_hp, hp_memory_modifier, hp_memory_item)
+function ezmemory.calculate_player_modified_max_hp(player_id,base_max_hp,hp_memory_modifier,hp_memory_item)
     local hp_mem_count = ezmemory.count_player_item(player_id, hp_memory_item)
     local new_max_hp = (base_max_hp + hp_memory_modifier * hp_mem_count)
     return new_max_hp
@@ -638,15 +912,15 @@ function ezmemory.set_player_max_health(player_id, new_max_health, should_heal_b
     local new_health = current_health
     --If max health is raised and flag is true, add the increase in max health to current health too
     if new_max_health > max_health and should_heal_by_increase then
-        local max_hp_increase = new_max_health - max_health
+        local max_hp_increase = new_max_health-max_health
         new_health = current_health + max_hp_increase
     end
 
     local new_health = math.min(new_health, new_max_health)
-    Net.set_player_max_health(player_id, new_max_health)
-    Net.set_player_health(player_id, new_health)
+    Net.set_player_max_health(player_id,new_max_health)
+    Net.set_player_health(player_id,new_health)
     player_memory.health = new_health
-    player_memory.max_health = max_health
+    player_memory.max_health = new_max_health
     ezmemory.save_player_memory(safe_secret)
 
     update_player_health(player_id)
@@ -655,12 +929,12 @@ end
 ezmemory.set_player_health = function(player_id, new_health)
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local player_memory = ezmemory.get_player_memory(safe_secret)
-    local max_health = player_memory.max_health or Net.get_player_max_health(player_id)
+    local max_health = Net.get_player_max_health(player_id) or player_memory.max_health
 
     -- dont set health to anything above the players max health
-    printd('setting player health to ', new_health)
+    printd('setting player health to ',new_health)
     local new_health = math.min(new_health, max_health)
-    Net.set_player_health(player_id, new_health)
+    Net.set_player_health(player_id,new_health)
     player_memory.health = new_health
     ezmemory.save_player_memory(safe_secret)
 
@@ -672,15 +946,7 @@ function ezmemory.handle_player_avatar_change(player_id, details)
     update_player_health(player_id)
 end
 
-function ezmemory.play_anim_get(player_id)
-    local player_animation = fetch_player_animation(player_id, "ITEM_GET")
-    if player_animation ~= nil then
-        print("PLAYER HAS ITEM GET")
-        Net.animate_player(player_id, "ITEM_GET", false)
-    end    
-end
-
-function ezmemory.give_item_with_optional_notify(player_id, area_id, item_object_id, item_info, notify_player)
+function ezmemory.give_item_with_optional_notify(player_id,area_id,item_object_id,item_info,notify_player)
     if notify_player == nil then
         notify_player = true
     end
@@ -710,7 +976,7 @@ function ezmemory.give_item_with_optional_notify(player_id, area_id, item_object
         end
         if get_message ~= nil and notify_player == true then
             Net.play_sound_for_player(player_id, sfx.item_get)
-            await(Async.message_player(player_id, get_message))
+            await(Async.message_player(player_id,get_message))
         end
     end)
 end
