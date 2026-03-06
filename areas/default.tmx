@@ -164,6 +164,8 @@
   </object>
   <object id="105" type="Mystery Data" gid="19" x="736" y="800" width="14" height="43">
    <properties>
+    <property name="Cost Amount" value="500"/>
+    <property name="Cost Type" propertytype="CurrencyType" value="money"/>
     <property name="Locked" type="bool" value="false"/>
     <property name="Next 1" type="object" value="106"/>
     <property name="Once" type="bool" value="false"/>
@@ -194,19 +196,11 @@
   </object>
   <object id="109" type="Mystery Data" gid="51" x="800" y="800" width="14" height="43">
    <properties>
-    <property name="Locked" type="bool" value="false"/>
-    <property name="Next 1" type="object" value="110"/>
-    <property name="Once" type="bool" value="false"/>
     <property name="Quiz List" type="object" value="123"/>
+    <property name="Reward Amount" value="150"/>
+    <property name="Reward Type" propertytype="ItemType" value="money"/>
     <property name="Type" propertytype="MysteryType" value="quiz"/>
    </properties>
-  </object>
-  <object id="110" name="150 Monies" type="mystery option" x="800" y="864">
-   <properties>
-    <property name="Amount" type="int" value="150"/>
-    <property name="Type" value="money"/>
-   </properties>
-   <point/>
   </object>
   <object id="111" type="Mystery Data" gid="43" x="832" y="800" width="14" height="43">
    <properties>

@@ -33,6 +33,14 @@ local function is_property_true(val)
     return false
 end
 
+-- Helper to get a readable resource name
+local function resource_name(cost_type)
+    if cost_type == "money" then return "Money"
+    elseif cost_type == "fragments" then return "Bug Fragments"
+    elseif cost_type == "tokens" then return "Tokens"
+    else return cost_type end
+end
+
 local function object_is_mystery_data(object)
     if object.type == "Mystery Data" or object.type == "Mystery Datum" then
         return true
@@ -208,14 +216,38 @@ function try_collect_datum(player_id, area_id, object)
             end
         end
 
+        -- COST HANDLING WITH PROMPT
         local cost_type = object.custom_properties["Cost Type"]
         if cost_type and cost_type ~= "" then
             local cost_amount = tonumber(object.custom_properties["Cost Amount"] or 1)
-            local cost_cond = { type = cost_type, amount = cost_amount, consume = true }
-            local can_afford = condition.evaluate(player_id, cost_cond)
+
+            -- First check if they can afford it (without consuming)
+            local check_cond = { type = cost_type, amount = cost_amount, consume = false }
+            local can_afford = condition.evaluate(player_id, check_cond)
+
             if not can_afford then
                 local fail_msg = object.custom_properties["Cost Failure Message"]
                                  or ("You don't have enough " .. cost_type .. ".")
+                await(Async.message_player(player_id, fail_msg))
+                lock.release()
+                return
+            end
+
+            -- Ask for confirmation
+            local res_name = resource_name(cost_type)
+            local prompt = "Spend " .. cost_amount .. " " .. res_name .. " to unlock this Mystery Data?"
+            local choice = await(Async.question_player(player_id, prompt))
+            if choice == 0 then
+                -- Player declined
+                lock.release()
+                return
+            end
+
+            -- Now spend it (consume = true)
+            local spend_cond = { type = cost_type, amount = cost_amount, consume = true }
+            if not condition.evaluate(player_id, spend_cond) then
+                -- This should not happen because we already checked, but just in case
+                local fail_msg = "Failed to spend " .. cost_type .. "."
                 await(Async.message_player(player_id, fail_msg))
                 lock.release()
                 return
@@ -293,23 +325,19 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
             local random_selection_id = random_options[math.random(#random_options)]
             if random_selection_id then
                 local randomly_selected_datum = ezcache.get_object_by_id_cached(area_id, random_selection_id)
-                -- Recursively collect the randomly selected datum (pass the original datum_id_override)
                 await(collect_datum(player_id, randomly_selected_datum, datum_id_override, false))
             end
-            -- Do not give a reward for the parent (type random)
         else
             ezmemory.play_anim_get(player_id)
             await(ezmemory.give_item_with_optional_notify(player_id, area_id, object.id, item_info))
             ezmemory.set_direction_anim(player_id, Net.get_player_direction(player_id))
         end
 
-        -- Now apply hiding for the original object (the one passed in)
         if is_property_true(object.custom_properties["Once"]) then
             print("[ezmystery] Hiding permanently for player", player_id, "object", datum_id_override)
             ezmemory.hide_object_from_player(player_id, area_id, datum_id_override)
         end
 
-        -- Always hide temporarily for this session
         ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)
     end)
 end
