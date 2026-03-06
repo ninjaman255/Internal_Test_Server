@@ -346,7 +346,6 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
             end
 
             -- Show introductory messages
-            await(Async.message_player(player_id, "You access the Mystery Data..."))
             await(Async.message_player(player_id, "Oh no! The Mystery Data was a virus!"))
 
             -- Hide temporarily during battle
