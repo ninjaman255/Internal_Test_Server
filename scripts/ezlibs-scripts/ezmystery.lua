@@ -345,14 +345,18 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
                 return
             end
 
+            -- Show introductory messages
+            await(Async.message_player(player_id, "You access the Mystery Data..."))
+            await(Async.message_player(player_id, "Oh no! The Mystery Data was a virus!"))
+
             -- Hide temporarily during battle
             ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)
 
             -- Start the encounter
             local results = await(ezencounters.begin_encounter_by_name(player_id, encounter_name))
 
-            -- After battle, always keep it hidden temporarily (no permanent hide)
-            -- No further action needed; it's already hidden till disconnect.
+            -- After battle, always keep it hidden temporarily (already done)
+            -- No further action needed.
 
         else
             -- Normal item/money/fragments/tokens reward
