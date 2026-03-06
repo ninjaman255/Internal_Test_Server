@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="131">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="135">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -321,6 +321,42 @@
    <properties>
     <property name="Amount" type="int" value="100"/>
     <property name="Type" propertytype="MysteryType" value="fragments"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="131" type="Mystery Data" gid="19" x="704" y="800" width="14" height="43">
+   <properties>
+    <property name="Cost Amount" value="1"/>
+    <property name="Cost Type" propertytype="CurrencyType" value="tokens"/>
+    <property name="Locked" type="bool" value="false"/>
+    <property name="Next 1" type="object" value="132"/>
+    <property name="Once" type="bool" value="false"/>
+    <property name="Type" value="random"/>
+   </properties>
+  </object>
+  <object id="132" name="150 Monies" type="Mystery Option" x="704" y="864">
+   <properties>
+    <property name="Amount" type="int" value="150"/>
+    <property name="Type" value="money"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="133" type="Mystery Data" gid="19" x="672" y="800" width="14" height="43">
+   <properties>
+    <property name="Cost Amount" value="1"/>
+    <property name="Cost Type" propertytype="CurrencyType" value="fragments"/>
+    <property name="Locked" type="bool" value="false"/>
+    <property name="Next 1" type="object" value="134"/>
+    <property name="Once" type="bool" value="false"/>
+    <property name="Type" value="random"/>
+   </properties>
+  </object>
+  <object id="134" name="150 Monies" type="Mystery Option" x="672" y="864">
+   <properties>
+    <property name="Amount" type="int" value="150"/>
+    <property name="Cost Amount" value="1"/>
+    <property name="Cost Type" propertytype="CurrencyType" value="fragments"/>
+    <property name="Type" value="money"/>
    </properties>
    <point/>
   </object>
