@@ -216,7 +216,7 @@ function try_collect_datum(player_id, area_id, object)
             end
         end
 
-        -- COST HANDLING WITH PROMPT
+        -- Cost handling with prompt
         local cost_type = object.custom_properties["Cost Type"]
         if cost_type and cost_type ~= "" then
             local cost_amount = tonumber(object.custom_properties["Cost Amount"] or 1)
@@ -246,7 +246,6 @@ function try_collect_datum(player_id, area_id, object)
             -- Now spend it (consume = true)
             local spend_cond = { type = cost_type, amount = cost_amount, consume = true }
             if not condition.evaluate(player_id, spend_cond) then
-                -- This should not happen because we already checked, but just in case
                 local fail_msg = "Failed to spend " .. cost_type .. "."
                 await(Async.message_player(player_id, fail_msg))
                 lock.release()
@@ -279,6 +278,15 @@ function try_collect_datum(player_id, area_id, object)
         if can_collect then
             await(Async.message_player(player_id, "Accessing the mystery data\x01...\x01"))
             await(collect_datum(player_id, object, object.id, datum_type == "quiz"))
+        else
+            -- Quiz failed – handle On Fail property
+            local on_fail = object.custom_properties["On Fail"] or "retry"
+            if on_fail == "hide_once" then
+                ezmemory.hide_object_from_player(player_id, area_id, object.id)
+            elseif on_fail == "hide_temp" then
+                ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, object.id)
+            end
+            -- "retry" does nothing
         end
         lock.release()
     end)
