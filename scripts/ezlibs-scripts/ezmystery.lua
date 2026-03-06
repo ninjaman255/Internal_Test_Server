@@ -186,8 +186,16 @@ local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_mess
         -- Show question
         await(Async.message_player(player_id, question))
 
-        -- Present options (quiz_player returns 0-based index)
-        local choice = await(Async.quiz_player(player_id, options[1], options[2], options[3]))
+        -- Call quiz_player and check return type before awaiting
+        local quiz_promise = Async.quiz_player(player_id, options[1], options[2], options[3])
+        if type(quiz_promise) ~= "table" then
+            -- Not a promise; treat as error/cancel
+            if failure_message and #failure_message > 0 then
+                await(Async.message_player(player_id, failure_message))
+            end
+            return false
+        end
+        local choice = await(quiz_promise)
         if choice == nil or choice < 0 or choice+1 ~= correct_answer then
             if failure_message and #failure_message > 0 then
                 await(Async.message_player(player_id, failure_message))
@@ -241,7 +249,8 @@ function try_collect_datum(player_id, area_id, object)
                 can_collect = false
             else
                 local failure_message = object.custom_properties["Failure Message"] or "Incorrect answer."
-                can_collect = await(run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message))
+                -- FIX: run_quiz_from_list returns a boolean, not a promise, so do NOT await
+                can_collect = run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message)
             end
         end
 

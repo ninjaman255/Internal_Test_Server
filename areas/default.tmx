@@ -271,8 +271,9 @@
   <object id="123" name="Quiz List" type="Quiz List" x="816" y="864">
    <properties>
     <property name="Next 1" type="object" value="124"/>
-    <property name="Next 10" type="object" value="125"/>
+    <property name="Next 10" type="object" value="0"/>
     <property name="Next 2" type="object" value="126"/>
+    <property name="Next 3" type="object" value="125"/>
    </properties>
    <point/>
   </object>
