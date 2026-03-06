@@ -6,6 +6,7 @@ local ezlocks = require('scripts/ezlibs-scripts/ezlocks')
 local condition = require('scripts/ezlibs-scripts/condition')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
 local math = require('math')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local AvatarCache = require('scripts/avatar_utils/main')
 local AvatarUtils = require('scripts/avatar_utils/avatar_utils')
@@ -286,6 +287,16 @@ function try_collect_datum(player_id, area_id, object)
                 ezmemory.hide_object_from_player(player_id, area_id, object.id)
             elseif on_fail == "hide_temp" then
                 ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, object.id)
+            elseif on_fail == "explode" then
+                local explosion_count = tonumber(object.custom_properties["Explosion Count"]) or 3
+                ezbus:emit("explode", {
+                    actor_id = object.id,
+                    area_id = area_id,
+                    max_explosions = explosion_count
+                })
+                -- Wait for the explosion effect to finish (~2 seconds)
+                -- await(Async.sleep(2.0))
+                ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, object.id)
             end
             -- "retry" does nothing
         end
@@ -363,6 +374,13 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
             await(ezmemory.give_item_with_optional_notify(player_id, area_id, object.id, item_info))
             ezmemory.set_direction_anim(player_id, Net.get_player_direction(player_id))
         end
+
+        ezbus:emit("mystery_collected", {
+            player_id = player_id,
+            area_id = area_id,
+            object_id = datum_id_override,
+            item_info = item_info
+        })
 
         -- For non-encounter types, apply hiding after reward
         if item_info.type ~= "encounter" then

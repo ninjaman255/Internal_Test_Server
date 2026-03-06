@@ -4,6 +4,7 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local math = require('math')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local eznpcs = {}
 local placeholder_to_botid = {}
@@ -177,6 +178,10 @@ function clear_player_conversation(player_id)
             Net.set_bot_direction(npc.bot_id, npc.direction)
         end
         current_player_conversation[player_id] = nil
+        ezbus:emit("dialogue_ended", {
+            player_id = player_id,
+            npc_id = bot_id
+        })
     end
 end
 

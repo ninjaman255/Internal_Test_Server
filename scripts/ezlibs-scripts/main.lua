@@ -1,6 +1,7 @@
 local startup_start = os.clock()
 
 local helpers = require('scripts/ezlibs-scripts/helpers')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- central event bus
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
@@ -14,6 +15,7 @@ helpers.safe_require('scripts/events/eznpcs_onceitem')
 local ezcheckpoints = require('scripts/ezlibs-scripts/ezcheckpoints')
 local ezannouncement = require('scripts/ezlibs-scripts/ezannounce')
 local ezemail = require('scripts/ezlibs-scripts/ezemail')
+local ezexplosions = require('scripts/ezlibs-scripts/ezexplosions')
 
 local plugins = { ezweather, eznpcs, ezmemory, ezmystery, ezwarps, ezencounters ,eztriggers, ezemail, ezannouncement, ezcheckpoints}
 

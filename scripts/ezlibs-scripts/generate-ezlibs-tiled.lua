@@ -35,7 +35,7 @@ local Enums = {
     },
     QuizFailAction = {
         type = "string",
-        values = {"retry", "hide_once", "hide_temp"}
+        values = {"retry", "hide_once", "hide_temp", "explode"}   -- added "explode"
     }
 }
 
@@ -84,6 +84,8 @@ local object_types = {
             prop("Quiz List", "object", ""),
             prop("Failure Message", "string", ""),
             prop("On Fail", "string", "retry", "QuizFailAction"),
+            -- NEW: Explosion Count (for On Fail = explode)
+            prop("Explosion Count", "number", 3),
             -- Reward properties (used when Type = "quiz")
             prop("Reward Type", "string", "item", "ItemType"),
             prop("Reward Name", "string", ""),
@@ -307,6 +309,16 @@ local object_types = {
             prop("Mug Texture Path", "string", ""),
             prop("Mug Animation Path", "string", ""),
             prop("Persist", "bool", true),
+        }
+    },
+    -- NEW: Explosion Trigger
+    {
+        name = "Explosion Trigger",
+        color = "#ff6600",
+        members = {
+            prop("Target", "string", ""),      -- optional object ID to explode (defaults to self)
+            prop("Follow", "bool", false),     -- if true, track target movement
+            prop("Once", "bool", false),       -- remove after first trigger
         }
     }
 }

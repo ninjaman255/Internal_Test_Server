@@ -1,5 +1,6 @@
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local ezemail = {}
 -- tweak these
@@ -242,6 +243,11 @@ function ezemail.send_once(player_id, mail, opts)
     pcall(function()
         _preload_email_assets(player_id, mail)
         Net.send_player_email(player_id, mail)
+        ezbus:emit("email_sent", {
+            player_id = player_id,
+            email_id = mail.id,
+            persistent = true
+        })
     end)
 
     -- Notify only the first time (ring -> wait -> message)
@@ -262,6 +268,11 @@ function ezemail.send_temp(player_id, mail, opts)
     pcall(function()
         _preload_email_assets(player_id, mail)
         Net.send_player_email(player_id, mail)
+        ezbus:emit("email_sent", {
+            player_id = player_id,
+            email_id = mail.id,
+            persistent = false
+        })
     end)
 
     if opts.notify ~= false then

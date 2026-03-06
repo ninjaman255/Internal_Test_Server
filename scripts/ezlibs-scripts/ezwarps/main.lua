@@ -3,6 +3,7 @@ local create_arrow_animation = require('scripts/ezlibs-scripts/ezwarps/arrow_ani
 local create_jack_in_out_animation = require('scripts/ezlibs-scripts/ezwarps/log_in_animation')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local ezwarps = {}
 
@@ -188,6 +189,7 @@ end
 
 function use_warp(player_id,warp_object,warp_meta)
     return async(function()
+        local from_area = Net.get_player_area(player_id)
         local warp_properties = warp_object.custom_properties
         local is_valid_warp = false
         local is_remote_warp = false
@@ -222,6 +224,12 @@ function use_warp(player_id,warp_object,warp_meta)
         end
         if is_remote_warp then
             Net.transfer_server(player_id, warp_properties.Address, warp_properties.Port, warp_out, data)
+            ezbus:emit("warp", {
+                player_id = player_id,
+                from_area = from_area,
+                to_area = warp_properties.Address,
+                warp_type = "server"
+            })
         else
             local direction = "Down"
             local arrival_animation_name = nil
@@ -241,6 +249,12 @@ function use_warp(player_id,warp_object,warp_meta)
             else
                 log('unable to transfer, no target object')
             end
+            ezbus:emit("warp", {
+                player_id = player_id,
+                from_area = from_area,
+                to_area = target_area,
+                warp_type = "custom"
+            })
         end
     end)
 end

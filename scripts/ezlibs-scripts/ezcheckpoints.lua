@@ -1,6 +1,7 @@
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local condition = require('scripts/ezlibs-scripts/condition')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local ezcheckpoints = {}
 
@@ -43,6 +44,11 @@ local function unlock_checkpoint_for_player(player_id, area_id, object_id, unloc
     end
 
     Net.unlock_player_input(player_id)
+    ezbus:emit("checkpoint_unlocked", {
+        player_id = player_id,
+        area_id = area_id,
+        object_id = object_id
+    })
     return true
   end)
 end

@@ -1,6 +1,7 @@
 local json = require('scripts/ezlibs-scripts/json')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local table = require('table')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local ezmemory = {}
 local player_memory = {}
 local area_memory = {}
@@ -411,6 +412,12 @@ function ezmemory.give_player_item(player_id, name, amount)
     if name == "HPMem" then
         ezmemory.set_player_max_health(player_id,Net.get_player_max_health(player_id)+20,true)
     end
+    ezbus:emit("item_gained", {
+        player_id = player_id,
+        item_name = name,
+        amount = amount,
+        new_total = player_memory.items[item_id]
+    })
     return player_memory.items[item_id]
 end
 
@@ -429,13 +436,21 @@ function ezmemory.remove_player_item(player_id, name, remove_quant)
             end
         end
         player_memory.items[item_id] = player_memory.items[item_id] - remove_quant
-        if player_memory.items[item_id] < 1 then
+        local remaining = player_memory.items[item_id]
+        if remaining < 1 then
             player_memory.items[item_id] = nil
+            remaining = 0
             ezmemory.save_player_memory(safe_secret)
-            return 0
+        else
+            ezmemory.save_player_memory(safe_secret)
         end
-        ezmemory.save_player_memory(safe_secret)
-        return player_memory.items[item_id]
+        ezbus:emit("item_lost", {
+            player_id = player_id,
+            item_name = name,
+            amount_removed = remove_quant,
+            remaining = remaining
+        })
+        return remaining
     end
     printd('removed a '..name..' from '..player_id)
     return 0
@@ -474,9 +489,26 @@ function ezmemory.spend_player_money(player_id, amount)
         Net.set_player_money(player_id, new_balance)
         player_memory.money = new_balance
         ezmemory.save_player_memory(safe_secret)
+        ezbus:emit("money_spent", {
+            player_id = player_id,
+            amount = amount,
+            new_balance = new_balance
+        })
         return true
     end
     return false
+end
+
+function ezmemory.set_player_money(player_id, money)
+    local safe_secret = helpers.get_safe_player_secret(player_id)
+    local player_memory = ezmemory.get_player_memory(safe_secret)
+    Net.set_player_money(player_id, money)
+    player_memory.money = money
+    ezmemory.save_player_memory(safe_secret)
+    ezbus:emit("money_changed", {
+        player_id = player_id,
+        new_balance = money
+    })
 end
 
 function ezmemory.get_player_fragments(player_id)
@@ -513,6 +545,10 @@ function ezmemory.set_player_fragments(player_id, fragments)
     Net.set_player_fragments(player_id, fragments)
     player_memory.fragments = fragments
     ezmemory.save_player_memory(safe_secret)
+    ezbus:emit("fragments_changed", {
+        player_id = player_id,
+        new_total = fragments
+    })
 end
 
 function ezmemory.add_player_fragments(player_id, amount)
@@ -523,6 +559,10 @@ function ezmemory.add_player_fragments(player_id, amount)
     if amount == 0 then return true end
     local cur = ezmemory.get_player_fragments(player_id) or 0
     ezmemory.set_player_fragments(player_id, cur + amount)
+    ezbus:emit("fragments_changed", {
+        player_id = player_id,
+        new_total = cur + amount
+    })
     return true
 end
 
@@ -541,6 +581,10 @@ function ezmemory.spend_player_fragments(player_id, amount)
 
   if cur >= amount then
     ezmemory.set_player_fragments(player_id, cur - amount)
+    ezbus:emit("fragments_changed", {
+        player_id = player_id,
+        new_total = cur - amount
+    })
     return true
   end
 
@@ -570,6 +614,10 @@ function ezmemory.set_player_tokens(player_id, tokens)
     tokens = _normalize_tokens(tokens)
     pm.tokens = tokens
     ezmemory.save_player_memory(safe_secret)
+    ezbus:emit("tokens_changed", {
+        player_id = player_id,
+        new_total = tokens
+    })
     return tokens
 end
 
@@ -579,7 +627,13 @@ function ezmemory.add_player_tokens(player_id, amount)
         return ezmemory.get_player_tokens(player_id)
     end
     local cur = ezmemory.get_player_tokens(player_id)
-    return ezmemory.set_player_tokens(player_id, cur + amount)
+    local new_total = cur + amount
+    ezmemory.set_player_tokens(player_id, new_total)
+    ezbus:emit("tokens_changed", {
+        player_id = player_id,
+        new_total = new_total
+    })
+    return new_total
 end
 
 function ezmemory.spend_player_tokens(player_id, amount)
@@ -591,24 +645,26 @@ function ezmemory.spend_player_tokens(player_id, amount)
     local cur = ezmemory.get_player_tokens(player_id)
 
     if amount < 0 then
-        ezmemory.set_player_tokens(player_id, cur - amount)
+        local new_total = cur - amount
+        ezmemory.set_player_tokens(player_id, new_total)
+        ezbus:emit("tokens_changed", {
+            player_id = player_id,
+            new_total = new_total
+        })
         return true
     end
 
     if cur >= amount then
-        ezmemory.set_player_tokens(player_id, cur - amount)
+        local new_total = cur - amount
+        ezmemory.set_player_tokens(player_id, new_total)
+        ezbus:emit("tokens_changed", {
+            player_id = player_id,
+            new_total = new_total
+        })
         return true
     end
 
     return false
-end
-
-function ezmemory.set_player_money(player_id, money)
-    local safe_secret = helpers.get_safe_player_secret(player_id)
-    local player_memory = ezmemory.get_player_memory(safe_secret)
-    Net.set_player_money(player_id, money)
-    player_memory.money = money
-    ezmemory.save_player_memory(safe_secret)
 end
 
 function ezmemory.count_player_item(player_id, item_name)
@@ -658,6 +714,12 @@ function ezmemory.hide_object_from_player_till_disconnect(player_id,area_id,obje
     if player_area == area_id then
         Net.exclude_object_for_player(player_id, object_id)
     end
+    ezbus:emit("object_hidden", {
+        player_id = player_id,
+        area_id = area_id,
+        object_id = object_id,
+        persistent = false
+    })
 end
 
 function ezmemory.unhide_object_from_player_till_disconnect(player_id, area_id, object_id)
@@ -705,6 +767,12 @@ function ezmemory.hide_object_from_player(player_id,area_id,object_id)
     if player_area == area_id then
         Net.exclude_object_for_player(player_id, object_id)
     end
+    ezbus:emit("object_hidden", {
+        player_id = player_id,
+        area_id = area_id,
+        object_id = object_id,
+        persistent = true
+    })
 end
 
 function ezmemory.object_is_hidden_from_player(player_id,area_id,object_id)
@@ -847,6 +915,11 @@ function ezmemory.set_player_max_health(player_id, new_max_health, should_heal_b
     ezmemory.save_player_memory(safe_secret)
 
     update_player_health(player_id)
+    ezbus:emit("health_changed", {
+        player_id = player_id,
+        new_health = new_health,
+        new_max_health = new_max_health
+    })
 end
 
 ezmemory.set_player_health = function(player_id, new_health)
@@ -860,6 +933,11 @@ ezmemory.set_player_health = function(player_id, new_health)
     ezmemory.save_player_memory(safe_secret)
 
     update_player_health(player_id)
+    ezbus:emit("health_changed", {
+        player_id = player_id,
+        new_health = new_health,
+        new_max_health = max_health
+    })
 end
 
 function ezmemory.handle_player_avatar_change(player_id, details)

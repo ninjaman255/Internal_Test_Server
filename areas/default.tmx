@@ -365,7 +365,7 @@
   <object id="135" type="Mystery Data" gid="51" x="800" y="768" width="14" height="43">
    <properties>
     <property name="Failure Message" value="YOU FAILED"/>
-    <property name="On Fail" propertytype="QuizFailAction" value="hide_temp"/>
+    <property name="On Fail" propertytype="QuizFailAction" value="explode"/>
     <property name="Quiz List" type="object" value="136"/>
     <property name="Reward Amount" value="150"/>
     <property name="Reward Type" propertytype="ItemType" value="money"/>

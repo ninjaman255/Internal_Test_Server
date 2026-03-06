@@ -1,6 +1,7 @@
 local helpers  = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezemail  = require('scripts/ezlibs-scripts/ezemail') -- <-- adjust path to wherever your ezemail.lua is
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local ezannounce = {}
 local FEED_MODULE = 'scripts/ezlibs-scripts/announcements_feed'
@@ -155,6 +156,11 @@ function ezannounce.send_missing(player_id)
       notify_delay = ann.notify_delay,
     })
     did_notify = true
+
+    ezbus:emit("announcement_sent", {
+        player_id = player_id,
+        announcement_id = ann.id
+    })
   end
 end
 

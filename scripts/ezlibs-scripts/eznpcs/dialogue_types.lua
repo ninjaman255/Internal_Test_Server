@@ -3,6 +3,7 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezquests = require('scripts/ezlibs-scripts/ezquests')
 local ezemail = require('scripts/ezlibs-scripts/ezemail')
 local condition = require('scripts/ezlibs-scripts/condition')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 --Dialogue Types
 local dialogue_types = {
@@ -213,6 +214,11 @@ local dialogue_types = {
                 local event_value = dialogue.custom_properties["Event Value"]
                 local next_dialogues = helpers.extract_numbered_properties(dialogue,"Next ")
                 await(ezquests.quest_event(player_id,quest_name,event_value))
+                ezbus:emit("quest_event", {
+                    player_id = player_id,
+                    quest_name = quest_name,
+                    event_value = event_value
+                })
                 return first_value_from_table(next_dialogues)
             end)
         end

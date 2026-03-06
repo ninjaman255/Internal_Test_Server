@@ -3,6 +3,7 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
+local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local ezencounters = {}
 local players_in_encounters = {}
@@ -135,6 +136,11 @@ ezencounters.begin_encounter = function (player_id,encounter_info,trigger_object
         --print('[ezencounters] beginning encounter for',player_id)
         players_in_encounters[player_id] = {encounter_info=encounter_info}
         ezencounters.clear_tiles_since_encounter(player_id)
+        ezbus:emit("encounter_started", {
+            player_id = player_id,
+            encounter_info = encounter_info,
+            trigger_object = trigger_object
+        })
         local stats = await(Async.initiate_encounter(player_id,encounter_info.path,encounter_info))
         return stats
     end)
@@ -165,6 +171,18 @@ Net:on("battle_results", function(event)
         players_in_encounters[player_id] = nil
     end
     -- stats = { health: number, score: number, time: number, ran: bool, emotion: number, turns: number, npcs: { id: String, health: number }[] }
+    ezbus:emit("encounter_finished", {
+        player_id = player_id,
+        stats = {
+            health = event.health,
+            time = event.time,
+            ran = event.ran,
+            emotion = event.emotion,
+            turns = event.turns,
+            enemies = event.enemies,
+            score = event.score
+        }
+    })
 end)
 
 ezencounters.handle_player_transfer = ezencounters.clear_last_position
