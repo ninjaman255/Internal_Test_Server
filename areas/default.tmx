@@ -273,28 +273,30 @@
   </object>
   <object id="124" type="Quiz Question" x="832" y="896">
    <properties>
-    <property name="Option 1" value="TEST"/>
-    <property name="Option 2" value="TESSSSSSST"/>
-    <property name="Option 3" value="TTTTTTTTTTTTTTT"/>
-    <property name="Question" value="Test"/>
+    <property name="Correct Answer" value="2"/>
+    <property name="Option 1" value="Megerman"/>
+    <property name="Option 2" value="Megaman"/>
+    <property name="Option 3" value="Megan"/>
+    <property name="Question" value="Who is the main character who is a Net Navi in Megaman Battle Network"/>
    </properties>
    <point/>
   </object>
   <object id="125" type="Quiz Question" x="816" y="896">
    <properties>
-    <property name="Option 1" value="TEST"/>
-    <property name="Option 2" value="TESSSSSSST"/>
-    <property name="Option 3" value="TTTTTTTTTTTTTTT"/>
-    <property name="Question" value="Test"/>
+    <property name="Option 1" value="Mystery Data"/>
+    <property name="Option 2" value="Green"/>
+    <property name="Option 3" value="Cube"/>
+    <property name="Question" value="What item am I?"/>
    </properties>
    <point/>
   </object>
   <object id="126" type="Quiz Question" x="800" y="896">
    <properties>
-    <property name="Option 1" value="TEST"/>
-    <property name="Option 2" value="TESSSSSSST"/>
-    <property name="Option 3" value="TTTTTTTTTTTTTTT"/>
-    <property name="Question" value="Test"/>
+    <property name="Correct Answer" value="2"/>
+    <property name="Option 1" value="5"/>
+    <property name="Option 2" value="2"/>
+    <property name="Option 3" value="1"/>
+    <property name="Question" value="What question is this?"/>
    </properties>
    <point/>
   </object>
