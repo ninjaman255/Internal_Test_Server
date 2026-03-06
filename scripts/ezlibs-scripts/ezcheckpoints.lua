@@ -212,6 +212,22 @@ Net:on("object_interaction", function(event)
                 else
                     prompt_message = "Show "..required_keys.."$ to Unlock?"
                 end
+            -- NEW: fragments check
+            elseif key_name == "fragments" or key_name == "fragment" then
+                cond = { type = "fragments", amount = required_keys, consume = consume }
+                if consume then
+                    prompt_message = "Spend "..required_keys.." Fragments to Unlock?"
+                else
+                    prompt_message = "Show "..required_keys.." Fragments to Unlock?"
+                end
+            -- NEW: tokens check
+            elseif key_name == "tokens" or key_name == "token" then
+                cond = { type = "tokens", amount = required_keys, consume = consume }
+                if consume then
+                    prompt_message = "Spend "..required_keys.." Tokens to Unlock?"
+                else
+                    prompt_message = "Show "..required_keys.." Tokens to Unlock?"
+                end
             else
                 cond = { type = "item", name = key_name, amount = required_keys, consume = consume }
                 if required_keys > 1 then

@@ -29,6 +29,26 @@ function condition.money(player_id, amount, consume)
     return has
 end
 
+-- NEW: fragments condition
+function condition.fragments(player_id, amount, consume)
+    amount = amount or 1
+    local has = ezmemory.get_player_fragments(player_id) >= amount
+    if has and consume then
+        return ezmemory.spend_player_fragments(player_id, amount)
+    end
+    return has
+end
+
+-- NEW: tokens condition
+function condition.tokens(player_id, amount, consume)
+    amount = amount or 1
+    local has = ezmemory.get_player_tokens(player_id) >= amount
+    if has and consume then
+        return ezmemory.spend_player_tokens(player_id, amount)
+    end
+    return has
+end
+
 function condition.quest_flag(player_id, quest_name, flag_name, expected, op)
     local value = ezquests.get_player_quest_flag(player_id, quest_name, flag_name)
     if expected == nil then
@@ -65,6 +85,11 @@ function condition.evaluate(player_id, cond)
         return condition.item(player_id, cond.name, cond.amount, cond.consume)
     elseif cond.type == "money" then
         return condition.money(player_id, cond.amount, cond.consume)
+    -- NEW: fragment/token evaluation
+    elseif cond.type == "fragments" then
+        return condition.fragments(player_id, cond.amount, cond.consume)
+    elseif cond.type == "tokens" then
+        return condition.tokens(player_id, cond.amount, cond.consume)
     elseif cond.type == "quest_flag" then
         return condition.quest_flag(player_id, cond.quest, cond.flag, cond.value, cond.op)
     end

@@ -946,11 +946,27 @@ function ezmemory.handle_player_avatar_change(player_id, details)
     update_player_health(player_id)
 end
 
+function ezmemory.play_anim_get(player_id)
+    -- Attempt to play a "get" animation on the player.
+    -- If the avatar supports a "GET" animation, this will play it.
+    -- Errors are silently ignored.
+    pcall(function()
+        Net.animate_player(player_id, "ITEM_GET", false)
+    end)
+end
+
+function ezmemory.set_direction_anim(player_id, direction)
+    -- Set the player's direction (no animation by default).
+    pcall(function()
+        Net.set_player_direction(player_id, direction)
+    end)
+end
+
+-- MODIFIED: now handles fragments and tokens rewards
 function ezmemory.give_item_with_optional_notify(player_id,area_id,item_object_id,item_info,notify_player)
     if notify_player == nil then
         notify_player = true
     end
-    --item_info is optional
     return async(function()
         if not item_info then
             --if we did not provide item_info, get it now
@@ -973,8 +989,17 @@ function ezmemory.give_item_with_optional_notify(player_id,area_id,item_object_i
             --Give the player money
             ezmemory.spend_player_money(player_id, -item_info.amount)
             get_message = "Got " .. item_info.amount .. "$!"
+        -- NEW: fragments reward
+        elseif item_info.type == "fragments" then
+            ezmemory.add_player_fragments(player_id, item_info.amount)
+            get_message = "Got " .. item_info.amount .. " Bug Fragments!"
+        -- NEW: tokens reward
+        elseif item_info.type == "tokens" then
+            ezmemory.add_player_tokens(player_id, item_info.amount)
+            get_message = "Got " .. item_info.amount .. " Tokens!"
         end
         if get_message ~= nil and notify_player == true then
+            ezmemory.play_anim_get(player_id)
             Net.play_sound_for_player(player_id, sfx.item_get)
             await(Async.message_player(player_id,get_message))
         end

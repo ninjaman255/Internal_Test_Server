@@ -14,7 +14,7 @@ local Enums = {
     },
     MysteryType = {
         type = "string",
-        values = {"keyitem", "item", "money", "random", "quiz"}
+        values = {"keyitem", "item", "money", "random", "quiz", "fragments", "tokens"}   -- NEW
     },
     WaypointType = {
         type = "string",
@@ -22,11 +22,16 @@ local Enums = {
     },
     DialogueType = {
         type = "string",
-        values = {"first", "question", "quiz", "random", "itemcheck", "before", "after", "shop", "password", "quest_switch", "quest_event", "item"}
+        values = {"first", "question", "quiz", "random", "itemcheck", "before", "after",
+                  "shop", "password", "quest_switch", "quest_event", "item", "email", "questcheck"}  -- NEW
     },
     ItemType = {
         type = "string",
-        values = {"item", "keyitem", "money"}
+        values = {"item", "keyitem", "money", "fragments", "tokens"}   -- NEW
+    },
+    CurrencyType = {    -- NEW
+        type = "string",
+        values = {"money", "fragments", "tokens"}
     }
 }
 
@@ -72,8 +77,13 @@ local object_types = {
             prop("Name", "string", ""),
             prop("Description", "string", ""),
             prop("Amount", "number", 1),
-            prop("Quiz List", "object", ""),        -- new: reference to Quiz List object
-            prop("Failure Message", "string", ""),  -- optional failure message for quiz
+            prop("Quiz List", "object", ""),
+            prop("Failure Message", "string", ""),
+            -- NEW cost properties
+            prop("Cost Type", "string", "", "CurrencyType"),
+            prop("Cost Amount", "number", 1),
+            prop("Cost Failure Message", "string", ""),
+            -- Next numbered properties
             prop("Next 1", "object", ""),
             prop("Next 2", "object", ""),
             prop("Next 3", "object", ""),
@@ -86,7 +96,6 @@ local object_types = {
             prop("Next 10", "object", ""),
         }
     },
-    -- NEW: Quiz List object
     {
         name = "Quiz List",
         color = "#aa66cc",
@@ -103,7 +112,6 @@ local object_types = {
             prop("Next 10", "object", ""),
         }
     },
-    -- NEW: Quiz Question object
     {
         name = "Quiz Question",
         color = "#88aa44",
@@ -269,6 +277,26 @@ local object_types = {
             prop("Quest Name", "string", ""),
             prop("Event Value", "string", ""),
             prop("Dont Notify", "bool", false),
+            -- NEW email-specific properties
+            prop("Email Id", "string", ""),
+            prop("Email Icon", "number", 1),
+            prop("Email Title", "string", "Mail"),
+            prop("Email From", "string", "???"),
+            prop("Body 1", "string", ""),
+            prop("Body 2", "string", ""),
+            prop("Body 3", "string", ""),
+            prop("Body 4", "string", ""),
+            prop("Body 5", "string", ""),
+            prop("Body 6", "string", ""),
+            prop("Body 7", "string", ""),
+            prop("Body 8", "string", ""),
+            prop("Body 9", "string", ""),
+            prop("Body 10", "string", ""),
+            prop("Notify Delay", "number", 1.5),
+            prop("Notify Message", "string", "Looks like you got an e-mail."),
+            prop("Mug Texture Path", "string", ""),
+            prop("Mug Animation Path", "string", ""),
+            prop("Persist", "bool", true),
         }
     }
 }

@@ -3,6 +3,7 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezlocks = require('scripts/ezlibs-scripts/ezlocks')
+local condition = require('scripts/ezlibs-scripts/condition')   -- NEW
 local math = require('math')
 
 local AvatarCache = require('scripts/avatar_utils/main')
@@ -21,11 +22,11 @@ local player_animations = {}
 --Locked (bool) do you need an unlocker to open this?
 --Password Locked (string) if set, requires this password to open
 --Once (bool) should this never respawn for this player?
---Type (string) one of: 'keyitem', 'item', 'money', 'random', 'quiz'
---(for keyitem/item/money types)
---    Name (string) name of item
+--Type (string) one of: 'keyitem', 'item', 'money', 'random', 'quiz', 'fragments', 'tokens'   -- NEW
+--(for keyitem/item/money/fragments/tokens types)
+--    Name (string) name of item (optional for fragments/tokens)
 --    Description (string) description of key item
---    Amount (number) amount of money or item count
+--    Amount (number) amount of money, fragments, tokens, or item count
 --(for random type)
 --    Next 1..N (object IDs) possible mystery data to randomly pick
 --(for quiz type)
@@ -227,15 +228,31 @@ function try_collect_datum(player_id, area_id, object)
                 lock.release()
                 return
             end
-        else
-            -- Fallback to old item-based lock
-            if object.custom_properties["Locked"] == "true" then
-                await(Async.message_player(player_id, "The Mystery Data is locked."))
-                local unlocked = await(ezlocks.check_item(player_id, "Use an Unlocker to open it?", "Unlocker", 1, true))
-                if not unlocked then
-                    lock.release()
-                    return
-                end
+        end
+
+        -- NEW: generic cost check (money, fragments, tokens)
+        local cost_type = object.custom_properties["Cost Type"]
+        if cost_type and cost_type ~= "" then
+            local cost_amount = tonumber(object.custom_properties["Cost Amount"] or 1)
+            local cost_cond = { type = cost_type, amount = cost_amount, consume = true }
+            local can_afford = condition.evaluate(player_id, cost_cond)
+            if not can_afford then
+                local fail_msg = object.custom_properties["Cost Failure Message"]
+                                 or ("You don't have enough " .. cost_type .. ".")
+                await(Async.message_player(player_id, fail_msg))
+                lock.release()
+                return
+            end
+            -- cost was automatically consumed by condition.evaluate (consume=true)
+        end
+
+        -- Fallback to old item-based lock
+        if object.custom_properties["Locked"] == "true" then
+            await(Async.message_player(player_id, "The Mystery Data is locked."))
+            local unlocked = await(ezlocks.check_item(player_id, "Use an Unlocker to open it?", "Unlocker", 1, true))
+            if not unlocked then
+                lock.release()
+                return
             end
         end
 
@@ -274,6 +291,7 @@ function read_datum_information(area_id, object)
             return false
         end
     end
+    -- NEW: fragments/tokens types are now allowed – they will be handled by give_item_with_optional_notify
     return item_info
 end
 

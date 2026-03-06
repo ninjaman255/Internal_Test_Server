@@ -183,6 +183,7 @@ function helpers.get_lock(player_id,lock_id,timeout)
     return false
 end
 
+-- MODIFIED: now allows 'fragments' and 'tokens' as types
 function helpers.read_item_information(area_id, item_object_id)
     local item_info_object = ezcache.get_object_by_id_cached(area_id,item_object_id)
     local item_props = item_info_object.custom_properties
@@ -200,6 +201,7 @@ function helpers.read_item_information(area_id, item_object_id)
         warn("[helpers] key item "..item_object_id.."("..item.name..") should have a 'Description'")
         return false
     end
+    -- fragments/tokens don't require name/description
     return item
 end
 
