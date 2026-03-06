@@ -1,8 +1,8 @@
---for timed events
 local json = require('scripts/ezlibs-scripts/json')
 local create_arrow_animation = require('scripts/ezlibs-scripts/ezwarps/arrow_animation_factory')
 local create_jack_in_out_animation = require('scripts/ezlibs-scripts/ezwarps/log_in_animation')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
+local object_registry = require('scripts/ezlibs-scripts/object_registry')
 
 local ezwarps = {}
 
@@ -127,39 +127,31 @@ function add_custom_warp(object, object_id, area_id, area_name)
     end
 end
 
--- Detect all warps across all rooms
-local areas = Net.list_areas()
-for i, area_id in next, areas do
-    
-    local area_name = Net.get_area_name(area_id)
-    local objects = Net.list_objects(area_id)
-    for i, object_id in next, objects do
-        local object = Net.get_object_by_id(area_id, object_id)
-        local arrival_animation = object.custom_properties["Arrival Animation"]
+-- Shared function to process any warp object
+local function process_warp_object(area_id, object)
+    -- Add landing if it has Incoming Data
+    if object.custom_properties["Incoming Data"] then
+        local direction = object.custom_properties.Direction or "Down"
+        local warp_in = object.custom_properties["Warp In"] == "true"
+        add_landing(area_id, object.custom_properties["Incoming Data"],
+                    object.x+0.5, object.y+0.5, object.z,
+                    direction, warp_in, object.custom_properties["Arrival Animation"])
+    end
 
-        if table_has_value(warp_types_with_landings,object.type) then
-            --For inter server warps, add landings
-            local incoming_data = object.custom_properties["Incoming Data"]
-            if incoming_data then
-                local direction = object.custom_properties.Direction or "Down"
-                local warp_in = object.custom_properties["Warp In"] == "true"
-                add_landing(area_id, incoming_data, object.x+0.5, object.y+0.5, object.z, direction, warp_in,arrival_animation)
-            end
-        end
-
-        if object.type == "Radius Warp" then
-            add_radius_warp(object, object_id, area_id, area_name)
-        end
-
-        if object.type == "Custom Warp" then
-            add_custom_warp(object, object_id, area_id, area_name)   
-        end
-
-        if object.type == "Interact Warp" then
-            add_interact_warp(object, object_id, area_id, area_name)
-        end
+    -- Set up the appropriate trigger based on type
+    if object.type == "Radius Warp" then
+        add_radius_warp(object, object.id, area_id, Net.get_area_name(area_id))
+    elseif object.type == "Custom Warp" then
+        add_custom_warp(object, object.id, area_id, Net.get_area_name(area_id))
+    elseif object.type == "Interact Warp" then
+        add_interact_warp(object, object.id, area_id, Net.get_area_name(area_id))
     end
 end
+
+-- Register handlers for all warp types
+object_registry.register_handler("Radius Warp", process_warp_object)
+object_registry.register_handler("Custom Warp", process_warp_object)
+object_registry.register_handler("Interact Warp", process_warp_object)
 
 function prepare_player_arrival(player_id,x,y,z,special_animation_name)
     local entry_x = x
@@ -193,12 +185,6 @@ function ezwarps.handle_player_request(player_id, data)
     end
     log('no landing for '..data)
 end
-
---target_object=target_object,
---object=object,
---activation_radius=activation_radius,
---target_area=target_area,
---area_id=area_id
 
 function use_warp(player_id,warp_object,warp_meta)
     return async(function()

@@ -1,5 +1,6 @@
+local startup_start = os.clock()
+
 local helpers = require('scripts/ezlibs-scripts/helpers')
-local CONFIG = require('scripts/ezlibs-scripts/ezconfig')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
@@ -8,17 +9,13 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezmystery = require('scripts/ezlibs-scripts/ezmystery')
 local ezweather = require('scripts/ezlibs-scripts/ezweather')
 local ezwarps = require('scripts/ezlibs-scripts/ezwarps/main')
-local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- new global bus
-
-if CONFIG.EZFARMS_ENABLED then
-    require('scripts/ezlibs-scripts/ezfarms')
-end
-if CONFIG.EZCHRISTMAS_ENABLED then
-    require('scripts/ezlibs-scripts/ezchristmas')
-end
+local ezfarms = require('scripts/ezlibs-scripts/ezfarms')
+helpers.safe_require('scripts/events/eznpcs_onceitem')
 local ezcheckpoints = require('scripts/ezlibs-scripts/ezcheckpoints')
+local ezannouncement = require('scripts/ezlibs-scripts/ezannounce')
+local ezemail = require('scripts/ezlibs-scripts/ezemail')
 
-local plugins = { ezweather, eznpcs, ezmemory, ezmystery, ezwarps, ezencounters ,eztriggers}
+local plugins = { ezweather, eznpcs, ezmemory, ezmystery, ezwarps, ezencounters ,eztriggers, ezemail, ezannouncement, ezcheckpoints}
 
 local sfx = {
     hurt = '/server/assets/ezlibs-assets/sfx/hurt.ogg',
@@ -33,14 +30,12 @@ if custom_plugin then
     plugins[#plugins + 1] = custom_plugin
 end
 
-eznpcs.load_npcs()
+-- Now that all plugins have been required and registered their handlers,
+-- trigger the object registry to preload and cache all objects.
+local object_registry = require('scripts/ezlibs-scripts/object_registry')
+object_registry.load_all()
 
--- Example global listener for lock attempts (can be moved or extended)
-ezbus:on("lock_attempt", function(player_id, lock_type, success, ...)
-    if success then
-        print(player_id .. " succeeded at " .. lock_type)
-    end
-end)
+eznpcs.load_npcs()
 
 Net:on("battle_results", function(event)
     local stats = {
@@ -192,7 +187,12 @@ Net:on("player_area_transfer", function(event)
     end
 end)
 
--- Optional: destroy ezbus on server shutdown
-Net:on("shutdown", function()
-    ezbus:destroy()
+Net:on("textbox_response", function(event)
+    for i, plugin in ipairs(plugins) do
+        if plugin.handle_textbox_response then
+            plugin.handle_textbox_response(event.player_id, event.response)
+        end
+    end
 end)
+
+print("[main] ezlibs loaded in " .. (os.clock() - startup_start) .. "s")

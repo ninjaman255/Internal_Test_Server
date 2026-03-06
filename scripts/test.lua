@@ -307,7 +307,8 @@ local steps = {
             print("Failed to create sprite list")
         end
 
-         schedule(40, function()
+         schedule(1, function()
+            Net.toggle_player_hud(Test.player_id)
         --     Displayer.ScrollingSprite.removeList(Test.player_id, "scroll_sprite_1")
         --     print("Scrolling sprite list removed")
            next_step()

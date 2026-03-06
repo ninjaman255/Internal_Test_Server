@@ -1,5 +1,5 @@
 local helpers = require('scripts/ezlibs-scripts/helpers')
-local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')  -- custom emitter
+local object_registry = require('scripts/ezlibs-scripts/object_registry')
 
 local eztriggers = {}
 
@@ -26,6 +26,7 @@ function eztriggers.add_location_event_trigger(area_id,object)
         elseif collision_shape_type == "rect" then
             emitter = eztriggers.add_rectangle_trigger(area_id, object, object.width, object.height)
         else
+            -- no satisfied condition
             warn("[eztriggers] No collision shape supported: "..collision_shape_type)
         end
     else
@@ -63,7 +64,7 @@ function eztriggers.add_interact_trigger(area_id,trigger_object)
         eztriggers.interact_triggers[area_id] = {}
     end
     if not eztriggers.interact_triggers[area_id][trigger_object.id] then
-        local emitter = EzEmitter.new()  -- use custom emitter
+        local emitter = Net.EventEmitter.new()
         eztriggers.interact_triggers[area_id][trigger_object.id] = {object=trigger_object,emitter=emitter}
         return emitter
     else
@@ -79,7 +80,7 @@ function eztriggers.add_radius_trigger(area_id,trigger_object,diameter_x,diamete
         eztriggers.radius_triggers[area_id] = {}
     end
     if not eztriggers.radius_triggers[area_id][trigger_object.id] then
-        local emitter = EzEmitter.new()  -- use custom emitter
+        local emitter = Net.EventEmitter.new()
         local trigger_info = {
             object=trigger_object,
             emitter=emitter,
@@ -104,7 +105,7 @@ function eztriggers.add_rectangle_trigger(area_id,trigger_object,width,height,ev
         eztriggers.rectangle_triggers[area_id] = {}
     end
     if not eztriggers.rectangle_triggers[area_id][trigger_object.id] then
-        local emitter = EzEmitter.new()  -- use custom emitter
+        local emitter = Net.EventEmitter.new()
         local trigger_info = {
             object=trigger_object,
             emitter=emitter,
@@ -241,20 +242,10 @@ function eztriggers.handle_player_disconnect(player_id)
     eztriggers.clear_rectangle_overlaps_for_player(player_id)
 end
 
--- Detect all warps across all rooms
-local areas = Net.list_areas()
-for i, area_id in next, areas do
-    local area_name = Net.get_area_name(area_id)
-
-    local objects = Net.list_objects(area_id)
-    for i, object_id in next, objects do
-        local object = Net.get_object_by_id(area_id, object_id)
-
-        if object.type == "Location Trigger" then
-            eztriggers.add_location_event_trigger(area_id,object)
-        end
-    end
-end
+-- Register handler for Location Trigger objects
+object_registry.register_handler("Location Trigger", function(area_id, object)
+    eztriggers.add_location_event_trigger(area_id, object)
+end)
 
 print("[eztriggers] Loaded")
 return eztriggers

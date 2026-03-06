@@ -1,15 +1,15 @@
 local Direction = require("scripts/ezlibs-scripts/direction")
 local helpers = require('scripts/ezlibs-scripts/helpers')
-local CONFIG = require('scripts/ezlibs-scripts/ezconfig')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
+local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local math = require('math')
 
 local eznpcs = {}
 local placeholder_to_botid = {}
 
-local npc_asset_folder = CONFIG.NPC_ASSET_FOLDER
-local custom_events_script_path = CONFIG.NPC_EVENTS_SCRIPT_PATH
+local npc_asset_folder = '/server/assets/ezlibs-assets/eznpcs/'
+local custom_events_script_path = 'scripts/events/eznpcs_events'
 local custom_events_script_loaded = false
 local generic_npc_mug_animation_path = npc_asset_folder..'mug/mug.animation'
 local npcs = {}
@@ -22,8 +22,6 @@ local function printd(...)
     local arg={...}
     print('[eznpcs]',table.unpack(arg))
 end
-
---TODO load all waypoints / dialogues on server start and delete them from the map to save bandwidth
 
 function eznpcs.get_dialogue_mugshot(npc,player_id,dialogue)
     local mugshot_asset_name = npc.asset_name
@@ -75,46 +73,44 @@ function do_dialogue(npc,player_id,dialogue,relay_object)
     end)
 end
 
-function create_bot_from_object(area_id,object_id)
-    local placeholder_object = ezcache.get_object_by_id_cached(area_id, object_id)
-    if not placeholder_object then
+function create_bot_from_object(area_id, object)
+    if not object then
         return
     end
-    local x = placeholder_object.x
-    local y = placeholder_object.y
-    local z = placeholder_object.z
+    local x = object.x
+    local y = object.y
+    local z = object.z
 
     for i, prop_name in pairs(npc_required_properties) do
-        if not placeholder_object.custom_properties[prop_name] then
+        if not object.custom_properties[prop_name] then
             printd('NPC objects require the custom property '..prop_name)
             return false
         end
     end  
 
-    local npc_asset_name = placeholder_object.custom_properties["Asset Name"]
-    local npc_animation_name = placeholder_object.custom_properties["Animation Name"] or false
-    local npc_mug_animation_name = placeholder_object.custom_properties["Mug Animation Name"] or false
-    local npc_turns_to_talk = placeholder_object.custom_properties["Dont Face Player"] == "true"
-    local direction = placeholder_object.custom_properties.Direction
+    local npc_asset_name = object.custom_properties["Asset Name"]
+    local npc_animation_name = object.custom_properties["Animation Name"] or false
+    local npc_mug_animation_name = object.custom_properties["Mug Animation Name"] or false
+    local npc_turns_to_talk = object.custom_properties["Dont Face Player"] == "true"
+    local direction = object.custom_properties.Direction
 
-    local npc = create_npc(area_id,npc_asset_name,x,y,z,direction,placeholder_object.name,npc_animation_name,npc_mug_animation_name,npc_turns_to_talk)
+    local npc = create_npc(area_id,npc_asset_name,x,y,z,direction,object.name,npc_animation_name,npc_mug_animation_name,npc_turns_to_talk)
 
     if not placeholder_to_botid[area_id] then
         placeholder_to_botid[area_id] = {}
     end
-    placeholder_to_botid[area_id][tostring(object_id)] = npc.bot_id
-    --printd('added placeholder mapping '..object_id..' to '..npc.bot_id)
+    placeholder_to_botid[area_id][tostring(object.id)] = npc.bot_id
 
-    if placeholder_object.custom_properties["Dialogue Type"] then
+    if object.custom_properties["Dialogue Type"] then
         --If the placeholder has Chat text, add behaviour to have it respond to interactions
-        npc.first_dialogue = placeholder_object
+        npc.first_dialogue = object
         local chat_behaviour = chat_behaviour()
         add_behaviour(npc,chat_behaviour)
     end
 
-    if placeholder_object.custom_properties["Next Waypoint 1"] then
+    if object.custom_properties["Next Waypoint 1"] then
         --If the placeholder has npc_first_waypoint
-        local waypoint_follow_behaviour = waypoint_follow_behaviour(placeholder_object.custom_properties["Next Waypoint 1"])
+        local waypoint_follow_behaviour = waypoint_follow_behaviour(object.custom_properties["Next Waypoint 1"])
         add_behaviour(npc,waypoint_follow_behaviour)
     end
 end
@@ -134,10 +130,6 @@ function create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,m
     if npc_turns_to_talk == nil then
         npc_turns_to_talk = true
     end
-    --Log final paths
-    --printd('texture path: '..texture_path)
-    --printd('animation path: '..animation_path)
-    --printd('mug animation path: '..mug_animation_path)
     --Create bot
     local npc_data = {
         asset_name=asset_name,
@@ -173,7 +165,6 @@ function add_behaviour(npc,behaviour)
         if behaviour.initialize then
             behaviour.initialize(npc)
         end
-        --printd('added '..behaviour.type..' behaviour to NPC')
     end
 end
 
@@ -199,18 +190,24 @@ function chat_behaviour()
                     --this player is already in a conversation with this npc
                     return
                 end
-                --printd('started talking to npc')
                 current_player_conversation[player_id] = npc.bot_id
 
                 if not npc.dont_face_player then
                     local player_pos = Net.get_player_position(player_id)
-                    Net.set_bot_direction(npc.bot_id, Direction.from_points(npc, player_pos))
+
+                    local dir = nil
+                    if player_pos and player_pos.x ~= nil and player_pos.y ~= nil and npc.x ~= nil and npc.y ~= nil then
+                        dir = Direction.from_points(npc, player_pos)
+                    end
+
+                    if dir ~= nil then
+                        Net.set_bot_direction(npc.bot_id, dir)
+                    end
                 end
 
                 local dialogue = npc.first_dialogue
                 Net.lock_player_input(player_id)
                 await(do_dialogue(npc,player_id,dialogue,relay_object))
-                --printd('finished talking to npc')
                 clear_player_conversation(player_id)
             end)
         end
@@ -342,25 +339,42 @@ function on_npc_reached_waypoint(npc,waypoint)
     end
 end
 
-function eznpcs.add_npcs_to_area(area_id)
-    --Loop over all objects in area, spawning NPCs for each NPC type object.
-    local objects = Net.list_objects(area_id)
-    for i, object_id in next, objects do
-        local object = ezcache.get_object_by_id_cached(area_id, object_id)
-        if object.type == "NPC" then
-            create_bot_from_object(area_id, object_id)
-        end
+-- Register handler for NPC objects
+object_registry.register_handler("NPC", function(area_id, object)
+    -- If this NPC is flagged as a Quest NPC, don't auto-spawn it.
+    -- Quest scripts will call eznpcs.create_npc_from_object(...) when appropriate.
+    if object.custom_properties
+       and object.custom_properties["Quest NPC"] == "true" then
+        printd("Skipping quest NPC placeholder id "..object.id.." in "..area_id)
+    else
+        create_bot_from_object(area_id, object)
     end
-end
+end)
 
 --Interface
---all of these must be used by entry script for this to function.
 function eznpcs.load_npcs()
     --for each area, load NPCS
     local areas = Net.list_areas()
     for i, area_id in next, areas do
         --Add npcs to existing areas on startup
         eznpcs.add_npcs_to_area(area_id)
+    end
+end
+
+function eznpcs.add_npcs_to_area(area_id)
+    --Legacy function kept for compatibility, but now NPCs are already created via registry.
+    --If an area is loaded after startup, we could still scan it.
+    local objects = Net.list_objects(area_id)
+    for i, object_id in next, objects do
+        local object = ezcache.get_object_by_id_cached(area_id, object_id)
+        if object and object.type == "NPC" then
+            if object.custom_properties
+               and object.custom_properties["Quest NPC"] == "true" then
+                printd("Skipping quest NPC placeholder id "..object_id.." in "..area_id)
+            else
+                create_bot_from_object(area_id, object)
+            end
+        end
     end
 end
 
@@ -375,8 +389,10 @@ function eznpcs.add_event(event_object)
     events[event_object.name] = event_object
     printd('added event '..event_object.name)
 end
+
 function eznpcs.create_npc_from_object(area_id,object_id)
-    return ( create_bot_from_object(area_id,object_id) )
+    local object = ezcache.get_object_by_id_cached(area_id, object_id)
+    return ( create_bot_from_object(area_id,object) )
 end
 
 function eznpcs.handle_actor_interaction(player_id,actor_id)
@@ -394,6 +410,7 @@ function eznpcs.on_tick(delta_time)
         end
     end
 end
+
 function eznpcs.create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name)
     return ( create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name) )
 end
@@ -411,8 +428,10 @@ function eznpcs.handle_object_interaction(player_id, object_id)
     local relay_object = Net.get_object_by_id(area_id,object_id)
     if relay_object and relay_object.custom_properties["Interact Relay"] then
         local placeholder_id = relay_object.custom_properties["Interact Relay"]
-        local bot_id = placeholder_to_botid[area_id][placeholder_id]
-        do_actor_interaction(player_id,bot_id,relay_object)
+        if placeholder_to_botid[area_id] and placeholder_to_botid[area_id][placeholder_id] then
+            local bot_id = placeholder_to_botid[area_id][placeholder_id]
+            do_actor_interaction(player_id,bot_id,relay_object)
+        end
     end
 end
 
