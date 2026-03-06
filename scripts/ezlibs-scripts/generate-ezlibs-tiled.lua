@@ -14,7 +14,7 @@ local Enums = {
     },
     MysteryType = {
         type = "string",
-        values = {"keyitem", "item", "money", "random", "quiz", "fragments", "tokens"}   -- NEW
+        values = {"keyitem", "item", "money", "random", "quiz", "fragments", "tokens"}
     },
     WaypointType = {
         type = "string",
@@ -23,13 +23,13 @@ local Enums = {
     DialogueType = {
         type = "string",
         values = {"first", "question", "quiz", "random", "itemcheck", "before", "after",
-                  "shop", "password", "quest_switch", "quest_event", "item", "email", "questcheck"}  -- NEW
+                  "shop", "password", "quest_switch", "quest_event", "item", "email", "questcheck"}
     },
     ItemType = {
         type = "string",
-        values = {"item", "keyitem", "money", "fragments", "tokens"}   -- NEW
+        values = {"item", "keyitem", "money", "fragments", "tokens"}
     },
-    CurrencyType = {    -- NEW
+    CurrencyType = {
         type = "string",
         values = {"money", "fragments", "tokens"}
     }
@@ -40,7 +40,7 @@ local Enums = {
 local function prop(name, typ, default, enumName)
     local p = { name = name, type = typ, value = default }
     if enumName then
-        p.propertyType = enumName  -- reference enum by name
+        p.propertyType = enumName
     end
     return p
 end
@@ -79,7 +79,12 @@ local object_types = {
             prop("Amount", "number", 1),
             prop("Quiz List", "object", ""),
             prop("Failure Message", "string", ""),
-            -- NEW cost properties
+            -- Reward properties (used when Type = "quiz")
+            prop("Reward Type", "string", "item", "ItemType"),
+            prop("Reward Name", "string", ""),
+            prop("Reward Amount", "number", 1),
+            prop("Reward Description", "string", ""),
+            -- Cost properties
             prop("Cost Type", "string", "", "CurrencyType"),
             prop("Cost Amount", "number", 1),
             prop("Cost Failure Message", "string", ""),
@@ -277,7 +282,7 @@ local object_types = {
             prop("Quest Name", "string", ""),
             prop("Event Value", "string", ""),
             prop("Dont Notify", "bool", false),
-            -- NEW email-specific properties
+            -- Email-specific properties
             prop("Email Id", "string", ""),
             prop("Email Icon", "number", 1),
             prop("Email Title", "string", "Mail"),
@@ -307,7 +312,6 @@ local function build_tiled_types()
     local output = {}
     local id = 1
 
-    -- Add enums first
     for enum_name, enum in pairs(Enums) do
         table.insert(output, {
             id = id,
@@ -320,7 +324,6 @@ local function build_tiled_types()
         id = id + 1
     end
 
-    -- Add object types (classes)
     for _, ot in ipairs(object_types) do
         local class = {
             id = id,
@@ -348,7 +351,6 @@ local function main(output_path)
     local types = build_tiled_types()
     local json_str = json.encode(types)
 
-    -- Write file (synchronously using io, or use Async if in server context)
     local file, err = io.open(output_path, "w")
     if not file then
         error("Could not open " .. output_path .. " for writing: " .. tostring(err))
@@ -358,11 +360,9 @@ local function main(output_path)
     print("Generated Tiled types: " .. output_path)
 end
 
--- If running as a script, get output path from command line
 if arg and arg[0] and arg[0]:find("generate_tiled_types_json.lua") then
-    local out = arg[1]  -- first argument
+    local out = arg[1]
     main(out)
 else
-    -- If required as a module, return the main function
     return { generate = main }
 end

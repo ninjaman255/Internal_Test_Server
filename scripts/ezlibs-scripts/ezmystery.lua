@@ -3,7 +3,7 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezlocks = require('scripts/ezlibs-scripts/ezlocks')
-local condition = require('scripts/ezlibs-scripts/condition')   -- NEW
+local condition = require('scripts/ezlibs-scripts/condition')
 local math = require('math')
 
 local AvatarCache = require('scripts/avatar_utils/main')
@@ -18,19 +18,20 @@ local sfx = {
 
 local player_avatars = {}
 local player_animations = {}
---Type Mystery Data (or Mystery Datum) have these custom_properties
---Locked (bool) do you need an unlocker to open this?
---Password Locked (string) if set, requires this password to open
---Once (bool) should this never respawn for this player?
---Type (string) one of: 'keyitem', 'item', 'money', 'random', 'quiz', 'fragments', 'tokens'   -- NEW
---(for keyitem/item/money/fragments/tokens types)
---    Name (string) name of item (optional for fragments/tokens)
---    Description (string) description of key item
---    Amount (number) amount of money, fragments, tokens, or item count
---(for random type)
---    Next 1..N (object IDs) possible mystery data to randomly pick
---(for quiz type)
---    Quiz List (object ID) reference to a Quiz List object
+
+-- Robust boolean checker (case‑insensitive, accepts 1 as true)
+local function is_property_true(val)
+    if val == true then
+        return true
+    end
+    if type(val) == "string" then
+        return val:lower() == "true"
+    end
+    if type(val) == "number" then
+        return val ~= 0
+    end
+    return false
+end
 
 local function object_is_mystery_data(object)
     if object.type == "Mystery Data" or object.type == "Mystery Datum" then
@@ -70,7 +71,6 @@ Net:on("avatar_change", function(event)
 end)
 
 Net:on("object_interaction", function(event)
-    -- { player_id: string, object_id: number, button: number }
     local area_id = Net.get_player_area(event.player_id)
     local object = Net.get_object_by_id(area_id, event.object_id)
     if object_is_mystery_data(object) then
@@ -85,47 +85,34 @@ end
 function ezmystery.hide_random_data(player_id)
     local area_id = Net.get_player_area(player_id)
     local objects = Net.list_objects(area_id)
-    --New map properties. Default to making maximum smaller than minimum so that if this isn't setup, it won't be used.
     local area_min_mystery_count = tonumber(Net.get_area_custom_property(area_id, "Mystery Data Minimum")) or 1
     local area_max_mystery_count = tonumber(Net.get_area_custom_property(area_id, "Mystery Data Maximum")) or 0
-    --As mentioned, don't do anything if the min is smaller than the max. Safety!
     if area_min_mystery_count > area_max_mystery_count then return end
-    --If we don't have a record of this player upon transfer (due to reasons like joining in an area without randomized data), then process this player
     if revealed_mysteries_for_players[player_id] == nil then revealed_mysteries_for_players[player_id] = {} end
-    --If we've already processed this area for this player, don't process. We don't want to process the same area twice.
-    --That way, we don't rearrange existing mystery data, or data that's already been hidden.
     if revealed_mysteries_for_players[player_id] and revealed_mysteries_for_players[player_id][area_id] then
         return
     end
-    --Mystery count used in the loop.
     local mystery_count = 0
-    --Amount of mystery data to be found in the area.
     local desired_mystery_count = math.random(area_min_mystery_count, area_max_mystery_count)
-    --Add the area to a dict of player memory. Since we've started processing this area, we don't want to process it again.
     revealed_mysteries_for_players[player_id][area_id] = {}
     local datum_list = {}
     for i, object_id in next, objects do
         local object = Net.get_object_by_id(area_id, object_id)
-        --Only allow in to the list if it's a mystery datum that is not set to one-time and it's not locked.
-        if object_is_mystery_data(object) and object.custom_properties["Once"] ~= "true" and object.custom_properties["Locked"] ~= "true" then
-            --Add to the list.
-            table.insert(datum_list, object.id)
-            --Increment count since we found a datum.
-            mystery_count = mystery_count + 1
+        if object_is_mystery_data(object) then
+            local once = is_property_true(object.custom_properties["Once"])
+            local locked = is_property_true(object.custom_properties["Locked"])
+            if not once and not locked then
+                table.insert(datum_list, object.id)
+                mystery_count = mystery_count + 1
+            end
         end
     end
     while mystery_count > desired_mystery_count do
-        --Get random mystery index.
         local index = math.random(#datum_list)
-        --Get random mystery ID.
         local mystery = datum_list[index]
-        --If it's not already removed, then...
         if mystery ~= nil then
-            --Hide it.
             ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, mystery)
-            --Remove it.
             table.remove(datum_list, helpers.indexOf(datum_list, mystery))
-            --Reassign the mystery count.
             mystery_count = #datum_list
         end
     end
@@ -140,7 +127,6 @@ function ezmystery.handle_player_join(player_id)
     ezmystery.hide_random_data(player_id)
 end
 
--- Quiz handling using a Quiz List object
 local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message)
     local quiz_list = ezcache.get_object_by_id_cached(area_id, quiz_list_id)
     if not quiz_list then
@@ -148,7 +134,6 @@ local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_mess
         return false
     end
 
-    -- Extract numbered Next properties (pointing to quiz question objects)
     local question_ids = helpers.extract_numbered_properties(quiz_list, "Next ")
     if #question_ids == 0 then
         warn("[ezmystery] Quiz List has no Next properties")
@@ -168,7 +153,6 @@ local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_mess
         local opt3 = qobj.custom_properties["Option 3"]
         local correct_answer = tonumber(qobj.custom_properties["Correct Answer"]) or 1
 
-        -- Build options table, ignoring empty strings
         local options = {}
         if opt1 and #opt1 > 0 then table.insert(options, opt1) end
         if opt2 and #opt2 > 0 then table.insert(options, opt2) end
@@ -179,18 +163,14 @@ local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_mess
             return false
         end
 
-        -- Validate correct answer index
         if correct_answer < 1 or correct_answer > #options then
             correct_answer = 1
         end
 
-        -- Show question
         await(Async.message_player(player_id, question))
 
-        -- Call quiz_player and check return type before awaiting
         local quiz_promise = Async.quiz_player(player_id, options[1], options[2], options[3])
         if type(quiz_promise) ~= "table" then
-            -- Not a promise; treat as error/cancel
             if failure_message and #failure_message > 0 then
                 await(Async.message_player(player_id, failure_message))
             end
@@ -210,17 +190,15 @@ end
 function try_collect_datum(player_id, area_id, object)
     return async(function()
         if ezmemory.object_is_hidden_from_player(player_id, area_id, object.id) then
-            --Anti spam protection
             return
         end
-        --anti spam lock
+
         local lock_id = player_id .. "_" .. area_id .. "_" .. object.id
         local lock = helpers.get_lock(player_id, lock_id)
         if not lock then
             return
         end
 
-        -- Check for password lock first
         local password = object.custom_properties["Password Locked"]
         if password and #password > 0 then
             local unlocked = await(ezlocks.check_password(player_id, "Enter password:", password))
@@ -230,7 +208,6 @@ function try_collect_datum(player_id, area_id, object)
             end
         end
 
-        -- NEW: generic cost check (money, fragments, tokens)
         local cost_type = object.custom_properties["Cost Type"]
         if cost_type and cost_type ~= "" then
             local cost_amount = tonumber(object.custom_properties["Cost Amount"] or 1)
@@ -243,11 +220,9 @@ function try_collect_datum(player_id, area_id, object)
                 lock.release()
                 return
             end
-            -- cost was automatically consumed by condition.evaluate (consume=true)
         end
 
-        -- Fallback to old item-based lock
-        if object.custom_properties["Locked"] == "true" then
+        if is_property_true(object.custom_properties["Locked"]) then
             await(Async.message_player(player_id, "The Mystery Data is locked."))
             local unlocked = await(ezlocks.check_item(player_id, "Use an Unlocker to open it?", "Unlocker", 1, true))
             if not unlocked then
@@ -256,7 +231,6 @@ function try_collect_datum(player_id, area_id, object)
             end
         end
 
-        -- Now check type-specific collection conditions
         local datum_type = object.custom_properties["Type"]
         local can_collect = true
         if datum_type == "quiz" then
@@ -266,14 +240,13 @@ function try_collect_datum(player_id, area_id, object)
                 can_collect = false
             else
                 local failure_message = object.custom_properties["Failure Message"] or "Incorrect answer."
-                -- FIX: run_quiz_from_list returns a boolean, not a promise, so do NOT await
                 can_collect = run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message)
             end
         end
 
         if can_collect then
             await(Async.message_player(player_id, "Accessing the mystery data\x01...\x01"))
-            await(collect_datum(player_id, object, object.id))
+            await(collect_datum(player_id, object, object.id, datum_type == "quiz"))
         end
         lock.release()
     end)
@@ -291,16 +264,27 @@ function read_datum_information(area_id, object)
             return false
         end
     end
-    -- NEW: fragments/tokens types are now allowed – they will be handled by give_item_with_optional_notify
     return item_info
 end
 
-function collect_datum(player_id, object, datum_id_override)
+function collect_datum(player_id, object, datum_id_override, is_quiz)
     return async(function()
         local area_id = Net.get_player_area(player_id)
-        local item_info = read_datum_information(area_id, object)
-        local original_direction = Net.get_player_direction(player_id)
-        if item_info == false then
+        local item_info
+
+        if is_quiz then
+            item_info = {
+                type = object.custom_properties["Reward Type"] or "item",
+                name = object.custom_properties["Reward Name"],
+                amount = tonumber(object.custom_properties["Reward Amount"] or 1),
+                description = object.custom_properties["Reward Description"] or "???",
+                price = 0
+            }
+        else
+            item_info = read_datum_information(area_id, object)
+        end
+
+        if not item_info or item_info == false then
             return
         end
 
@@ -308,22 +292,24 @@ function collect_datum(player_id, object, datum_id_override)
             local random_options = helpers.extract_numbered_properties(object, "Next ")
             local random_selection_id = random_options[math.random(#random_options)]
             if random_selection_id then
-                randomly_selected_datum = ezcache.get_object_by_id_cached(area_id, random_selection_id)
-                await(collect_datum(player_id, randomly_selected_datum, datum_id_override))
-                return
+                local randomly_selected_datum = ezcache.get_object_by_id_cached(area_id, random_selection_id)
+                -- Recursively collect the randomly selected datum (pass the original datum_id_override)
+                await(collect_datum(player_id, randomly_selected_datum, datum_id_override, false))
             end
+            -- Do not give a reward for the parent (type random)
         else
             ezmemory.play_anim_get(player_id)
             await(ezmemory.give_item_with_optional_notify(player_id, area_id, object.id, item_info))
-            ezmemory.set_direction_anim(player_id, original_direction)
+            ezmemory.set_direction_anim(player_id, Net.get_player_direction(player_id))
         end
 
-        if object.custom_properties["Once"] == "true" then
-            --If this mystery data should only be available once (not respawning)
+        -- Now apply hiding for the original object (the one passed in)
+        if is_property_true(object.custom_properties["Once"]) then
+            print("[ezmystery] Hiding permanently for player", player_id, "object", datum_id_override)
             ezmemory.hide_object_from_player(player_id, area_id, datum_id_override)
         end
 
-        --Now remove the mystery data
+        -- Always hide temporarily for this session
         ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)
     end)
 end

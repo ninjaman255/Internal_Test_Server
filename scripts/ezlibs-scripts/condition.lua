@@ -29,7 +29,6 @@ function condition.money(player_id, amount, consume)
     return has
 end
 
--- NEW: fragments condition
 function condition.fragments(player_id, amount, consume)
     amount = amount or 1
     local has = ezmemory.get_player_fragments(player_id) >= amount
@@ -39,7 +38,6 @@ function condition.fragments(player_id, amount, consume)
     return has
 end
 
--- NEW: tokens condition
 function condition.tokens(player_id, amount, consume)
     amount = amount or 1
     local has = ezmemory.get_player_tokens(player_id) >= amount
@@ -52,7 +50,6 @@ end
 function condition.quest_flag(player_id, quest_name, flag_name, expected, op)
     local value = ezquests.get_player_quest_flag(player_id, quest_name, flag_name)
     if expected == nil then
-        -- truthy check (treat nil/false/"false" as false)
         return not (value == nil or value == false or value == "false")
     end
     op = op or "=="
@@ -61,7 +58,6 @@ function condition.quest_flag(player_id, quest_name, flag_name, expected, op)
     elseif op == "!=" then
         return tostring(value) ~= tostring(expected)
     else
-        -- numeric comparison
         local a = tonumber(value)
         local b = tonumber(expected)
         if a and b then
@@ -70,7 +66,6 @@ function condition.quest_flag(player_id, quest_name, flag_name, expected, op)
             if op == ">"  then return a > b end
             if op == "<"  then return a < b end
         end
-        -- fallback to string equality
         return tostring(value) == tostring(expected)
     end
 end
@@ -85,7 +80,6 @@ function condition.evaluate(player_id, cond)
         return condition.item(player_id, cond.name, cond.amount, cond.consume)
     elseif cond.type == "money" then
         return condition.money(player_id, cond.amount, cond.consume)
-    -- NEW: fragment/token evaluation
     elseif cond.type == "fragments" then
         return condition.fragments(player_id, cond.amount, cond.consume)
     elseif cond.type == "tokens" then
