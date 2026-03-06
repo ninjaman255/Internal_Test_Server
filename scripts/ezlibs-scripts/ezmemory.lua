@@ -122,7 +122,7 @@ end
 
 local function ezmemory_save_file(file_path, value)
     return async(function()
-        local json = json.encode(value)
+        local json = json.encode(value, true)
         await(Async.write_file(file_path .. "_backup.json", json))
         await(Async.write_file(file_path .. ".json", json))
     end)
