@@ -23,7 +23,8 @@ local Enums = {
     DialogueType = {
         type = "string",
         values = {"first", "question", "quiz", "random", "itemcheck", "before", "after",
-                  "shop", "password", "quest_switch", "quest_event", "item", "email", "questcheck"}
+                  "shop", "password", "quest_switch", "quest_event", "item", "email", 
+                  "questcheck", "battle_npc"}   -- added battle_npc
     },
     ItemType = {
         type = "string",
@@ -35,7 +36,7 @@ local Enums = {
     },
     QuizFailAction = {
         type = "string",
-        values = {"retry", "hide_once", "hide_temp", "explode"}   -- added "explode"
+        values = {"retry", "hide_once", "hide_temp", "explode"}
     }
 }
 
@@ -84,7 +85,6 @@ local object_types = {
             prop("Quiz List", "object", ""),
             prop("Failure Message", "string", ""),
             prop("On Fail", "string", "retry", "QuizFailAction"),
-            -- NEW: Explosion Count (for On Fail = explode)
             prop("Explosion Count", "number", 3),
             -- Reward properties (used when Type = "quiz")
             prop("Reward Type", "string", "item", "ItemType"),
@@ -225,6 +225,8 @@ local object_types = {
             prop("Quest Name", "string", ""),
             prop("Event Value", "string", ""),
             prop("Dont Notify", "bool", false),
+            prop("Encounter Name", "string", ""),
+            prop("Failure Message", "string", ""),
         }
     },
     {
@@ -309,9 +311,12 @@ local object_types = {
             prop("Mug Texture Path", "string", ""),
             prop("Mug Animation Path", "string", ""),
             prop("Persist", "bool", true),
+            -- Battle NPC properties
+            prop("Encounter Name", "string", ""),
+            prop("Failure Message", "string", ""),
         }
     },
-    -- NEW: Explosion Trigger
+    -- Explosion Trigger
     {
         name = "Explosion Trigger",
         color = "#ff6600",

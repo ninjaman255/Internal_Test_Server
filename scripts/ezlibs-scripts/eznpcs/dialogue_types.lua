@@ -4,6 +4,7 @@ local ezquests = require('scripts/ezlibs-scripts/ezquests')
 local ezemail = require('scripts/ezlibs-scripts/ezemail')
 local condition = require('scripts/ezlibs-scripts/condition')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
+local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
 
 --Dialogue Types
 local dialogue_types = {
@@ -356,6 +357,57 @@ local dialogue_types = {
                 end
 
                 return next_id
+            end)
+        end
+    },
+    battle_npc={
+        name = "battle_npc",
+        action = function(npc, player_id, dialogue, relay_object)
+            return async(function()
+                local area_id = Net.get_player_area(player_id)
+                local question = dialogue.custom_properties["Text 1"] or "Ready to fight?"
+                local encounter_name = dialogue.custom_properties["Encounter Name"]
+                local fail_msg = dialogue.custom_properties["Failure Message"] or "You hesitated..."
+
+                if not encounter_name then
+                    warn("[eznpcs] battle_npc missing Encounter Name")
+                    return
+                end
+
+                -- Ask Yes/No
+                local choice = await(Async.question_player(player_id, question))
+                if choice == 0 then
+                    -- Player declined
+                    return
+                end
+
+                -- Start encounter
+                local stats = await(ezencounters.begin_encounter_by_name(player_id, encounter_name))
+
+                -- Determine win/loss
+                local won = (not stats.ran) and (stats.health and stats.health > 0)
+
+                if won then
+                    -- Explode NPC
+                    ezbus:emit("explode", {
+                        actor_id = npc.bot_id,
+                        area_id = area_id,
+                        max_explosions = 3
+                    })
+                    -- Permanently hide the NPC placeholder for this player
+                    ezmemory.hide_object_from_player(player_id, area_id, npc.first_dialogue.id)
+                    -- Immediately exclude the bot for this player
+                    Net.exclude_actor_for_player(player_id, npc.bot_id)
+                else
+                    -- Explode player
+                    ezbus:emit("explode", {
+                        actor_id = player_id,
+                        area_id = area_id,
+                        max_explosions = 3
+                    })
+                    -- Kick player
+                    Net.kick_player(player_id, "You were defeated!", false)
+                end
             end)
         end
     }

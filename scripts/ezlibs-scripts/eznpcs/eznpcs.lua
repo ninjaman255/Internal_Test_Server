@@ -440,4 +440,12 @@ function eznpcs.handle_object_interaction(player_id, object_id)
     end
 end
 
+-- NEW: Helper to get bot ID from placeholder ID
+function eznpcs.get_bot_id_for_placeholder(area_id, placeholder_id)
+    if placeholder_to_botid[area_id] then
+        return placeholder_to_botid[area_id][tostring(placeholder_id)]
+    end
+    return nil
+end
+
 return eznpcs

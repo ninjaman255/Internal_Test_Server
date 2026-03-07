@@ -73,6 +73,43 @@ local Encounter1 = {
     results_callback = give_result_awards,
 }
 
+-- Define encounters
+local BossTest = {
+    name = "BossTest",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    weight = 0,
+    enemies = {
+        { name = "ShadowManPoN", rank = 1 },
+    },
+    obstacles = {},
+    positions = {
+        { 0,0,0,0,0,0 },
+        { 0,0,0,0,1,0 },
+        { 0,0,0,0,0,0 },
+    },
+    obstacle_positions = {
+        { 0,0,0,0,0,0 },
+        { 0,0,0,0,0,0 },
+        { 0,0,0,0,0,0 },
+    },
+    player_positions = {
+        { 0,0,0,0,0,0 },
+        { 0,1,0,0,0,0 },
+        { 0,0,0,0,0,0 },
+    },
+    tiles = {
+        { 1,1,1,1,1,1 },
+        { 1,1,1,1,1,1 },
+        { 1,1,1,1,1,1 },
+    },
+    teams = {
+        { 2,2,2,1,1,1 },
+        { 2,2,2,1,1,1 },
+        { 2,2,2,1,1,1 },
+    },
+    results_callback = give_result_awards,
+}
+
 -- Define Encounter2 through Encounter10 similarly (as in the provided list)
 -- For brevity, I'll include only a couple, but you can add all.
 

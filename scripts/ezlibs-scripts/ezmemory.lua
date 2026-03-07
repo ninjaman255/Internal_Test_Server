@@ -874,6 +874,17 @@ function ezmemory.handle_player_transfer(player_id)
         Net.exclude_object_for_player(player_id, object_id)
     end
     printd('hid '..#player_area_memory.hidden_objects..' objects from '..player_name)
+
+    -- Also exclude bots for hidden NPC placeholders
+    local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
+    if eznpcs and eznpcs.get_bot_id_for_placeholder then
+        for obj_id, _ in pairs(player_area_memory.hidden_objects) do
+            local bot_id = eznpcs.get_bot_id_for_placeholder(area_id, obj_id)
+            if bot_id then
+                Net.exclude_actor_for_player(player_id, bot_id)
+            end
+        end
+    end
 end
 
 function ezmemory.calculate_player_modified_max_hp(player_id,base_max_hp,hp_memory_modifier,hp_memory_item)
