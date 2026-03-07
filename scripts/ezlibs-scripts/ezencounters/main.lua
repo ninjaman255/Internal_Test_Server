@@ -120,13 +120,16 @@ ezencounters.try_random_encounter = function (player_id,encounter_table)
     end
 end
 
+-- FIXED: Now returns the stats
 ezencounters.begin_encounter_by_name = function(player_id,encounter_name,trigger_object)
     return async(function ()
         local encounter_info = named_encounters[encounter_name]
         if encounter_info then
-            await(ezencounters.begin_encounter(player_id,encounter_info,trigger_object))
+            local stats = await(ezencounters.begin_encounter(player_id,encounter_info,trigger_object))
+            return stats
         else
             print('[ezencounters] no encounter with name ',encounter_name,' has been added to any encounter tables!')
+            return nil
         end
     end)
 end

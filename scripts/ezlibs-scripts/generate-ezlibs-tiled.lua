@@ -24,7 +24,7 @@ local Enums = {
         type = "string",
         values = {"first", "question", "quiz", "random", "itemcheck", "before", "after",
                   "shop", "password", "quest_switch", "quest_event", "item", "email", 
-                  "questcheck", "battle_npc"}   -- added battle_npc
+                  "questcheck", "battle_npc"}
     },
     ItemType = {
         type = "string",
@@ -227,6 +227,8 @@ local object_types = {
             prop("Dont Notify", "bool", false),
             prop("Encounter Name", "string", ""),
             prop("Failure Message", "string", ""),
+            -- NEW: Player Exclusive
+            prop("Player Exclusive", "bool", false),
         }
     },
     {

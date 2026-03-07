@@ -6,6 +6,14 @@ local condition = require('scripts/ezlibs-scripts/condition')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
 
+-- Helper for boolean properties (copied from eznpcs.lua to avoid circular dependency)
+local function is_property_true(val)
+    if val == true then return true end
+    if type(val) == "string" then return val:lower() == "true" end
+    if type(val) == "number" then return val ~= 0 end
+    return false
+end
+
 --Dialogue Types
 local dialogue_types = {
     first={
@@ -365,13 +373,20 @@ local dialogue_types = {
         action = function(npc, player_id, dialogue, relay_object)
             return async(function()
                 local area_id = Net.get_player_area(player_id)
-                local question = dialogue.custom_properties["Text 1"] or "Ready to fight?"
+                local intro_message = dialogue.custom_properties["Text 1"]
+                local question = dialogue.custom_properties["Text 2"] or "Ready to fight?"
                 local encounter_name = dialogue.custom_properties["Encounter Name"]
                 local fail_msg = dialogue.custom_properties["Failure Message"] or "You hesitated..."
 
                 if not encounter_name then
                     warn("[eznpcs] battle_npc missing Encounter Name")
                     return
+                end
+
+                -- Show mugshot message if provided
+                if intro_message and intro_message ~= "" then
+                    local mugshot = eznpcs.get_dialogue_mugshot(npc, player_id, dialogue)
+                    await(Async.message_player(player_id, intro_message, mugshot.texture_path, mugshot.animation_path))
                 end
 
                 -- Ask Yes/No
@@ -383,21 +398,43 @@ local dialogue_types = {
 
                 -- Start encounter
                 local stats = await(ezencounters.begin_encounter_by_name(player_id, encounter_name))
+                if not stats then
+                    await(Async.message_player(player_id, "The challenge could not be initiated."))
+                    return
+                end
 
-                -- Determine win/loss
-                local won = (not stats.ran) and (stats.health and stats.health > 0)
+                print("[battle_npc] stats for player", player_id, ":", stats)
+
+                -- Wait until player is no longer in battle
+                while Net.is_player_battling(player_id) do
+                    await(Async.sleep(0.1))
+                end
+
+                -- Determine win/loss based on reason field
+                -- reason 0 = normal victory, anything else = loss (2,3,4 as per request)
+                local won = (stats.reason == 1) and (stats.health and stats.health > 0)
+
+                print("[battle_npc] player", player_id, "won =", won, "reason =", stats.reason, "health =", stats.health, "bot_id =", npc.bot_id, "placeholder_id =", npc.first_dialogue.id)
+
+                -- Wait a moment for the player to return to the game world
+                await(Async.sleep(1.0))
 
                 if won then
-                    -- Explode NPC
+                    -- Explode the NPC (on its bot)
                     ezbus:emit("explode", {
                         actor_id = npc.bot_id,
                         area_id = area_id,
                         max_explosions = 3
                     })
-                    -- Permanently hide the NPC placeholder for this player
+                    -- Remove the exclusive NPC (if it's exclusive)
+                    if npc.first_dialogue.custom_properties and is_property_true(npc.first_dialogue.custom_properties["Player Exclusive"]) then
+                        eznpcs.remove_exclusive_npc(player_id, npc.first_dialogue.id)
+                    end
+                    -- Permanently hide the placeholder for this player
                     ezmemory.hide_object_from_player(player_id, area_id, npc.first_dialogue.id)
-                    -- Immediately exclude the bot for this player
-                    Net.exclude_actor_for_player(player_id, npc.bot_id)
+
+                    -- Wait for explosion to complete before continuing (explosion lasts ~2 seconds)
+                    await(Async.sleep(2.5))
                 else
                     -- Explode player
                     ezbus:emit("explode", {
@@ -405,8 +442,10 @@ local dialogue_types = {
                         area_id = area_id,
                         max_explosions = 3
                     })
+                    -- Wait for explosion to complete before kicking
+                    await(Async.sleep(2.5))
                     -- Kick player
-                    Net.kick_player(player_id, "You were defeated!", false)
+                    Net.kick_player(player_id, "You were defeated!", true)
                 end
             end)
         end

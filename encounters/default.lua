@@ -79,7 +79,7 @@ local BossTest = {
     path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
     weight = 0,
     enemies = {
-        { name = "ShadowManPoN", rank = 1 },
+        { name = "WoodmanPoN" },
     },
     obstacles = {},
     positions = {
@@ -159,6 +159,7 @@ return {
     encounters = {
         Encounter1,
         Encounter2,
+        BossTest,
         -- Encounter3, Encounter4, ... add them all
     },
 }

@@ -433,15 +433,17 @@
    </properties>
    <point/>
   </object>
-  <object id="142" type="NPC" x="736" y="704">
+  <object id="142" name="Shademan" type="NPC" x="704" y="640">
    <properties>
     <property name="Asset Name" value="shademan-exe5"/>
     <property name="Dialogue Type" propertytype="DialogueType" value="battle_npc"/>
     <property name="Direction" propertytype="Direction" value="Down Right"/>
-    <property name="Encounter Name" value="BossTest"/>
+    <property name="Encounter Name" value="Encounter1"/>
     <property name="Failure Message" value="Oh No you failed!"/>
+    <property name="Mug Animation Name" value="shademan-exe5"/>
     <property name="Mugshot" value="shademan-exe5"/>
-    <property name="Text 1" value="Ready to fight?"/>
+    <property name="Player Exclusive" type="bool" value="true"/>
+    <property name="Text 1" value="Think you can take me?"/>
    </properties>
    <point/>
   </object>
