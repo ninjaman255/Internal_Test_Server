@@ -14,6 +14,9 @@ if not Displayer:init() then
     return false
 end
 
+Net:on("battle_results", function (event)
+    print(event)    
+end)
 
 -- Test runner state (single player assumed)
 local Test = {

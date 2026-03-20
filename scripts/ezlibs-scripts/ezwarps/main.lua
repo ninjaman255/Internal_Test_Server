@@ -4,6 +4,7 @@ local create_jack_in_out_animation = require('scripts/ezlibs-scripts/ezwarps/log
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
+local ezcache = require('scripts/ezlibs-scripts/ezcache')
 
 local ezwarps = {}
 
@@ -119,13 +120,15 @@ function add_custom_warp(object, object_id, area_id, area_name)
     local target_area = object.custom_properties["Target Area"]
     local dont_teleport = object.custom_properties["Dont Teleport"]
     if not dont_teleport and target_area then
-        target_object = Net.get_object_by_id(target_area, object.custom_properties["Target Object"])                
+        local target_object_id = tostring(object.custom_properties["Target Object"])
+        target_object = ezcache.get_object_by_id_cached(target_area, target_object_id)
         if target_object == nil then
             log('found warp in ' .. area_name .. ' with target area, but could not find target object')
             log('skipping current warp due to missing target object')
-            warp_is_valid = false                    
+            warp_is_valid = false
         end
     end
+    -- Note: This function is currently unused; triggers are set up in process_warp_object.
 end
 
 -- Shared function to process any warp object
@@ -149,10 +152,10 @@ local function process_warp_object(area_id, object)
     end
 end
 
--- Register handlers for all warp types
-object_registry.register_handler("Radius Warp", process_warp_object)
-object_registry.register_handler("Custom Warp", process_warp_object)
-object_registry.register_handler("Interact Warp", process_warp_object)
+-- Register handlers for all warp types with caching disabled
+object_registry.register_handler("Radius Warp", process_warp_object, false)
+object_registry.register_handler("Custom Warp", process_warp_object, false)
+object_registry.register_handler("Interact Warp", process_warp_object, false)
 
 function prepare_player_arrival(player_id,x,y,z,special_animation_name)
     local entry_x = x
@@ -219,9 +222,26 @@ function use_warp(player_id,warp_object,warp_meta)
         local warp_out = warp_properties["Warp Out"] == "True"
         local warp_in = warp_properties["Warp In"] == "True"
         local data = warp_properties.Data
+
+        -- Play leave animation if specified
         if warp_properties["Leave Animation"] and warp_properties["Leave Animation"] ~= "" then
-            await(doAnimationForWarp(player_id,warp_properties["Leave Animation"],true,warp_object))
+            await(doAnimationForWarp(player_id, warp_properties["Leave Animation"], true, warp_object))
         end
+
+        -- ----------------------------------------------------------------------
+        -- Pre‑transfer Minish Mode adjustment (immediate)
+        -- ----------------------------------------------------------------------
+        if target_area and not is_remote_warp then
+            local ezpress = require('scripts/ezlibs-scripts/ezpress')
+            local minish = ezpress.get_area_minish_mode(target_area)
+            if minish then
+                ezpress.compress(player_id, true)   -- immediate
+            else
+                ezpress.decompress(player_id, true) -- immediate
+            end
+        end
+
+        -- Perform the warp
         if is_remote_warp then
             Net.transfer_server(player_id, warp_properties.Address, warp_properties.Port, warp_out, data)
             ezbus:emit("warp", {
@@ -235,16 +255,22 @@ function use_warp(player_id,warp_object,warp_meta)
             local arrival_animation_name = nil
             local dont_teleport = warp_object.custom_properties["Dont Teleport"]
             if target_object_id and not dont_teleport then
-                local target_object = Net.get_object_by_id(target_area,target_object_id)
+                local target_id_str = tostring(target_object_id)
+                local target_object = ezcache.get_object_by_id_cached(target_area, target_id_str)
+                if not target_object then
+                    log('ERROR: target object not found! ID: ' .. target_id_str .. ' in area: ' .. target_area)
+                    Net.unlock_player_input(player_id)
+                    return
+                end
                 if target_object.custom_properties["Direction"] then
                     direction = target_object.custom_properties["Direction"]
                 end
                 arrival_animation_name = target_object.custom_properties["Arrival Animation"]
                 if arrival_animation_name then
-                    local entry_pos = prepare_player_arrival(player_id,target_object.x,target_object.y,target_object.z,arrival_animation_name)
+                    local entry_pos = prepare_player_arrival(player_id, target_object.x, target_object.y, target_object.z, arrival_animation_name)
                     Net.transfer_player(player_id, target_area, warp_in, entry_pos.x, entry_pos.y, entry_pos.z, direction)
                 else
-                    Net.transfer_player(player_id, target_area, true, target_object.x+0.5,target_object.y+0.5,target_object.z, direction)
+                    Net.transfer_player(player_id, target_area, true, target_object.x+0.5, target_object.y+0.5, target_object.z, direction)
                 end
             else
                 log('unable to transfer, no target object')
@@ -264,7 +290,7 @@ function ezwarps.handle_custom_warp(player_id, object_id)
         return
     end
     local player_area = Net.get_player_area(player_id)
-    local object = Net.get_object_by_id(player_area, object_id)
+    local object = ezcache.get_object_by_id_cached(player_area, tostring(object_id))
     if not object then
         return
     end

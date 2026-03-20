@@ -13,17 +13,37 @@ local ezwarps = require('scripts/ezlibs-scripts/ezwarps/main')
 local ezfarms = require('scripts/ezlibs-scripts/ezfarms')
 helpers.safe_require('scripts/events/eznpcs_onceitem')
 local ezcheckpoints = require('scripts/ezlibs-scripts/ezcheckpoints')
-local ezannouncement = require('scripts/ezlibs-scripts/ezannounce')
+local ezannouncement = require('scripts/ezlibs-scripts/ezannounce/ezannounce')
 local ezemail = require('scripts/ezlibs-scripts/ezemail')
 local ezexplosions = require('scripts/ezlibs-scripts/ezexplosions')
+local ezrushroads = require('scripts/ezlibs-scripts/ezrushroads')
+local ezpress = require('scripts/ezlibs-scripts/ezpress')
+local ezusers = require('scripts/ezlibs-scripts/ezusers')
+local ezbbs = require('scripts/ezlibs-scripts/ezbbs')   -- NEW BBS plugin
 
-local plugins = { ezweather, eznpcs, ezmemory, ezmystery, ezwarps, ezencounters ,eztriggers, ezemail, ezannouncement, ezcheckpoints}
+local plugins = { 
+    ezweather, 
+    eznpcs, 
+    ezmemory, 
+    ezmystery, 
+    ezwarps, 
+    ezencounters,
+    eztriggers, 
+    ezemail, 
+    ezannouncement, 
+    ezcheckpoints, 
+    ezrushroads,
+    ezpress,
+    ezusers,
+    ezbbs,   -- add to plugin list
+}
 
 local sfx = {
     hurt = '/server/assets/ezlibs-assets/sfx/hurt.ogg',
     item_get = '/server/assets/ezlibs-assets/sfx/item_get.ogg',
     recover = '/server/assets/ezlibs-assets/sfx/recover.ogg',
-    card_error = '/server/assets/ezlibs-assets/ezfarms/card_error.ogg'
+    card_error = '/server/assets/ezlibs-assets/ezfarms/card_error.ogg',
+    compressSfx = "/server/assets/ezlibs-assets/sfx/compress.ogg"
 }
 
 local custom_script_path = 'scripts/ezlibs-custom/custom'
@@ -38,6 +58,7 @@ local object_registry = require('scripts/ezlibs-scripts/object_registry')
 object_registry.load_all()
 
 eznpcs.load_npcs()
+ezrushroads.init()  -- group roads after all objects are cached
 
 Net:on("battle_results", function(event)
     local stats = {

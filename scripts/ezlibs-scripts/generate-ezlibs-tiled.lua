@@ -64,7 +64,7 @@ local object_types = {
             prop("Once", "bool", false),
             prop("Unlocking Asset Name", "string", "bn5cubegreen_bot"),
             prop("Unlocking Animation Time", "number", 0),
-            prop("Unlocking Sound Path", "file", "/server/assets/ezlibs-assets/sfx/panel_change.ogg"),
+            prop("Unlocking Sound Path", "string", "/server/assets/ezlibs-assets/sfx/panel_change.ogg"),
             prop("Skip Prompt", "bool", false),
             prop("Description", "string", "It's a Security Cube"),
             prop("Unlocked Message", "string", "The Security Cube was unlocked!"),
@@ -168,7 +168,7 @@ local object_types = {
             prop("Arrival Animation", "string", ""),
             prop("Dont Teleport", "bool", false),
             prop("Target Area", "string", ""),
-            prop("Target Object", "object", ""),
+            prop("Target Object", "string", ""),
             prop("Leave Animation", "string", ""),
         }
     },
@@ -182,7 +182,7 @@ local object_types = {
             prop("Arrival Animation", "string", ""),
             prop("Dont Teleport", "bool", false),
             prop("Target Area", "string", ""),
-            prop("Target Object", "object", ""),
+            prop("Target Object", "string", ""),
             prop("Leave Animation", "string", ""),
         }
     },
@@ -197,7 +197,7 @@ local object_types = {
             prop("Dont Teleport", "bool", false),
             prop("Activation Radius", "number", 1),
             prop("Target Area", "string", ""),
-            prop("Target Object", "object", ""),
+            prop("Target Object", "string", ""),
             prop("Leave Animation", "string", ""),
         }
     },
@@ -227,8 +227,10 @@ local object_types = {
             prop("Dont Notify", "bool", false),
             prop("Encounter Name", "string", ""),
             prop("Failure Message", "string", ""),
-            -- NEW: Player Exclusive
             prop("Player Exclusive", "bool", false),
+            prop("Quest NPC", "bool", false),
+            prop("Quest Exclusive", "string", ""),
+            prop("Quest State", "string", "active"),
         }
     },
     {
@@ -326,6 +328,33 @@ local object_types = {
             prop("Target", "string", ""),      -- optional object ID to explode (defaults to self)
             prop("Follow", "bool", false),     -- if true, track target movement
             prop("Once", "bool", false),       -- remove after first trigger
+        }
+    },
+    -- Rush Road (for ezrushroads)
+    {
+        name = "Rush Road",
+        color = "#ffaa00",
+        members = {
+            prop("Rush Object", "object", ""),   -- linked object where the permanent bot appears
+            prop("Direction", "string", "Down Left", "Direction"), -- animation direction
+        }
+    },
+    -- Compression Tile (for ezpress)
+    {
+        name = "Compression Tile",
+        color = "#88aaff",
+        members = {
+            prop("Compress", "bool", false),
+            prop("Decompress", "bool", false),
+        }
+    },
+    -- Admin Console (for ezusers)
+    {
+        name = "Admin Console",
+        color = "#ffaa00",
+        members = {
+            -- No custom properties needed (uses global password hash)
+            -- You could optionally add a "Password" property for per‑console passwords
         }
     }
 }

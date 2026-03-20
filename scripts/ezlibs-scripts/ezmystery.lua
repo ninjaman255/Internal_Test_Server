@@ -8,8 +8,8 @@ local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
 local math = require('math')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
-local AvatarCache = require('scripts/avatar_utils/main')
-local AvatarUtils = require('scripts/avatar_utils/avatar_utils')
+local AvatarCache = require('scripts/ezlibs-scripts/avatar_utils/main')
+local AvatarUtils = require('scripts/ezlibs-scripts/avatar_utils/avatar_utils')
 
 local object_cache = {}
 local revealed_mysteries_for_players = {}
@@ -369,10 +369,11 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
             -- No further action needed.
 
         else
+            local direction = Net.get_player_direction(player_id)
             -- Normal item/money/fragments/tokens reward
             ezmemory.play_anim_get(player_id)
             await(ezmemory.give_item_with_optional_notify(player_id, area_id, object.id, item_info))
-            ezmemory.set_direction_anim(player_id, Net.get_player_direction(player_id))
+            ezmemory.set_direction_anim(player_id, direction)
         end
 
         ezbus:emit("mystery_collected", {

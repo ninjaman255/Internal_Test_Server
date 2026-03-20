@@ -165,7 +165,7 @@
   <object id="105" type="Mystery Data" gid="19" x="736" y="800" width="14" height="43">
    <properties>
     <property name="Cost Amount" value="500"/>
-    <property name="Cost Type" propertytype="CurrencyType" value="money"/>
+    <property name="Cost Type" value="money"/>
     <property name="Locked" type="bool" value="false"/>
     <property name="Next 1" type="object" value="106"/>
     <property name="Once" type="bool" value="false"/>
@@ -199,8 +199,8 @@
     <property name="Explosion Count" value="3"/>
     <property name="Quiz List" type="object" value="123"/>
     <property name="Reward Amount" value="150"/>
-    <property name="Reward Type" propertytype="ItemType" value="money"/>
-    <property name="Type" propertytype="MysteryType" value="quiz"/>
+    <property name="Reward Type" value="money"/>
+    <property name="Type" value="quiz"/>
    </properties>
   </object>
   <object id="111" type="Mystery Data" gid="43" x="832" y="800" width="14" height="43">
@@ -222,7 +222,7 @@
    <properties>
     <property name="Next 1" type="object" value="114"/>
     <property name="Once" type="bool" value="true"/>
-    <property name="Type" propertytype="MysteryType" value="random"/>
+    <property name="Type" value="random"/>
    </properties>
   </object>
   <object id="114" name="150 Monies" type="Mystery Option" x="864" y="864">
@@ -304,33 +304,33 @@
   <object id="127" type="Mystery Data" gid="59" x="928" y="800" width="14" height="43">
    <properties>
     <property name="Next 1" type="object" value="128"/>
-    <property name="Type" propertytype="MysteryType" value="random"/>
+    <property name="Type" value="random"/>
    </properties>
   </object>
   <object id="128" name="100 Tokens" type="Mystery Option" x="928" y="864">
    <properties>
     <property name="Amount" type="int" value="100"/>
-    <property name="Type" propertytype="MysteryType" value="tokens"/>
+    <property name="Type" value="tokens"/>
    </properties>
    <point/>
   </object>
   <object id="129" type="Mystery Data" gid="59" x="960" y="800" width="14" height="43">
    <properties>
     <property name="Next 1" type="object" value="130"/>
-    <property name="Type" propertytype="MysteryType" value="random"/>
+    <property name="Type" value="random"/>
    </properties>
   </object>
   <object id="130" name="100 Tokens" type="Mystery Option" x="960" y="864">
    <properties>
     <property name="Amount" type="int" value="100"/>
-    <property name="Type" propertytype="MysteryType" value="fragments"/>
+    <property name="Type" value="fragments"/>
    </properties>
    <point/>
   </object>
   <object id="131" type="Mystery Data" gid="19" x="704" y="800" width="14" height="43">
    <properties>
     <property name="Cost Amount" value="1"/>
-    <property name="Cost Type" propertytype="CurrencyType" value="tokens"/>
+    <property name="Cost Type" value="tokens"/>
     <property name="Locked" type="bool" value="false"/>
     <property name="Next 1" type="object" value="132"/>
     <property name="Once" type="bool" value="false"/>
@@ -347,7 +347,7 @@
   <object id="133" type="Mystery Data" gid="19" x="672" y="800" width="14" height="43">
    <properties>
     <property name="Cost Amount" value="1"/>
-    <property name="Cost Type" propertytype="CurrencyType" value="fragments"/>
+    <property name="Cost Type" value="fragments"/>
     <property name="Locked" type="bool" value="false"/>
     <property name="Next 1" type="object" value="134"/>
     <property name="Once" type="bool" value="false"/>
@@ -358,7 +358,7 @@
    <properties>
     <property name="Amount" type="int" value="150"/>
     <property name="Cost Amount" value="1"/>
-    <property name="Cost Type" propertytype="CurrencyType" value="fragments"/>
+    <property name="Cost Type" value="fragments"/>
     <property name="Type" value="money"/>
    </properties>
    <point/>
@@ -367,11 +367,11 @@
    <properties>
     <property name="Explosion Count" value="10"/>
     <property name="Failure Message" value="YOU FAILED"/>
-    <property name="On Fail" propertytype="QuizFailAction" value="explode"/>
+    <property name="On Fail" value="explode"/>
     <property name="Quiz List" type="object" value="136"/>
     <property name="Reward Amount" value="150"/>
-    <property name="Reward Type" propertytype="ItemType" value="money"/>
-    <property name="Type" propertytype="MysteryType" value="quiz"/>
+    <property name="Reward Type" value="money"/>
+    <property name="Type" value="quiz"/>
    </properties>
   </object>
   <object id="136" name="Quiz List" type="Quiz List" x="800" y="800">
@@ -381,7 +381,7 @@
     <property name="Next 10" type="object" value="0"/>
     <property name="Next 2" type="object" value="139"/>
     <property name="Next 3" type="object" value="138"/>
-    <property name="On Fail" propertytype="QuizFailAction" value="hide_temp"/>
+    <property name="On Fail" value="hide_temp"/>
    </properties>
    <point/>
   </object>
@@ -389,7 +389,7 @@
    <properties>
     <property name="Correct Answer" value="2"/>
     <property name="Failure Message" value="YOU FAILED"/>
-    <property name="On Fail" propertytype="QuizFailAction" value="hide_temp"/>
+    <property name="On Fail" value="hide_temp"/>
     <property name="Option 1" value="Megerman"/>
     <property name="Option 2" value="Megaman"/>
     <property name="Option 3" value="Megan"/>
@@ -400,7 +400,7 @@
   <object id="138" type="Quiz Question" x="800" y="832">
    <properties>
     <property name="Failure Message" value="YOU FAILED"/>
-    <property name="On Fail" propertytype="QuizFailAction" value="hide_temp"/>
+    <property name="On Fail" value="hide_temp"/>
     <property name="Option 1" value="Mystery Data"/>
     <property name="Option 2" value="Green"/>
     <property name="Option 3" value="Cube"/>
@@ -412,7 +412,7 @@
    <properties>
     <property name="Correct Answer" value="2"/>
     <property name="Failure Message" value="YOU FAILED"/>
-    <property name="On Fail" propertytype="QuizFailAction" value="hide_temp"/>
+    <property name="On Fail" value="hide_temp"/>
     <property name="Option 1" value="5"/>
     <property name="Option 2" value="2"/>
     <property name="Option 3" value="1"/>
@@ -423,21 +423,21 @@
   <object id="140" type="Mystery Data" gid="59" x="992" y="800" width="14" height="43">
    <properties>
     <property name="Next 1" type="object" value="141"/>
-    <property name="Type" propertytype="MysteryType" value="random"/>
+    <property name="Type" value="random"/>
    </properties>
   </object>
   <object id="141" name="100 Tokens" type="Mystery Option" x="992" y="864">
    <properties>
     <property name="Name" value="Encounter1"/>
-    <property name="Type" propertytype="MysteryType" value="encounter"/>
+    <property name="Type" value="encounter"/>
    </properties>
    <point/>
   </object>
   <object id="142" name="Shademan" type="NPC" x="704" y="640">
    <properties>
     <property name="Asset Name" value="shademan-exe5"/>
-    <property name="Dialogue Type" propertytype="DialogueType" value="battle_npc"/>
-    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Dialogue Type" value="battle_npc"/>
+    <property name="Direction" value="Down Right"/>
     <property name="Encounter Name" value="Encounter1"/>
     <property name="Failure Message" value="Oh No you failed!"/>
     <property name="Mug Animation Name" value="shademan-exe5"/>

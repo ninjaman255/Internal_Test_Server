@@ -405,11 +405,6 @@ local dialogue_types = {
 
                 print("[battle_npc] stats for player", player_id, ":", stats)
 
-                -- Wait until player is no longer in battle
-                while Net.is_player_battling(player_id) do
-                    await(Async.sleep(0.1))
-                end
-
                 -- Determine win/loss based on reason field
                 -- reason 0 = normal victory, anything else = loss (2,3,4 as per request)
                 local won = (stats.reason == 1) and (stats.health and stats.health > 0)
@@ -418,7 +413,11 @@ local dialogue_types = {
 
                 -- Wait a moment for the player to return to the game world
                 await(Async.sleep(1.0))
-
+                -- local mugshot = eznpcs.get_dialogue_mugshot(npc, player_id, dialogue)
+                -- local after_battle_message = await(Async.message_player(player_id, "AHHHHHHHHHHHHHH!!!!!!", mugshot.texture_path, mugshot.animation_path))
+                -- if after_battle_message then
+                --     
+                -- end
                 if won then
                     -- Explode the NPC (on its bot)
                     ezbus:emit("explode", {
@@ -451,5 +450,10 @@ local dialogue_types = {
         end
     }
 }
+
+Net:on("battle_results", function (event)
+    Net.is_player_battling(event.player_id)
+    print(Net.is_player_battling(event.player_id))
+end)
 
 return dialogue_types
