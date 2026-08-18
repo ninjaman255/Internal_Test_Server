@@ -1,0 +1,12 @@
+MenuAPI code expects the existing shadis_hp menu art here by default:
+
+  menu1.png
+  menu2.png
+  menu3.png
+  cursor.png
+  scroll.png
+
+Copy the complete `assets/ui/menuAPI/` folder from shadis_hp into the target server,
+or override the texture paths in MenuAPI layout/config.
+
+The code package was built through a GitHub text connector that cannot export repository PNG bytes, so the binary art is not duplicated in this ZIP.
