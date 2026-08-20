@@ -81,7 +81,17 @@ function Input.clear_require_release(player_id, keys)
 end
 
 function Input.get_active_direction(player_id)
-    return REVERSE_DIR[ctrl(player_id):get_active_direction()]
+    local c = ctrl(player_id)
+    local direction = c:get_active_direction()
+
+    -- Respect UI/controller handoff guards.
+    -- A direction that was already held when require_release() was called
+    -- should not become active again until the controller sees it released.
+    if direction and c.release_required[direction] then
+        return nil
+    end
+
+    return REVERSE_DIR[direction]
 end
 
 function Input.reset_direction_state(player_id)

@@ -5,6 +5,17 @@ local CameraController = {}
 local X_CAMERA_ADJUST = 0.05
 local Y_CAMERA_ADJUST = 0.05
 
+local CAMERA_DIRECTIONS = {
+    "left",
+    "right",
+    "up",
+    "down",
+    "upleft",
+    "upright",
+    "downleft",
+    "downright",
+}
+
 function CameraController.getPlayerInputStatus(player_id)
     return Net.is_player_input_locked(player_id)
 end
@@ -22,6 +33,11 @@ function CameraController:activate(is_player_controlled, lock_input)
     self.player_in_control = true
     self.pending_position = nil
     self.active = true
+
+    -- Do not inherit a direction that was already held when camera control began.
+    -- The player must release/change that direction before the camera responds to it.
+    Input.require_release(self.player_id, CAMERA_DIRECTIONS)
+
     -- Lock/unlock according to should_lock
     if should_lock then
         Net.lock_player_input(self.player_id)
@@ -37,7 +53,6 @@ function CameraController:activate(is_player_controlled, lock_input)
     self.current_position = { x = player_pos.x, y = player_pos.y, z = player_pos.z }
     print("Camera activated for player " .. self.player_id .. " (input locked: " .. tostring(should_lock) .. ")")
 end
-
 
 function CameraController:returnToPlayer()
     if self.active == true then
@@ -201,9 +216,6 @@ function CameraController:new(player_id, keep_player_input_locked)
         pending_position = nil,
         move_speed = 2.0,
         camera_color = { 255, 255, 255, 0 },
-        camera_is_shaking = false,
-        camera_shake_strength = 0.0,
-        camera_shake_remaining_duration = 0.0,
         active = false,
         keep_player_input_locked = keep_player_input_locked
     }
