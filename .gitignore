@@ -1,2 +1,4 @@
 assets/avatars/**
 memory/**
+*.tiled-session
+*.tiled-project
