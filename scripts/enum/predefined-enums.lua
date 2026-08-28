@@ -5,7 +5,15 @@
 local Enum = require("scripts/enum/enum")
 
 local PredefinedEnums = {
-    Color = Enum.new("RED", "GREEN", "BLUE"),
+    CameraMode = Enum.new({
+        active = "minimap",
+        options = {
+            MiniMap = "minimap",
+            PlayerControlled = "player",
+            ServerControlled = "server",
+            Custom = "custom"
+        }
+    }),
     Status = Enum.new({
         ACTIVE   = "active",
         INACTIVE = "inactive",
