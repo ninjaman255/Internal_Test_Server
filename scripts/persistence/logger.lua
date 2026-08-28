@@ -36,6 +36,30 @@ local function timestamp()
     return os.date("%Y-%m-%d %H:%M:%S")
 end
 
+-- ============================================================
+-- NEW: Custom JSON encoder with fixed field order
+-- ============================================================
+local function encode_entry(entry)
+    -- Escape JSON string characters
+    local function escape(s)
+        return s:gsub("\\", "\\\\")
+               :gsub('"', '\\"')
+               :gsub("\n", "\\n")
+               :gsub("\r", "\\r")
+               :gsub("\t", "\\t")
+    end
+
+    local fields = {
+        string.format('"timestamp":"%s"', escape(entry.timestamp)),
+        string.format('"level":"%s"', escape(entry.level)),
+        string.format('"msg":"%s"', escape(entry.msg)),
+    }
+    if entry.data then
+        table.insert(fields, '"data":' .. json.encode(entry.data))
+    end
+    return "{" .. table.concat(fields, ",") .. "}"
+end
+
 -- Logger metatable
 local LoggerMT = {}
 LoggerMT.__index = LoggerMT
@@ -131,7 +155,8 @@ function LoggerMT:flush()
 
     -- Write each entry as a JSON‑encoded line
     for _, entry in ipairs(self.buffer) do
-        local line = json.encode(entry) .. "\n"
+        -- === CHANGED: use our custom encoder with fixed order ===
+        local line = encode_entry(entry) .. "\n"
         file:write(line)
     end
 

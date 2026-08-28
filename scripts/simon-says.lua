@@ -198,7 +198,7 @@ local function end_game_cleanup(player_id, reason, simon)
     -- stop prompt loop
 
     local p = simon_players[player_id]
-    Log:debug(player_id .. " got a score of " .. p["score"])
+    Log:debug(player_id .. " " .. reason, {score = p["score"]})
     
     if p then p.active = false end
 
@@ -390,7 +390,7 @@ Net:on("virtual_input", function(event)
           await(Async.message_player(pid, "Wonderful!! Congratulations!!",
             simon.custom_properties["NPC Mug Texture"], simon.custom_properties["NPC Mug Animation"]))
 
-          await(end_game_cleanup(pid, "win", simon))
+          await(end_game_cleanup(pid, "Won", simon))
           return
 
         else
@@ -436,6 +436,6 @@ Net:on("countdown_ended", function(event)
       ))
     end
 
-    await(end_game_cleanup(pid, "timeout", simon))
+    await(end_game_cleanup(pid, "Lost", simon))
   end)
 end)
