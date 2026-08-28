@@ -1,3 +1,15 @@
+local createLogger = require("scripts/persistence/logger")
+
+local Log = createLogger({  
+    filePath = "scripts/_DEBUGGING/Example-PVP/debugging.log",
+    minLevel = "debug",      -- log debug and above
+    flushInterval = 5.0,
+    maxBufferSize = 50,
+    logIfChanged = true,  
+})
+
+Log:debug("PVP Script executed!")
+
 local requests = {}
 local questioned_requests = {}
 

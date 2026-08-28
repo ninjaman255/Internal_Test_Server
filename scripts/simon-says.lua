@@ -5,12 +5,21 @@
 * ---------------------------------------------------------- *
 ]]--
 
+local createLogger = require("scripts/persistence/logger")
+
+local Log = createLogger({  
+    filePath = "scripts/_DEBUGGING/Simon-Says/debugging.log",
+    minLevel = "debug",      -- log debug and above
+    flushInterval = 5.0,
+    maxBufferSize = 50,
+    logIfChanged = true,  
+})
+
 local games = require("scripts/net-games/main")
 
 local simon_cache = {}
 local simon_players = {}
 local simon_optional_properties = { "NPC", "NPC Mug", "Time", "Limit" }
-local Logger = require("scripts/persistence/persistence")("scripts/_DEBUGGING/Simon-Says/_DEV_Simon-Says.json")
 
 local defaults = {
   time_limit = 60,
@@ -119,10 +128,8 @@ local function spawn_simon()
           solid=true,
           warp_in=false
         })
-        Logger:load():and_then(function ()
-          Logger:setKey(area_id .. "_simon", {Spawned = true, PlayersWhoPlayed = {}})
-          Logger:save()  
-        end)
+        Log:debug("Server booted")
+        Log:debug("Created Simon Bot")
       end
     end
   end
@@ -189,7 +196,10 @@ end
 local function end_game_cleanup(player_id, reason, simon)
   return async(function()
     -- stop prompt loop
+
     local p = simon_players[player_id]
+    Log:debug(player_id .. " got a score of " .. p["score"])
+    
     if p then p.active = false end
 
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=255}, 0.5)
@@ -251,6 +261,7 @@ local function greet_simon(actor_id, player_id)
 
     -- Setup phase: lock so nothing weird happens while we fade/toggle HUD/UI
     Net.lock_player_input(player_id)
+    Log:debug(player_id.." Played with simon")
 
     simon_players[player_id] = simon_players[player_id] or {}
     local p = simon_players[player_id]
