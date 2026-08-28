@@ -904,8 +904,7 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                 end
 
                 if match.winner then
-                    -- Required reveal order:
-                    -- winner mug moves first, then the winner path is revealed.
+                    -- Required order: squash → move → show overlay → remove overlay → unsquash
                     await(TournamentFlow.squash_winner_before_move(
                         tournament_id,
                         round,
@@ -919,13 +918,7 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                         match_index
                     ))
 
-                    await(TournamentFlow.unsquash_winner_after_move(
-                        tournament_id,
-                        round,
-                        match_index
-                    ))
-                    await(Async.sleep(0.3))
-
+                    -- Spawn overlay while mug is still squashed
                     local overlays = await(TournamentFlow.spawn_progress_bar_for_match(
                         tournament_id,
                         round,
@@ -933,6 +926,14 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                     ))
                     await(Async.sleep(0.6))
                     TournamentFlow.remove_progress_bar_overlays(overlays)
+
+                    -- Now unsquash after overlay is gone
+                    await(TournamentFlow.unsquash_winner_after_move(
+                        tournament_id,
+                        round,
+                        match_index
+                    ))
+                    await(Async.sleep(0.3))
                 end
 
                 if match_index < #matches then
