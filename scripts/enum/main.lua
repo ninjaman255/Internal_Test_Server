@@ -21,6 +21,7 @@ local mySet = EnumSet.new(PredefinedEnums)
 
 local CameraMode = mySet.CameraMode
 print(CameraMode)
+print(CameraMode.getActive())
 
 -- Use explicit get method
 local status = mySet:get("Status")
