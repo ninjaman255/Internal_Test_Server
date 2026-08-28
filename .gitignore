@@ -1,2 +1,2 @@
-assets/avatars/*
-memory/*
+assets/avatars/**
+memory/**
