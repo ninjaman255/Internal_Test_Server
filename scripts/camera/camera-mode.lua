@@ -3,11 +3,12 @@ CameraMode = {
     PlayerControlled = "player",
     ServerControlled = "server",
     Custom = "custom"
-
 }
 
-function CameraMode:new()
+
+function CameraMode:new(type)
     local o = {}
+
     setmetatable(o, CameraMode)
     return o
 end
