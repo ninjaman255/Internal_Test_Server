@@ -70,6 +70,8 @@ end
 local function should_auto_start_on_full(board_type)
     if not board_type then return SETTINGS.auto_start_when_full end
     local t = board_type:lower()
+    -- hosted boards never auto‑start; they wait for the host
+    if t == "hosted" then return false end
     return t == "full_wait" or t == "mixed_timer" or (t == "scheduled" and SETTINGS.auto_start_when_full)
 end
 
@@ -265,8 +267,8 @@ end
 local function tournament_registration_is_open(queue)
     if SETTINGS.scheduled_enabled ~= true then return true end
 
-    -- For instant boards, registration is always open (they start immediately)
-    if queue.board_type == "instant" then
+    -- For instant and hosted boards, registration is always open
+    if queue.board_type == "instant" or queue.board_type == "hosted" then
         return true
     end
 
@@ -391,7 +393,7 @@ local function queue_summary(queue)
         string.format("Players: %d/8", #(queue.players or {})),
     }
 
-    if SETTINGS.scheduled_enabled and queue.board_type ~= "instant" then
+    if SETTINGS.scheduled_enabled and queue.board_type ~= "instant" and queue.board_type ~= "hosted" then
         lines[#lines + 1] = "Starts in " .. format_duration(seconds_until_next_scheduled_tournament(queue))
     end
 
@@ -821,17 +823,17 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             -- If this player is the host and board type is "hosted", add "Start" option
             local is_host = (queue.host_id == player_id and queue.board_type == "hosted")
             if is_host then
-                options[#options + 1] = "Start Tournament"
+                options[#options + 1] = "Start"
+            else
+                options[#options + 1] = "Cancel"
             end
-            options[#options + 1] = "Cancel"
             local choice = await(Async.quiz_player(player_id, table.unpack(options)))
+            -- choice 0 = Stay Registered, 1 = Withdraw, 2 = Start/Cancel
             if choice == 1 then
                 remove_player_from_queue(player_id, false)
             elseif choice == 2 and is_host then
-                -- Host chose "Start Tournament" – for now, only print
-                print("[Tournament Manager] Host " .. tostring(player_id) .. " wants to start tournament " .. tostring(queue.name))
-                pcall(Net.message_player, player_id, "Host start is not yet implemented (placeholder).")
-                -- In the future, uncomment to actually start:
+                -- Host starts the tournament
+                pcall(Net.message_player, player_id, "Tournament starting...")
                 start_queue_tournament(queue, true)
             end
             done()
