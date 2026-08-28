@@ -3,31 +3,31 @@ local UIPositions = {}
 
 UIPositions.mugshot_positions = {
     round0 = {
-        {x = 8, y = 132, z = 3},
-        {x = 34, y = 132, z = 3},
-        {x = 64, y = 132, z = 3},
-        {x = 90, y = 132, z = 3},
-        {x = 128, y = 132, z = 3},
-        {x = 154, y = 132, z = 3},
-        {x = 184, y = 132, z = 3},
-        {x = 210, y = 132, z = 3},
+        {x = 8, y = 132, z = 4},
+        {x = 34, y = 132, z = 4},
+        {x = 64, y = 132, z = 4},
+        {x = 90, y = 132, z = 4},
+        {x = 128, y = 132, z = 4},
+        {x = 154, y = 132, z = 4},
+        {x = 184, y = 132, z = 4},
+        {x = 210, y = 132, z = 4},
     },
     round1 = {
-        {x = 22, y = 82, z = 3},
-        {x = 78, y = 82, z = 3},
-        {x = 142, y = 82, z = 3},
-        {x = 198, y = 82, z = 3},
+        {x = 22, y = 82, z = 4},
+        {x = 78, y = 82, z = 4},
+        {x = 142, y = 82, z = 4},
+        {x = 198, y = 82, z = 4},
     },
     round2 = {
-        {x = 50, y = 56, z = 3},
-        {x = 170, y = 56, z = 3},
+        {x = 50, y = 56, z = 4},
+        {x = 170, y = 56, z = 4},
     },
     round3 = {
-        {x = 110, y = 34, z = 3},
+        {x = 110, y = 34, z = 4},
     },
 }
 
-UIPositions.progress_bar_positions = {
+UIPositions.progress_bar_eliminated = {
     bottom_tier = {
         {x = 17, y = 96, z = 1},
         {x = 47, y = 96, z = 1},
@@ -50,7 +50,7 @@ UIPositions.progress_bar_positions = {
     },
 }
 
-UIPositions.progress_bar_overlays = {
+UIPositions.progress_bar_positions = {
     bottom_tier = {
         {x = 17, y = 96, z = 2},
         {x = 47, y = 96, z = 2},
@@ -73,6 +73,29 @@ UIPositions.progress_bar_overlays = {
     },
 }
 
+UIPositions.progress_bar_overlays = {
+    bottom_tier = {
+        {x = 17, y = 96, z = 3},
+        {x = 47, y = 96, z = 3},
+        {x = 73, y = 96, z = 3},
+        {x = 103, y = 96, z = 3},
+        {x = 137, y = 96, z = 3},
+        {x = 167, y = 96, z = 3},
+        {x = 193, y = 96, z = 3},
+        {x = 223, y = 96, z = 3},
+    },
+    middle_tier = {
+        {x = 29, y = 72, z = 3},
+        {x = 91, y = 72, z = 3},
+        {x = 149, y = 72, z = 3},
+        {x = 211, y = 72, z = 3},
+    },
+    top_tier = {
+        {x = 57, y = 56, z = 3},
+        {x = 183, y = 56, z = 3},
+    },
+}
+
 UIPositions.queue_timer_position = {
     x = 100,
     y = 20,
@@ -84,7 +107,7 @@ UIPositions.ui_element_positions = {
     title_banner = {x = 0, y = 0, z = 0},
     crown_1 = {x = 64, y = 48, z = 0},
     crown_2 = {x = 176, y = 48, z = 0},
-    champion_crown = {x = 120, y = 36, z = 4},
+    champion_crown = {x = 120, y = 36, z = 5},
     background = {x = 0, y = 0, z = -2},
     grid = {x = 0, y = 0, z = -1},
 }
