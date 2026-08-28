@@ -5,6 +5,7 @@ local TournamentCore = require("scripts/net-game-tourney/tournament-core")
 local TournamentFlow = require("scripts/net-game-tourney/tournament-flow")
 local TournamentUI = require("scripts/net-game-tourney/tournament-ui")
 local tournament_npcs = require("scripts/net-game-tourney/tournament-npcs")
+local State = require("scripts/net-game-tourney/tournament-state")
 
 local async = function(fn)
     local co = coroutine.create(fn)
@@ -59,18 +60,15 @@ local function clamp_int(value, fallback, min_value, max_value)
     return n
 end
 
--- NEW: helper to determine if a board type uses scheduled start
 local function is_scheduled_based(board_type)
     if not board_type then return SETTINGS.scheduled_enabled end
     local t = board_type:lower()
     return t == "scheduled" or t == "mixed_timer"
 end
 
--- NEW: helper to determine if a board type should auto‑start when full (per‑board)
 local function should_auto_start_on_full(board_type)
     if not board_type then return SETTINGS.auto_start_when_full end
     local t = board_type:lower()
-    -- hosted boards never auto‑start; they wait for the host
     if t == "hosted" then return false end
     return t == "full_wait" or t == "mixed_timer" or (t == "scheduled" and SETTINGS.auto_start_when_full)
 end
@@ -168,14 +166,13 @@ local function apply_board_properties(queue, object)
         queue.deduct_opposing_team_gp or false
     )
 
-    -- NEW: read Board Type (case‑insensitive)
     local board_type_raw = props["Board Type"]
         or props["board_type"]
         or props["Type"]
     if board_type_raw then
         queue.board_type = tostring(board_type_raw):lower()
     else
-        queue.board_type = nil   -- nil means "scheduled" with fallback to global settings
+        queue.board_type = nil
     end
 end
 
@@ -194,7 +191,7 @@ local function get_or_create_queue(area_id, object_id, object)
             status = "waiting",
             active_tournament_id = nil,
             created_time = os.time(),
-            board_type = nil,   -- will be set by apply_board_properties
+            board_type = nil,
         }
         waiting_queues[key] = queue
     end
@@ -267,7 +264,6 @@ end
 local function tournament_registration_is_open(queue)
     if SETTINGS.scheduled_enabled ~= true then return true end
 
-    -- For instant and hosted boards, registration is always open
     if queue.board_type == "instant" or queue.board_type == "hosted" then
         return true
     end
@@ -434,7 +430,7 @@ end
 
 local function finish_queue_tournament(queue_key, tournament_id, champion, error_reason)
     local queue = waiting_queues[queue_key]
-    local tournament = TournamentCore.get_tournament(tournament_id)
+    local tournament = State.get_tournament(tournament_id)
 
     if tournament and champion then
         grant_winner_rewards(tournament, champion)
@@ -462,7 +458,6 @@ local function finish_queue_tournament(queue_key, tournament_id, champion, error
     end
 end
 
-
 local function create_tournament_from_queue(queue, automatic)
     prune_busy_queue_participants(queue)
 
@@ -472,7 +467,6 @@ local function create_tournament_from_queue(queue, automatic)
     end
 
     if queue.npc_pool_key and queue.npc_pool_key ~= "default" then
-        -- The target repository exposes one direct-ZIP NPC pool only.
         print("UNIMPLEMENTED")
     end
 
@@ -516,7 +510,7 @@ local function create_tournament_from_queue(queue, automatic)
         end
     end
 
-    local tournament = TournamentCore.get_tournament(tournament_id)
+    local tournament = State.get_tournament(tournament_id)
     local slots_needed = 8 - #tournament.participants
 
     if slots_needed > 0 then
@@ -534,7 +528,7 @@ local function create_tournament_from_queue(queue, automatic)
         return nil, "Could not initialize tournament."
     end
 
-    tournament = TournamentCore.get_tournament(tournament_id)
+    tournament = State.get_tournament(tournament_id)
     tournament.config.on_complete = function(id, champion, error_reason)
         finish_queue_tournament(queue.key, id, champion, error_reason)
     end
@@ -563,7 +557,6 @@ local function create_tournament_from_queue(queue, automatic)
 
     return tournament_id, nil
 end
-
 
 local function start_queue_tournament(queue, automatic)
     if not queue or queue.status ~= "waiting" then return false end
@@ -621,17 +614,13 @@ local function add_player_to_queue(queue, player_id)
     all_queued_players[player_id] = queue.key
     queue.host_id = queue.host_id or player_id
 
-    -- NEW: after adding, check if we should auto‑start based on board type
     local board_type = queue.board_type
     local player_count = #queue.players
 
-    -- 1. Instant: start immediately after first registration
     if board_type == "instant" and player_count >= 1 then
         start_queue_tournament(queue, true)
-    -- 2. Full_wait / mixed_timer: start when 8 players are reached
     elseif should_auto_start_on_full(board_type) and player_count >= 8 then
         start_queue_tournament(queue, true)
-    -- 3. Fallback: global auto_start_when_full (only if board_type is nil or "scheduled")
     elseif (board_type == nil or board_type == "scheduled") and SETTINGS.auto_start_when_full and player_count >= 8 then
         start_queue_tournament(queue, true)
     end
@@ -677,7 +666,6 @@ local function run_scheduled_start(queue)
     return false
 end
 
--- MODIFIED: update_scheduler now only runs for scheduled-based boards
 local function update_scheduler()
     if SETTINGS.scheduled_enabled ~= true then return end
 
@@ -688,7 +676,6 @@ local function update_scheduler()
     for _, queue in pairs(waiting_queues) do
         prune_busy_queue_participants(queue)
 
-        -- Skip boards that don't use scheduled start
         if not is_scheduled_based(queue.board_type) then
             goto continue
         end
@@ -747,7 +734,7 @@ end
 
 local function spectate_active_tournament(queue, player_id)
     local tournament_id = queue and queue.active_tournament_id
-    local tournament = tournament_id and TournamentCore.get_tournament(tournament_id) or nil
+    local tournament = tournament_id and State.get_tournament(tournament_id) or nil
 
     if not tournament then
         return false, "Tournament not found."
@@ -786,7 +773,6 @@ local function spectate_active_tournament(queue, player_id)
     return true, nil
 end
 
--- MODIFIED: handle_board_interaction with new quiz options for hosted type
 function TournamentManager.handle_board_interaction(player_id, board_object, area_id)
     return async(function()
         if active_interactions[player_id] then return end
@@ -817,10 +803,8 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
-        -- If player is already registered, offer withdraw or (if host) start
         if all_queued_players[player_id] == queue.key then
             local options = {"Stay Registered", "Withdraw"}
-            -- If this player is the host and board type is "hosted", add "Start" option
             local is_host = (queue.host_id == player_id and queue.board_type == "hosted")
             if is_host then
                 options[#options + 1] = "Start"
@@ -828,11 +812,9 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
                 options[#options + 1] = "Cancel"
             end
             local choice = await(Async.quiz_player(player_id, table.unpack(options)))
-            -- choice 0 = Stay Registered, 1 = Withdraw, 2 = Start/Cancel
             if choice == 1 then
                 remove_player_from_queue(player_id, false)
             elseif choice == 2 and is_host then
-                -- Host starts the tournament
                 pcall(Net.message_player, player_id, "Tournament starting...")
                 start_queue_tournament(queue, true)
             end
@@ -840,7 +822,6 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
-        -- If player is waiting to spectate, offer to stop
         if waiting_spectator_queue[player_id] == queue.key then
             local choice = await(Async.quiz_player(player_id, "Keep Spectating", "Stop Spectating", "Cancel"))
             if choice == 1 then
@@ -850,7 +831,6 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
-        -- Registration is closed -> offer to spectate next
         if not tournament_registration_is_open(queue) then
             local choice = await(Async.quiz_player(player_id, "Spectate Next", "Cancel"))
             if choice == 0 then
@@ -865,7 +845,6 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
-        -- Registration is open – main options
         local options = {"Register", "Spectate Next"}
         options[#options + 1] = "Cancel"
         local choice = await(Async.quiz_player(player_id, table.unpack(options)))
@@ -874,7 +853,6 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             local ok, err = add_player_to_queue(queue, player_id)
             if ok then
                 pcall(Net.message_player, player_id, "You are registered for the tournament.")
-                -- The auto‑start logic inside add_player_to_queue will handle starting if needed
             else
                 pcall(Net.message_player, player_id, err)
             end

@@ -4,6 +4,7 @@ local TournamentFlow = {}
 local constants = require("scripts/net-game-tourney/tournament-constants")
 local TournamentCore = require("scripts/net-game-tourney/tournament-core")
 local TournamentUI = require("scripts/net-game-tourney/tournament-ui")
+local State = require("scripts/net-game-tourney/tournament-state")
 
 local async = function(fn)
     local co = coroutine.create(fn)
@@ -56,7 +57,6 @@ local function viewer_is_in_active_match(tournament, player_id)
             end
         end
     end
-
     return false
 end
 
@@ -157,7 +157,7 @@ end
 
 function TournamentFlow.show_board_to_all(tournament_id)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return false end
 
         local jobs = {}
@@ -175,7 +175,7 @@ end
 
 function TournamentFlow.hide_board_from_all(tournament_id, keep_locked)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return false end
 
         local jobs = {}
@@ -590,7 +590,7 @@ end
 
 function TournamentFlow.resolve_npc_battle(tournament_id, round, match_index, match)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local result = TournamentCore.get_npc_battle_result(
@@ -624,7 +624,7 @@ end
 
 function TournamentFlow.start_player_battle(tournament_id, round, match_index, match)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local winner_id, loser_id
@@ -661,7 +661,7 @@ end
 
 function TournamentFlow.run_round_battles(tournament_id, round)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local matches = tournament.matches[round_key(round)]
@@ -734,7 +734,7 @@ end
 
 function TournamentFlow.squash_winner_before_move(tournament_id, round, match_index)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local match = tournament.matches[round_key(round)]
@@ -761,7 +761,7 @@ end
 
 function TournamentFlow.unsquash_winner_after_move(tournament_id, round, match_index)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local match = tournament.matches[round_key(round)]
@@ -788,7 +788,7 @@ end
 
 function TournamentFlow.greyscale_specific_loser(tournament_id, round, match_index)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local match = tournament.matches[round_key(round)]
@@ -806,7 +806,7 @@ end
 
 function TournamentFlow.move_winner_for_match(tournament_id, round, match_index)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local match = tournament.matches[round_key(round)]
@@ -854,7 +854,7 @@ end
 
 function TournamentFlow.spawn_progress_bar_for_match(tournament_id, round, match_index)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return {} end
 
         local overlays = {}
@@ -887,7 +887,7 @@ end
 
 function TournamentFlow.process_round_one_by_one(tournament_id, round)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local matches = tournament.matches[round_key(round)]
@@ -948,7 +948,7 @@ end
 
 function TournamentFlow.announce_champion(tournament_id)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         local winner = TournamentCore.get_winner(tournament_id)
@@ -968,7 +968,7 @@ end
 
 function TournamentFlow.run_tournament(tournament_id)
     return async(function()
-        local tournament = TournamentCore.get_tournament(tournament_id)
+        local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
         tournament.current_round = 0
