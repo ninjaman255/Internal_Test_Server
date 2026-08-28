@@ -1,54 +1,56 @@
--- persistence.lua (revised)
+-- persistence.lua
+-- Persistent JSON file storage with automatic debounced saving and per‑file instance management.
+-- Supports chained updates and waiting for save completion via promise‑returning save().
+-- Automatically creates missing directories when saving.
+-- Now includes saveData() for direct writes without altering internal state, and
+-- dirty flag is cleared only after successful write.
+
 local json = require('scripts/libs/json')
 local Utility = require('scripts/utils/utility')
 
-local update_interval = 2
-local instances = {}
+local update_interval = 2          -- seconds to wait after last change before saving
+local instances = {}                -- cache of active instances by file path
+
+-- Pretty‑print control (set to true or a custom indent string)
 local PrettyPrint = true
 
-local function split(str, delim)
-    local result = {}
-    if not str or str == "" then return result end
-    for part in str:gmatch("[^" .. delim .. "]+") do
-        table.insert(result, part)
-    end
-    return result
-end
+-- ----------------------------------------------------------------------------
+-- OS‑aware directory creation helper (matches your utils example)
+-- ----------------------------------------------------------------------------
+local is_windows = package.config:sub(1,1) == '\\'
 
-local function get_os()
-    if package.config:sub(1, 1) == "\\" then
-        return "windows"
+local function ensure_directory_exists(filePath)
+    -- Normalise backslashes to forward slashes
+    local normalized = filePath:gsub("\\", "/")
+    local dir = normalized:match("^(.*)/[^/]*$")
+    if not dir or dir == "" then return end
+
+    -- Prefer engine API if available (non‑blocking)
+    if file and file.CreateDir then
+        file.CreateDir(dir)
+        return
+    end
+
+    -- Fallback to synchronous shell command
+    local cmd
+    if is_windows then
+        cmd = 'mkdir "' .. dir .. '" 2>nul'
     else
-        return "unix"
+        cmd = 'mkdir -p "' .. dir .. '" 2>/dev/null'
     end
+    os.execute(cmd)
 end
 
--- Non‑blocking directory creation (uses GMod's file.CreateDir if available)
 local function async_ensure_dir(filePath)
-    local dir = filePath:match("^(.*)/") or ""
-    if dir == "" then
-        return Utility.create_promise(function(resolve) resolve() end)
-    end
     return Utility.create_promise(function(resolve)
-        -- Prefer GMod's async file system API
-        if file and file.CreateDir then
-            file.CreateDir(dir)
-            resolve()
-        else
-            -- Fallback to synchronous os.execute (blocks, but only once per directory)
-            local os_type = get_os()
-            local cmd
-            if os_type == "windows" then
-                cmd = 'mkdir "' .. dir .. '" 2>nul'
-            else
-                cmd = 'mkdir -p "' .. dir .. '" 2>/dev/null'
-            end
-            os.execute(cmd)
-            resolve()
-        end
+        ensure_directory_exists(filePath)
+        resolve()
     end)
 end
 
+-- ----------------------------------------------------------------------------
+-- Global tick handler for debounced saves
+-- ----------------------------------------------------------------------------
 Net:on("tick", function(event)
     local delta = event.delta_time
     for _, inst in pairs(instances) do
@@ -64,6 +66,9 @@ Net:on("tick", function(event)
     end
 end)
 
+-- ----------------------------------------------------------------------------
+-- Persistence instance constructor
+-- ----------------------------------------------------------------------------
 local function new(filePath)
     local self = {
         filePath = filePath,
@@ -81,7 +86,7 @@ local function new(filePath)
         if not self.save_delay then
             self.save_delay = update_interval
         else
-            self.save_delay = update_interval
+            self.save_delay = update_interval  -- reset timer
         end
     end
 
@@ -110,20 +115,28 @@ local function new(filePath)
     end
 
     function self:getData()
-        if not self.loaded then error("Data not loaded yet") end
+        if not self.loaded then
+            error("Data not loaded yet. Call :load() first.")
+        end
         local copy = {}
-        for k, v in pairs(self.data) do copy[k] = v end
+        for k, v in pairs(self.data) do
+            copy[k] = v
+        end
         return copy
     end
 
     function self:setData(newData)
-        if not self.loaded then error("Data not loaded yet") end
+        if not self.loaded then
+            error("Data not loaded yet. Call :load() first.")
+        end
         self.data = newData
         self:_mark_dirty()
     end
 
     function self:update(func)
-        if not self.loaded then error("Data not loaded yet") end
+        if not self.loaded then
+            error("Data not loaded yet. Call :load() first.")
+        end
         func(self.data)
         self:_mark_dirty()
     end
@@ -137,9 +150,21 @@ local function new(filePath)
     end
 
     function self:clear()
-        if not self.loaded then error("Data not loaded yet") end
+        if not self.loaded then
+            error("Data not loaded yet. Call :load() first.")
+        end
         self.data = {}
         self:_mark_dirty()
+    end
+
+    -- Helper for nested path access
+    local function split(str, delim)
+        local result = {}
+        if not str or str == "" then return result end
+        for part in str:gmatch("[^" .. delim .. "]+") do
+            table.insert(result, part)
+        end
+        return result
     end
 
     local function resolve_path(data, path, create)
@@ -176,9 +201,11 @@ local function new(filePath)
         end)
     end
 
-    -- Internal save – called by timer or manual
+    -- Internal save (called by timer or manual) – does NOT clear dirty here
     function self:_save_internal()
-        if self.saving then error("_save_internal called while already saving") end
+        if self.saving then
+            error("_save_internal called while already saving")
+        end
         self.saving = true
 
         local ok, content
@@ -206,7 +233,8 @@ local function new(filePath)
                     function()
                         print("Write successful")
                         self.saving = false
-                        self.dirty = false   -- Cleared only on success
+                        -- Clear dirty ONLY on success
+                        self.dirty = false
 
                         if self.pending then
                             self.pending = false
@@ -224,7 +252,7 @@ local function new(filePath)
                     function(err)
                         print("Write failed: " .. tostring(err))
                         self.saving = false
-                        -- dirty remains true (data not saved)
+                        -- dirty remains true (retry later)
                         for _, cb in ipairs(self.after_save) do cb() end
                         self.after_save = {}
                         self.pending = false
@@ -237,14 +265,14 @@ local function new(filePath)
         return save_promise
     end
 
-    -- Public save: forces immediate save (bypasses timer)
+    -- Public save: forces an immediate save (bypasses timer)
     function self:save()
         self.save_delay = nil
         if not self.dirty then
             return Utility.create_promise(function(resolve) resolve() end)
         end
 
-        -- Do NOT clear dirty here – it will be cleared after success
+        -- Do NOT clear dirty here – will be cleared after success
         if self.saving then
             self.pending = true
             return Utility.create_promise(function(resolve)
@@ -255,7 +283,8 @@ local function new(filePath)
         end
     end
 
-    -- NEW: Save arbitrary data without modifying internal state
+    -- NEW: Save arbitrary data without modifying internal state.
+    -- Used by save‑game to avoid inconsistency on failure.
     function self:saveData(data)
         return Utility.create_promise(function(resolve)
             local ok, content
@@ -269,15 +298,16 @@ local function new(filePath)
                 resolve()
                 return
             end
-            async_ensure_dir(self.filePath):and_then(function()
-                Async.write_file(self.filePath, content).and_then(
-                    function() resolve() end,
-                    function(err)
-                        print("saveData write failed: " .. tostring(err))
-                        resolve()
-                    end
-                )
-            end)
+            ensure_directory_exists(self.filePath)
+            Async.write_file(self.filePath, content).and_then(
+                function()
+                    resolve()
+                end,
+                function(err)
+                    print("saveData write failed: " .. tostring(err))
+                    resolve()
+                end
+            )
         end)
     end
 
@@ -292,6 +322,7 @@ local function new(filePath)
     return self
 end
 
+-- Manager: returns the instance for a given file path (creates if not exist)
 local function get_instance(filePath)
     if not filePath or type(filePath) ~= "string" then
         error("filePath must be a string")
