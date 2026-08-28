@@ -451,6 +451,7 @@
   <object id="144" type="Tournament Board" gid="67" x="792" y="648" width="64" height="57">
    <properties>
     <property name="Board Background" value="blue_bn4"/>
+    <property name="Board Type" value="instant"/>
     <property name="Registration Lead Seconds" type="int" value="600"/>
     <property name="Tournament Every Hours" type="int" value="0"/>
     <property name="Tournament GP Reward" type="int" value="1"/>

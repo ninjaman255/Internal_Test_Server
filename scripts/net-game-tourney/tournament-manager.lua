@@ -26,7 +26,7 @@ local SETTINGS = {
     start_grace_seconds = 10,
     npc_only_tournaments_enabled = true,
     battle_timeout_seconds = 10 * 60,
-    auto_start_when_full = false,
+    auto_start_when_full = false,   -- global fallback (only used if board has no explicit type)
     manual_start_enabled = false,
 }
 
@@ -57,6 +57,20 @@ local function clamp_int(value, fallback, min_value, max_value)
     if min_value ~= nil and n < min_value then n = min_value end
     if max_value ~= nil and n > max_value then n = max_value end
     return n
+end
+
+-- NEW: helper to determine if a board type uses scheduled start
+local function is_scheduled_based(board_type)
+    if not board_type then return SETTINGS.scheduled_enabled end
+    local t = board_type:lower()
+    return t == "scheduled" or t == "mixed_timer"
+end
+
+-- NEW: helper to determine if a board type should auto‑start when full (per‑board)
+local function should_auto_start_on_full(board_type)
+    if not board_type then return SETTINGS.auto_start_when_full end
+    local t = board_type:lower()
+    return t == "full_wait" or t == "mixed_timer" or (t == "scheduled" and SETTINGS.auto_start_when_full)
 end
 
 local function apply_board_properties(queue, object)
@@ -151,6 +165,16 @@ local function apply_board_properties(queue, object)
         or props["GP Stakes"],
         queue.deduct_opposing_team_gp or false
     )
+
+    -- NEW: read Board Type (case‑insensitive)
+    local board_type_raw = props["Board Type"]
+        or props["board_type"]
+        or props["Type"]
+    if board_type_raw then
+        queue.board_type = tostring(board_type_raw):lower()
+    else
+        queue.board_type = nil   -- nil means "scheduled" with fallback to global settings
+    end
 end
 
 local function get_or_create_queue(area_id, object_id, object)
@@ -168,6 +192,7 @@ local function get_or_create_queue(area_id, object_id, object)
             status = "waiting",
             active_tournament_id = nil,
             created_time = os.time(),
+            board_type = nil,   -- will be set by apply_board_properties
         }
         waiting_queues[key] = queue
     end
@@ -239,6 +264,11 @@ end
 
 local function tournament_registration_is_open(queue)
     if SETTINGS.scheduled_enabled ~= true then return true end
+
+    -- For instant boards, registration is always open (they start immediately)
+    if queue.board_type == "instant" then
+        return true
+    end
 
     local lead = tonumber(queue.registration_lead_seconds or SETTINGS.registration_lead_seconds) or 600
     return seconds_until_next_scheduled_tournament(queue) <= lead
@@ -361,7 +391,7 @@ local function queue_summary(queue)
         string.format("Players: %d/8", #(queue.players or {})),
     }
 
-    if SETTINGS.scheduled_enabled then
+    if SETTINGS.scheduled_enabled and queue.board_type ~= "instant" then
         lines[#lines + 1] = "Starts in " .. format_duration(seconds_until_next_scheduled_tournament(queue))
     end
 
@@ -371,68 +401,6 @@ local function queue_summary(queue)
     end
 
     return table.concat(lines, "\n")
-end
-
-local function add_player_to_queue(queue, player_id)
-    if queue.status ~= "waiting" then
-        return false, "This tournament has already started."
-    end
-
-    if not tournament_registration_is_open(queue) then
-        return false, "Registration is closed. Next tournament starts in "
-            .. format_duration(seconds_until_next_scheduled_tournament(queue)) .. "."
-    end
-
-    if all_queued_players[player_id] then
-        return false, "You are already registered for a tournament."
-    end
-
-    if waiting_spectator_queue[player_id] then
-        return false, "You are already waiting to spectate a tournament."
-    end
-
-    if TournamentCore.is_player_in_tournament(player_id) or spectator_tournaments[player_id] then
-        return false, "You are already in a tournament."
-    end
-
-    if Net.is_player_battling then
-        local ok, battling = pcall(Net.is_player_battling, player_id)
-        if ok and battling == true then
-            return false, "You cannot register while battling."
-        end
-    end
-
-    if #queue.players >= 8 then
-        return false, "This tournament is full."
-    end
-
-    queue.players[#queue.players + 1] = player_id
-    all_queued_players[player_id] = queue.key
-    queue.host_id = queue.host_id or player_id
-
-    return true
-end
-
-local function add_waiting_spectator(queue, player_id)
-    if queue.status ~= "waiting" then
-        return false, "This tournament has already started."
-    end
-
-    if all_queued_players[player_id] then
-        return false, "You are registered to play. Withdraw first."
-    end
-
-    if waiting_spectator_queue[player_id] then
-        return false, "You are already waiting to spectate a tournament."
-    end
-
-    if TournamentCore.is_player_in_tournament(player_id) or spectator_tournaments[player_id] then
-        return false, "You are already in a tournament."
-    end
-
-    queue.waiting_spectators[player_id] = true
-    waiting_spectator_queue[player_id] = queue.key
-    return true
 end
 
 local function grant_winner_rewards(tournament, champion)
@@ -491,6 +459,7 @@ local function finish_queue_tournament(queue_key, tournament_id, champion, error
         print("[Tournament Manager] Tournament ended with error: " .. tostring(error_reason))
     end
 end
+
 
 local function create_tournament_from_queue(queue, automatic)
     prune_busy_queue_participants(queue)
@@ -593,6 +562,7 @@ local function create_tournament_from_queue(queue, automatic)
     return tournament_id, nil
 end
 
+
 local function start_queue_tournament(queue, automatic)
     if not queue or queue.status ~= "waiting" then return false end
 
@@ -612,6 +582,83 @@ local function start_queue_tournament(queue, automatic)
     return true
 end
 
+local function add_player_to_queue(queue, player_id)
+    if queue.status ~= "waiting" then
+        return false, "This tournament has already started."
+    end
+
+    if not tournament_registration_is_open(queue) then
+        return false, "Registration is closed. Next tournament starts in "
+            .. format_duration(seconds_until_next_scheduled_tournament(queue)) .. "."
+    end
+
+    if all_queued_players[player_id] then
+        return false, "You are already registered for a tournament."
+    end
+
+    if waiting_spectator_queue[player_id] then
+        return false, "You are already waiting to spectate a tournament."
+    end
+
+    if TournamentCore.is_player_in_tournament(player_id) or spectator_tournaments[player_id] then
+        return false, "You are already in a tournament."
+    end
+
+    if Net.is_player_battling then
+        local ok, battling = pcall(Net.is_player_battling, player_id)
+        if ok and battling == true then
+            return false, "You cannot register while battling."
+        end
+    end
+
+    if #queue.players >= 8 then
+        return false, "This tournament is full."
+    end
+
+    queue.players[#queue.players + 1] = player_id
+    all_queued_players[player_id] = queue.key
+    queue.host_id = queue.host_id or player_id
+
+    -- NEW: after adding, check if we should auto‑start based on board type
+    local board_type = queue.board_type
+    local player_count = #queue.players
+
+    -- 1. Instant: start immediately after first registration
+    if board_type == "instant" and player_count >= 1 then
+        start_queue_tournament(queue, true)
+    -- 2. Full_wait / mixed_timer: start when 8 players are reached
+    elseif should_auto_start_on_full(board_type) and player_count >= 8 then
+        start_queue_tournament(queue, true)
+    -- 3. Fallback: global auto_start_when_full (only if board_type is nil or "scheduled")
+    elseif (board_type == nil or board_type == "scheduled") and SETTINGS.auto_start_when_full and player_count >= 8 then
+        start_queue_tournament(queue, true)
+    end
+
+    return true
+end
+
+local function add_waiting_spectator(queue, player_id)
+    if queue.status ~= "waiting" then
+        return false, "This tournament has already started."
+    end
+
+    if all_queued_players[player_id] then
+        return false, "You are registered to play. Withdraw first."
+    end
+
+    if waiting_spectator_queue[player_id] then
+        return false, "You are already waiting to spectate a tournament."
+    end
+
+    if TournamentCore.is_player_in_tournament(player_id) or spectator_tournaments[player_id] then
+        return false, "You are already in a tournament."
+    end
+
+    queue.waiting_spectators[player_id] = true
+    waiting_spectator_queue[player_id] = queue.key
+    return true
+end
+
 local function run_scheduled_start(queue)
     if not queue or queue.status ~= "waiting" then return false end
 
@@ -628,6 +675,7 @@ local function run_scheduled_start(queue)
     return false
 end
 
+-- MODIFIED: update_scheduler now only runs for scheduled-based boards
 local function update_scheduler()
     if SETTINGS.scheduled_enabled ~= true then return end
 
@@ -637,6 +685,11 @@ local function update_scheduler()
 
     for _, queue in pairs(waiting_queues) do
         prune_busy_queue_participants(queue)
+
+        -- Skip boards that don't use scheduled start
+        if not is_scheduled_based(queue.board_type) then
+            goto continue
+        end
 
         local prev_start, next_start = get_queue_schedule_times(queue, now)
         local seconds_to_next = math.max(0, next_start - now)
@@ -668,6 +721,8 @@ local function update_scheduler()
             queue._last_start_attempt_at = prev_start
             run_scheduled_start(queue)
         end
+
+        ::continue::
     end
 end
 
@@ -729,6 +784,7 @@ local function spectate_active_tournament(queue, player_id)
     return true, nil
 end
 
+-- MODIFIED: handle_board_interaction with new quiz options for hosted type
 function TournamentManager.handle_board_interaction(player_id, board_object, area_id)
     return async(function()
         if active_interactions[player_id] then return end
@@ -759,15 +815,30 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
+        -- If player is already registered, offer withdraw or (if host) start
         if all_queued_players[player_id] == queue.key then
-            local choice = await(Async.quiz_player(player_id, "Stay Registered", "Withdraw", "Cancel"))
+            local options = {"Stay Registered", "Withdraw"}
+            -- If this player is the host and board type is "hosted", add "Start" option
+            local is_host = (queue.host_id == player_id and queue.board_type == "hosted")
+            if is_host then
+                options[#options + 1] = "Start Tournament"
+            end
+            options[#options + 1] = "Cancel"
+            local choice = await(Async.quiz_player(player_id, table.unpack(options)))
             if choice == 1 then
                 remove_player_from_queue(player_id, false)
+            elseif choice == 2 and is_host then
+                -- Host chose "Start Tournament" – for now, only print
+                print("[Tournament Manager] Host " .. tostring(player_id) .. " wants to start tournament " .. tostring(queue.name))
+                pcall(Net.message_player, player_id, "Host start is not yet implemented (placeholder).")
+                -- In the future, uncomment to actually start:
+                start_queue_tournament(queue, true)
             end
             done()
             return
         end
 
+        -- If player is waiting to spectate, offer to stop
         if waiting_spectator_queue[player_id] == queue.key then
             local choice = await(Async.quiz_player(player_id, "Keep Spectating", "Stop Spectating", "Cancel"))
             if choice == 1 then
@@ -777,6 +848,7 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
+        -- Registration is closed -> offer to spectate next
         if not tournament_registration_is_open(queue) then
             local choice = await(Async.quiz_player(player_id, "Spectate Next", "Cancel"))
             if choice == 0 then
@@ -791,16 +863,16 @@ function TournamentManager.handle_board_interaction(player_id, board_object, are
             return
         end
 
-        local choice = await(Async.quiz_player(player_id, "Register", "Spectate Next", "Cancel"))
+        -- Registration is open – main options
+        local options = {"Register", "Spectate Next"}
+        options[#options + 1] = "Cancel"
+        local choice = await(Async.quiz_player(player_id, table.unpack(options)))
 
         if choice == 0 then
             local ok, err = add_player_to_queue(queue, player_id)
             if ok then
                 pcall(Net.message_player, player_id, "You are registered for the tournament.")
-
-                if SETTINGS.auto_start_when_full and #queue.players >= 8 then
-                    start_queue_tournament(queue, true)
-                end
+                -- The auto‑start logic inside add_player_to_queue will handle starting if needed
             else
                 pcall(Net.message_player, player_id, err)
             end
@@ -847,9 +919,6 @@ function TournamentManager.cleanup_orphaned_tournaments()
 end
 
 function TournamentManager.cleanup_expired_queues()
-    -- Scheduled queues are persistent board state and should not expire simply
-    -- because they have existed for several minutes. Refresh board discovery and
-    -- prune only invalid/busy players.
     scan_tournament_boards()
     for _, queue in pairs(waiting_queues) do
         prune_busy_queue_participants(queue)
