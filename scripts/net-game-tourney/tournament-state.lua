@@ -7,7 +7,7 @@ local State = {}
 -- Core tables
 local tournaments = {}             -- tournament_id -> tournament table
 local player_tournaments = {}      -- player_id -> tournament_id (active participants)
-local npc_results = {}             -- cache keyed by "tournamentId_round_matchIndex"
+local npc_results = {}             -- cache keyed by "tournamentId_round_matchIndex_battleIndex"
 local next_tournament_id = 1
 
 -- -------------------------------------------------------------------------
@@ -15,6 +15,9 @@ local next_tournament_id = 1
 -- -------------------------------------------------------------------------
 
 function State.create_tournament(config)
+    config = config or {}
+    config.best_of = math.max(1, math.floor(tonumber(config.best_of) or 1))
+
     local id = next_tournament_id
     next_tournament_id = next_tournament_id + 1
 
@@ -157,37 +160,86 @@ end
 -- Match results and round management
 -- -------------------------------------------------------------------------
 
-function State.record_battle_result(tournament_id, round, match_index, winner_id, loser_id)
+function State.record_battle(tournament_id, round, match_index, winner_id, loser_id, battle_index)
     local tournament = tournaments[tournament_id]
     if not tournament then return false end
 
     local round_key = round == 1 and "round1" or (round == 2 and "round2" or "round3")
     local match = tournament.matches[round_key] and tournament.matches[round_key][match_index]
     if not match then return false end
+    if match.completed then return false end   -- already decided
 
+    -- Find participant objects
     local winner, loser
     for _, p in ipairs(tournament.participants) do
         if p.id == winner_id then winner = p end
         if p.id == loser_id then loser = p end
         if winner and loser then break end
     end
-
     if not winner or not loser then return false end
 
-    match.winner = winner
-    match.loser = loser
-    match.completed = true
+    -- Store battle result
+    match.battles = match.battles or {}
+    table.insert(match.battles, { winner_id = winner_id, loser_id = loser_id })
 
-    loser.eliminated = true
-    loser.eliminated_round = round
+    -- Update win counts
+    match.wins = match.wins or { p1 = 0, p2 = 0 }
+    if winner_id == match.player1.id then
+        match.wins.p1 = match.wins.p1 + 1
+    else
+        match.wins.p2 = match.wins.p2 + 1
+    end
 
-    table.insert(tournament.winners, winner)
+    -- Check if series is over
+    local best_of = match.best_of or 1
+    local needed = math.floor(best_of / 2) + 1
+    if match.wins.p1 >= needed then
+        match.winner = match.player1
+        match.loser = match.player2
+        match.completed = true
+    elseif match.wins.p2 >= needed then
+        match.winner = match.player2
+        match.loser = match.player1
+        match.completed = true
+    elseif #match.battles >= best_of then
+        -- If all battles played but no majority (should not happen with odd best_of)
+        -- Fallback: winner is the one with more wins
+        if match.wins.p1 > match.wins.p2 then
+            match.winner = match.player1
+            match.loser = match.player2
+        elseif match.wins.p2 > match.wins.p1 then
+            match.winner = match.player2
+            match.loser = match.player1
+        else
+            -- Tie – pick random
+            if math.random(1,2) == 1 then
+                match.winner = match.player1
+                match.loser = match.player2
+            else
+                match.winner = match.player2
+                match.loser = match.player1
+            end
+        end
+        match.completed = true
+    end
+
+    -- If match just became completed, mark loser eliminated
+    if match.completed then
+        match.loser.eliminated = true
+        match.loser.eliminated_round = round
+        table.insert(tournament.winners, match.winner)
+    end
 
     return true
 end
 
-function State.get_npc_battle_result(tournament_id, round, match_index, npc1_id, npc2_id)
-    local key = string.format("%d_%d_%d", tournament_id, round, match_index)
+-- For backward compatibility (single battle)
+function State.record_battle_result(tournament_id, round, match_index, winner_id, loser_id)
+    return State.record_battle(tournament_id, round, match_index, winner_id, loser_id, 1)
+end
+
+function State.get_npc_battle_result(tournament_id, round, match_index, npc1_id, npc2_id, battle_index)
+    local key = string.format("%d_%d_%d_%d", tournament_id, round, match_index, battle_index or 1)
     if npc_results[key] then
         return npc_results[key]
     end
@@ -200,20 +252,17 @@ function State.get_npc_battle_result(tournament_id, round, match_index, npc1_id,
         if p.id == npc1_id then npc1 = p end
         if p.id == npc2_id then npc2 = p end
     end
-
     if not npc1 or not npc2 then return nil end
 
     local w1 = math.max(1, tonumber(npc1.weight or 50) or 50)
     local w2 = math.max(1, tonumber(npc2.weight or 50) or 50)
     local roll = math.random(1, w1 + w2)
-
     local result
     if roll <= w1 then
         result = { winner_id = npc1.id, loser_id = npc2.id }
     else
         result = { winner_id = npc2.id, loser_id = npc1.id }
     end
-
     npc_results[key] = result
     return result
 end
@@ -239,7 +288,6 @@ function State.advance_round(tournament_id)
     local current = tournament.current_round or 0
 
     if current == 0 then
-        -- No advancement from round 0; must be done manually.
         return false
     end
 
@@ -252,9 +300,28 @@ function State.advance_round(tournament_id)
         end
         if #winners ~= 4 then return false end
 
+        local best_of = tournament.config.best_of or 1
         tournament.matches.round2 = {
-            { player1 = winners[1], player2 = winners[2], winner = nil, loser = nil, completed = false },
-            { player1 = winners[3], player2 = winners[4], winner = nil, loser = nil, completed = false },
+            {
+                player1 = winners[1],
+                player2 = winners[2],
+                winner = nil,
+                loser = nil,
+                completed = false,
+                best_of = best_of,
+                battles = {},
+                wins = { p1 = 0, p2 = 0 },
+            },
+            {
+                player1 = winners[3],
+                player2 = winners[4],
+                winner = nil,
+                loser = nil,
+                completed = false,
+                best_of = best_of,
+                battles = {},
+                wins = { p1 = 0, p2 = 0 },
+            },
         }
         tournament.current_round = 2
         tournament.status = "battling"
@@ -269,8 +336,18 @@ function State.advance_round(tournament_id)
         end
         if #winners ~= 2 then return false end
 
+        local best_of = tournament.config.best_of or 1
         tournament.matches.round3 = {
-            { player1 = winners[1], player2 = winners[2], winner = nil, loser = nil, completed = false },
+            {
+                player1 = winners[1],
+                player2 = winners[2],
+                winner = nil,
+                loser = nil,
+                completed = false,
+                best_of = best_of,
+                battles = {},
+                wins = { p1 = 0, p2 = 0 },
+            },
         }
         tournament.current_round = 3
         tournament.status = "battling"

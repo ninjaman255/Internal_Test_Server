@@ -450,6 +450,7 @@
   </object>
   <object id="144" type="Tournament Board" gid="67" x="792" y="648" width="64" height="57">
    <properties>
+    <property name="Best Of" type="int" value="3"/>
     <property name="Board Background" value="blue_bn4"/>
     <property name="Board Type" value="hosted"/>
     <property name="Registration Lead Seconds" type="int" value="600"/>

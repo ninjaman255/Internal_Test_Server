@@ -593,32 +593,31 @@ function TournamentFlow.resolve_npc_battle(tournament_id, round, match_index, ma
         local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
-        local result = TournamentCore.get_npc_battle_result(
-            tournament_id,
-            round,
-            match_index,
-            match.player1.id,
-            match.player2.id
-        )
-
-        if not result then return end
-
-        local wait_seconds = 0.25
-        if tournament.config.npc_only == true then
-            local min_tenths = math.floor(8 * 10 + 0.5)
-            local max_tenths = math.floor(12 * 10 + 0.5)
-            wait_seconds = math.random(min_tenths, max_tenths) / 10
+        local best_of = match.best_of or 1
+        for battle_index = 1, best_of do
+            local result = TournamentCore.get_npc_battle_result(
+                tournament_id,
+                round,
+                match_index,
+                match.player1.id,
+                match.player2.id,
+                battle_index
+            )
+            if result then
+                TournamentCore.record_battle(
+                    tournament_id,
+                    round,
+                    match_index,
+                    result.winner_id,
+                    result.loser_id,
+                    battle_index
+                )
+            end
+            -- Small delay between battles if requested
+            if battle_index < best_of then
+                await(Async.sleep(0.25))
+            end
         end
-
-        await(Async.sleep(wait_seconds))
-
-        TournamentCore.record_battle_result(
-            tournament_id,
-            round,
-            match_index,
-            result.winner_id,
-            result.loser_id
-        )
     end)
 end
 
@@ -627,27 +626,43 @@ function TournamentFlow.start_player_battle(tournament_id, round, match_index, m
         local tournament = State.get_tournament(tournament_id)
         if not tournament then return end
 
-        local winner_id, loser_id
+        local best_of = match.best_of or 1
 
-        if match.player1.type == "player" and match.player2.type == "player" then
-            winner_id, loser_id = await(run_player_vs_player(tournament, match))
-        elseif match.player1.type == "player" and match.player2.type ~= "player" then
-            winner_id, loser_id = await(run_player_vs_npc(tournament, match.player1, match.player2))
-        elseif match.player2.type == "player" and match.player1.type ~= "player" then
-            winner_id, loser_id = await(run_player_vs_npc(tournament, match.player2, match.player1))
-        else
-            await(TournamentFlow.resolve_npc_battle(tournament_id, round, match_index, match))
-            return
-        end
+        for battle_index = 1, best_of do
+            -- Skip if match already completed (should not happen)
+            if match.completed then break end
 
-        if winner_id and loser_id then
-            TournamentCore.record_battle_result(
-                tournament_id,
-                round,
-                match_index,
-                winner_id,
-                loser_id
-            )
+            local winner_id, loser_id
+
+            if match.player1.type == "player" and match.player2.type == "player" then
+                winner_id, loser_id = await(run_player_vs_player(tournament, match))
+            elseif match.player1.type == "player" and match.player2.type ~= "player" then
+                winner_id, loser_id = await(run_player_vs_npc(tournament, match.player1, match.player2))
+            elseif match.player2.type == "player" and match.player1.type ~= "player" then
+                winner_id, loser_id = await(run_player_vs_npc(tournament, match.player2, match.player1))
+            else
+                -- Should not reach here; handled by resolve_npc_battle
+                return
+            end
+
+            if winner_id and loser_id then
+                TournamentCore.record_battle(
+                    tournament_id,
+                    round,
+                    match_index,
+                    winner_id,
+                    loser_id,
+                    battle_index
+                )
+            end
+
+            -- If match is now completed, we can break early
+            if match.completed then break end
+
+            -- Short pause between battles
+            if battle_index < best_of then
+                await(Async.sleep(0.5))
+            end
         end
     end)
 end

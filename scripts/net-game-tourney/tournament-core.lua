@@ -24,6 +24,7 @@ local function normalize_config(config)
     config.winner_money_reward = math.max(0, math.floor(tonumber(config.winner_money_reward) or 0))
     config.winner_gp_reward = math.max(0, math.floor(tonumber(config.winner_gp_reward) or 0))
     config.deduct_opposing_team_gp = config.deduct_opposing_team_gp == true
+    config.best_of = math.max(1, math.floor(tonumber(config.best_of) or 1))
     return config
 end
 
@@ -57,6 +58,7 @@ function TournamentCore.initialize_tournament(tournament_id)
         p.original_index = i
     end
 
+    local best_of = tournament.config.best_of or 1
     tournament.matches.round1 = {}
     for i = 1, 4 do
         local p1 = tournament.participants[(i * 2) - 1]
@@ -67,6 +69,9 @@ function TournamentCore.initialize_tournament(tournament_id)
             winner = nil,
             loser = nil,
             completed = false,
+            best_of = best_of,
+            battles = {},
+            wins = { p1 = 0, p2 = 0 },
         }
         print(string.format("[Core] Round 1 Match %d: %s vs %s", i, p1.name, p2.name))
     end
@@ -89,12 +94,18 @@ function TournamentCore.update_positions(tournament_id, round)
     return State.update_positions(tournament_id, round)
 end
 
+-- New: record a single battle within a match series
+function TournamentCore.record_battle(tournament_id, round, match_index, winner_id, loser_id, battle_index)
+    return State.record_battle(tournament_id, round, match_index, winner_id, loser_id, battle_index)
+end
+
+-- Legacy: single battle (for backward compatibility)
 function TournamentCore.record_battle_result(tournament_id, round, match_index, winner_id, loser_id)
     return State.record_battle_result(tournament_id, round, match_index, winner_id, loser_id)
 end
 
-function TournamentCore.get_npc_battle_result(tournament_id, round, match_index, npc1_id, npc2_id)
-    return State.get_npc_battle_result(tournament_id, round, match_index, npc1_id, npc2_id)
+function TournamentCore.get_npc_battle_result(tournament_id, round, match_index, npc1_id, npc2_id, battle_index)
+    return State.get_npc_battle_result(tournament_id, round, match_index, npc1_id, npc2_id, battle_index)
 end
 
 function TournamentCore.is_round_complete(tournament_id, round)

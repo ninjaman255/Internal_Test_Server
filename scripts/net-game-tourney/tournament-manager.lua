@@ -166,6 +166,13 @@ local function apply_board_properties(queue, object)
         queue.deduct_opposing_team_gp or false
     )
 
+    -- Best‑of setting
+    queue.best_of = math.max(1, math.floor(tonumber(
+        props["Tournament Best Of"]
+        or props["Best Of"]
+        or props["Match Best Of"]
+    ) or queue.best_of or 1))
+
     local board_type_raw = props["Board Type"]
         or props["board_type"]
         or props["Type"]
@@ -486,6 +493,7 @@ local function create_tournament_from_queue(queue, automatic)
         winner_gp_reward = queue.winner_gp_reward or 0,
         deduct_opposing_team_gp = queue.deduct_opposing_team_gp == true,
         npc_only = npc_only,
+        best_of = queue.best_of or 1,
     })
 
     if not tournament_id then
