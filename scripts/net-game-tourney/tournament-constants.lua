@@ -98,6 +98,7 @@ local constants = {
     },
 
     tournament_music = "/server/assets/tourney/music/bbn4_tournament_announcement.ogg",
+    cheer_sfx = "/server/assets/tourney/sfx/cheer.ogg",
     default_npc_path = "/server/assets/tourney/npc-navis-testing/",
 
     fallback_mug_texture = "/server/assets/tourney/npc-navis-testing/mug.png",
