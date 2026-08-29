@@ -5,8 +5,8 @@ frame duration="0.067" x="132" y="0" w="66" h="18" originx="0" originy="0" flipx
 frame duration="0.067" x="0" y="18" w="66" h="18" originx="0" originy="0" flipx="0" flipy="0"
 frame duration="0.067" x="66" y="18" w="66" h="18" originx="0" originy="0" flipx="0" flipy="0"
 
-animation state="l3_eliminated"
-frame duration="0" x="132" y="18" w="66" h="18" originx="0" originy="0" flipx="0" flipy="0"
+animation state="l3_elim"
+frame duration="10" x="132" y="18" w="66" h="18" originx="0" originy="0" flipx="0" flipy="0"
 
 animation state="r3_move"
 frame duration="0.067" x="0" y="0" w="66" h="18" originx="0" originy="0" flipx="1" flipy="0"
@@ -15,5 +15,5 @@ frame duration="0.067" x="132" y="0" w="66" h="18" originx="0" originy="0" flipx
 frame duration="0.067" x="0" y="18" w="66" h="18" originx="0" originy="0" flipx="1" flipy="0"
 frame duration="0.067" x="66" y="18" w="66" h="18" originx="0" originy="0" flipx="1" flipy="0"
 
-animation state="r3_eliminated"
-frame duration="0" x="132" y="18" w="66" h="18" originx="0" originy="0" flipx="1" flipy="0"
+animation state="r3_elim"
+frame duration="10" x="132" y="18" w="66" h="18" originx="0" originy="0" flipx="1" flipy="0"

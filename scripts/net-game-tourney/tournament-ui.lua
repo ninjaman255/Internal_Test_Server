@@ -82,13 +82,16 @@ local function draw_ui(player_id, id, texture, animation, state, x, y, z, sx, sy
     if not texture or texture == "" or not safe_has_asset(texture) then return false end
     if animation and animation ~= "" and not safe_has_asset(animation) then return false end
 
+    -- Ensure state is lowercase for animation compatibility
+    local final_state = state and state:lower() or ""
+
     local ok = pcall(
         games.add_ui_element,
         id,
         player_id,
         texture,
         animation or "",
-        state or "",
+        final_state,
         x or 0,
         y or 0,
         z or 0,
@@ -391,12 +394,15 @@ local function draw_progress_bar(player_id, tournament_data, round, match_index,
     if not base_pos or not base_def then return nil end
 
     local base_id = visual_id(tournament_data.id, prefix .. tostring(index))
+    local state = winner_is_player1 and base_left or base_right
+    state = state:lower()  -- ensure lowercase for animation
+
     draw_ui(
         player_id,
         base_id,
         base_def.texture,
         base_def.anim,
-        winner_is_player1 and base_left or base_right,
+        state,
         base_pos.x,
         base_pos.y,
         base_pos.z,
@@ -404,19 +410,30 @@ local function draw_progress_bar(player_id, tournament_data, round, match_index,
         2.0
     )
 
+    -- Store this bar for the winner so we can later change it to ELIM when they lose
+    if not tournament_data.ui_state.bar_ids then
+        tournament_data.ui_state.bar_ids = {}
+    end
+    if not tournament_data.ui_state.bar_ids[match.winner.id] then
+        tournament_data.ui_state.bar_ids[match.winner.id] = {}
+    end
+    table.insert(tournament_data.ui_state.bar_ids[match.winner.id], { id = base_id, state = state })
+
     if not with_overlay or not overlay_def or not overlay_positions or not overlay_positions[index] then
         return nil
     end
 
     local overlay_pos = overlay_positions[index]
     local overlay_id = visual_id(tournament_data.id, prefix .. tostring(index) .. "_OVERLAY")
+    local overlay_state = winner_is_player1 and overlay_left or overlay_right
+    overlay_state = overlay_state:lower()
 
     draw_ui(
         player_id,
         overlay_id,
         overlay_def.texture,
         overlay_def.anim,
-        winner_is_player1 and overlay_left or overlay_right,
+        overlay_state,
         overlay_pos.x,
         overlay_pos.y,
         overlay_pos.z,
@@ -425,6 +442,21 @@ local function draw_progress_bar(player_id, tournament_data, round, match_index,
     )
 
     return overlay_id
+end
+
+function TournamentUI.eliminate_participant_bars(player_id, tournament_data, participant_id)
+    if not player_id or not Net.is_player(player_id) then return end
+    if not tournament_data or not tournament_data.ui_state or not tournament_data.ui_state.bar_ids then return end
+
+    local bars = tournament_data.ui_state.bar_ids[participant_id]
+    if not bars then return end
+
+    for _, entry in ipairs(bars) do
+        -- Replace "_move" with "_elim" (case-insensitive) and ensure lowercase
+        local elim_state = entry.state:gsub("_move$", "_elim")
+        elim_state = elim_state:lower()
+        pcall(games.update_ui_element, entry.id, player_id, { animation_state = elim_state })
+    end
 end
 
 local function draw_revealed_paths(player_id, tournament_data)
@@ -453,6 +485,8 @@ local function apply_revealed_eliminations(player_id, tournament_data)
                 player_id,
                 constants.sepia_properties
             )
+            -- Also eliminate their bars
+            TournamentUI.eliminate_participant_bars(player_id, tournament_data, participant.id)
         end
     end
 end
@@ -527,6 +561,9 @@ function TournamentUI.tint_loser(player_id, tournament_data, participant_id)
         player_id,
         constants.sepia_properties
     )
+
+    -- Also eliminate all progress bars associated with this participant
+    TournamentUI.eliminate_participant_bars(player_id, tournament_data, participant_id)
 
     return true
 end
@@ -733,7 +770,7 @@ function TournamentUI.prewarm_player(player_id)
                 player_id,
                 texture,
                 anim or "",
-                state or "UI",
+                state,
                 -1000,
                 -1000,
                 0,
@@ -755,16 +792,16 @@ function TournamentUI.prewarm_player(player_id)
         touch("__tourney_pre_mug_frame", constants.mug_frame_texture_path, constants.mug_frame_anim_path, "ACTIVE")
 
         if constants.progress_bar_path then
-            touch("__tourney_pre_path_bottom", constants.progress_bar_path.bottom_tier.texture, constants.progress_bar_path.bottom_tier.anim, "L1_MOVE")
-            touch("__tourney_pre_path_middle", constants.progress_bar_path.middle_tier.texture, constants.progress_bar_path.middle_tier.anim, "L2_MOVE")
-            touch("__tourney_pre_path_top", constants.progress_bar_path.top_tier.texture, constants.progress_bar_path.top_tier.anim, "L3_MOVE")
+            touch("__tourney_pre_path_bottom", constants.progress_bar_path.bottom_tier.texture, constants.progress_bar_path.bottom_tier.anim, "l1_move")
+            touch("__tourney_pre_path_middle", constants.progress_bar_path.middle_tier.texture, constants.progress_bar_path.middle_tier.anim, "l2_move")
+            touch("__tourney_pre_path_top", constants.progress_bar_path.top_tier.texture, constants.progress_bar_path.top_tier.anim, "l3_move")
         end
 
         local blue = constants.progress_bar_overlay and constants.progress_bar_overlay.blue_moon
         if blue then
-            touch("__tourney_pre_overlay_bottom", blue.bottom_tier.texture, blue.bottom_tier.anim, "L1_MOVE")
-            touch("__tourney_pre_overlay_middle", blue.middle_tier.texture, blue.middle_tier.anim, "L2_MOVE")
-            touch("__tourney_pre_overlay_top", blue.top_tier.texture, blue.top_tier.anim, "L3_MOVE")
+            touch("__tourney_pre_overlay_bottom", blue.bottom_tier.texture, blue.bottom_tier.anim, "l1_move")
+            touch("__tourney_pre_overlay_middle", blue.middle_tier.texture, blue.middle_tier.anim, "l2_move")
+            touch("__tourney_pre_overlay_top", blue.top_tier.texture, blue.top_tier.anim, "l3_move")
         end
 
         local default_title = constants.title_banner_paths
