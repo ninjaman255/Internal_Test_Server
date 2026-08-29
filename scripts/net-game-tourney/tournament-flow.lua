@@ -900,6 +900,10 @@ function TournamentFlow.remove_progress_bar_overlays(overlays)
     end
 end
 
+-- =========================================================================
+-- MODIFIED: process_round_one_by_one
+-- New order: spawn bar -> squash -> move -> wait -> remove bar -> unsquash
+-- =========================================================================
 function TournamentFlow.process_round_one_by_one(tournament_id, round)
     return async(function()
         local tournament = State.get_tournament(tournament_id)
@@ -919,7 +923,15 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                 end
 
                 if match.winner then
-                    -- Required order: squash → move → show overlay → remove overlay → unsquash
+                    -- NEW ORDER:
+                    -- 1. Spawn progress bar overlay (winner still full size)
+                    local overlays = await(TournamentFlow.spawn_progress_bar_for_match(
+                        tournament_id,
+                        round,
+                        match_index
+                    ))
+
+                    -- 2. Squash the winner (overlay visible)
                     await(TournamentFlow.squash_winner_before_move(
                         tournament_id,
                         round,
@@ -927,22 +939,20 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                     ))
                     await(Async.sleep(0.3))
 
+                    -- 3. Move the winner to the next bracket (still squashed, overlay visible)
                     await(TournamentFlow.move_winner_for_match(
                         tournament_id,
                         round,
                         match_index
                     ))
 
-                    -- Spawn overlay while mug is still squashed
-                    local overlays = await(TournamentFlow.spawn_progress_bar_for_match(
-                        tournament_id,
-                        round,
-                        match_index
-                    ))
+                    -- 4. Keep both overlay and squashed mug visible for a moment
                     await(Async.sleep(0.6))
+
+                    -- 5. Remove the overlay
                     TournamentFlow.remove_progress_bar_overlays(overlays)
 
-                    -- Now unsquash after overlay is gone
+                    -- 6. Unsquash the winner (now back to full size)
                     await(TournamentFlow.unsquash_winner_after_move(
                         tournament_id,
                         round,
