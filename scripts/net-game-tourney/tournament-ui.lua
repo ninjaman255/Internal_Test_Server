@@ -740,6 +740,9 @@ function TournamentUI.prewarm_player(player_id)
     safe_provide(player_id, constants.title_banner_anim_path)
     safe_provide(player_id, constants.tournament_music)
 
+    -- Pre-warm the cheer sound effect for champion crowning
+    safe_provide(player_id, "/server/assets/tourney/sfx/cheer.ogg")
+
     for _, texture in pairs(constants.title_banner_paths or {}) do
         safe_provide(player_id, texture)
     end

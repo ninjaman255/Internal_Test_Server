@@ -361,7 +361,7 @@ local function get_hp_state(player_id)
     local hp = 0
 
     pcall(function()
-        max_hp = tonumber(Net.get_player_max_health(player_id) or 0) or 0
+        max_hp = tonumber(Net.get_player_max_health(player_id or 0) or 0) or 0
     end)
 
     pcall(function()
@@ -985,6 +985,7 @@ function TournamentFlow.announce_champion(tournament_id)
             local state = presentation_state[player_id]
             if state and state.tournament_id == tournament.id then
                 TournamentUI.show_champion_indicator(player_id, tournament)
+                pcall(Net.play_sound_for_player, player_id, "/server/assets/tourney/sfx/cheer.ogg")
             end
             pcall(Net.message_player, player_id, "Tournament Complete! Champion: " .. tostring(winner.name))
         end)
