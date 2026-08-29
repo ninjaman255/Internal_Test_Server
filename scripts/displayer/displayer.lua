@@ -11,6 +11,7 @@ Sub‑APIs:
   .ScrollingText – Vertical scrolling text lists.
   .ScrollingSprite – Grid‑based scrolling sprite lists.
   .Timer         – Timer system (creation, pausing, etc.) – directly from timer‑system.
+  .TextPanel     – Sliced‑sprite based panels with automatic text layout.
   .Builder       – Helper functions to create option tables.
 
 Path convention: All texture and animation paths MUST include the "/server/" prefix.
@@ -131,6 +132,7 @@ local nameplateInstance
 local scrollingTextList
 local scrollingSpriteList
 local timerSystem
+local slicedSprite
 
 function Displayer:init()
     -- Initialize sub‑API tables
@@ -141,6 +143,7 @@ function Displayer:init()
     self.ScrollingText   = {}
     self.ScrollingSprite = {}
     self.Timer           = {}
+    self.TextPanel       = {}
     self.Builder         = {} -- will be populated after subsystems are loaded
 
     -- Load all subsystems
@@ -152,6 +155,7 @@ function Displayer:init()
     scrollingTextList    = require("scripts/displayer/scrolling-text-list")
     scrollingSpriteList  = require("scripts/displayer/scrolling-sprite-list")
     timerSystem          = require("scripts/displayer/timer-system")
+    slicedSprite         = require("scripts/displayer/sliced-sprite")
 
     -- Set up sub‑APIs
     self:_setupFontAPI()
@@ -167,6 +171,7 @@ function Displayer:init()
     self:_setupScrollingTextAPI()
     self:_setupScrollingSpriteAPI()
     self:_setupTimerAPI()
+    self:_setupTextPanelAPI()
     self:_setupBuilderAPI()
 
     Net:on("player_join", function(event)
@@ -502,6 +507,72 @@ function Displayer:_setupBuilderAPI()
             base.typewriter = base.typewriter or { speed = 30, sound = nil, sound_min_dt = 0.1 }
         end
         return base
+    end
+
+    --- Build a style table for text panels (3/5/9‑slice).
+    ---@param kind "3"|"5"|"9"
+    ---@param parts table   # slice parts definition
+    ---@param orientation? "horizontal"|"vertical"  # default "horizontal"
+    ---@return table
+    function api.textPanelStyle(kind, parts, orientation)
+        return {
+            kind = kind or "9",
+            orientation = orientation or "horizontal",
+            parts = parts,
+        }
+    end
+
+    --- Build options for text panels.
+    ---@param overrides? table  # see TextPanel options
+    ---@return table
+    function api.textPanelOptions(overrides)
+        local opts = {
+            font = "THICK",
+            scale = 2.0,
+            color = { r = 255, g = 255, b = 255, a = 255 },
+            halign = "left",
+            valign = "top",
+            line_spacing = 0,
+            padding = 8,
+            auto_size = true,
+            width = nil,
+            height = nil,
+            max_width = nil,
+            max_height = nil,
+            z = 100,
+            slice_scale = 1.0,
+            slice_options = {},
+            overflow = "wrap",  -- "wrap", "clip", "ellipsis"
+        }
+        if overrides then
+            for k, v in pairs(overrides) do
+                if k == "padding" and type(v) == "number" then
+                    opts.padding = { left = v, right = v, top = v, bottom = v }
+                elseif k == "color" and type(v) == "table" then
+                    opts.color = { r = v.r or 255, g = v.g or 255, b = v.b or 255, a = v.a or 255 }
+                else
+                    opts[k] = v
+                end
+            end
+        end
+        -- Ensure padding is a table
+        if type(opts.padding) == "number" then
+            opts.padding = { left = opts.padding, right = opts.padding, top = opts.padding, bottom = opts.padding }
+        end
+        return opts
+    end
+
+    --- Combine text, style, and options into a single config for TextPanel.create.
+    ---@param text string|string[]
+    ---@param style table   # from textPanelStyle
+    ---@param options table # from textPanelOptions
+    ---@return table
+    function api.textPanel(text, style, options)
+        return {
+            text = text,
+            style = style,
+            options = options or {},
+        }
     end
 end
 
@@ -943,6 +1014,106 @@ function Displayer:_setupTimerAPI()
     api.clearAllGlobalCountdowns = function()
         return timerSystem:clearAllGlobalCountdowns()
     end
+end
+
+-- --------------------------------------------------------------------
+-- Text Panel API (sliced sprite + text)
+-- --------------------------------------------------------------------
+function Displayer:_setupTextPanelAPI()
+    local api = self.TextPanel
+    -- Store panels for management
+    self._text_panels = self._text_panels or {}  -- player_id -> { panel_id = panel_object }
+
+    --- Create a text panel.
+    ---@param player_id string
+    ---@param panel_id string
+    ---@param text string|string[]
+    ---@param x number
+    ---@param y number
+    ---@param style table   # from Builder.textPanelStyle
+    ---@param options table # from Builder.textPanelOptions
+    ---@return table|nil panel_object, string|nil error
+    api.create = function(player_id, panel_id, text, x, y, style, options)
+        if not self._text_panels[player_id] then
+            self._text_panels[player_id] = {}
+        end
+        -- If panel with same ID exists, destroy it first
+        if self._text_panels[player_id][panel_id] then
+            self._text_panels[player_id][panel_id]:destroy()
+        end
+        local panel, err = slicedSprite.drawTextPanel(player_id, panel_id, x, y, text, style, options)
+        if panel then
+            self._text_panels[player_id][panel_id] = panel
+        end
+        return panel, err
+    end
+
+    --- Update the text of an existing panel.
+    ---@param player_id string
+    ---@param panel_id string
+    ---@param newText string|string[]
+    ---@return boolean success
+    api.updateText = function(player_id, panel_id, newText)
+        local panel = self._text_panels[player_id] and self._text_panels[player_id][panel_id]
+        if not panel then return false end
+        panel:setText(newText)
+        return true
+    end
+
+    --- Move a panel.
+    ---@param player_id string
+    ---@param panel_id string
+    ---@param x number
+    ---@param y number
+    ---@return boolean
+    api.setPosition = function(player_id, panel_id, x, y)
+        local panel = self._text_panels[player_id] and self._text_panels[player_id][panel_id]
+        if not panel then return false end
+        panel:setPosition(x, y)
+        return true
+    end
+
+    --- Update panel options (style and/or options).
+    ---@param player_id string
+    ---@param panel_id string
+    ---@param newOptions table
+    ---@return boolean
+    api.setOptions = function(player_id, panel_id, newOptions)
+        local panel = self._text_panels[player_id] and self._text_panels[player_id][panel_id]
+        if not panel then return false end
+        panel:setOptions(newOptions)
+        return true
+    end
+
+    --- Remove/destroy a panel.
+    ---@param player_id string
+    ---@param panel_id string
+    api.remove = function(player_id, panel_id)
+        local panel = self._text_panels[player_id] and self._text_panels[player_id][panel_id]
+        if panel then
+            panel:destroy()
+            self._text_panels[player_id][panel_id] = nil
+        end
+    end
+
+    --- Get a panel object (advanced use).
+    ---@param player_id string
+    ---@param panel_id string
+    ---@return table|nil
+    api.get = function(player_id, panel_id)
+        return self._text_panels[player_id] and self._text_panels[player_id][panel_id]
+    end
+
+    -- Cleanup on player disconnect
+    Net:on("player_disconnect", function(event)
+        local player_id = event.player_id
+        if self._text_panels and self._text_panels[player_id] then
+            for panel_id, panel in pairs(self._text_panels[player_id]) do
+                panel:destroy()
+            end
+            self._text_panels[player_id] = nil
+        end
+    end)
 end
 
 -- --------------------------------------------------------------------
