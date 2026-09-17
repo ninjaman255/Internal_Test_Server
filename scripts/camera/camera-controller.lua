@@ -5,6 +5,17 @@ local CameraController = {}
 local X_CAMERA_ADJUST = 0.05
 local Y_CAMERA_ADJUST = 0.05
 
+local CAMERA_DIRECTIONS = {
+    "left",
+    "right",
+    "up",
+    "down",
+    "upleft",
+    "upright",
+    "downleft",
+    "downright",
+}
+
 function CameraController.getPlayerInputStatus(player_id)
     return Net.is_player_input_locked(player_id)
 end
@@ -22,6 +33,10 @@ function CameraController:activate(is_player_controlled, lock_input)
     self.player_in_control = true
     self.pending_position = nil
     self.active = true
+
+    -- Do not inherit a direction that was already held when camera control began.
+    -- The player must release/change that direction before the camera responds to it.
+    Input.require_release(self.player_id, CAMERA_DIRECTIONS)
 
     -- Lock/unlock according to should_lock
     if should_lock then

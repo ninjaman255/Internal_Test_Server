@@ -1,0 +1,5 @@
+assets/avatars/**
+memory/**
+scripts/_DEBUGGING/**
+*.tiled-session
+*.tiled-project

@@ -1,18 +1,63 @@
---[[
-logger.lua – Flexible logging module with per‑logger configuration.
-Uses persistence.lua to store logs as JSON files.
-Supports buffering, periodic writes, and optional deduplication of repeated messages.
-]]
+-- logger.lua – Flexible logging module with per‑logger configuration.
+-- Uses append‑only JSON Lines format – each entry is written as a new line.
+-- Supports buffering, periodic writes, and optional deduplication of repeated messages.
+-- No longer depends on persistence.lua.
 
-local persistence = require("scripts/persistence/persistence")  -- returns a function that creates a persistence instance
+local json = require('scripts/libs/json')
 
-local loggers = {}          -- all active logger instances
-local next_check = 0        -- next tick time to check flushes (coarse)
-local CHECK_INTERVAL = 0.5  -- check every 0.5 seconds
+local loggers = {}
+local next_check = 0
+local CHECK_INTERVAL = 0.5
+
+-- OS‑aware directory creation helper (same as the others)
+local is_windows = package.config:sub(1,1) == '\\'
+
+local function ensure_directory_exists(filePath)
+    local normalized = filePath:gsub("\\", "/")
+    local dir = normalized:match("^(.*)/[^/]*$")
+    if not dir or dir == "" then return end
+
+    if file and file.CreateDir then
+        file.CreateDir(dir)
+        return
+    end
+
+    local cmd
+    if is_windows then
+        cmd = 'mkdir "' .. dir .. '" 2>nul'
+    else
+        cmd = 'mkdir -p "' .. dir .. '" 2>/dev/null'
+    end
+    os.execute(cmd)
+end
 
 -- Helper to get current timestamp as string
 local function timestamp()
     return os.date("%Y-%m-%d %H:%M:%S")
+end
+
+-- ============================================================
+-- NEW: Custom JSON encoder with fixed field order
+-- ============================================================
+local function encode_entry(entry)
+    -- Escape JSON string characters
+    local function escape(s)
+        return s:gsub("\\", "\\\\")
+               :gsub('"', '\\"')
+               :gsub("\n", "\\n")
+               :gsub("\r", "\\r")
+               :gsub("\t", "\\t")
+    end
+
+    local fields = {
+        string.format('"timestamp":"%s"', escape(entry.timestamp)),
+        string.format('"level":"%s"', escape(entry.level)),
+        string.format('"msg":"%s"', escape(entry.msg)),
+    }
+    if entry.data then
+        table.insert(fields, '"data":' .. json.encode(entry.data))
+    end
+    return "{" .. table.concat(fields, ",") .. "}"
 end
 
 -- Logger metatable
@@ -26,7 +71,6 @@ LoggerMT.__index = LoggerMT
 ---@field flushInterval? number     # seconds between writes (default 2.0)
 ---@field maxBufferSize? number     # max messages before forcing flush (default 100)
 ---@field logIfChanged? boolean     # only log if message differs from last (default false)
----@field pretty? boolean           # pretty‑print JSON (default true)
 function createLogger(config)
     if not config.filePath then
         error("logger: filePath is required")
@@ -39,7 +83,6 @@ function createLogger(config)
     self.flushInterval = config.flushInterval or 2.0
     self.maxBufferSize = config.maxBufferSize or 100
     self.logIfChanged = config.logIfChanged or false
-    self.pretty = (config.pretty ~= false)  -- default true
 
     -- Level priority mapping
     self.levelPriority = {
@@ -50,18 +93,9 @@ function createLogger(config)
     }
 
     -- Internal state
-    self.buffer = {}               -- buffered log entries (will be appended to persistence)
-    self.lastFlush = os.clock()    -- time of last flush
-    self.persistence = persistence(self.filePath)   -- persistence instance
-    self.persistenceReady = false   -- whether persistence has loaded
-    self.lastMessages = {}          -- for logIfChanged: last message per level (e.g., lastMessages["info"] = "some text")
-
-    -- Load persistence (asynchronous) and set ready flag
-    self.persistence:load():and_then(function()
-        self.persistenceReady = true
-        -- If there were any buffered messages while loading, they are still in self.buffer.
-        -- They will be flushed on next tick.
-    end)
+    self.buffer = {}
+    self.lastFlush = os.clock()
+    self.lastMessages = {}   -- for deduplication
 
     -- Register this logger
     table.insert(loggers, self)
@@ -106,70 +140,45 @@ function LoggerMT:addEntry(level, msg, data)
     end
 end
 
--- Flush buffered entries to persistence
+-- Flush buffered entries to file (append‑only)
 function LoggerMT:flush()
     if #self.buffer == 0 then return end
-    if not self.persistenceReady then
-        -- Persistence not ready yet; keep buffered
+
+    -- Ensure the directory exists before opening the file
+    ensure_directory_exists(self.filePath)
+
+    local file, err = io.open(self.filePath, "a")
+    if not file then
+        print("Logger: failed to open " .. self.filePath .. " for append: " .. tostring(err))
         return
     end
 
-    -- Use persistence to append entries
-    self.persistence:update(function(data)
-        data.logs = data.logs or {}
-        for _, entry in ipairs(self.buffer) do
-            table.insert(data.logs, entry)
-        end
-    end)
-
-    -- Save with optional pretty print
-    local success, err = pcall(function()
-        self.persistence:save():and_then(function()
-            -- Success: clear buffer and update lastFlush
-            self.buffer = {}
-            self.lastFlush = os.clock()
-        end, function(err)
-            -- Error handler
-            print("Logger: failed to save to " .. self.filePath .. ": " .. tostring(err))
-            -- Keep buffer for retry later
-        end)
-    end)
-
-    if not success then
-        print("Logger: error during save on " .. self.filePath .. ": " .. tostring(err))
+    -- Write each entry as a JSON‑encoded line
+    for _, entry in ipairs(self.buffer) do
+        -- === CHANGED: use our custom encoder with fixed order ===
+        local line = encode_entry(entry) .. "\n"
+        file:write(line)
     end
+
+    file:close()
+
+    self.buffer = {}
+    self.lastFlush = os.clock()
 end
 
 -- Public logging methods
-function LoggerMT:debug(msg, data)
-    self:addEntry("debug", msg, data)
-end
-
-function LoggerMT:info(msg, data)
-    self:addEntry("info", msg, data)
-end
-
-function LoggerMT:warn(msg, data)
-    self:addEntry("warn", msg, data)
-end
-
-function LoggerMT:error(msg, data)
-    self:addEntry("error", msg, data)
-end
+function LoggerMT:debug(msg, data) self:addEntry("debug", msg, data) end
+function LoggerMT:info(msg, data)  self:addEntry("info", msg, data) end
+function LoggerMT:warn(msg, data)  self:addEntry("warn", msg, data) end
+function LoggerMT:error(msg, data) self:addEntry("error", msg, data) end
 
 -- Force flush now (useful before shutdown)
 function LoggerMT:forceFlush()
     if #self.buffer == 0 then return end
-    if not self.persistenceReady then
-        print("Logger: persistence not ready, cannot flush " .. self.filePath)
-        return
-    end
     self:flush()
 end
 
--- --------------------------------------------------------------------
 -- Global tick handler: check all loggers and flush if interval passed
--- --------------------------------------------------------------------
 Net:on("tick", function(event)
     local now = os.clock()
     -- Only check every CHECK_INTERVAL seconds to avoid overhead
@@ -177,7 +186,7 @@ Net:on("tick", function(event)
     next_check = now
 
     for _, logger in ipairs(loggers) do
-        if logger.persistenceReady and #logger.buffer > 0 then
+        if #logger.buffer > 0 then
             if now - logger.lastFlush >= logger.flushInterval then
                 logger:flush()
             end
@@ -185,5 +194,4 @@ Net:on("tick", function(event)
     end
 end)
 
--- Return the factory function
 return createLogger

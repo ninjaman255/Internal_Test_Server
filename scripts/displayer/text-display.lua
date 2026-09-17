@@ -1,310 +1,146 @@
---[[
-text-display.lua – Unified text rendering with static, marquee, and typewriter modes.
-Uses AnimationEngine for marquee looping and typewriter delays.
-]]
+-- Unified text renderer for static text, marquee text, and BN-style typewriter boxes.
+-- Public coordinates are virtual 240x160 coordinates.
+-- Hardened with deterministic marquee IDs, pixel-snapped updates, real paging,
+-- explicit teardown, and a public layout/measurement API.
 
 local TextDisplay = {}
 TextDisplay.__index = TextDisplay
 
 local fontSystem = require("scripts/displayer/font-system")
 local AnimationEngine = require("scripts/animation-engine/animation-engine")
+local TextLayout = require("scripts/displayer/text-layout")
 
--- Helper: normalize loops option
-local function _normalize_loops(v)
-    if v == nil or v == true then return nil end
-    if v == false or v == "once" then return 1 end
-    local n = tonumber(v)
-    if n then
-        n = math.floor(n)
-        if n < 1 then return 1 end
-        return n
-    end
-    return nil
+local DEFAULT_BACKDROP_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
+
+local function normalize_loops(value)
+    if value == nil or value == true then return nil end -- nil = infinite at this layer
+    if value == false or value == "once" then return 1 end
+    local n = tonumber(value)
+    if not n then return nil end
+    return math.max(1, math.floor(n))
 end
 
--- Word wrapping utility (screen pixels)
-local function wrapText(text, font_name, scale, max_width)
-    if not max_width then return { text } end
-    local lines = {}
-    local words = {}
-    for word in text:gmatch("%S+") do table.insert(words, word) end
-
-    local current_line = ""
-    local current_width = 0
-    local space_width = fontSystem:getGlyphDimensions(font_name, " ") * scale or 6 * scale
-
-    for _, word in ipairs(words) do
-        local word_width = 0
-        for i = 1, #word do
-            local ch = word:sub(i,i)
-            local w, _ = fontSystem:getGlyphDimensions(font_name, ch)
-            word_width = word_width + w * scale
-            if i < #word then
-                local spacing = fontSystem:isBattleFont(font_name) and 0 or 1
-                word_width = word_width + spacing * scale
-            end
-        end
-
-        if current_width + word_width <= max_width then
-            if current_line ~= "" then
-                current_line = current_line .. " "
-                current_width = current_width + space_width
-            end
-            current_line = current_line .. word
-            current_width = current_width + word_width
-        else
-            if current_line ~= "" then
-                table.insert(lines, current_line)
-            end
-            current_line = word
-            current_width = word_width
-        end
-    end
-    if current_line ~= "" then table.insert(lines, current_line) end
-    return lines
+local function pixel_snap_virtual(value)
+    -- Net renders at 2x; half a virtual unit is exactly one rendered pixel.
+    return math.floor((tonumber(value) or 0) * 2 + 0.5) / 2
 end
 
--- Layout: compute per‑glyph positions (screen pixels)
-local function layoutText(text, font, scale, box_x, box_y, box_width, box_height, halign, valign)
-    local lines = wrapText(text, font, scale, box_width)
-    local line_height = 12 * scale
-
-    local total_width = 0
-    for _, line in ipairs(lines) do
-        local line_width = 0
-        for i = 1, #line do
-            local ch = line:sub(i,i)
-            local w, _ = fontSystem:getGlyphDimensions(font, ch)
-            line_width = line_width + w * scale
-            if i < #line then
-                local spacing = fontSystem:isBattleFont(font) and 0 or 1
-                line_width = line_width + spacing * scale
-            end
-        end
-        if line_width > total_width then total_width = line_width end
-    end
-    local total_height = #lines * line_height
-
-    local start_x = box_x
-    local start_y = box_y
-
-    if box_width and box_height then
-        if halign == "center" then
-            start_x = box_x + (box_width - total_width) / 2
-        elseif halign == "right" then
-            start_x = box_x + box_width - total_width
-        end
-        if valign == "middle" then
-            start_y = box_y + (box_height - total_height) / 2
-        elseif valign == "bottom" then
-            start_y = box_y + box_height - total_height
-        end
-    end
-
-    local glyph_grid = {}
-    local flat_glyphs = {}
-    for line_idx, line in ipairs(lines) do
-        glyph_grid[line_idx] = {}
-        local x = start_x
-        local y = start_y + (line_idx - 1) * line_height
-        for col = 1, #line do
-            local ch = line:sub(col, col)
-            if ch ~= " " then
-                local glyph = { char = ch, x = x, y = y, line = line_idx, col = col }
-                glyph_grid[line_idx][col] = glyph
-                table.insert(flat_glyphs, glyph)
-            else
-                glyph_grid[line_idx][col] = nil
-            end
-            local w, _ = fontSystem:getGlyphDimensions(font, ch)
-            local spacing = fontSystem:isBattleFont(font) and 0 or 1
-            x = x + w * scale + spacing * scale
-        end
-    end
-
-    return lines, flat_glyphs, glyph_grid, total_width, total_height
+local function copy_table(src)
+    local out = {}
+    for k, v in pairs(src or {}) do out[k] = v end
+    return out
 end
 
--- --------------------------------------------------------------------
--- TextDisplayInstance (unified)
--- --------------------------------------------------------------------
-local TextDisplayInstance = {}
-TextDisplayInstance.__index = TextDisplayInstance
+local function safe_call(fn, ...)
+    if type(fn) ~= "function" then return end
+    local ok, err = pcall(fn, ...)
+    if not ok then print("[TextDisplay] callback failed: " .. tostring(err)) end
+end
 
-function TextDisplayInstance:new(player_id, text_id, text, x, y, options)
-    local o = setmetatable({}, TextDisplayInstance)
+local function deterministic_glyph_id(text_id, index)
+    return tostring(text_id) .. "_char_" .. tostring(index)
+end
+
+local DisplayInstance = {}
+DisplayInstance.__index = DisplayInstance
+
+function DisplayInstance:new(owner, player_id, text_id, text, x, y, options)
+    options = options or {}
+    local o = setmetatable({}, DisplayInstance)
+    o.owner = owner
     o.player_id = player_id
-    o.text_id = text_id
-    o.text = text
-
-    o.x = x * 2
-    o.y = y * 2
-    o.width = options.width and (options.width * 2) or nil
-    o.height = options.height and (options.height * 2) or nil
-
+    o.text_id = tostring(text_id)
+    o.text = tostring(text or "")
+    o.x = tonumber(x) or 0
+    o.y = tonumber(y) or 0
+    o.width = options.width and tonumber(options.width) or nil
+    o.height = options.height and tonumber(options.height) or nil
     o.font = options.font or "THICK"
-    o.scale = options.scale or 2.0
-    o.z = options.z or 100
-    o.global = {
-        r = options.r or 255,
-        g = options.g or 255,
-        b = options.b or 255,
-        opacity = options.opacity or 255,
-        a = options.a or 255,
-        ro = options.ro or 0,
-        color_mode = options.color_mode or 0,
-    }
+    o.scale = tonumber(options.scale) or 2.0
+    o.z = tonumber(options.z) or 100
     o.halign = options.halign or "left"
     o.valign = options.valign or "top"
     o.perChar = options.perChar
-
     o.mode = options.mode or "static"
-    o.state = "active"
-    o.anim_id = nil          -- for marquee animation
-    o.next_char_delay = nil   -- for typewriter scheduling
+    o.global = {
+        r = tonumber(options.r) or 255,
+        g = tonumber(options.g) or 255,
+        b = tonumber(options.b) or 255,
+        opacity = tonumber(options.opacity) or 255,
+        a = tonumber(options.a) or 255,
+        ro = tonumber(options.ro) or 0,
+        color_mode = tonumber(options.color_mode) or 0,
+    }
+    o.keep_alive = options.keep_alive == true
+    o.marked_for_removal = false
+    o.anim_id = nil
+    o.next_char_delay = nil
+    o.glyph_ids = {}
+    o.drawn = {}
+    o.backdrop = nil
+    o._cleanup_generation = 0
 
-    -- Flag to prevent auto-removal while nameplate is attached
-    o.keep_alive = false
-
-    -- Mode‑specific setup
     if o.mode == "marquee" then
-        local loops_raw = (options.marquee and options.marquee.loops) or options.loops
-        o.loops = _normalize_loops(loops_raw)
-        o.speed = (options.marquee and options.marquee.speed) or options.speed or 60
+        local mq = options.marquee or options
+        o.loops = normalize_loops(mq.loops)
+        o.speed = math.max(1, tonumber(mq.speed) or 60)
+        o.pixel_snap = mq.pixel_snap ~= false
+        o.cleanup_passes = math.max(1, math.floor(tonumber(mq.cleanup_passes) or 2))
+        o.on_finish = mq.on_finish or options.on_finish
+        o.viewport = copy_table(mq.viewport)
+        if not o.viewport.x then o.viewport.x = o.x end
+        if not o.viewport.y then o.viewport.y = o.y end
+        if not o.viewport.width then o.viewport.width = o.width or 240 end
+        if not o.viewport.height then o.viewport.height = o.height end
+        o.viewport.padding_x = tonumber(o.viewport.padding_x or mq.padding_x) or 0
+        o.backdrop_config = mq.backdrop or options.backdrop
+        o.state = "active"
     elseif o.mode == "typewriter" then
-        local tw = options.typewriter or {}
-        o.speed = tw.speed or options.speed or 30
-        o.char_delay = 1.0 / o.speed
+        local tw = options.typewriter or options
+        o.speed = math.max(1, tonumber(tw.speed or options.speed) or 30)
+        o.char_delay = 1 / o.speed
         o.sound = tw.sound or options.type_sound
-        o.sound_min_dt = tw.sound_min_dt or options.type_sound_min_dt or 0.1
+        o.sound_min_dt = tonumber(tw.sound_min_dt or options.type_sound_min_dt) or 0.1
+        o._last_sound = -math.huge
         o.current_page = 1
         o.current_line = 1
         o.current_char = 0
-        o.printed_glyphs = {}
-        o._last_sound = 0
+        o.state = "printing"
+        o.max_lines = tonumber(tw.max_lines or options.max_lines)
+    else
+        o.state = "active"
     end
 
     o:relayout()
 
-    -- Start appropriate animation
     if o.mode == "marquee" then
+        o:_drawBackdrop()
         o:_startMarquee()
     elseif o.mode == "typewriter" then
-        o:_scheduleNextChar(0)   -- print first character immediately
+        o:_startCurrentPage()
     else
-        o:_drawAllGlyphs()       -- static mode
+        o:_drawStatic()
     end
 
     return o
 end
 
-function TextDisplayInstance:relayout()
-    self.lines, self.flat_glyphs, self.glyph_grid, self.total_width, self.total_height =
-        layoutText(self.text, self.font, self.scale,
-                   self.x, self.y, self.width, self.height,
-                   self.halign, self.valign)
+function DisplayInstance:relayout()
+    self.layout = TextLayout.layout(self.text, {
+        x = self.x,
+        y = self.y,
+        -- Marquee width is a viewport constraint, not a wrapping constraint.
+        width = self.mode == "marquee" and nil or self.width,
+        height = self.mode == "marquee" and nil or self.height,
+        font = self.font,
+        scale = self.scale,
+        halign = self.halign,
+        valign = self.valign,
+        max_lines = self.max_lines,
+    })
 end
 
--- Draw all glyphs with optional overrides (used by marquee)
-function TextDisplayInstance:_drawAllGlyphs(overrides)
-    overrides = overrides or {}
-    for i, glyph in ipairs(self.flat_glyphs) do
-        local opts = {
-            scale = self.scale,
-            z = self.z,
-            r = self.global.r,
-            g = self.global.g,
-            b = self.global.b,
-            opacity = self.global.opacity,
-            a = self.global.a,
-            ro = self.global.ro,
-            color_mode = self.global.color_mode,
-            x = (overrides.x_offset and glyph.x + overrides.x_offset) or glyph.x,
-            y = glyph.y,
-        }
-        if self.perChar then
-            local over = self.perChar(i, glyph.char, { elapsed = overrides.elapsed })
-            if over then
-                for k, v in pairs(over) do opts[k] = v end
-            end
-        end
-        local inst_id = glyph.instance_id
-        if not inst_id then
-            local virtual_x = opts.x / 2
-            local virtual_y = opts.y / 2
-            inst_id = fontSystem:drawGlyph(self.player_id, self.font, glyph.char, virtual_x, virtual_y, opts)
-            glyph.instance_id = inst_id
-        else
-            local update_opts = {}
-            for k, v in pairs(opts) do update_opts[k] = v end
-            update_opts.x = opts.x / 2
-            update_opts.y = opts.y / 2
-            fontSystem:updateGlyph(self.player_id, inst_id, update_opts)
-        end
-    end
-end
-
--- Marquee: start a looping animation of a progress variable
-function TextDisplayInstance:_startMarquee()
-    local distance = 2 * self.total_width   -- from off right to off left
-    local duration = distance / self.speed
-
-    self.anim_id = AnimationEngine.animate(
-        { progress = 0 },
-        { progress = 1 },
-        duration,
-        {
-            easing = "linear",
-            loop = self.loops,   -- nil = infinite
-            on_update = function(values)
-                local scroll_x = self.x + self.total_width - values.progress * distance
-                self:_drawAllGlyphs({ x_offset = scroll_x, elapsed = values.progress * duration })
-            end,
-            on_complete = function()
-                self.state = "completed"
-            end,
-        }
-    )
-end
-
--- Typewriter: print next character, schedule next if any
-function TextDisplayInstance:_printNextChar()
-    if self.state ~= "active" then return false end
-
-    local line = self.lines[self.current_line]
-    if not line then
-        self.state = "completed"
-        return false
-    end
-
-    self.current_char = self.current_char + 1
-    if self.current_char > #line then
-        self.current_line = self.current_line + 1
-        self.current_char = 0
-        if self.current_line > #self.lines then
-            self.state = "completed"
-            return false
-        end
-        -- Move to next line, next char will be printed after delay
-        self:_scheduleNextChar(self.char_delay)
-        return true
-    end
-
-    local ch = line:sub(self.current_char, self.current_char)
-    if ch == " " then
-        -- Space: no glyph, but still count as a character for timing
-        self:_scheduleNextChar(self.char_delay)
-        return true
-    end
-
-    -- Get glyph data
-    local glyph = self.glyph_grid[self.current_line][self.current_char]
-    if not glyph then
-        -- Should not happen
-        self:_scheduleNextChar(self.char_delay)
-        return true
-    end
-
+function DisplayInstance:_glyphOptions(glyph, extra)
     local opts = {
         scale = self.scale,
         z = self.z,
@@ -315,256 +151,601 @@ function TextDisplayInstance:_printNextChar()
         a = self.global.a,
         ro = self.global.ro,
         color_mode = self.global.color_mode,
-        x = glyph.x,
-        y = glyph.y,
     }
+    if extra then for k, v in pairs(extra) do opts[k] = v end end
     if self.perChar then
-        local flat_idx = nil
-        for idx, g in ipairs(self.flat_glyphs) do
-            if g == glyph then flat_idx = idx; break end
-        end
-        local over = self.perChar(flat_idx or 0, ch, { page = 1, line = self.current_line, isNew = true })
-        if over then
-            for k, v in pairs(over) do opts[k] = v end
-        end
+        local over = self.perChar(glyph.visible_index or 0, glyph.char, {
+            page = glyph.page,
+            line = glyph.line,
+            col = glyph.col,
+            elapsed = extra and extra.elapsed,
+            isNew = extra and extra.isNew,
+        })
+        if over then for k, v in pairs(over) do opts[k] = v end end
     end
-
-    local virtual_x = opts.x / 2
-    local virtual_y = opts.y / 2
-    local inst_id = fontSystem:drawGlyph(self.player_id, self.font, ch, virtual_x, virtual_y, opts)
-    if inst_id then
-        glyph.instance_id = inst_id
-        table.insert(self.printed_glyphs, inst_id)
-    end
-
-    if self.sound then
-        local now = os.clock()
-        if now - self._last_sound >= self.sound_min_dt then
-            Net.play_sound_for_player(self.player_id, self.sound)
-            self._last_sound = now
-        end
-    end
-
-    -- Schedule next character
-    self:_scheduleNextChar(self.char_delay)
-    return true
+    return opts
 end
 
-function TextDisplayInstance:_scheduleNextChar(delay)
-    if self.next_char_delay then
-        -- Cancel previously scheduled (should not happen, but safety)
-        -- AnimationEngine doesn't provide cancellation of delays easily, so we rely on state check.
-    end
-    if self.state ~= "active" then return end
-    self.next_char_delay = AnimationEngine.delay(delay, function()
-        self.next_char_delay = nil
-        if self.state == "active" then
-            self:_printNextChar()
-        end
-    end)
+function DisplayInstance:_eraseGlyphId(id)
+    if id then fontSystem:eraseGlyph(self.player_id, id) end
+    self.drawn[id] = nil
 end
 
--- Advance typewriter (skip to end of page)
-function TextDisplayInstance:advance()
-    if self.mode ~= "typewriter" then return end
-    -- Cancel any pending delay
-    if self.next_char_delay then
-        -- AnimationEngine doesn't expose cancel; we rely on state to ignore.
-        self.next_char_delay = nil
+function DisplayInstance:_eraseAllGlyphs()
+    for _, id in pairs(self.glyph_ids) do
+        if id then fontSystem:eraseGlyph(self.player_id, id) end
     end
-    -- Erase all printed glyphs
-    for _, id in ipairs(self.printed_glyphs) do
-        fontSystem:eraseGlyph(self.player_id, id)
+    -- Deterministic cleanup catches stale client sprites even if local bookkeeping was lost.
+    local max_chars = 0
+    for _, page in ipairs(self.layout.pages or {}) do
+        for _, line in ipairs(page) do max_chars = max_chars + #line end
     end
-    self.printed_glyphs = {}
-    -- Move to next page (just one page for now)
-    self.current_page = self.current_page + 1
-    if self.current_page > 1 then
-        self.state = "completed"
-    else
-        self.current_line = 1
-        self.current_char = 0
-        self:_scheduleNextChar(0)   -- start printing again
+    for i = 1, max_chars do
+        fontSystem:eraseGlyph(self.player_id, deterministic_glyph_id(self.text_id, i))
     end
+    self.glyph_ids = {}
+    self.drawn = {}
 end
 
--- Close/remove all glyphs
-function TextDisplayInstance:close()
-    -- Stop animations
-    if self.anim_id then
-        AnimationEngine.stop_animation(self.anim_id)
-        self.anim_id = nil
-    end
-    -- Cancel pending delay
-    self.next_char_delay = nil   -- cannot cancel, but state will prevent further prints
-
-    -- Erase all glyphs
-    for _, glyph in ipairs(self.flat_glyphs) do
-        if glyph.instance_id then
-            fontSystem:eraseGlyph(self.player_id, glyph.instance_id)
-            glyph.instance_id = nil
-        end
-    end
-    for line_idx, line in ipairs(self.glyph_grid or {}) do
-        for col, glyph in pairs(line) do
-            glyph.instance_id = nil
-        end
-    end
-    self.printed_glyphs = {}
-    self.state = "completed"
-end
-
--- No per‑frame update needed; animations drive everything.
-function TextDisplayInstance:update(dt)
-    -- kept for compatibility, but does nothing
-end
-
--- --------------------------------------------------------------------
--- TextDisplay main API
--- --------------------------------------------------------------------
-function TextDisplay:init()
-    self.font_system = fontSystem
-    self.player_texts = {}
-
-    Net:on("tick", function(event)
-        local ok, err = pcall(function()
-            self:updateAll(event.delta_time)
-        end)
-        if not ok then
-            print("Error in tick:", err)
-        end
-    end)
-
-    Net:on("player_disconnect", function(event)
-        local ok, err = pcall(function()
-            self:cleanupPlayer(event.player_id)
-        end)
-        if not ok then
-            print("Error in player_disconnect:", err)
-        end
-    end)
-
-    return self
-end
-
-function TextDisplay:cleanupPlayer(player_id)
-    if not self.player_texts[player_id] then return end
-    for _, display in pairs(self.player_texts[player_id]) do
-        display:close()
-    end
-    self.player_texts[player_id] = nil
-end
-
-function TextDisplay:updateAll(dt)
-    for player_id, displays in pairs(self.player_texts) do
-        for text_id, display in pairs(displays) do
-            -- Only auto-remove completed displays that do not have keep_alive flag
-            if display.state == "completed" and not display.keep_alive then
-                print("Auto-removing completed display", text_id)
-                display:close()
-                displays[text_id] = nil
+function DisplayInstance:_drawStatic()
+    local page = self.layout.page_layouts[1]
+    if not page then return end
+    local seq = 0
+    for _, line in ipairs(page.lines) do
+        for _, glyph in pairs(line.glyphs) do
+            if glyph.char ~= " " then
+                seq = seq + 1
+                local id = deterministic_glyph_id(self.text_id, glyph.visible_index)
+                fontSystem:drawGlyph(self.player_id, self.font, glyph.char, glyph.x, glyph.y,
+                    self:_glyphOptions(glyph, { instance_id = id }))
+                self.glyph_ids[glyph.visible_index] = id
+                self.drawn[id] = { x = glyph.x, y = glyph.y, char = glyph.char }
             end
         end
     end
 end
 
--- Unified draw
+function DisplayInstance:_drawBackdrop()
+    local cfg = self.backdrop_config
+    if type(cfg) ~= "table" then return end
+
+    local texture = cfg.texture_path or DEFAULT_BACKDROP_TEXTURE
+    if Net.has_asset then
+        local ok, exists = pcall(Net.has_asset, texture)
+        if ok and exists == false then
+            print("[TextDisplay] backdrop asset missing: " .. tostring(texture))
+            return
+        end
+    end
+
+    local asset_id = self.text_id .. "_marquee_backdrop_asset"
+    local draw_id = self.text_id .. "_marquee_backdrop"
+    pcall(Net.provide_asset_for_player, self.player_id, texture)
+    pcall(Net.player_alloc_sprite, self.player_id, asset_id, { texture_path = texture })
+
+    local x = tonumber(cfg.x) or tonumber(self.viewport.x) or self.x
+    local y = tonumber(cfg.y) or tonumber(self.viewport.y) or self.y
+    local width = tonumber(cfg.width) or tonumber(self.viewport.width) or 240
+    local height = tonumber(cfg.height) or tonumber(self.viewport.height) or 16
+    Net.player_draw_sprite(self.player_id, asset_id, {
+        id = draw_id,
+        x = x * 2,
+        y = y * 2,
+        z = tonumber(cfg.z) or (self.z - 1),
+        sx = width * 2,
+        sy = height * 2,
+        r = tonumber(cfg.r) or 255,
+        g = tonumber(cfg.g) or 255,
+        b = tonumber(cfg.b) or 255,
+        a = tonumber(cfg.a) or 255,
+        opacity = tonumber(cfg.opacity) or 255,
+        color_mode = tonumber(cfg.color_mode) or 0,
+    })
+    self.backdrop = { asset_id = asset_id, draw_id = draw_id, keep = cfg.keep_backdrop == true }
+end
+
+function DisplayInstance:_eraseBackdrop(force)
+    if not self.backdrop then return end
+    if self.backdrop.keep and not force then return end
+    pcall(Net.player_erase_sprite, self.player_id, self.backdrop.draw_id)
+    if Net.player_dealloc_sprite then pcall(Net.player_dealloc_sprite, self.player_id, self.backdrop.asset_id) end
+    self.backdrop = nil
+end
+
+function DisplayInstance:_marqueeGlyphs()
+    local out = {}
+    local page = self.layout.page_layouts[1]
+    if not page then return out end
+    for _, line in ipairs(page.lines) do
+        for _, glyph in pairs(line.glyphs) do
+            if glyph.char ~= " " then out[#out + 1] = glyph end
+        end
+    end
+    table.sort(out, function(a, b) return a.visible_index < b.visible_index end)
+    return out
+end
+
+function DisplayInstance:_drawMarqueeAt(offset, elapsed)
+    local viewport = self.viewport
+    local left = tonumber(viewport.x) or self.x
+    local right = left + (tonumber(viewport.width) or 240)
+
+    for _, glyph in ipairs(self:_marqueeGlyphs()) do
+        local gx = glyph.x + offset
+        local gw = TextLayout.measureLine(glyph.char, { font = self.font, scale = self.scale })
+        local visible = (gx + gw) >= left and gx <= right
+        local id = deterministic_glyph_id(self.text_id, glyph.visible_index)
+
+        if visible then
+            local snapped_x = self.pixel_snap and pixel_snap_virtual(gx) or gx
+            local snapped_y = self.pixel_snap and pixel_snap_virtual(glyph.y) or glyph.y
+            local last = self.drawn[id]
+            -- This is the key production fix: do not transmit a draw when the rendered pixel did not move.
+            if not last then
+                fontSystem:drawGlyph(self.player_id, self.font, glyph.char, snapped_x, snapped_y,
+                    self:_glyphOptions(glyph, { instance_id = id, elapsed = elapsed, isNew = true }))
+                self.glyph_ids[glyph.visible_index] = id
+                self.drawn[id] = { x = snapped_x, y = snapped_y, char = glyph.char }
+            elseif last.x ~= snapped_x or last.y ~= snapped_y or last.char ~= glyph.char then
+                fontSystem:updateGlyph(self.player_id, id,
+                    self:_glyphOptions(glyph, { x = snapped_x, y = snapped_y, char = glyph.char, elapsed = elapsed }))
+                last.x, last.y, last.char = snapped_x, snapped_y, glyph.char
+            end
+        elseif self.drawn[id] then
+            fontSystem:eraseGlyph(self.player_id, id)
+            self.drawn[id] = nil
+            self.glyph_ids[glyph.visible_index] = nil
+        end
+    end
+end
+
+function DisplayInstance:_cleanupMarquee(done)
+    self:_eraseAllGlyphs()
+    local passes = self.cleanup_passes or 1
+    local generation = self._cleanup_generation + 1
+    self._cleanup_generation = generation
+
+    local function pass(n)
+        if generation ~= self._cleanup_generation then return end
+        self:_eraseAllGlyphs()
+        if n < passes then
+            AnimationEngine.delay(0, function() pass(n + 1) end)
+        else
+            if done then done() end
+        end
+    end
+    pass(1)
+end
+
+function DisplayInstance:_startMarquee()
+    local glyphs = self:_marqueeGlyphs()
+    if #glyphs == 0 then
+        self.state = "completed"
+        safe_call(self.on_finish, self.player_id, self.text_id)
+        return
+    end
+
+    local text_width = self.layout.total_width
+    local left = tonumber(self.viewport.x) or self.x
+    local viewport_width = tonumber(self.viewport.width) or 240
+    local padding = tonumber(self.viewport.padding_x) or 0
+    local base_x = self.layout.page_layouts[1].lines[1] and self.layout.page_layouts[1].lines[1].x or self.x
+    local start_offset = (left + viewport_width + padding) - base_x
+    local end_offset = (left - padding - text_width) - base_x
+    local distance = math.abs(start_offset - end_offset)
+    local duration = math.max(0.001, distance / self.speed)
+
+    local loop_value = self.loops == nil and true or self.loops
+    self.anim_id = AnimationEngine.animate({ progress = 0 }, { progress = 1 }, duration, {
+        easing = "linear",
+        loop = loop_value,
+        on_update = function(values)
+            if self.marked_for_removal then return end
+            local p = values.progress or 0
+            local offset = start_offset + (end_offset - start_offset) * p
+            self:_drawMarqueeAt(offset, p * duration)
+        end,
+        on_complete = function(_, interrupted)
+            self.anim_id = nil
+            if interrupted or self.marked_for_removal then return end
+            self:_cleanupMarquee(function()
+                self.state = "completed"
+                self:_eraseBackdrop(false)
+                safe_call(self.on_finish, self.player_id, self.text_id)
+            end)
+        end,
+    })
+end
+
+function DisplayInstance:_pageMeta(page_index)
+    return self.layout.page_layouts[page_index]
+end
+
+function DisplayInstance:_currentGlyph()
+    local page = self:_pageMeta(self.current_page)
+    if not page then return nil end
+    local line = page.lines[self.current_line]
+    if not line then return nil end
+    return line.glyphs[self.current_char]
+end
+
+function DisplayInstance:_cancelPendingCharacter()
+    if self.next_char_delay then
+        if AnimationEngine.cancel_delay then AnimationEngine.cancel_delay(self.next_char_delay) end
+        self.next_char_delay = nil
+    end
+end
+
+function DisplayInstance:_scheduleNextChar(delay)
+    self:_cancelPendingCharacter()
+    if self.state ~= "printing" then return end
+    self.next_char_delay = AnimationEngine.delay(math.max(0, tonumber(delay) or 0), function()
+        self.next_char_delay = nil
+        if self.state == "printing" and not self.marked_for_removal then self:_printNextChar() end
+    end)
+end
+
+function DisplayInstance:_startCurrentPage()
+    self:_cancelPendingCharacter()
+    self.current_line = 1
+    self.current_char = 0
+    if not self:_pageMeta(self.current_page) then
+        self.state = "completed"
+        return
+    end
+    self.state = "printing"
+    self:_scheduleNextChar(0)
+end
+
+function DisplayInstance:_pageFinished()
+    self:_cancelPendingCharacter()
+    self.state = "waiting"
+end
+
+function DisplayInstance:_drawTypewriterGlyph(glyph)
+    if not glyph or glyph.char == " " then return end
+    local id = deterministic_glyph_id(self.text_id, glyph.visible_index)
+    fontSystem:drawGlyph(self.player_id, self.font, glyph.char,
+        pixel_snap_virtual(glyph.x), pixel_snap_virtual(glyph.y),
+        self:_glyphOptions(glyph, { instance_id = id, isNew = true }))
+    self.glyph_ids[glyph.visible_index] = id
+    self.drawn[id] = { x = pixel_snap_virtual(glyph.x), y = pixel_snap_virtual(glyph.y), char = glyph.char }
+
+    if self.sound then
+        local t = AnimationEngine.get_time and AnimationEngine.get_time() or 0
+        if t - self._last_sound >= self.sound_min_dt then
+            pcall(Net.play_sound_for_player, self.player_id, self.sound)
+            self._last_sound = t
+        end
+    end
+end
+
+function DisplayInstance:_printNextChar()
+    if self.state ~= "printing" then return false end
+    local page = self:_pageMeta(self.current_page)
+    if not page then self.state = "completed"; return false end
+
+    local line = page.lines[self.current_line]
+    if not line then self:_pageFinished(); return false end
+
+    self.current_char = self.current_char + 1
+    if self.current_char > #line.text then
+        self.current_line = self.current_line + 1
+        self.current_char = 0
+        if self.current_line > #page.lines then
+            self:_pageFinished()
+        else
+            self:_scheduleNextChar(self.char_delay)
+        end
+        return true
+    end
+
+    local glyph = line.glyphs[self.current_char]
+    if glyph then self:_drawTypewriterGlyph(glyph) end
+    local pause = glyph and glyph.pause_before or 0
+    self:_scheduleNextChar(self.char_delay + pause)
+    return true
+end
+
+function DisplayInstance:_finishCurrentPageImmediately()
+    local page = self:_pageMeta(self.current_page)
+    if not page then self.state = "completed"; return end
+    self:_cancelPendingCharacter()
+    for _, line in ipairs(page.lines) do
+        for _, glyph in pairs(line.glyphs) do
+            if glyph.char ~= " " then
+                local id = deterministic_glyph_id(self.text_id, glyph.visible_index)
+                if not self.drawn[id] then self:_drawTypewriterGlyph(glyph) end
+            end
+        end
+    end
+    self.current_line = #page.lines
+    self.current_char = #((page.lines[#page.lines] and page.lines[#page.lines].text) or "")
+    self.state = "waiting"
+end
+
+function DisplayInstance:_eraseCurrentPage()
+    local page = self:_pageMeta(self.current_page)
+    if not page then return end
+    for _, line in ipairs(page.lines) do
+        for _, glyph in pairs(line.glyphs) do
+            local id = deterministic_glyph_id(self.text_id, glyph.visible_index)
+            if self.drawn[id] or self.glyph_ids[glyph.visible_index] then
+                fontSystem:eraseGlyph(self.player_id, id)
+                self.drawn[id] = nil
+                self.glyph_ids[glyph.visible_index] = nil
+            end
+        end
+    end
+end
+
+function DisplayInstance:advance()
+    if self.mode ~= "typewriter" or self.marked_for_removal then return end
+    if self.state == "printing" then
+        self:_finishCurrentPageImmediately()
+    elseif self.state == "waiting" then
+        self:_eraseCurrentPage()
+        self.current_page = self.current_page + 1
+        if self.current_page > #self.layout.pages then
+            self.state = "completed"
+        else
+            self:_startCurrentPage()
+        end
+    end
+end
+
+function DisplayInstance:reset(text, options)
+    options = options or {}
+    self._cleanup_generation = self._cleanup_generation + 1
+    if self.anim_id then AnimationEngine.stop_animation(self.anim_id); self.anim_id = nil end
+    self:_cancelPendingCharacter()
+    self:_eraseAllGlyphs()
+    self.marked_for_removal = false
+    self.text = tostring(text or "")
+
+    if options.font then self.font = options.font end
+    if options.scale then self.scale = tonumber(options.scale) or self.scale end
+    if options.z then self.z = tonumber(options.z) or self.z end
+    if options.width then self.width = tonumber(options.width) end
+    if options.height then self.height = tonumber(options.height) end
+    if options.x then self.x = tonumber(options.x) or self.x end
+    if options.y then self.y = tonumber(options.y) or self.y end
+    if options.speed then self.speed = math.max(1, tonumber(options.speed) or self.speed) end
+    if options.type_sound ~= nil then self.sound = options.type_sound end
+    if options.type_sound_min_dt then self.sound_min_dt = tonumber(options.type_sound_min_dt) or self.sound_min_dt end
+    if options.max_lines then self.max_lines = tonumber(options.max_lines) end
+
+    self.current_page = 1
+    self.current_line = 1
+    self.current_char = 0
+    self:relayout()
+
+    if self.mode == "typewriter" then self:_startCurrentPage()
+    elseif self.mode == "marquee" then self.state = "active"; self:_startMarquee()
+    else self.state = "active"; self:_drawStatic() end
+end
+
+function DisplayInstance:close()
+    if self.marked_for_removal then return end
+    self.marked_for_removal = true
+    self._cleanup_generation = self._cleanup_generation + 1
+    self:_cancelPendingCharacter()
+    if self.anim_id then AnimationEngine.stop_animation(self.anim_id); self.anim_id = nil end
+    self:_eraseAllGlyphs()
+    self:_eraseBackdrop(true)
+    self.state = "completed"
+end
+
+function TextDisplay:init()
+    if self._initialized then return self end
+    self._initialized = true
+    self.font_system = fontSystem
+    self.player_texts = self.player_texts or {}
+
+    Net:on("tick", function(event)
+        local ok, err = pcall(function() self:updateAll(event and event.delta_time or 0) end)
+        if not ok then print("[TextDisplay] tick failed: " .. tostring(err)) end
+    end)
+    Net:on("player_disconnect", function(event)
+        if event and event.player_id then self:cleanupPlayer(event.player_id) end
+    end)
+    return self
+end
+
+function TextDisplay:layout(text, options)
+    return TextLayout.layout(text, options or {})
+end
+
+function TextDisplay:measure(text, options)
+    return TextLayout.measure(text, options or {})
+end
+
+function TextDisplay:cleanupPlayer(player_id)
+    local displays = self.player_texts[player_id]
+    if not displays then return end
+    for _, display in pairs(displays) do display:close() end
+    self.player_texts[player_id] = nil
+end
+
+function TextDisplay:updateAll(_dt)
+    for player_id, displays in pairs(self.player_texts) do
+        local remove = {}
+        for text_id, display in pairs(displays) do
+            if display.marked_for_removal or (display.state == "completed" and not display.keep_alive and display.mode ~= "typewriter") then
+                remove[#remove + 1] = text_id
+            end
+        end
+        for _, text_id in ipairs(remove) do displays[text_id] = nil end
+        if next(displays) == nil then self.player_texts[player_id] = nil end
+    end
+end
+
 function TextDisplay:draw(player_id, text_id, text, x, y, options)
     options = options or {}
     self.player_texts[player_id] = self.player_texts[player_id] or {}
-
-    if self.player_texts[player_id][text_id] then
-        self.player_texts[player_id][text_id]:close()
-    end
-
-    local display = TextDisplayInstance:new(player_id, text_id, text, x, y, options)
+    local old = self.player_texts[player_id][text_id]
+    if old then old:close() end
+    local display = DisplayInstance:new(self, player_id, text_id, text, x, y, options)
     self.player_texts[player_id][text_id] = display
-    return text_id
+    return display
 end
 
--- Legacy wrappers
-function TextDisplay:drawStatic(player_id, text_id, text, x, y, options)
-    if type(options) ~= "table" then options = {} end
-    options.mode = "static"
-    return self:draw(player_id, text_id, text, x, y, options)
+function TextDisplay:remove(player_id, text_id)
+    local display = self.player_texts[player_id] and self.player_texts[player_id][text_id]
+    if not display then return false end
+    display:close()
+    return true
 end
 
-function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
-    if type(options) ~= "table" then options = {} end
-    options.mode = "marquee"
-    return self:draw(player_id, marquee_id, text, 0, y, options)
+function TextDisplay:get(player_id, text_id)
+    return self.player_texts[player_id] and self.player_texts[player_id][text_id] or nil
 end
 
-function TextDisplay:createTextBox(player_id, box_id, text, x, y, width, height, options)
-    if type(options) ~= "table" then options = {} end
-    options.mode = "typewriter"
-    options.width = width
-    options.height = height
-    return self:draw(player_id, box_id, text, x, y, options)
+function TextDisplay:getState(player_id, text_id)
+    local display = self:get(player_id, text_id)
+    return display and display.state or nil
 end
 
-function TextDisplay:removeStatic(player_id, text_id)
-    local displays = self.player_texts[player_id]
-    if displays and displays[text_id] then
-        displays[text_id]:close()
-        displays[text_id] = nil
+function TextDisplay:getData(player_id, text_id)
+    local d = self:get(player_id, text_id)
+    if not d then return nil end
+
+    local line_x_offsets = {}
+    for p, page in ipairs(d.layout.page_layouts or {}) do
+        line_x_offsets[p] = {}
+        for li, line in ipairs(page.lines or {}) do
+            line_x_offsets[p][li] = line.x * 2
+        end
     end
-end
 
-function TextDisplay:removeMarquee(player_id, marquee_id)
-    self:removeStatic(player_id, marquee_id)
-end
-
-function TextDisplay:closeTextBox(player_id, box_id)
-    self:removeStatic(player_id, box_id)
-end
-
-function TextDisplay:advanceTextBox(player_id, box_id)
-    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
-    if display and display.mode == "typewriter" then
-        display:advance()
-    end
-end
-
-function TextDisplay:getTextBoxState(player_id, box_id)
-    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
-    if not display then return "completed" end
-    if display.mode == "typewriter" then
-        return display.state
-    else
-        return "completed"
-    end
-end
-
-function TextDisplay:getTextBoxData(player_id, box_id)
-    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
-    if not display then
-        print("getTextBoxData: no display for box_id", box_id)
-        return nil
-    end
-    print("getTextBoxData returning for box_id", box_id, "_box_id =", box_id)
     return {
-        x = display.x,
-        y = display.y,
-        width = display.width,
-        height = display.height,
-        scale = display.scale,
-        z_order = display.z,
-        nameplate = display.nameplate,
-        backdrop = nil,
-        _box_id = box_id,
+        -- Legacy screen-pixel fields retained for current Nameplate/Prompt callers.
+        x = d.x * 2,
+        y = d.y * 2,
+        width = d.width and d.width * 2 or nil,
+        height = d.height and d.height * 2 or nil,
+        inner_x = d.x * 2,
+        inner_y = d.y * 2,
+        _line_height_px = d.layout.line_height * 2,
+        line_x_offsets = line_x_offsets,
+
+        -- Canonical public virtual-coordinate fields.
+        virtual_x = d.x,
+        virtual_y = d.y,
+        virtual_width = d.width,
+        virtual_height = d.height,
+        line_height = d.layout.line_height,
+
+        scale = d.scale,
+        z_order = d.z,
+        font = d.font,
+        mode = d.mode,
+        state = d.state,
+        pages = d.layout.pages,
+        page_layouts = d.layout.page_layouts,
+        page_count = #d.layout.pages,
+        current_page = d.current_page or 1,
+        current_line = d.current_line or 1,
+        current_char = d.current_char or 0,
+        marked_for_removal = d.marked_for_removal,
+        backdrop = d.backdrop_config,
+        _box_id = d.text_id,
     }
 end
 
--- New methods for nameplate integration
-function TextDisplay:setKeepAlive(player_id, box_id, keep)
-    local display = self.player_texts[player_id] and self.player_texts[player_id][box_id]
-    if display then
-        display.keep_alive = keep
-        print("setKeepAlive for box", box_id, "to", keep)
-    end
+function TextDisplay:setKeepAlive(player_id, text_id, value)
+    local display = self:get(player_id, text_id)
+    if not display then return false end
+    display.keep_alive = value == true
+    return true
 end
 
-local textDisplay = setmetatable({}, TextDisplay)
-textDisplay:init()
-return textDisplay
+function TextDisplay:advance(player_id, text_id)
+    local display = self:get(player_id, text_id)
+    if not display then return false end
+    display:advance()
+    return true
+end
+
+function TextDisplay:reset(player_id, text_id, text, options)
+    local display = self:get(player_id, text_id)
+    if not display then return nil end
+    display:reset(text, options or {})
+    return display
+end
+
+
+
+-- --------------------------------------------------------------------
+-- Compatibility/public convenience wrappers used by the current Displayer facade.
+-- --------------------------------------------------------------------
+local function copy_options(options)
+    local out = {}
+    for k, v in pairs(options or {}) do out[k] = v end
+    return out
+end
+
+function TextDisplay:drawStatic(player_id, text_id, text, x, y, options)
+    local opts = copy_options(options)
+    opts.mode = "static"
+    self:draw(player_id, text_id, text, x, y, opts)
+    return text_id
+end
+
+function TextDisplay:removeStatic(player_id, text_id)
+    return self:remove(player_id, text_id)
+end
+
+function TextDisplay:drawMarquee(player_id, marquee_id, text, y, options)
+    local opts = copy_options(options)
+    opts.mode = "marquee"
+    local x = tonumber(opts.x) or 0
+    self:draw(player_id, marquee_id, text, x, y, opts)
+    return marquee_id
+end
+
+function TextDisplay:removeMarquee(player_id, marquee_id)
+    return self:remove(player_id, marquee_id)
+end
+
+function TextDisplay:createTextBox(player_id, box_id, text, x, y, width, height, options)
+    local opts = copy_options(options)
+    opts.mode = "typewriter"
+    opts.width = width
+    opts.height = height
+    self:draw(player_id, box_id, text, x, y, opts)
+    return box_id
+end
+
+function TextDisplay:advanceTextBox(player_id, box_id)
+    return self:advance(player_id, box_id)
+end
+
+function TextDisplay:closeTextBox(player_id, box_id)
+    return self:remove(player_id, box_id)
+end
+
+function TextDisplay:getTextBoxState(player_id, box_id)
+    local display = self:get(player_id, box_id)
+    if not display then
+        -- Preserve the creator API contract: a missing text box is logically completed.
+        -- Callers that need to distinguish completed-vs-gone should use getTextBoxData().
+        return "completed"
+    end
+    if display.mode == "typewriter" then
+        return display.state
+    end
+    return "completed"
+end
+
+function TextDisplay:getTextBoxData(player_id, box_id)
+    return self:getData(player_id, box_id)
+end
+
+function TextDisplay:resetTextBox(player_id, box_id, text, options)
+    return self:reset(player_id, box_id, text, options)
+end
+
+local singleton = setmetatable({}, TextDisplay)
+singleton:init()
+return singleton

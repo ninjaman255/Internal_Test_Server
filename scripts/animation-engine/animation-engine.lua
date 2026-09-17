@@ -1,48 +1,50 @@
--- Reusable animation and interpolation engine
--- This is the main entry point. It exposes:
---   .MathUtils, .AnimEnums, .Sequences
+-- Reusable animation and interpolation engine.
+-- Hardened for server UI use: all timing is driven by Net tick delta_time.
+-- No visible animation timing depends on os.clock().
 
 local AnimationEngine = {}
 _G.AnimationEngine = AnimationEngine
 AnimationEngine.__index = AnimationEngine
 
--- Load core dependencies
 AnimationEngine.AnimEnums = require("scripts/animation-engine/animation-enums")
 local MathUtils = require("scripts/animation-engine/math-utils")
 AnimationEngine.MathUtils = MathUtils
 
--- ---------------------------------------------------------------------------
--- Configuration
--- ---------------------------------------------------------------------------
 local cfg = {
-    -- Default interpolation settings
-    default_interp_speed = 10, -- units per second
-    default_ro_speed = 180, -- degrees per second
-    default_color_speed = 5, -- color component change per second
-    default_scale_speed = 2, -- scale change per second
-    
-    -- Easing functions
+    default_interp_speed = 10,
+    default_ro_speed = 180,
+    default_color_speed = 5,
+    default_scale_speed = 2,
     easing_functions = MathUtils.easing_functions,
-    
-    -- Logging
-    debug = true,
-    log_prefix = "[AnimationEngine] "
+    debug = false,
+    log_prefix = "[AnimationEngine] ",
+    max_tick_dt = 0.25,
 }
 
--- ---------------------------------------------------------------------------
--- State Management
--- ---------------------------------------------------------------------------
-
-local animations = {} -- Active animations by ID
-local sequences = {} -- Active sequences by ID
-local callbacks = {} -- Scheduled callbacks
-
--- Tagging system: maps tag -> set of animation/sequence IDs
+local animations = {}
+local sequences = {}
+local callbacks = {}
 local tagged_animations = {}
 local tagged_sequences = {}
-
 local animation_id_counter = 0
 local sequence_id_counter = 0
+local engine_time = 0.0
+
+local function now()
+    return engine_time
+end
+
+local function copy_table(src)
+    local out = {}
+    for k, v in pairs(src or {}) do out[k] = v end
+    return out
+end
+
+local function log(message)
+    if cfg.debug and message then
+        print(cfg.log_prefix .. tostring(message))
+    end
+end
 
 local function generate_animation_id()
     animation_id_counter = animation_id_counter + 1
@@ -54,413 +56,216 @@ local function generate_sequence_id()
     return "seq_" .. sequence_id_counter .. "_" .. math.random(1000, 9999)
 end
 
-local function log(message)
-    if cfg.debug and message then
-        print(cfg.log_prefix .. tostring(message))
-    end
+local function remove_from_tag_sets(collection, id)
+    for _, set in pairs(collection) do set[id] = nil end
 end
 
--- ---------------------------------------------------------------------------
--- Core Interpolation Functions
--- ---------------------------------------------------------------------------
+function AnimationEngine.get_time()
+    return engine_time
+end
 
--- Generic interpolation function with support for discrete values
 function AnimationEngine.interpolate(start, target, t, easing, discrete)
     local ease_func = cfg.easing_functions[easing] or cfg.easing_functions.linear
     local eased_t = ease_func(t)
-    
-    -- For instant easing, we want to jump immediately to target for any t > 0
-    if easing == "instant" and t > 0 then
-        eased_t = 1
-    end
-    
-    -- Create a set of discrete keys for fast lookup
+    if easing == "instant" and t > 0 then eased_t = 1 end
+
     local discrete_set = {}
-    if discrete then
-        for _, key in ipairs(discrete) do
-            discrete_set[key] = true
-        end
-    end
-    
+    for _, key in ipairs(discrete or {}) do discrete_set[key] = true end
+
     if type(start) == "number" and type(target) == "number" then
         return MathUtils.lerp(start, target, eased_t)
-    elseif type(start) == "table" and type(target) == "table" then
+    end
+
+    if type(start) == "table" and type(target) == "table" then
         local result = {}
         for key, start_value in pairs(start) do
             local target_value = target[key]
-            
-            -- Check if this key should be discrete
             if discrete_set[key] then
-                -- Discrete value: change at the beginning of animation
-                if t > 0 then
-                    result[key] = target_value or start_value
-                else
-                    result[key] = start_value
-                end
+                result[key] = (t > 0 and target_value ~= nil) and target_value or start_value
             elseif type(start_value) == "number" and type(target_value) == "number" then
-                -- Regular interpolation for numeric values
                 result[key] = MathUtils.lerp(start_value, target_value, eased_t)
             else
-                -- Non-numeric or mismatched types - set to target immediately
-                result[key] = target_value or start_value
+                result[key] = target_value ~= nil and target_value or start_value
             end
         end
-        
-        -- Also include any keys in target that aren't in start
         for key, target_value in pairs(target) do
-            if not start[key] then
-                -- Check if this key should be discrete
-                if discrete_set[key] then
-                    -- Discrete value: change at the beginning of animation
-                    if t > 0 then
-                        result[key] = target_value
-                    end
-                else
-                    -- Non-numeric or new value - set to target immediately
-                    result[key] = target_value
-                end
+            if start[key] == nil then
+                if not discrete_set[key] or t > 0 then result[key] = target_value end
             end
         end
-        
         return result
     end
-    
-    return target or start
+
+    return target ~= nil and target or start
 end
 
--- Create a smooth animation between values with looping support
+local function normalized_loop(loop_value)
+    if loop_value == true then return true, nil end
+    if type(loop_value) == "number" and loop_value > 0 then
+        return true, math.max(1, math.floor(loop_value))
+    end
+    return false, nil
+end
+
 function AnimationEngine.animate(start_values, target_values, duration, options)
     options = options or {}
     local easing = options.easing or "linear"
-    local easing_back = options.easing_back or easing -- Optional different easing for the return trip
-    local on_update = options.on_update
-    local on_complete = options.on_complete
-    local loop = options.loop or false -- Can be true (infinite), false (no loop), or a number (loop count)
-    local ping_pong = options.ping_pong or false -- If true, alternates between start and target
-    local discrete = options.discrete or {} -- Array of keys that should change discretely (not interpolated)
+    local looping, max_cycles = normalized_loop(options.loop)
+    if options.max_cycles and tonumber(options.max_cycles) then
+        looping = true
+        max_cycles = math.max(1, math.floor(tonumber(options.max_cycles)))
+    end
+
     local id = options.id or generate_animation_id()
-    local tag = options.tag -- Optional tag for grouping
-    
-    -- For instant animations, duration should be effectively 0, but we need to process it
-    -- So we'll handle this specially in the update function
-    local actual_duration = duration
-    if easing == "instant" then
-        actual_duration = 0.001 -- Very small duration to trigger immediate update
-    end
-    
-    local max_cycles = nil
-    if type(loop) == "number" and loop > 0 then
-        max_cycles = loop
-        loop = true
-    end
-    
-    local current_cycle = 0
-    local phase = 1 -- 1 = forward (start->target), 2 = backward (target->start)
-    local original_start_values = {}
-    local original_target_values = {}
-    
-    -- Deep copy original values
-    for k, v in pairs(start_values) do
-        original_start_values[k] = v
-    end
-    for k, v in pairs(target_values) do
-        original_target_values[k] = v
-    end
-    
+    local actual_duration = math.max(0, tonumber(duration) or 0)
+    local tag = options.tag
+
     animations[id] = {
         id = id,
-        start_time = os.clock(),
+        start_time = now(),
         duration = actual_duration,
         easing = easing,
-        easing_back = easing_back,
-        start_values = start_values,
-        target_values = target_values,
-        original_start_values = original_start_values,
-        original_target_values = original_target_values,
-        discrete = discrete,
-        on_update = on_update,
-        on_complete = on_complete,
-        loop = loop,
-        ping_pong = ping_pong,
+        easing_back = options.easing_back or easing,
+        start_values = copy_table(start_values),
+        target_values = copy_table(target_values),
+        original_start_values = copy_table(start_values),
+        original_target_values = copy_table(target_values),
+        discrete = options.discrete or {},
+        on_update = options.on_update,
+        on_complete = options.on_complete,
+        loop = looping,
+        ping_pong = options.ping_pong == true,
         max_cycles = max_cycles,
-        current_cycle = current_cycle,
-        phase = phase,
-        current_values = {}
+        current_cycle = 0,
+        phase = 1,
+        current_values = copy_table(start_values),
     }
-    
-    -- Tagging: add to tag set if tag provided
+
     if tag then
         tagged_animations[tag] = tagged_animations[tag] or {}
         tagged_animations[tag][id] = true
     end
-    
-    log("Started animation: " .. id .. 
-        (loop and " (looping)" or "") .. 
-        (#discrete > 0 and " (discrete keys: " .. table.concat(discrete, ", ") .. ")" or "") ..
-        (easing == "instant" and " (instant)" or "") ..
-        (tag and " (tag: " .. tag .. ")" or ""))
-    
-    -- For instant animations, we should immediately trigger one update
-    if easing == "instant" then
-        -- Force an immediate update
-        animations[id].current_values = target_values
-        if on_update then
-            on_update(target_values, 1.0, phase)
-        end
-        -- If not looping, complete immediately
-        if not loop then
-            if on_complete then
-                on_complete(target_values, false)
-            end
+
+    -- Preserve the old "instant" behavior without waiting for a later tick.
+    if easing == "instant" or actual_duration <= 0 then
+        local anim = animations[id]
+        anim.current_values = copy_table(anim.target_values)
+        if anim.on_update then anim.on_update(anim.current_values, 1.0, 1) end
+        if not anim.loop then
+            if anim.on_complete then anim.on_complete(anim.current_values, false) end
+            remove_from_tag_sets(tagged_animations, id)
             animations[id] = nil
-            -- Remove from tag set
-            if tag and tagged_animations[tag] then
-                tagged_animations[tag][id] = nil
-            end
-            log("Completed instant animation: " .. id)
+        else
+            -- A zero-duration infinite loop would spin forever. Advance at most once per tick.
+            anim.duration = 0
+            anim.start_time = now()
         end
     end
-    
+
+    log("Started animation: " .. id)
     return id
 end
 
--- Update all active animations
-function AnimationEngine.update(dt)
-    local current_time = os.clock()
-    local to_remove = {}
-    local to_process = {}
-    
-    -- First, collect all animations to process
-    for id, anim in pairs(animations) do
-        to_process[id] = anim
+local function complete_animation(id, anim, interrupted)
+    if anim.on_complete then
+        local ok, err = pcall(anim.on_complete, anim.current_values, interrupted == true)
+        if not ok then log("on_complete error for " .. tostring(id) .. ": " .. tostring(err)) end
     end
-    
-    -- Then process them
-    for id, anim in pairs(to_process) do
-        -- Skip if animation was removed during processing
-        if animations[id] == nil then
-            goto continue
-        end
-        
-        -- For instant animations, handle specially
-        if anim.easing == "instant" then
-            -- Set values to target immediately
-            anim.current_values = anim.target_values
-            
-            -- Call update callback
-            if anim.on_update then
-                anim.on_update(anim.current_values, 1.0, anim.phase)
-            end
-            
-            -- Handle completion
-            if anim.loop then
-                -- For looping instant animations
-                anim.current_cycle = anim.current_cycle + 1
-                if anim.max_cycles and anim.current_cycle >= anim.max_cycles then
-                    -- Reached max cycles
-                    if anim.on_complete then
-                        anim.on_complete(anim.current_values, false)
-                    end
-                    table.insert(to_remove, id)
-                    log("Completed instant animation (reached max cycles): " .. id)
-                else
-                    -- Continue looping
-                    anim.start_time = current_time
-                end
+    remove_from_tag_sets(tagged_animations, id)
+    animations[id] = nil
+end
+
+function AnimationEngine.update(_dt)
+    local current_time = now()
+    local ids = {}
+    for id in pairs(animations) do ids[#ids + 1] = id end
+
+    for _, id in ipairs(ids) do
+        local anim = animations[id]
+        if anim then
+            local duration = anim.duration
+            local t
+            if duration <= 0 then
+                t = 1
             else
-                -- Not looping, complete the animation
-                if anim.on_complete then
-                    anim.on_complete(anim.current_values, false)
-                end
-                table.insert(to_remove, id)
-                log("Completed instant animation: " .. id)
+                t = MathUtils.clamp01((current_time - anim.start_time) / duration)
             end
-            goto continue
-        end
-        
-        local elapsed = current_time - anim.start_time
-        local t = MathUtils.clamp01(elapsed / anim.duration)
-        
-        -- Determine which easing to use based on phase
-        local current_easing = anim.phase == 1 and anim.easing or anim.easing_back
-        
-        -- Determine which values to use based on phase
-        local phase_start_values, phase_target_values
-        
-        if anim.phase == 1 then
-            phase_start_values = anim.start_values
-            phase_target_values = anim.target_values
-        else
-            phase_start_values = anim.target_values
-            phase_target_values = anim.start_values
-        end
-        
-        -- Interpolate all values with discrete keys support
-        anim.current_values = AnimationEngine.interpolate(
-            phase_start_values, 
-            phase_target_values, 
-            t, 
-            current_easing,
-            anim.discrete
-        )
-        
-        -- Call update callback
-        if anim.on_update then
-            anim.on_update(anim.current_values, t, anim.phase)
-        end
-        
-        -- Check if complete for current phase
-        if t >= 1.0 then
-            if anim.phase == 1 then
-                -- Completed forward phase
-                if anim.ping_pong then
-                    -- Start backward phase
+
+            local start_values = anim.phase == 1 and anim.start_values or anim.target_values
+            local target_values = anim.phase == 1 and anim.target_values or anim.start_values
+            local easing = anim.phase == 1 and anim.easing or anim.easing_back
+            anim.current_values = AnimationEngine.interpolate(start_values, target_values, t, easing, anim.discrete)
+
+            if anim.on_update then
+                local ok, err = pcall(anim.on_update, anim.current_values, t, anim.phase)
+                if not ok then
+                    log("on_update error for " .. tostring(id) .. ": " .. tostring(err))
+                    AnimationEngine.stop_animation(id)
+                    goto continue
+                end
+            end
+
+            if t >= 1 then
+                if anim.ping_pong and anim.phase == 1 then
                     anim.phase = 2
                     anim.start_time = current_time
-                elseif anim.loop then
-                    -- Check if we should continue looping
-                    if anim.max_cycles and anim.current_cycle + 1 >= anim.max_cycles then
-                        -- Reached max cycles
-                        if anim.on_complete then
-                            anim.on_complete(anim.current_values, false)
-                        end
-                        table.insert(to_remove, id)
-                        log("Completed animation (reached max cycles): " .. id)
-                    else
-                        -- Continue looping
-                        anim.current_cycle = anim.current_cycle + 1
-                        anim.start_time = current_time
-                    end
                 else
-                    -- Not looping, complete the animation
-                    if anim.on_complete then
-                        anim.on_complete(anim.current_values, false)
-                    end
-                    table.insert(to_remove, id)
-                    log("Completed animation: " .. id)
-                end
-            else
-                -- Completed backward phase (ping-pong)
-                if anim.loop then
-                    -- Check if we should continue looping
-                    if anim.max_cycles and anim.current_cycle + 1 >= anim.max_cycles then
-                        -- Reached max cycles
-                        if anim.on_complete then
-                            anim.on_complete(anim.current_values, false)
-                        end
-                        table.insert(to_remove, id)
-                        log("Completed animation (reached max cycles): " .. id)
-                    else
-                        -- Continue looping
-                        anim.current_cycle = anim.current_cycle + 1
-                        anim.phase = 1
+                    local completed_cycle = true
+                    if anim.ping_pong and anim.phase == 2 then anim.phase = 1 end
+
+                    if completed_cycle then anim.current_cycle = anim.current_cycle + 1 end
+                    local hit_limit = anim.max_cycles and anim.current_cycle >= anim.max_cycles
+
+                    if anim.loop and not hit_limit then
                         anim.start_time = current_time
+                    else
+                        complete_animation(id, anim, false)
                     end
-                else
-                    -- Not looping, complete the animation
-                    if anim.on_complete then
-                        anim.on_complete(anim.current_values, false)
-                    end
-                    table.insert(to_remove, id)
-                    log("Completed animation: " .. id)
                 end
             end
         end
-        
         ::continue::
     end
-    
-    -- Clean up completed animations
-    for _, id in ipairs(to_remove) do
-        -- Remove from tag sets
-        for tag, set in pairs(tagged_animations) do
-            set[id] = nil
-        end
-        animations[id] = nil
-    end
 end
 
--- Stop an active animation
 function AnimationEngine.stop_animation(id)
-    if animations[id] then
-        if animations[id].on_complete then
-            animations[id].on_complete(animations[id].current_values, true) -- true = interrupted
-        end
-        -- Remove from tag sets
-        for tag, set in pairs(tagged_animations) do
-            set[id] = nil
-        end
-        animations[id] = nil
-        log("Stopped animation: " .. id)
-        return true
-    end
-    return false
-end
-
--- Stop all animations with a given tag
-function AnimationEngine.stop_animations_by_tag(tag)
-    if not tagged_animations[tag] then return false end
-    local ids = {}
-    for id, _ in pairs(tagged_animations[tag]) do
-        table.insert(ids, id)
-    end
-    for _, id in ipairs(ids) do
-        AnimationEngine.stop_animation(id)
-    end
-    tagged_animations[tag] = nil
-    log("Stopped all animations with tag: " .. tag)
+    local anim = animations[id]
+    if not anim then return false end
+    complete_animation(id, anim, true)
+    log("Stopped animation: " .. tostring(id))
     return true
 end
 
--- ---------------------------------------------------------------------------
--- Tween: High-level animation for objects
--- ---------------------------------------------------------------------------
+function AnimationEngine.stop_animations_by_tag(tag)
+    local set = tagged_animations[tag]
+    if not set then return false end
+    local ids = {}
+    for id in pairs(set) do ids[#ids + 1] = id end
+    for _, id in ipairs(ids) do AnimationEngine.stop_animation(id) end
+    tagged_animations[tag] = nil
+    return true
+end
 
---- Animate an object's properties smoothly.
----@param object table  # Object with fields or setter methods (setX, setY, setScale, setRotation, setColor, setOpacity, etc.)
----@param target_props table  # Target values for properties (e.g., {x = 100, y = 200, scale = 1.5})
----@param duration number  # Duration in seconds
----@param options? table
----@option options.easing string  # Easing function name (default "linear")
----@option options.easing_back string  # Easing for return trip (if ping-pong)
----@option options.loop boolean|number  # Loop count (true = infinite)
----@option options.ping_pong boolean  # Alternate back and forth
----@option options.discrete table  # Array of keys that change instantly
----@option options.tag string  # Tag for grouping (can be used with stop_animations_by_tag)
----@option options.on_complete function(interrupted)  # Called when done
----@return string animation_id
 function AnimationEngine.tween(object, target_props, duration, options)
     options = options or {}
-    
-    -- Helper to read current value from object
+
     local function read_prop(key)
-        -- Try getter methods first
-        local getter = object["get" .. key:sub(1,1):upper() .. key:sub(2)]
-        if type(getter) == "function" then
-            return getter(object)
-        end
-        -- Fallback to field
+        local getter = object["get" .. key:sub(1, 1):upper() .. key:sub(2)]
+        if type(getter) == "function" then return getter(object) end
         return object[key]
     end
-    
-    -- Helper to apply value to object
+
     local function apply_prop(key, value)
-        -- Try setter methods
-        local setter = object["set" .. key:sub(1,1):upper() .. key:sub(2)]
-        if type(setter) == "function" then
-            setter(object, value)
-        else
-            object[key] = value
-        end
+        local setter = object["set" .. key:sub(1, 1):upper() .. key:sub(2)]
+        if type(setter) == "function" then setter(object, value) else object[key] = value end
     end
-    
-    -- Build start values from current object state
+
     local start_props = {}
-    for key, target in pairs(target_props) do
-        start_props[key] = read_prop(key) or target -- fallback if nil
+    for key, target in pairs(target_props or {}) do
+        local value = read_prop(key)
+        start_props[key] = value ~= nil and value or target
     end
-    
-    -- Create the animation
+
     return AnimationEngine.animate(start_props, target_props, duration, {
         easing = options.easing,
         easing_back = options.easing_back,
@@ -468,236 +273,172 @@ function AnimationEngine.tween(object, target_props, duration, options)
         loop = options.loop,
         ping_pong = options.ping_pong,
         tag = options.tag,
-        on_update = function(values)
-            for key, value in pairs(values) do
-                apply_prop(key, value)
-            end
-            if options.on_update then
-                options.on_update(values)
-            end
+        max_cycles = options.max_cycles,
+        on_update = function(values, t, phase)
+            for key, value in pairs(values) do apply_prop(key, value) end
+            if options.on_update then options.on_update(values, t, phase) end
         end,
         on_complete = function(_, interrupted)
-            if options.on_complete then
-                options.on_complete(interrupted)
-            end
-        end
+            if options.on_complete then options.on_complete(interrupted) end
+        end,
     })
 end
 
--- ---------------------------------------------------------------------------
--- Animation Sequences
--- ---------------------------------------------------------------------------
+local function resolve_sequence_value(seq, step_index, value)
+    if type(value) ~= "string" then return value end
+    local step_data = seq.step_data[step_index] or {}
+    if value == "current" then return 0 end
+    if value == "original" then return 0 end
+    local offset = value:match("^current%+(.+)$")
+    if offset then return (step_data.current or 0) + (tonumber(offset) or 0) end
+    return tonumber(value) or value
+end
 
 function AnimationEngine.create_sequence(steps, options)
     options = options or {}
     local id = options.id or generate_sequence_id()
-    local loop = options.loop or false
-    local on_complete = options.on_complete
-    local tag = options.tag -- Optional tag for grouping
-    
     sequences[id] = {
         id = id,
-        steps = steps,
+        steps = steps or {},
         current_step = 1,
-        start_time = os.clock(),
-        loop = loop,
-        on_complete = on_complete,
+        start_time = now(),
+        loop = options.loop == true,
+        on_complete = options.on_complete,
         active_animation = nil,
         active_sequence = nil,
-        step_data = {}
+        step_data = {},
+        original_values = options.original_values,
+        next_step_time = nil,
     }
-    
-    -- Tagging: add to tag set if tag provided
-    if tag then
-        tagged_sequences[tag] = tagged_sequences[tag] or {}
-        tagged_sequences[tag][id] = true
+    if options.tag then
+        tagged_sequences[options.tag] = tagged_sequences[options.tag] or {}
+        tagged_sequences[options.tag][id] = true
     end
-    
-    log("Created sequence: " .. id .. (tag and " (tag: " .. tag .. ")" or ""))
     return id
 end
 
 function AnimationEngine.start_sequence(id)
     local seq = sequences[id]
-    if not seq then
-        log("Sequence not found: " .. id)
-        return false
-    end
-    
-    seq.start_time = os.clock()
+    if not seq then return false end
+    seq.start_time = now()
     seq.current_step = 1
     seq.active_animation = nil
     seq.active_sequence = nil
-    
-    -- Start first step
+    seq.next_step_time = nil
     AnimationEngine._execute_sequence_step(id)
-    
-    log("Started sequence: " .. id)
     return true
+end
+
+local function resolve_step_table(seq, step_index, source)
+    local out = {}
+    local data = seq.step_data[step_index] or {}
+    for key, value in pairs(source or {}) do
+        if type(value) == "string" then
+            local offset = value:match("^current%+(.+)$")
+            if offset then
+                out[key] = (data[key] or 0) + (tonumber(offset) or 0)
+            elseif value == "current" then
+                out[key] = data[key] or 0
+            elseif value == "original" then
+                out[key] = (seq.original_values and seq.original_values[key]) or 0
+            else
+                out[key] = tonumber(value) or value
+            end
+        else
+            out[key] = value
+        end
+    end
+    return out
 end
 
 function AnimationEngine._execute_sequence_step(seq_id)
     local seq = sequences[seq_id]
-    if not seq or seq.current_step > #seq.steps then
-        return false
-    end
-    
-    local step = seq.steps[seq.current_step]
-    step.id = step.id or (seq_id .. "_step_" .. seq.current_step)
-    
-    -- Store original values for "current" references
-    if not seq.step_data[seq.current_step] then
-        seq.step_data[seq.current_step] = {}
-    end
-    
-    -- Handle different step types
+    if not seq or seq.current_step > #seq.steps then return false end
+
+    local index = seq.current_step
+    local step = seq.steps[index]
+    seq.step_data[index] = seq.step_data[index] or {}
+
     if step.type == "delay" then
-        seq.next_step_time = os.clock() + step.duration
+        seq.next_step_time = now() + math.max(0, tonumber(step.duration) or 0)
         seq.active_animation = nil
-        
     elseif step.type == "animate" then
-        -- Resolve "current" and "original" references
-        local start_values = {}
-        local target_values = {}
-        
-        for key, value in pairs(step.start or {}) do
-            if type(value) == "string" then
-                if value:find("^current%+") then
-                    local offset = tonumber(value:match("current%+(.-)$"))
-                    start_values[key] = (seq.step_data[seq.current_step][key] or 0) + offset
-                elseif value == "current" then
-                    start_values[key] = seq.step_data[seq.current_step][key] or 0
-                elseif value == "original" then
-                    start_values[key] = seq.original_values and seq.original_values[key] or 0
-                else
-                    start_values[key] = tonumber(value) or value
-                end
-            else
-                start_values[key] = value
-            end
-        end
-        
-        for key, value in pairs(step.target or {}) do
-            if type(value) == "string" then
-                if value:find("^current%+") then
-                    local offset = tonumber(value:match("current%+(.-)$"))
-                    target_values[key] = (seq.step_data[seq.current_step][key] or 0) + offset
-                elseif value == "current" then
-                    target_values[key] = seq.step_data[seq.current_step][key] or 0
-                elseif value == "original" then
-                    target_values[key] = seq.original_values and seq.original_values[key] or 0
-                else
-                    target_values[key] = tonumber(value) or value
-                end
-            else
-                target_values[key] = value
-            end
-        end
-        
-        -- Store start values for future reference
-        for key, value in pairs(start_values) do
-            seq.step_data[seq.current_step][key] = value
-        end
-        
-        -- Start animation with discrete keys support
-        seq.active_animation = AnimationEngine.animate(start_values, target_values, step.duration, {
+        local start_values = resolve_step_table(seq, index, step.start)
+        local target_values = resolve_step_table(seq, index, step.target)
+        for key, value in pairs(start_values) do seq.step_data[index][key] = value end
+
+        seq.active_animation = AnimationEngine.animate(start_values, target_values, step.duration or 0, {
             easing = step.easing,
-            discrete = step.discrete, -- Pass through discrete keys
+            easing_back = step.easing_back,
+            discrete = step.discrete,
             on_update = step.on_update,
             on_complete = function(values, interrupted)
-                if not interrupted then
-                    -- Store final values
-                    for key, value in pairs(values) do
-                        seq.step_data[seq.current_step][key] = value
-                    end
-                    AnimationEngine._sequence_step_complete(seq_id)
-                end
-            end
+                if interrupted then return end
+                local live = sequences[seq_id]
+                if not live then return end
+                for key, value in pairs(values or {}) do live.step_data[index][key] = value end
+                if step.on_complete then pcall(step.on_complete, values, false) end
+                AnimationEngine._sequence_step_complete(seq_id)
+            end,
         })
-        
-
     elseif step.type == "run" then
-        -- Custom step that controls when the sequence advances.
-        -- step.run(done) should call done() when finished.
-        -- If step.run returns an animation/sequence id, it will be tracked for cancellation.
         local done_called = false
         local function done()
             if done_called then return end
             done_called = true
-            AnimationEngine._sequence_step_complete(seq_id)
+            if sequences[seq_id] then AnimationEngine._sequence_step_complete(seq_id) end
         end
-
-        seq.active_animation = nil
-        seq.active_sequence = nil
-
-        if step.run then
-            local ok, child_id = pcall(step.run, done)
-            if ok then
-                if type(child_id) == "string" then
-                    if animations[child_id] ~= nil then
-                        seq.active_animation = child_id
-                    elseif sequences[child_id] ~= nil and child_id ~= seq_id then
-                        seq.active_sequence = child_id
-                    else
-                        -- Unknown id; store best-effort as animation id
-                        seq.active_animation = child_id
-                    end
-                end
-            else
-                log("Run step error: " .. tostring(child_id))
-                -- Fail open: advance so sequences don't deadlock
-                done()
-            end
-        else
+        local ok, child_id = pcall(step.run or done, done)
+        if not ok then
+            log("Run step error: " .. tostring(child_id))
             done()
+        elseif type(child_id) == "string" then
+            if animations[child_id] then seq.active_animation = child_id
+            elseif sequences[child_id] and child_id ~= seq_id then seq.active_sequence = child_id end
         end
     elseif step.type == "callback" then
-        if step.callback then
-            step.callback()
-        end
+        if step.callback then pcall(step.callback) end
+        AnimationEngine._sequence_step_complete(seq_id)
+    else
+        -- Unknown or empty step: fail open rather than deadlocking the sequence.
         AnimationEngine._sequence_step_complete(seq_id)
     end
-    
     return true
 end
 
 function AnimationEngine._sequence_step_complete(seq_id)
     local seq = sequences[seq_id]
     if not seq then return end
-    
     seq.current_step = seq.current_step + 1
     seq.active_animation = nil
     seq.active_sequence = nil
-    
+    seq.next_step_time = nil
+
     if seq.current_step > #seq.steps then
-        -- Sequence complete
         if seq.loop then
             seq.current_step = 1
             AnimationEngine._execute_sequence_step(seq_id)
         else
-            if seq.on_complete then
-                seq.on_complete()
-            end
-            -- Remove from tag sets
-            for tag, set in pairs(tagged_sequences) do
-                set[seq_id] = nil
-            end
+            if seq.on_complete then pcall(seq.on_complete) end
+            remove_from_tag_sets(tagged_sequences, seq_id)
             sequences[seq_id] = nil
-            log("Sequence completed: " .. seq_id)
         end
     else
-        -- Move to next step
         AnimationEngine._execute_sequence_step(seq_id)
     end
 end
 
-function AnimationEngine.update_sequences(dt)
-    local current_time = os.clock()
-    
-    for seq_id, seq in pairs(sequences) do
-        if seq.next_step_time and current_time >= seq.next_step_time then
+function AnimationEngine.update_sequences(_dt)
+    local current_time = now()
+    local ready = {}
+    for id, seq in pairs(sequences) do
+        if seq.next_step_time and current_time >= seq.next_step_time then ready[#ready + 1] = id end
+    end
+    for _, id in ipairs(ready) do
+        local seq = sequences[id]
+        if seq then
             seq.next_step_time = nil
-            AnimationEngine._sequence_step_complete(seq_id)
+            AnimationEngine._sequence_step_complete(id)
         end
     end
 end
@@ -705,233 +446,148 @@ end
 function AnimationEngine.stop_sequence(id)
     local seq = sequences[id]
     if not seq then return false end
-    
-    -- Stop any active animation
-    if seq.active_animation then
-        AnimationEngine.stop_animation(seq.active_animation)
-    end
-
-    -- Stop any active child sequence (from run steps)
-    if seq.active_sequence and seq.active_sequence ~= id then
-        AnimationEngine.stop_sequence(seq.active_sequence)
-    end
-    
-    -- Remove from tag sets
-    for tag, set in pairs(tagged_sequences) do
-        set[id] = nil
-    end
+    if seq.active_animation then AnimationEngine.stop_animation(seq.active_animation) end
+    if seq.active_sequence and seq.active_sequence ~= id then AnimationEngine.stop_sequence(seq.active_sequence) end
+    remove_from_tag_sets(tagged_sequences, id)
     sequences[id] = nil
-    log("Stopped sequence: " .. id)
     return true
 end
 
--- Stop all sequences with a given tag
 function AnimationEngine.stop_sequences_by_tag(tag)
-    if not tagged_sequences[tag] then return false end
+    local set = tagged_sequences[tag]
+    if not set then return false end
     local ids = {}
-    for id, _ in pairs(tagged_sequences[tag]) do
-        table.insert(ids, id)
-    end
-    for _, id in ipairs(ids) do
-        AnimationEngine.stop_sequence(id)
-    end
+    for id in pairs(set) do ids[#ids + 1] = id end
+    for _, id in ipairs(ids) do AnimationEngine.stop_sequence(id) end
     tagged_sequences[tag] = nil
-    log("Stopped all sequences with tag: " .. tag)
     return true
 end
 
--- ---------------------------------------------------------------------------
--- Discrete-First Animation Helper
--- ---------------------------------------------------------------------------
-
--- Create animation where discrete values change immediately, then continuous values animate
 function AnimationEngine.animate_discrete_first(start_values, target_values, duration, options)
     options = options or {}
     local discrete = options.discrete or {}
-    
-    -- Create a two-step approach:
-    -- 1. First, immediately set discrete values
-    -- 2. Then animate continuous values
-    
-    local step1_complete = false
-    local discrete_values_set = false
-    
-    -- Create the animation with a custom on_update handler
+    local discrete_set = false
     return AnimationEngine.animate(start_values, target_values, duration, {
         easing = options.easing or "linear",
         easing_back = options.easing_back,
+        loop = options.loop,
+        ping_pong = options.ping_pong,
+        max_cycles = options.max_cycles,
+        discrete = discrete,
+        tag = options.tag,
         on_update = function(values, t, phase)
-            -- If we haven't set discrete values yet, set them immediately
-            if not discrete_values_set and t > 0 then
-                discrete_values_set = true
-                
-                -- Call the original on_update immediately with discrete values set
-                if options.on_update then
-                    -- Create a copy of values with discrete values already at target
-                    local discrete_first_values = {}
-                    for k, v in pairs(values) do
-                        discrete_first_values[k] = v
-                    end
-                    
-                    -- Set discrete values to target immediately
-                    for _, key in ipairs(discrete) do
-                        if target_values[key] ~= nil then
-                            discrete_first_values[key] = target_values[key]
-                        end
-                    end
-                    
-                    options.on_update(discrete_first_values, t, phase)
+            if not discrete_set and t > 0 then
+                discrete_set = true
+                local copy = copy_table(values)
+                for _, key in ipairs(discrete) do
+                    if target_values[key] ~= nil then copy[key] = target_values[key] end
                 end
+                if options.on_update then options.on_update(copy, t, phase) end
             elseif options.on_update then
                 options.on_update(values, t, phase)
             end
         end,
         on_complete = options.on_complete,
-        loop = options.loop,
-        ping_pong = options.ping_pong,
-        max_cycles = options.max_cycles,
-        discrete = discrete
     })
 end
 
--- ---------------------------------------------------------------------------
--- Instant Transition Helpers
--- ---------------------------------------------------------------------------
-
--- Set value instantly (no animation)
 function AnimationEngine.set_to(object, values)
     if not object then return end
-    
-    for key, value in pairs(values) do
-        -- Use appropriate setter method if available
+    for key, value in pairs(values or {}) do
         if key == "x" or key == "y" then
             if object.setPosition then
-                object:setPosition(values.x or object.x, values.y or object.y)
+                object:setPosition(values.x ~= nil and values.x or object.x, values.y ~= nil and values.y or object.y)
             else
-                object.x = values.x or object.x
-                object.y = values.y or object.y
+                if values.x ~= nil then object.x = values.x end
+                if values.y ~= nil then object.y = values.y end
             end
-        elseif key == "scale" then
-            if object.setScale then
-                object:setScale(value)
-            else
-                object.scale = value
-            end
-        elseif key == "angle" then
-            if object.setRotation then
-                object:setRotation(value)
-            else
-                object.angle = value
-            end
-        elseif key == "alpha" then
-            if object.setAlpha then
-                object:setAlpha(value)
-            else
-                object.alpha = value
-            end
-        elseif key == "r" or key == "g" or key == "b" then
-            if object.setColor then
-                object:setColor(values.r or object.r, values.g or object.g, values.b or object.b)
-            else
-                object.r = values.r or object.r
-                object.g = values.g or object.g
-                object.b = values.b or object.b
-            end
+        elseif key == "scale" and object.setScale then
+            object:setScale(value)
+        elseif key == "angle" and object.setRotation then
+            object:setRotation(value)
+        elseif key == "alpha" and object.setAlpha then
+            object:setAlpha(value)
+        elseif (key == "r" or key == "g" or key == "b") and object.setColor then
+            object:setColor(values.r or object.r, values.g or object.g, values.b or object.b)
         else
-            -- Set any other property directly
             object[key] = value
         end
     end
 end
 
--- ---------------------------------------------------------------------------
--- Utility Functions
--- ---------------------------------------------------------------------------
-
--- Schedule a delayed callback
 function AnimationEngine.delay(duration, callback)
     local id = "delay_" .. generate_animation_id()
     callbacks[id] = {
-        trigger_time = os.clock() + duration,
-        callback = callback
+        trigger_time = now() + math.max(0, tonumber(duration) or 0),
+        callback = callback,
     }
     return id
 end
 
--- Update scheduled callbacks
+function AnimationEngine.cancel_delay(id)
+    if callbacks[id] then callbacks[id] = nil; return true end
+    return false
+end
+
 function AnimationEngine.update_callbacks()
-    local current_time = os.clock()
-    local to_remove = {}
-    local to_process = {}
-    
-    -- First collect all callbacks
+    local current_time = now()
+    local ready = {}
     for id, cb in pairs(callbacks) do
-        to_process[id] = cb
+        if current_time >= cb.trigger_time then ready[#ready + 1] = id end
     end
-    
-    -- Then process them
-    for id, cb in pairs(to_process) do
-        if current_time >= cb.trigger_time then
-            cb.callback()
-            table.insert(to_remove, id)
-        end
-    end
-    
-    for _, id in ipairs(to_remove) do
+    for _, id in ipairs(ready) do
+        local cb = callbacks[id]
         callbacks[id] = nil
+        if cb and cb.callback then
+            local ok, err = pcall(cb.callback)
+            if not ok then log("delay callback error: " .. tostring(err)) end
+        end
     end
 end
 
--- Get active animation count
 function AnimationEngine.get_active_count()
     local count = 0
     for _ in pairs(animations) do count = count + 1 end
     return count
 end
 
--- Get active sequence count
 function AnimationEngine.get_sequence_count()
     local count = 0
     for _ in pairs(sequences) do count = count + 1 end
     return count
 end
 
--- Clear all animations and sequences
 function AnimationEngine.clear_all()
-    for id, _ in pairs(animations) do
-        AnimationEngine.stop_animation(id)
-    end
-    
-    for id, _ in pairs(sequences) do
-        AnimationEngine.stop_sequence(id)
-    end
-    
+    local anim_ids = {}
+    for id in pairs(animations) do anim_ids[#anim_ids + 1] = id end
+    for _, id in ipairs(anim_ids) do AnimationEngine.stop_animation(id) end
+
+    local seq_ids = {}
+    for id in pairs(sequences) do seq_ids[#seq_ids + 1] = id end
+    for _, id in ipairs(seq_ids) do AnimationEngine.stop_sequence(id) end
+
     callbacks = {}
     tagged_animations = {}
     tagged_sequences = {}
-    log("Cleared all animations and sequences")
 end
 
--- ---------------------------------------------------------------------------
--- Main Update Function (to be called in game loop)
--- ---------------------------------------------------------------------------
-
-Net:on("tick", function (event)
-    AnimationEngine.tick(event.delta_time)
-end)
-
 function AnimationEngine.tick(dt)
+    dt = tonumber(dt) or 0
+    if dt < 0 then dt = 0 end
+    if cfg.max_tick_dt and dt > cfg.max_tick_dt then dt = cfg.max_tick_dt end
+    engine_time = engine_time + dt
     AnimationEngine.update(dt)
     AnimationEngine.update_sequences(dt)
     AnimationEngine.update_callbacks()
 end
 
--- ---------------------------------------------------------------------------
--- Configuration Setters
--- ---------------------------------------------------------------------------
-
 function AnimationEngine.set_debug(enabled)
     cfg.debug = enabled == true
+end
+
+function AnimationEngine.set_max_tick_dt(seconds)
+    if seconds == nil then cfg.max_tick_dt = nil; return end
+    cfg.max_tick_dt = math.max(0, tonumber(seconds) or 0)
 end
 
 function AnimationEngine.set_interpolation_speeds(position, ro, color, scale)
@@ -942,18 +598,15 @@ function AnimationEngine.set_interpolation_speeds(position, ro, color, scale)
 end
 
 function AnimationEngine.add_easing_function(name, func)
-    if type(func) == "function" then
-        cfg.easing_functions[name] = func
-    end
+    if type(func) == "function" then cfg.easing_functions[name] = func end
 end
 
--- ---------------------------------------------------------------------------
--- Load Sequences (after everything is defined)
--- ---------------------------------------------------------------------------
+-- Attach exactly one engine tick listener when loaded.
+Net:on("tick", function(event)
+    AnimationEngine.tick(event and event.delta_time or 0)
+end)
+
 local AnimationSequences = require("scripts/animation-engine/animation-sequences")
 AnimationEngine.Sequences = AnimationSequences
 
--- ---------------------------------------------------------------------------
--- Export
--- ---------------------------------------------------------------------------
 return AnimationEngine
