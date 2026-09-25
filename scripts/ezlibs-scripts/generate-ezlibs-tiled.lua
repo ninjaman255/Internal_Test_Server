@@ -3,7 +3,7 @@
 -- Output file: ezlibs-tiled-types.json (or specify path as argument)
 -- Run with: lua generate_tiled_types_json.lua [output_path]
 
-local json = require('scripts/ezlibs-scripts/json')  -- use ezlibs' json module
+local json = require('scripts/ezlibs-scripts/json')
 
 -- ----------------------------------------------------------------------
 -- Define all enums used in properties
@@ -37,6 +37,22 @@ local Enums = {
     QuizFailAction = {
         type = "string",
         values = {"retry", "hide_once", "hide_temp", "explode"}
+    },
+    TriggerShape = {
+        type = "string",
+        values = {"rect", "ellipse"}
+    },
+    ButtonBehavior = {
+        type = "string",
+        values = {"Repeatable", "One-Time", "Dynamic", "Custom", "Timed"}
+    },
+    KeyType = {
+        type = "string",
+        values = {"money", "fragments", "tokens", "item", "bossgate"}
+    },
+    ButtonChainType = {
+        type = "string",
+        values = {"Any", "Exclusive"}
     }
 }
 
@@ -58,7 +74,8 @@ local object_types = {
         color = "#ffaa00",
         members = {
             prop("Password", "string", ""),
-            prop("Key Name", "string", "money"),
+            prop("Key Type", "string", "money", "KeyType"),
+            prop("Key Item Name", "string", ""),
             prop("Required Keys", "number", 1),
             prop("Consume", "bool", false),
             prop("Once", "bool", false),
@@ -325,9 +342,9 @@ local object_types = {
         name = "Explosion Trigger",
         color = "#ff6600",
         members = {
-            prop("Target", "string", ""),      -- optional object ID to explode (defaults to self)
-            prop("Follow", "bool", false),     -- if true, track target movement
-            prop("Once", "bool", false),       -- remove after first trigger
+            prop("Target", "string", ""),
+            prop("Follow", "bool", false),
+            prop("Once", "bool", false),
         }
     },
     -- Rush Road (for ezrushroads)
@@ -335,8 +352,8 @@ local object_types = {
         name = "Rush Road",
         color = "#ffaa00",
         members = {
-            prop("Rush Object", "object", ""),   -- linked object where the permanent bot appears
-            prop("Direction", "string", "Down Left", "Direction"), -- animation direction
+            prop("Rush Object", "object", ""),
+            prop("Direction", "string", "Down Left", "Direction"),
         }
     },
     -- Compression Tile (for ezpress)
@@ -354,7 +371,74 @@ local object_types = {
         color = "#ffaa00",
         members = {
             -- No custom properties needed (uses global password hash)
-            -- You could optionally add a "Password" property for per‑console passwords
+        }
+    },
+    -- Button Bot Details – stores the visual/animation properties for an OW Button
+    {
+        name = "Button Bot Details",
+        color = "#99ddff",
+        members = {
+            prop("Asset Name", "string", ""),
+            prop("Direction", "string", "Down", "Direction"),
+            prop("Animation Name", "string", ""),
+            prop("Mug Animation Name", "string", ""),
+            prop("Active Animation", "string", "ACTIVE"),
+            prop("Inactive Animation", "string", "INACTIVE"),
+            prop("Activated Animation", "string", ""),
+            prop("Deactivated Animation", "string", ""),
+            prop("Activation Animation Duration", "number", 0.5),
+            prop("Deactivation Animation Duration", "number", 0.5),
+        }
+    },
+    -- OW Button (from ezbuttons)
+    {
+        name = "OW Button",
+        color = "#66ccff",
+        members = {
+            -- Reference to the Button Bot Details object that defines bot visuals
+            prop("Bot Details", "object", ""),
+            -- Next button in the chain
+            prop("Next 1", "object", ""),
+            -- Button behavior
+            prop("Button Behavior", "string", "One-Time", "ButtonBehavior"),
+            prop("Script Path", "file", ""),
+            -- Reference to the Button Trigger object that defines the detection zone
+            prop("Trigger Object", "object", ""),
+            -- Unlock behavior (when chain becomes fully active)
+            prop("Button Activated Behavior", "object", ""),
+            -- Relock behavior (when button deactivates)
+            prop("Button Deactivated Behavior", "object", ""),
+            -- Button chain exclusivity mode
+            prop("Button Chain Type", "string", "Any", "ButtonChainType"),
+            -- Timed behavior duration
+            prop("Activated Time", "number", 1),
+        }
+    },
+    -- Unlock Behavior – defines unlock action triggered by a full button chain
+    {
+        name = "Unlock Behavior",
+        color = "#ffcc00",
+        members = {
+            prop("Unlock This", "object", ""),
+            prop("Unlock Permanently", "bool", false),
+            prop("Area Wide", "bool", false),
+        }
+    },
+    -- Relock Behavior – defines relock action triggered when a button deactivates
+    {
+        name = "Relock Behavior",
+        color = "#ff8888",
+        members = {
+            prop("Relock This", "object", ""),
+            prop("Area Wide", "bool", false),
+        }
+    },
+    -- Button Trigger – defines the detection area for an OW Button
+    {
+        name = "Button Trigger",
+        color = "#aaddff",
+        members = {
+            prop("Trigger Type", "string", "rect", "TriggerShape"),
         }
     }
 }
@@ -396,13 +480,14 @@ end
 
 -- ----------------------------------------------------------------------
 -- Main execution
-local function main(output_path)
+local function main(output_path, pretty)
     if not output_path then
         output_path = "ezlibs-tiled-types.json"
     end
 
+    local pretty = pretty or false
     local types = build_tiled_types()
-    local json_str = json.encode(types)
+    local json_str = json.encode(types, pretty)
 
     local file, err = io.open(output_path, "w")
     if not file then

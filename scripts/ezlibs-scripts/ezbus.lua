@@ -1,3 +1,4 @@
 -- ezbus.lua - Global event bus
-local ezbus = Net.EventEmitter.new()
+local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')
+local ezbus = EzEmitter.new()
 return ezbus

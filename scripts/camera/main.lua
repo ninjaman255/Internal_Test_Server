@@ -2,6 +2,8 @@
 local CameraManager = require("scripts/camera/camera-manager")
 local Input = require("scripts/input/input")
 local CameraController = require("scripts/camera/camera-controller")
+local PredefinedEnums = require("scripts/enum/predefined-enums")
+local CameraMode = PredefinedEnums.CameraMode
 
 -- Attach the global input listener once
 Input.attach_virtual_input_listener()
@@ -11,7 +13,6 @@ local cancel = { "Cancel", "Shoot", "Run" }
 
 local setupPlayerJoin = function()
     Net:on("player_join", function(event)
-        -- Net.lock_player_input(event.player_id)
         if not event.player_id then
             print("ERROR: player_join event missing player_id")
             return
@@ -21,7 +22,11 @@ local setupPlayerJoin = function()
         print("Player joined: " .. event.player_id)
 
         -- Create and cache controller for this player
-        CameraManager.PlayerControllers[event.player_id] = CameraController:new(event.player_id, keep_input_locked)
+        CameraManager.PlayerControllers[event.player_id] = CameraController:new(event.player_id, {
+            mode = CameraMode.Custom,
+            keep_player_input_locked = keep_input_locked,
+            -- Optionally set a default mode (PlayerControlled is the default)
+        })
     end)
 end
 
@@ -31,9 +36,9 @@ local setupTileInteraction = function()
         if event.button ~= 1 then return end
 
         local player_camera = CameraManager:get_controller(event.player_id)
-        if player_camera and not player_camera.active then
-            -- Activate camera WITHOUT locking player input (third parameter = false)
-            CameraManager:activate_camera(event.player_id, true, true)
+        if player_camera and not player_camera.is_active then
+            -- Activate camera in PlayerControlled mode with input locked
+            CameraManager:activate_camera(event.player_id, CameraMode.Custom, true)
         end
     end)
 end
@@ -47,12 +52,12 @@ local setupInputs = function()
         end
 
         -- Deactivate camera on Cancel press (edge)
-        if controller.active and Input.pop(player_id, "cancel") then
+        if controller.is_active and Input.pop(player_id, "cancel") then
             controller:deactivate()
         end
 
-        -- Only process movement if player is in control
-        if not controller.player_in_control then
+        -- Only process movement if the camera is active
+        if not controller.is_active then
             return
         end
 
@@ -62,7 +67,7 @@ local setupInputs = function()
             return
         end
 
-        -- Handle input (uses Input.get_active_direction)
+        -- Handle input (dispatches based on current mode)
         controller:handle_input()
     end)
 end

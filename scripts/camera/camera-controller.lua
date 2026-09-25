@@ -1,115 +1,35 @@
+-- camera-controller.lua
+-- Unified camera controller with mode‑based input handling.
+-- Uses the CameraMode enum from predefined-enums.
+
 local Input = require("scripts/input/input")
--- CameraController.lua
+local PredefinedEnums = require("scripts/enum/predefined-enums")
+local CameraMode = PredefinedEnums.CameraMode
+
 local CameraController = {}
 
+-- Movement constants (unchanged)
 local X_CAMERA_ADJUST = 0.05
 local Y_CAMERA_ADJUST = 0.05
 
+-- Directions that require a release before becoming active again
 local CAMERA_DIRECTIONS = {
-    "left",
-    "right",
-    "up",
-    "down",
-    "upleft",
-    "upright",
-    "downleft",
-    "downright",
+    "left", "right", "up", "down",
+    "upleft", "upright", "downleft", "downright"
 }
 
-function CameraController.getPlayerInputStatus(player_id)
-    return Net.is_player_input_locked(player_id)
-end
-
--- activate now accepts an optional lock_input parameter (default true)
-function CameraController:activate(is_player_controlled, lock_input)
-    -- lock_input defaults to true if not provided
-    local should_lock = (lock_input == nil) and true or lock_input
-
-    if is_player_controlled ~= nil then
-        self.player_in_control = is_player_controlled
-    end
-
-    self.player_input_locked = should_lock   -- store whether input is supposed to be locked
-    self.player_in_control = true
-    self.pending_position = nil
-    self.active = true
-
-    -- Do not inherit a direction that was already held when camera control began.
-    -- The player must release/change that direction before the camera responds to it.
-    Input.require_release(self.player_id, CAMERA_DIRECTIONS)
-
-    -- Lock/unlock according to should_lock
-    if should_lock then
-        Net.lock_player_input(self.player_id)
-        Net.unlock_player_camera(self.player_id)
-    else
-        -- If we don't lock input, we still need to unlock the camera so it can move independently
-        Net.unlock_player_camera(self.player_id)
-        -- Player input remains free (no lock)
-    end
-
-    -- Initialize camera at player position
-    local player_pos = Net.get_player_position(self.player_id)
-    self.current_position = { x = player_pos.x, y = player_pos.y, z = player_pos.z }
-    print("Camera activated for player " .. self.player_id .. " (input locked: " .. tostring(should_lock) .. ")")
-end
-
-function CameraController:returnToPlayer()
-    if self.active == true then
-        local position = Net.get_player_position(self.player_id)
-        CameraController:moveTo(position.x, position.y, position.z)
-    else
-        Net.unlock_player_camera(self.player_id)
-        Net.track_with_player_camera(self.player_id)
-    end
-end
-
-function CameraController:fadePlayerCamera(color, durationInSeconds)
-    local color = {
-        r = color.r or self.camera_color.r,
-        g = color.g or self.camera_color.g,
-        b = color.b or self.camera_color.b,
-        a = color.a or self.camera_color.a,
-    }
-    Net.fade_player_camera(self.player_id, color, durationInSeconds)
-end
-
-function CameraController:shakePlayerCamera(strength, durationInSeconds)
-    Net.shake_player_camera(self.player_id, strength, durationInSeconds)
-end
-
-function CameraController:deactivate(keep_camera_position)
-    self.player_input_locked = false
-    self.player_in_control = false
-    self.pending_position = nil
-    self.active = false
-
-    if keep_camera_position ~= nil or keep_camera_position ~= true then
-        Net.unlock_player_camera(self.player_id)
-        Net.track_with_player_camera(self.player_id)
-    end
-
-    if self.keep_player_input_locked ~= true then
-        Net.unlock_player_input(self.player_id)
-    end
-
-    print("Camera deactivated for player " .. self.player_id)
-    return true
-end
-
-function CameraController:handle_input()
-    -- Note: player_input_locked now only affects whether we process camera movement.
-    -- If it's false, we still process movement (the camera can be moved even if player input is free).
-    -- This allows a "free camera" mode where the player can walk and move the camera independently.
-    if not self.player_in_control then
-        return
-    end
+-- --------------------------------------------------------------------------
+-- Private helper – the actual player‑controlled movement logic
+-- --------------------------------------------------------------------------
+local function handle_player_controlled_movement(self)
+    local d = Input.get_active_direction(self.player_id)
+    if not d then return end
 
     local new_x = self.current_position.x
     local new_y = self.current_position.y
     local moved = false
 
-    local d = Input.get_active_direction(self.player_id)
+    -- Keep the original movement mapping exactly as it was
     if d == "upleft" then
         new_x = self.current_position.x - X_CAMERA_ADJUST
         new_y = self.current_position.y
@@ -146,10 +66,170 @@ function CameraController:handle_input()
 
     if moved then
         self:moveTo(new_x, new_y, self.current_position.z)
-        moved = false
     end
 end
 
+-- --------------------------------------------------------------------------
+-- Constructor
+-- --------------------------------------------------------------------------
+function CameraController:new(player_id, opts)
+    opts = opts or {}
+    local mode = opts.mode or CameraMode.PlayerControlled
+    -- Validate that the provided mode is one of the enum values
+    assert(CameraMode:isValid(mode), "Invalid CameraMode for controller")
+
+    local controller = {
+        player_id = player_id,
+
+        -- Mode and custom handlers
+        mode = mode,
+        custom_handlers = opts.custom_handlers or nil,  -- { onInput, onActivate, onDeactivate }
+
+        -- State
+        is_active = false,
+        input_locked = false,          -- whether player movement is locked (via Net)
+        keep_player_input_locked = opts.keep_player_input_locked or false,
+
+        -- Position
+        current_position = { x = 0, y = 0, z = 100 },
+        pending_position = nil,
+
+        -- Misc
+        camera_color = { r = 255, g = 255, b = 255, a = 0 },
+    }
+
+    setmetatable(controller, self)
+    self.__index = self
+    return controller
+end
+
+-- --------------------------------------------------------------------------
+-- Activation / Deactivation
+-- --------------------------------------------------------------------------
+function CameraController:activate(mode, lock_player_input)
+    -- Use provided mode or fall back to current mode
+    local new_mode = mode or self.mode
+    assert(CameraMode:isValid(new_mode), "Invalid CameraMode for activation")
+    self.mode = new_mode
+
+    -- Lock / unlock player input according to the caller
+    local should_lock = (lock_player_input == nil) and true or lock_player_input
+    self.input_locked = should_lock
+    if should_lock then
+        Net.lock_player_input(self.player_id)
+    else
+        Net.unlock_player_input(self.player_id)
+    end
+
+    -- Ensure camera is not tracking player by default (we manage its position)
+    Net.unlock_player_camera(self.player_id)
+
+    -- Require all directional keys to be released before they can affect the camera
+    Input.require_release(self.player_id, CAMERA_DIRECTIONS)
+
+    -- Set initial camera position to player's current position
+    local player_pos = Net.get_player_position(self.player_id)
+    self.current_position = { x = player_pos.x, y = player_pos.y, z = player_pos.z }
+
+    self.is_active = true
+    self.pending_position = nil
+
+    -- Call custom activation handler if present
+    if self.mode == CameraMode.Custom and self.custom_handlers and self.custom_handlers.onActivate then
+        self.custom_handlers.onActivate(self)
+    end
+
+    print("Camera activated for player " .. self.player_id ..
+          " (mode: " .. tostring(CameraMode:getName(self.mode)) ..
+          ", input locked: " .. tostring(should_lock) .. ")")
+end
+
+function CameraController:deactivate(keep_camera_position)
+    if not self.is_active then
+        return
+    end
+
+    self.is_active = false
+    self.pending_position = nil
+
+    if keep_camera_position ~= true then
+        -- Return camera to follow the player
+        Net.unlock_player_camera(self.player_id)
+        Net.track_with_player_camera(self.player_id)
+    end
+
+    -- Unlock player input unless we are told to keep it locked
+    if not self.keep_player_input_locked then
+        Net.unlock_player_input(self.player_id)
+        self.input_locked = false
+    end
+
+    -- Call custom deactivation handler
+    if self.mode == CameraMode.Custom and self.custom_handlers and self.custom_handlers.onDeactivate then
+        self.custom_handlers.onDeactivate(self)
+    end
+
+    print("Camera deactivated for player " .. self.player_id)
+    return true
+end
+
+function CameraController:returnToPlayer()
+    if self.is_active then
+        local pos = Net.get_player_position(self.player_id)
+        self:moveTo(pos.x, pos.y, pos.z)
+    else
+        Net.unlock_player_camera(self.player_id)
+        Net.track_with_player_camera(self.player_id)
+    end
+end
+
+-- --------------------------------------------------------------------------
+-- Input handling (called every frame from virtual_input listener)
+-- --------------------------------------------------------------------------
+function CameraController:handle_input()
+    if not self.is_active then
+        return
+    end
+
+    -- Skip if a move is already pending (prevent over‑writing)
+    if self:hasPendingMove() then
+        return
+    end
+
+    if self.mode == CameraMode.PlayerControlled then
+        handle_player_controlled_movement(self)
+    elseif self.mode == CameraMode.Custom then
+        if self.custom_handlers and self.custom_handlers.onInput then
+            self.custom_handlers.onInput(self)
+        end
+    -- MiniMap and ServerControlled do nothing on input
+    elseif self.mode == CameraMode.MiniMap or self.mode == CameraMode.ServerControlled then
+        -- no‑op
+    else
+        error("Unknown camera mode: " .. tostring(self.mode))
+    end
+end
+
+-- --------------------------------------------------------------------------
+-- Mode switching
+-- --------------------------------------------------------------------------
+function CameraController:setMode(new_mode, custom_handlers)
+    assert(CameraMode:isValid(new_mode), "Invalid CameraMode")
+    self.mode = new_mode
+    if custom_handlers then
+        self.custom_handlers = custom_handlers
+    end
+    -- Force a release of current directions to avoid stuck input
+    Input.require_release(self.player_id, CAMERA_DIRECTIONS)
+end
+
+function CameraController:setCustomHandlers(handlers)
+    self.custom_handlers = handlers
+end
+
+-- --------------------------------------------------------------------------
+-- Camera movement API (unchanged)
+-- --------------------------------------------------------------------------
 function CameraController:moveTo(x, y, z)
     self.pending_position = {
         x = x,
@@ -167,7 +247,6 @@ function CameraController:relativeMoveTo(dx, dy, dz)
     local new_x = self.current_position.x + (dx or 0)
     local new_y = self.current_position.y + (dy or 0)
     local new_z = self.current_position.z + (dz or 0)
-
     self:moveTo(new_x, new_y, new_z)
 end
 
@@ -205,24 +284,16 @@ function CameraController:hasPendingMove()
     return self.pending_position ~= nil
 end
 
-function CameraController:new(player_id, keep_player_input_locked)
-    local keep_player_input_locked = keep_player_input_locked or false
-    local status = self.getPlayerInputStatus(player_id)
-    local controller = {
-        player_id = player_id,
-        player_input_locked = status,  -- actual lock state from Net
-        player_in_control = false,
-        current_position = { x = 0, y = 0, z = 100 },
-        pending_position = nil,
-        move_speed = 2.0,
-        camera_color = { 255, 255, 255, 0 },
-        active = false,
-        keep_player_input_locked = keep_player_input_locked
-    }
+-- --------------------------------------------------------------------------
+-- Visual effects (unchanged)
+-- --------------------------------------------------------------------------
+function CameraController:fadePlayerCamera(color, durationInSeconds)
+    local col = color or self.camera_color
+    Net.fade_player_camera(self.player_id, col, durationInSeconds)
+end
 
-    setmetatable(controller, self)
-    self.__index = self
-    return controller
+function CameraController:shakePlayerCamera(strength, durationInSeconds)
+    Net.shake_player_camera(self.player_id, strength, durationInSeconds)
 end
 
 return CameraController

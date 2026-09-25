@@ -5,9 +5,10 @@ local PlayerControllers = {}
 CameraManager.PlayerControllers = PlayerControllers
 
 local CameraController = require("scripts/camera/camera-controller")
+local PredefinedEnums = require("scripts/enum/predefined-enums")
+local CameraMode = PredefinedEnums.CameraMode
 
 function CameraManager:init(handle_on_join, tile_interaction, setup_inputs)
-    -- Set up event listeners
     self:setup_event_listeners(handle_on_join, tile_interaction, setup_inputs)
 end
 
@@ -27,8 +28,8 @@ function CameraManager:get_controller(player_id)
 end
 
 -- Public API to activate camera for a player
--- Now accepts an optional third parameter `lock_input` (default true)
-function CameraManager:activate_camera(player_id, is_player_controlled, lock_input)
+-- Now accepts mode (a CameraMode value) and lock_input (default true)
+function CameraManager:activate_camera(player_id, mode, lock_input)
     if not player_id then
         print("ERROR: activate_camera called without player_id")
         return false
@@ -40,9 +41,8 @@ function CameraManager:activate_camera(player_id, is_player_controlled, lock_inp
         return false
     end
 
-    -- Pass lock_input to the controller (default true if nil)
-    controller:activate(is_player_controlled, lock_input)
-
+    -- Pass mode and lock_input to the controller
+    controller:activate(mode, lock_input)
     print("Camera activated for player " .. player_id)
     return true
 end
@@ -72,7 +72,7 @@ function CameraManager:is_camera_active(player_id)
         return false
     end
     local controller = PlayerControllers[player_id]
-    return controller and controller.player_in_control or false
+    return controller and controller.is_active or false
 end
 
 -- Check if player's camera has a pending move
