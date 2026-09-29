@@ -8,7 +8,7 @@
 require("scripts/net-games/main")
 
 local Displayer = require("scripts/displayer/displayer")
-local Input = require("scripts/input/input")
+local Input = require("scripts/input-controller/input-controller")
 local UISafe = require("scripts/net-games/ui-safe")
 
 local MenuAPI = {}
