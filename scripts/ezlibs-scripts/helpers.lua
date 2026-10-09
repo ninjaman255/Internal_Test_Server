@@ -1,4 +1,5 @@
 local helpers = {}
+local ezutil = require('scripts/ezlibs-scripts/utils/ezutil')
 local urlencode = require('scripts/ezlibs-scripts/urlencode')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local locks = {}
@@ -19,11 +20,7 @@ function first_value_from_table(tbl)
 end
 
 function get_table_length(tbl)
-    local getN = 0
-    for n in pairs(tbl) do 
-      getN = getN + 1 
-    end
-    return getN
+    return ezutil.table_count(tbl)
 end
 
 function helpers.indexOf(array, value)
@@ -61,18 +58,7 @@ function helpers.create_bbs_option(text,id)
 end
 
 function helpers.deep_copy(orig)
-    local orig_type = type(orig)
-    local copy
-    if orig_type == 'table' then
-        copy = {}
-        for orig_key, orig_value in next, orig, nil do
-            copy[helpers.deep_copy(orig_key)] = helpers.deep_copy(orig_value)
-        end
-        setmetatable(copy, helpers.deep_copy(getmetatable(orig)))
-    else
-        copy = orig
-    end
-    return copy
+    return ezutil.deep_copy(orig)
 end
 
 function helpers.split(string, delimiter)
