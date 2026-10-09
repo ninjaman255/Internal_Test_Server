@@ -8,11 +8,28 @@
 require("scripts/net-games/main")
 
 local Displayer = require("scripts/displayer/displayer")
-local Input = require("scripts/input-controller/input-controller")
+local InputSystem = require("scripts/input-controller/main")
 local UISafe = require("scripts/net-games/ui-safe")
 
 local MenuAPI = {}
 _G.MenuAPI = MenuAPI
+
+local function get_controller(player_id)
+    return InputSystem.get_controller(player_id)
+        or InputSystem.create_controller(player_id)
+end
+
+local function guard_input(player_id, swallow_seconds)
+    local ctrl = get_controller(player_id)
+
+    if swallow_seconds and swallow_seconds > 0 then
+        ctrl:swallow(swallow_seconds)
+    else
+        ctrl:consume()
+    end
+
+    ctrl:require_release({ "Confirm", "Cancel" })
+end
 
 local cfg = {
     open_sfx   = "/server/assets/net-games/sfx/screen_open.ogg",
@@ -509,9 +526,7 @@ function MenuAPI.open(player_id, spec)
 
     -- Ensure font assets exist even if MenuAPI was required after player_join.
     pcall(Displayer.Font.allocateAllFontsForPlayer, player_id)
-    Input.consume(player_id)
-    Input.swallow(player_id, 0.10)
-    Input.require_release(player_id, {"confirm","cancel"})
+    guard_input(player_id, 0.10)
     full_draw(st)
     play_sfx(player_id, cfg.open_sfx)
     return st
@@ -535,9 +550,7 @@ function MenuAPI.close(player_id, opts)
         -- remained rendered beneath the pushed menu; refresh only its cursor.
         draw_cursor(stack[#stack])
     end
-    Input.consume(player_id)
-    Input.swallow(player_id, 0.08)
-    Input.require_release(player_id, {"confirm","cancel"})
+    guard_input(player_id, 0.08)
     return true
 end
 
@@ -548,8 +561,7 @@ function MenuAPI.close_all(player_id, opts)
     for i = #stack, 1, -1 do cleanup(stack[i]) end
     stacks[player_id] = nil
     if opts.keep_locked ~= true then set_input_locked(player_id, false) end
-    Input.consume(player_id)
-    Input.require_release(player_id, {"confirm","cancel"})
+    guard_input(player_id)
 end
 
 function MenuAPI.is_open(player_id) return active(player_id) ~= nil end
@@ -595,22 +607,38 @@ function MenuAPI.handle_cancel(player_id)
     handle_cancel(st); return true
 end
 
--- One global tick polls the canonical input system; MenuAPI never installs a
--- second virtual_input listener and never uses os.clock for repeat timing.
+-- Poll the canonical per-player InputController.
+-- virtual_input and repeat timing are handled by input-controller/main.lua.
 Net:on("tick", function(_event)
     for player_id, stack in pairs(stacks) do
         local st = stack[#stack]
-        if st then
+        local ctrl = InputSystem.get_controller(player_id)
+
+        if st and ctrl then
             if st.type == 4 then
-                if Input.pop(player_id, "left") or Input.pop(player_id, "right") then move_selection(st, 1)
-                elseif Input.pop(player_id, "confirm") then confirm(st)
-                elseif Input.pop(player_id, "cancel") then handle_cancel(st) end
+                if ctrl:is_action_pressed("Left")
+                    or ctrl:is_action_pressed("Right") then
+                    move_selection(st, 1)
+                elseif ctrl:is_action_pressed("Confirm") then
+                    confirm(st)
+                elseif ctrl:is_action_pressed("Cancel") then
+                    handle_cancel(st)
+                end
+
             elseif MENU_TYPES[st.type].selectable then
-                if Input.pop(player_id, "up") or Input.pop_repeated(player_id, "up") then move_selection(st, -1)
-                elseif Input.pop(player_id, "down") or Input.pop_repeated(player_id, "down") then move_selection(st, 1)
-                elseif Input.pop(player_id, "confirm") then confirm(st)
-                elseif Input.pop(player_id, "cancel") then handle_cancel(st) end
-            elseif Input.pop(player_id, "cancel") then
+                if ctrl:is_action_pressed("Up")
+                    or ctrl:is_action_repeated("Up") then
+                    move_selection(st, -1)
+                elseif ctrl:is_action_pressed("Down")
+                    or ctrl:is_action_repeated("Down") then
+                    move_selection(st, 1)
+                elseif ctrl:is_action_pressed("Confirm") then
+                    confirm(st)
+                elseif ctrl:is_action_pressed("Cancel") then
+                    handle_cancel(st)
+                end
+
+            elseif ctrl:is_action_pressed("Cancel") then
                 handle_cancel(st)
             end
         end

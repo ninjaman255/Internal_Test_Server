@@ -14,13 +14,25 @@ local PredefinedEnums = {
             Custom = "custom"
         }
     }),
+    
     Status = Enum.new({
         ACTIVE   = "active",
         INACTIVE = "inactive",
         PENDING  = { code = 0, label = "pending" },
     }),
-    LogLevel = Enum.new("DEBUG", "INFO", "WARN", "ERROR"),
-    -- Add more enums here...
+    
+    LogLevel = Enum.new({Debug = "DEBUG", Info = "INFO", Warn = "WARN", Error = "ERROR"}),
+    
+    DefaultPlayerAnimNames = Enum.new({
+        IdleDL = "IDLE_DL",
+        IdleDR = "IDLE_DR",
+        IdleUL = "IDLE_UL",
+        IdleUR = "IDLE_UR",
+        IdleU = "IDLE_U",
+        IdleD = "IDLE_D",
+        IdleR = "IDLE_R",
+        IdleL = "IDLE_L",
+    })
 }
 
 return PredefinedEnums

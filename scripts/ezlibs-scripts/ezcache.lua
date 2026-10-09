@@ -16,33 +16,39 @@ end
 function ezcache.cache_object(area_id, object)
     if not object then return nil end
     area_id = tostring(area_id)
-    local object_id = tostring(object.id)
+    local object_key = tostring(object.id)
     if not ezcache.cache[area_id] then
         ezcache.cache[area_id] = {}
     end
     -- If already cached, return the cached copy
-    if ezcache.cache[area_id][object_id] then
-        return ezcache.cache[area_id][object_id]
+    if ezcache.cache[area_id][object_key] then
+        return ezcache.cache[area_id][object_key]
     end
-    -- Store and remove from Net
-    ezcache.cache[area_id][object_id] = object
-    Net.remove_object(area_id, object_id)
+    -- Store and remove from Net.
+    -- The cache key is a string, but Net.remove_object may expect the
+    -- original numeric id, so pass the raw object.id through unchanged.
+    ezcache.cache[area_id][object_key] = object
+    Net.remove_object(area_id, object.id)
     return object
 end
 
 -- Get an object by ID, using cache and fetching if necessary
 function ezcache.get_object_by_id_cached(area_id, object_id)
     area_id = tostring(area_id)
-    object_id = tostring(object_id)
+    -- Use a string key for the cache table so lookups are consistent
+    local cache_key = tostring(object_id)
 
     if not ezcache.cache[area_id] then
         ezcache.cache[area_id] = {}
     end
 
-    if ezcache.cache[area_id][object_id] then
-        return ezcache.cache[area_id][object_id]
+    if ezcache.cache[area_id][cache_key] then
+        return ezcache.cache[area_id][cache_key]
     else
-        local object = Net.get_object_by_id(area_id, object_id)
+        -- Pass the id through in its original (likely numeric) form for the
+        -- Net lookup. Only the cache table key needs to be a string.
+        local net_id = tonumber(object_id) or object_id
+        local object = Net.get_object_by_id(area_id, net_id)
         if object and ezcache.object_is_of_type(object) then
             return ezcache.cache_object(area_id, object)
         end

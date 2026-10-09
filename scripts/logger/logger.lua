@@ -4,6 +4,7 @@
 -- No longer depends on persistence.lua.
 
 local json = require('scripts/libs/json')
+local ENUMS = require('scripts/enum/predefined-enums')
 
 local loggers = {}
 local next_check = 0
@@ -167,10 +168,10 @@ function LoggerMT:flush()
 end
 
 -- Public logging methods
-function LoggerMT:debug(msg, data) self:addEntry("debug", msg, data) end
-function LoggerMT:info(msg, data)  self:addEntry("info", msg, data) end
-function LoggerMT:warn(msg, data)  self:addEntry("warn", msg, data) end
-function LoggerMT:error(msg, data) self:addEntry("error", msg, data) end
+function LoggerMT:debug(msg, data) self:addEntry(ENUMS.LogLevel.Debug, msg, data) end
+function LoggerMT:info(msg, data)  self:addEntry(ENUMS.LogLevel.Info, msg, data) end
+function LoggerMT:warn(msg, data)  self:addEntry(ENUMS.LogLevel.Warn, msg, data) end
+function LoggerMT:error(msg, data) self:addEntry(ENUMS.LogLevel.Error, msg, data) end
 
 -- Force flush now (useful before shutdown)
 function LoggerMT:forceFlush()

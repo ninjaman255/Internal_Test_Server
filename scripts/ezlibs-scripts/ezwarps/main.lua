@@ -45,6 +45,12 @@ function log(message)
    print('[ezwarps] '.. message)
 end
 
+-- Normalizes a custom property that may be a real boolean or a string
+-- such as "true"/"false" into a real Lua boolean.
+local function property_is_true(value)
+    return value == true or value == "true" or value == "True"
+end
+
 function add_landing(area_id, incoming_data, x, y, z, direction, warp_in, arrival_animation)
     local new_landing = {
         area_id = area_id,
@@ -67,7 +73,7 @@ function doAnimationForWarp(player_id,animation_name,is_leave_animation,warp_obj
     return async(function()
         log('doing special animation '..animation_name)
         players_in_animations[player_id] = true
-        if warp_object and warp_object.custom_properties["Dont Teleport"] == "true" then
+        if warp_object and property_is_true(warp_object.custom_properties["Dont Teleport"]) then
             players_in_animations[player_id] = nil
         end
         Net.lock_player_input(player_id)
@@ -118,7 +124,7 @@ function add_custom_warp(object, object_id, area_id, area_name)
     log('adding custom warp with id ' .. object_id .. ' in ' .. area_name .. ' ... ')
     local target_object = nil
     local target_area = object.custom_properties["Target Area"]
-    local dont_teleport = object.custom_properties["Dont Teleport"]
+    local dont_teleport = property_is_true(object.custom_properties["Dont Teleport"])
     if not dont_teleport and target_area then
         local target_object_id = tostring(object.custom_properties["Target Object"])
         target_object = ezcache.get_object_by_id_cached(target_area, target_object_id)
@@ -136,7 +142,7 @@ local function process_warp_object(area_id, object)
     -- Add landing if it has Incoming Data
     if object.custom_properties["Incoming Data"] then
         local direction = object.custom_properties.Direction or "Down"
-        local warp_in = object.custom_properties["Warp In"] == "true"
+        local warp_in = property_is_true(object.custom_properties["Warp In"])
         add_landing(area_id, object.custom_properties["Incoming Data"],
                     object.x+0.5, object.y+0.5, object.z,
                     direction, warp_in, object.custom_properties["Arrival Animation"])
@@ -210,7 +216,10 @@ function use_warp(player_id,warp_object,warp_meta)
             is_valid_warp = true
         end
 
-        if warp_object.custom_properties["Dont Teleport"] then
+        -- Normalize Dont Teleport to a real boolean before using it anywhere.
+        local dont_teleport = property_is_true(warp_object.custom_properties["Dont Teleport"])
+
+        if dont_teleport then
             is_valid_warp = true
         end
 
@@ -219,8 +228,8 @@ function use_warp(player_id,warp_object,warp_meta)
             return
         end
 
-        local warp_out = warp_properties["Warp Out"] == "True"
-        local warp_in = warp_properties["Warp In"] == "True"
+        local warp_out = property_is_true(warp_properties["Warp Out"])
+        local warp_in = property_is_true(warp_properties["Warp In"])
         local data = warp_properties.Data
 
         -- Play leave animation if specified
@@ -253,7 +262,6 @@ function use_warp(player_id,warp_object,warp_meta)
         else
             local direction = "Down"
             local arrival_animation_name = nil
-            local dont_teleport = warp_object.custom_properties["Dont Teleport"]
             if target_object_id and not dont_teleport then
                 local target_id_str = tostring(target_object_id)
                 local target_object = ezcache.get_object_by_id_cached(target_area, target_id_str)
@@ -273,7 +281,7 @@ function use_warp(player_id,warp_object,warp_meta)
                     Net.transfer_player(player_id, target_area, true, target_object.x+0.5, target_object.y+0.5, target_object.z, direction)
                 end
             else
-                log('unable to transfer, no target object')
+                log('unable to transfer, no target object or Dont Teleport is enabled')
             end
             ezbus:emit("warp", {
                 player_id = player_id,
