@@ -1126,35 +1126,72 @@ local function read_bool(value, default)
     return default
 end
 
-local function apply_group_checkpoint_action(area_id, player_id, checkpoint_id, area_wide, unlock, permanent)
-    if checkpoint_id == nil or checkpoint_id == "" then return end
-    checkpoint_id = tostring(checkpoint_id)
+local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids, area_wide, unlock, permanent, group_id)
+    if type(checkpoint_ids) ~= "table" then
+        checkpoint_ids = checkpoint_ids ~= nil and checkpoint_ids ~= "" and { checkpoint_ids } or {}
+    end
+    if #checkpoint_ids == 0 then return end
+
+    area_id = tostring(area_id)
+    local area_mem = ezmemory.get_area_memory(area_id)
+
+    for _, raw_checkpoint_id in ipairs(checkpoint_ids) do
+        if raw_checkpoint_id ~= nil and tostring(raw_checkpoint_id) ~= "" then
+            local checkpoint_id = tostring(raw_checkpoint_id)
+            if area_wide then
+                local players = Net.list_players(area_id) or {}
+                for _, target_player_id in ipairs(players) do
+                    local ok, err
+                    if unlock then
+                        ok, err = pcall(ezcheckpoints.force_unlock_checkpoint,
+                            target_player_id, area_id, checkpoint_id, permanent)
+                    else
+                        ok, err = pcall(ezcheckpoints.relock_checkpoint,
+                            target_player_id, area_id, checkpoint_id)
+                    end
+                    if not ok then
+                        print("[ezbuttons] Group checkpoint action failed:", tostring(err))
+                    end
+                end
+
+                -- Temporary area-wide unlocks must also apply to players who enter
+                -- the area later. Use a group-specific key so groups do not overwrite
+                -- each other's checkpoint tracking.
+                area_mem.area_wide_unlock = area_mem.area_wide_unlock or {}
+                local tracking_key = "button_group:" .. tostring(group_id or "") .. ":" .. checkpoint_id
+                if unlock and not permanent then
+                    area_mem.area_wide_unlock[tracking_key] = {
+                        area_id = area_id,
+                        checkpoint_object_id = checkpoint_id,
+                        once = false,
+                    }
+                elseif not unlock then
+                    for key, entry in pairs(area_mem.area_wide_unlock) do
+                        if entry.area_id == area_id and tostring(entry.checkpoint_object_id) == checkpoint_id then
+                            area_mem.area_wide_unlock[key] = nil
+                        end
+                    end
+                end
+            elseif player_id then
+                local ok, err
+                if unlock then
+                    ok, err = pcall(ezcheckpoints.force_unlock_checkpoint,
+                        player_id, area_id, checkpoint_id, permanent)
+                else
+                    ok, err = pcall(ezcheckpoints.relock_checkpoint,
+                        player_id, area_id, checkpoint_id)
+                end
+                if not ok then
+                    print("[ezbuttons] Group checkpoint action failed:", tostring(err))
+                end
+            else
+                print("[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false")
+            end
+        end
+    end
 
     if area_wide then
-        local players = Net.list_players(area_id) or {}
-        for _, target_player_id in ipairs(players) do
-            local ok, err
-            if unlock then
-                ok, err = pcall(ezcheckpoints.force_unlock_checkpoint, target_player_id, area_id, checkpoint_id, permanent)
-            else
-                ok, err = pcall(ezcheckpoints.relock_checkpoint, target_player_id, area_id, checkpoint_id)
-            end
-            if not ok then
-                print("[ezbuttons] Group checkpoint action failed:", tostring(err))
-            end
-        end
-    elseif player_id then
-        local ok, err
-        if unlock then
-            ok, err = pcall(ezcheckpoints.force_unlock_checkpoint, player_id, area_id, checkpoint_id, permanent)
-        else
-            ok, err = pcall(ezcheckpoints.relock_checkpoint, player_id, area_id, checkpoint_id)
-        end
-        if not ok then
-            print("[ezbuttons] Group checkpoint action failed:", tostring(err))
-        end
-    else
-        print("[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false")
+        ezmemory.save_area_memory(area_id)
     end
 end
 
@@ -1182,19 +1219,29 @@ local function configure_group_object(area_id, object)
     if group_id == nil or tostring(group_id) == "" then group_id = tostring(object.id) end
     group_id = tostring(group_id)
     local mode = props["Group Mode"] or "all_active"
-    local unlock_checkpoint = props["Unlock Checkpoint"]
+    -- Supports numbered lists (Unlock Checkpoint 1..10 / Relock Checkpoint 1..10)
+    -- while retaining the original singular properties for existing maps.
+    local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ", 1, 10)
+    local relock_checkpoints = property_ids(props, "Relock Checkpoint ", 1, 10)
+    if #unlock_checkpoints == 0 and props["Unlock Checkpoint"] ~= nil and tostring(props["Unlock Checkpoint"]) ~= "" then
+        unlock_checkpoints[1] = tostring(props["Unlock Checkpoint"])
+    end
+    if #relock_checkpoints == 0 and props["Relock Checkpoint"] ~= nil and tostring(props["Relock Checkpoint"]) ~= "" then
+        relock_checkpoints[1] = tostring(props["Relock Checkpoint"])
+    end
     local unlock_permanently = read_bool(props["Unlock Permanently"], true)
     local unlock_area_wide = read_bool(props["Unlock Area Wide"], false)
-    local relock_checkpoint = props["Relock Checkpoint"]
     local relock_area_wide = read_bool(props["Relock Area Wide"], false)
 
     local ok, err = pcall(ezbuttons.define_group, area_id, group_id, required_ids, mode, {
         forbidden_ids = forbidden_ids,
         on_change = function(changed_area_id, changed_group_id, satisfied, player_id)
             if satisfied then
-                apply_group_checkpoint_action(changed_area_id, player_id, unlock_checkpoint, unlock_area_wide, true, unlock_permanently)
-            elseif relock_checkpoint and relock_checkpoint ~= "" then
-                apply_group_checkpoint_action(changed_area_id, player_id, relock_checkpoint, relock_area_wide, false, false)
+                apply_group_checkpoint_action(changed_area_id, player_id, unlock_checkpoints,
+                    unlock_area_wide, true, unlock_permanently, changed_group_id)
+            elseif #relock_checkpoints > 0 then
+                apply_group_checkpoint_action(changed_area_id, player_id, relock_checkpoints,
+                    relock_area_wide, false, false, changed_group_id)
             end
         end
     })

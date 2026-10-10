@@ -23,7 +23,7 @@ local Enums = {
     DialogueType = {
         type = "string",
         values = {"first", "question", "quiz", "random", "itemcheck", "before", "after",
-                  "shop", "password", "quest_switch", "quest_event", "item", "email", 
+                  "shop", "password", "quest_switch", "quest_event", "item", "email",
                   "questcheck", "battle_npc"}
     },
     ItemType = {
@@ -54,7 +54,8 @@ local Enums = {
         type = "string",
         values = {"Any", "Exclusive"}
     },
-    -- New ezbuttons group/effect schema values.
+
+    -- ezbuttons group/effect schema values.
     ButtonGroupMode = {
         type = "string",
         values = {"all_active", "any_active", "combination"}
@@ -120,15 +121,18 @@ local object_types = {
             prop("Failure Message", "string", ""),
             prop("On Fail", "string", "retry", "QuizFailAction"),
             prop("Explosion Count", "number", 3),
+
             -- Reward properties (used when Type = "quiz")
             prop("Reward Type", "string", "item", "ItemType"),
             prop("Reward Name", "string", ""),
             prop("Reward Amount", "number", 1),
             prop("Reward Description", "string", ""),
+
             -- Cost properties
             prop("Cost Type", "string", "", "CurrencyType"),
             prop("Cost Amount", "number", 1),
             prop("Cost Failure Message", "string", ""),
+
             -- Next numbered properties
             prop("Next 1", "object", ""),
             prop("Next 2", "object", ""),
@@ -329,6 +333,7 @@ local object_types = {
             prop("Quest Name", "string", ""),
             prop("Event Value", "string", ""),
             prop("Dont Notify", "bool", false),
+
             -- Email-specific properties
             prop("Email Id", "string", ""),
             prop("Email Icon", "number", 1),
@@ -349,11 +354,13 @@ local object_types = {
             prop("Mug Texture Path", "string", ""),
             prop("Mug Animation Path", "string", ""),
             prop("Persist", "bool", true),
+
             -- Battle NPC properties
             prop("Encounter Name", "string", ""),
             prop("Failure Message", "string", ""),
         }
     },
+
     -- Explosion Trigger
     {
         name = "Explosion Trigger",
@@ -364,6 +371,7 @@ local object_types = {
             prop("Once", "bool", false),
         }
     },
+
     -- Rush Road (for ezrushroads)
     {
         name = "Rush Road",
@@ -373,6 +381,7 @@ local object_types = {
             prop("Direction", "string", "Down Left", "Direction"),
         }
     },
+
     -- Compression Tile (for ezpress)
     {
         name = "Compression Tile",
@@ -382,6 +391,7 @@ local object_types = {
             prop("Decompress", "bool", false),
         }
     },
+
     -- Admin Console (for ezusers)
     {
         name = "Admin Console",
@@ -390,6 +400,7 @@ local object_types = {
             -- No custom properties needed (uses global password hash)
         }
     },
+
     -- Button Bot Details – stores the visual/animation properties for an OW Button
     {
         name = "Button Bot Details",
@@ -407,34 +418,27 @@ local object_types = {
             prop("Deactivation Animation Duration", "number", 0.5),
         }
     },
+
     -- OW Button (from ezbuttons)
     {
         name = "OW Button",
         color = "#66ccff",
         members = {
-            -- Reference to the Button Bot Details object that defines bot visuals
             prop("Bot Details", "object", ""),
-            -- Next button in the chain
             prop("Next 1", "object", ""),
-            -- Button behavior
             prop("Button Behavior", "string", "One-Time", "ButtonBehavior"),
             prop("Script Path", "file", ""),
-            -- Reference to the Button Trigger object that defines the detection zone
             prop("Trigger Object", "object", ""),
-            -- Unlock behavior (when chain becomes fully active)
             prop("Button Activated Behavior", "object", ""),
-            -- Relock behavior (when button deactivates)
             prop("Button Deactivated Behavior", "object", ""),
-            -- Button chain exclusivity mode
             prop("Button Chain Type", "string", "Any", "ButtonChainType"),
-            -- Optional fallback trigger dimensions when no Trigger Object is assigned.
             prop("Trigger Type", "string", "rect", "TriggerShape"),
             prop("Trigger Width", "number", 4),
             prop("Trigger Height", "number", 4),
-            -- Timed behavior duration
             prop("Activated Time", "number", 1),
         }
     },
+
     -- OW Button Group Member – shares button visuals/trigger behavior but has no individual checkpoint actions.
     {
         name = "OW Button Group Member",
@@ -450,6 +454,7 @@ local object_types = {
             prop("Activated Time", "number", 1),
         }
     },
+
     -- Unlock Behavior – defines unlock action for an individual OW Button
     {
         name = "Unlock Behavior",
@@ -460,6 +465,7 @@ local object_types = {
             prop("Area Wide", "bool", false),
         }
     },
+
     -- Relock Behavior – defines relock action triggered when a button deactivates
     {
         name = "Relock Behavior",
@@ -469,6 +475,7 @@ local object_types = {
             prop("Area Wide", "bool", false),
         }
     },
+
     -- Button Trigger – defines the detection area for an OW Button
     {
         name = "Button Trigger",
@@ -477,14 +484,16 @@ local object_types = {
             prop("Trigger Type", "string", "rect", "TriggerShape"),
         }
     },
+
     -- Button Group – lists member buttons and the rule for considering the group satisfied.
-    -- Button references are object properties so they can be selected in Tiled.
     {
         name = "Button Group",
         color = "#66dd99",
         members = {
             prop("Group ID", "string", ""),
             prop("Group Mode", "string", "all_active", "ButtonGroupMode"),
+
+            -- Required/active button references
             prop("Button 1", "object", ""),
             prop("Button 2", "object", ""),
             prop("Button 3", "object", ""),
@@ -495,6 +504,7 @@ local object_types = {
             prop("Button 8", "object", ""),
             prop("Button 9", "object", ""),
             prop("Button 10", "object", ""),
+
             -- For combination groups, populated Forbidden Button references must be inactive.
             prop("Forbidden Button 1", "object", ""),
             prop("Forbidden Button 2", "object", ""),
@@ -506,14 +516,44 @@ local object_types = {
             prop("Forbidden Button 8", "object", ""),
             prop("Forbidden Button 9", "object", ""),
             prop("Forbidden Button 10", "object", ""),
-            -- Shared checkpoint actions execute only on group state transitions.
-            prop("Unlock Checkpoint", "object", ""),
+
+            -- Multiple checkpoint targets to unlock when the group becomes satisfied.
+            prop("Unlock Checkpoint 1", "object", ""),
+            prop("Unlock Checkpoint 2", "object", ""),
+            prop("Unlock Checkpoint 3", "object", ""),
+            prop("Unlock Checkpoint 4", "object", ""),
+            prop("Unlock Checkpoint 5", "object", ""),
+            prop("Unlock Checkpoint 6", "object", ""),
+            prop("Unlock Checkpoint 7", "object", ""),
+            prop("Unlock Checkpoint 8", "object", ""),
+            prop("Unlock Checkpoint 9", "object", ""),
+            prop("Unlock Checkpoint 10", "object", ""),
+
+            -- Shared settings for all unlock targets.
             prop("Unlock Permanently", "bool", true),
             prop("Unlock Area Wide", "bool", false),
-            prop("Relock Checkpoint", "object", ""),
-            prop("Relock Area Wide", "bool", false)
+
+            -- Multiple checkpoint targets to relock when the group becomes incomplete.
+            prop("Relock Checkpoint 1", "object", ""),
+            prop("Relock Checkpoint 2", "object", ""),
+            prop("Relock Checkpoint 3", "object", ""),
+            prop("Relock Checkpoint 4", "object", ""),
+            prop("Relock Checkpoint 5", "object", ""),
+            prop("Relock Checkpoint 6", "object", ""),
+            prop("Relock Checkpoint 7", "object", ""),
+            prop("Relock Checkpoint 8", "object", ""),
+            prop("Relock Checkpoint 9", "object", ""),
+            prop("Relock Checkpoint 10", "object", ""),
+
+            -- Shared setting for all relock targets.
+            prop("Relock Area Wide", "bool", false),
+
+            -- Legacy properties retained for compatibility with existing maps.
+            prop("Unlock Checkpoint", "object", ""),
+            prop("Relock Checkpoint", "object", "")
         }
     },
+
     -- Button Effect – a button state transition applies an action to another button.
     {
         name = "Button Effect",
@@ -525,6 +565,7 @@ local object_types = {
             prop("Action", "string", "activate", "ButtonEffectAction")
         }
     },
+
     -- Button Group Effect – a group transition applies an action to a target button.
     {
         name = "Button Group Effect",
