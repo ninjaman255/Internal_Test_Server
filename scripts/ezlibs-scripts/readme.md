@@ -38,7 +38,7 @@
 - In‑game email + server announcements (`ezemail`, `ezannounce`)
 - Warp objects with animated transitions (`ezwarps`)
 - Weather (`ezweather`)
-- Buttons with chain unlocking (`ezbuttons`)
+- Buttons with checkpoint unlocks and logical groups (`ezbuttons`)
 - Farming (`ezfarms`)
 - Mystery Data / quiz / reward objects (`ezmystery`)
 - Checkpoints / locks (`ezcheckpoints`, `ezlocks`)
@@ -342,7 +342,6 @@ A single shared `EventEmitter` instance. All subsystems use `ezbus:on(...)` / `e
 | `lock_attempt` | `ezlocks` | `player_id`, `type`, `passed`, extra args |
 | `explode` | (emitter side) | `actor_id`, `area_id`, `max_explosions` |
 | `weather_changed` | `ezweather` | `area_id`, `new_type` |
-| `ezbuttons.chain_unlocked` | `ezbuttons` | `player_id`, `chain_root`, `area_id` |
 | `player_compressed` / `player_decompressed` | `ezpress` | `player_id` |
 | `mystery_collected` | `ezmystery` | `player_id`, `area_id`, `object_id`, `item_info` |
 | `encounter_started` | `ezencounters` | `player_id`, `encounter_info`, `trigger_object` |
@@ -763,194 +762,255 @@ add_location_event_trigger will still add a trigger even if Event Name is missin
 
 ### 3.2 ezbuttons.lua
 
-Overworld buttons built from Tiled objects (a placeholder + a bot + a trigger), chained via "Next 1". Supports unlocking checkpoints, exclusive chains, and area‑wide unlock/relock.
+Overworld buttons are Tiled objects that spawn a non-solid bot and a trigger. The Tiled setup supports individual button behavior, custom behavior scripts, trigger geometry, and checkpoint unlock/relock behavior. Multi-button logic is handled by area-scoped logical groups and button/group effects configured through the Lua API.
 
-#### 3.2.1 Internal state
+> ⚠️ **Important — Tiled group objects are not runtime-wired yet.** The updated `generate-ezlibs-tiled.lua` schema can expose `Button Group`, `Button Effect`, and `Button Group Effect` objects in Tiled, but the current `ezbuttons.lua` does not automatically discover or read those objects. Configure groups and effects in Lua using the API below. Creating those Tiled objects alone will not activate group logic in-game.
+
+#### 3.2.1 How button setup works
+
+A normal button setup uses these objects:
+
+| Tiled object type | Purpose |
+| --- | --- |
+| `OW Button` | Main button placeholder. Configure its behavior and references here. |
+| `Button Bot Details` | Describes the bot/visuals spawned for the button. |
+| `Button Trigger` | Optional separate trigger object. If omitted, the button's own trigger properties are used. |
+| `Unlock Behavior` | Optional referenced configuration for a checkpoint unlock when this button activates. |
+| `Relock Behavior` | Optional referenced configuration for relocking a checkpoint when this button deactivates. |
+
+The `OW Button` references the related objects by their Tiled object IDs. Keep those references pointed at the intended objects in the same area/map. For Lua groups and effects, use the **Tiled object ID of the `OW Button`**, not its display name or the bot ID.
+
+#### 3.2.2 Setting up a single button in Tiled
+
+1. Add a `Button Bot Details` object to the map and set its required properties:
+   - `Asset Name`
+   - `Direction`
+2. Configure any optional bot animation properties on `Button Bot Details`.
+3. Add an `OW Button` object where the button should be placed.
+4. Set the `OW Button` **`Bot Details`** property to reference the `Button Bot Details` object.
+5. Choose a `Button Behavior` and configure the other properties needed for that behavior.
+6. If the interaction area needs to be separate from the button placeholder, add a `Button Trigger` object, set its `Trigger Type`, and reference it from the `OW Button`'s `Trigger Object` property.
+7. Save the map and make sure the generated Tiled type definitions are installed in the editor.
+
+#### 3.2.3 `OW Button` properties
+
+These are the properties read by the existing runtime handler.
+
+| Property | Type / expected value | Purpose |
+| --- | --- | --- |
+| `Bot Details` | Object reference / object ID | Required reference to a `Button Bot Details` object. |
+| `Button Behavior` | `Repeatable`, `One-Time`, `Dynamic`, `Custom`, or `Timed` | Controls what happens when the trigger is entered or departed. Defaults to `One-Time`. |
+| `Script Path` | String | Module path for `Custom` behavior. |
+| `Trigger Object` | Object reference / object ID | Optional reference to a separate `Button Trigger` object. |
+| `Trigger Type` | `rect` or `ellipse` | Shape used when no separate trigger object is supplied. |
+| `Trigger Width` | Number (pixels) | Fallback trigger width when no `Trigger Object` is supplied. |
+| `Trigger Height` | Number (pixels) | Fallback trigger height when no `Trigger Object` is supplied. |
+| `Button Activated Behavior` | Object reference / object ID | Optional reference to an `Unlock Behavior` object. |
+| `Button Deactivated Behavior` | Object reference / object ID | Optional reference to a `Relock Behavior` object. |
+| `Activated Time` | Number (seconds) | Duration used by `Timed` behavior; defaults to 1 second. |
+
+#### 3.2.4 `Button Bot Details` properties
+
+| Property | Type | Purpose |
+| --- | --- | --- |
+| `Asset Name` | String; required | Bot asset name. |
+| `Direction` | String; required | Initial direction for the bot. |
+| `Animation Name` | String; optional | Overrides the default animation file name. |
+| `Mug Animation Name` | String; optional | Mugshot animation name. |
+| `Active Animation` | String | Animation used while the button is active; defaults to `ACTIVE`. |
+| `Inactive Animation` | String | Animation used while the button is inactive; defaults to `INACTIVE`. |
+| `Activated Animation` | String; optional | Transition animation when activating. |
+| `Deactivated Animation` | String; optional | Transition animation when deactivating. |
+| `Activation Animation Duration` | Number | Activation transition duration; defaults to 0.5 seconds. |
+| `Deactivation Animation Duration` | Number | Deactivation transition duration; defaults to 0.5 seconds. |
+
+#### 3.2.5 Trigger, unlock, and relock properties
+
+**`Button Trigger`**
+
+| Property | Type | Purpose |
+| --- | --- | --- |
+| `Trigger Type` | `rect` or `ellipse` | Trigger shape; defaults to `rect`. |
+
+**`Unlock Behavior`**
+
+| Property | Type | Purpose |
+| --- | --- | --- |
+| `Unlock This` | Object reference / object ID | Checkpoint object to unlock. |
+| `Unlock Permanently` | Boolean or string `"true"` / `"false"` | Whether the unlock is permanent; defaults to `true`. |
+| `Area Wide` | Boolean or string `"true"` / `"false"` | Apply the unlock to all players in the area; defaults to `false`. |
+
+**`Relock Behavior`**
+
+| Property | Type | Purpose |
+| --- | --- | --- |
+| `Relock This` | Object reference / object ID | Checkpoint object to relock. |
+| `Area Wide` | Boolean or string `"true"` / `"false"` | Relock for all players in the area; defaults to `false`. |
+
+#### 3.2.6 Existing button behaviors
+
+| `Button Behavior` | When the player enters the trigger | When the player leaves the trigger |
+| --- | --- | --- |
+| `Repeatable` | Activates if inactive. | Deactivates if active. |
+| `One-Time` | Activates if inactive. | No action. |
+| `Dynamic` | Toggles between active and inactive. | No action. |
+| `Timed` | Activates, then schedules deactivation after `Activated Time`. | No action. |
+| `Custom` | Calls `module.on_enter(player_id, info)` if provided. | Calls `module.on_exit(player_id, info)` if provided. |
+
+For `Custom`, the module named by `Script Path` must load successfully and define `on_enter`. `on_exit` is optional. If loading fails, the runtime logs the failure and falls back to `One-Time`.
+
+#### 3.2.7 Multi-button logic with groups
+
+Legacy button chains have been removed. For multi-button requirements, define a group with `ezbuttons.define_group(area_id, group_id, button_ids, mode, options)`. Supported modes are `all_active`, `any_active`, and `combination`. Use `ezbuttons.add_button_effect` and `ezbuttons.add_group_effect` to react to button and group state changes. Button and group IDs are scoped by `area_id`, so object IDs can repeat across different areas.
+
+#### 3.2.8 Checkpoint behavior
+
+When a button activates, its `Unlock Behavior` reference can unlock the configured checkpoint. `Unlock Permanently` maps to the runtime's `once` behavior, and `Area Wide` controls whether the effect applies to everyone in the area or only the activating player. Automatic relocking for non-permanent unlocks occurs when that button deactivates. An explicit `Relock Behavior` also runs on deactivation. For multi-button conditions, register a group callback and/or group effect through the Lua API.
+
+#### 3.2.9 Button groups and button effects: what works in Tiled?
+
+The updated type generator adds these editor object types:
+
+| Tiled object type | Intended fields in the generated schema | Runtime status |
+| --- | --- | --- |
+| `Button Group` | `Group ID`, `Group Mode`, `Button 1`–`Button 10`, `Forbidden Button 1`–`Forbidden Button 10` | Editor schema only; `ezbuttons.lua` does not currently load this object automatically. |
+| `Button Effect` | `Source Button`, `Event`, `Target Button`, `Action` | Editor schema only; configure equivalent behavior in Lua. |
+| `Button Group Effect` | `Button Group`, `Event`, `Target Button`, `Action` | Editor schema only; configure equivalent behavior in Lua. |
+
+**What can be configured directly in Tiled and works with the current runtime:**
+
+- Individual `OW Button` behavior and visual/bot properties.
+- Trigger shape and size, either through the button's fallback properties or a referenced `Button Trigger`.
+- Checkpoint unlock/relock behavior through referenced `Unlock Behavior` and `Relock Behavior` objects.
+
+**What cannot be configured in Tiled and work automatically yet:**
+
+- `Button Group` completion rules (`all_active`, `any_active`, or `combination`).
+- `Button Effect` rules that activate, deactivate, toggle, or reset another button.
+- `Button Group Effect` rules that run when a group becomes completed or incomplete.
+
+The group/effect object definitions are editor schema only; `ezbuttons.lua` does not automatically load them. Configure groups and effects in Lua using the API below.
+
+#### 3.2.10 Defining groups in Lua
+
+Require `ezbuttons` from a Lua script loaded by your server after the library is available. Define groups using the area ID and the Tiled object IDs of the member `OW Button` objects.
 
 ```lua
-button_placeholders         = {}   -- [area_id][object_id(string)] = info
-button_bots                 = {}   -- [bot_id] = info
-chain_roots                 = {}   -- [root_placeholder_id(string)] = array of placeholder ids
-placeholder_to_chain_root   = {}   -- [placeholder_id] = root_placeholder_id
-chain_callbacks             = {}   -- [root_placeholder_id] = function(player_id)
-chain_type                  = {}   -- [root_placeholder_id] = "Any" | "Exclusive"
-checkpoint_bindings         = {}   -- [root_placeholder_id] = { area_id, checkpoint_object_id, once, area_wide }
-button_to_checkpoint        = {}   -- [button_object_id] = { area_id, checkpoint_object_id, once, area_wide }
-button_triggers             = {}   -- [trigger_id] = emitter
-custom_script_cache         = {}   -- [script_path] = module
-chains_built                = false
-button_asset_folder = '/server/assets/ezlibs-assets/ezbuttons/', TILE_SIZE = 32.
+local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
+
+local area_id = 'your_area_id'
+local button_a = '101' -- Tiled object ID of an OW Button
+local button_b = '102'
+local button_c = '103'
+local reward_button = '104'
+
+-- Group is satisfied when both required buttons are active.
+ezbuttons.define_group(
+    area_id,
+    'two_switches',
+    { button_a, button_b },
+    'all_active'
+)
+
+-- Activate the reward button when the group completes,
+-- and deactivate it if the group becomes incomplete.
+ezbuttons.add_group_effect(
+    area_id, 'two_switches', 'completed', reward_button, 'activate'
+)
+ezbuttons.add_group_effect(
+    area_id, 'two_switches', 'incomplete', reward_button, 'deactivate'
+)
+
+-- Group is satisfied when A and C are active and B is inactive.
+ezbuttons.define_group(
+    area_id,
+    'a_and_c_not_b',
+    { button_a, button_c },
+    'combination',
+    { forbidden_ids = { button_b } }
+)
+
 ```
 
-#### 3.2.2 Info table per button (stored in button_placeholders)
+Replace the example area and object IDs with the real values from your map. The example assumes every referenced ID belongs to an `OW Button` registered in that area. The target of an effect must also be a button handled by `ezbuttons`.
+
+If you need to establish a group's initial-state baseline explicitly, call `ezbuttons.refresh_groups(area_id)` **after the button objects have been loaded and their desired initial states are established**. Do not call it at module top-level if that script runs before `object_registry.load_all()`. Without an explicit refresh, the first observed satisfied state can emit a `completed` transition.
+
+#### 3.2.11 Group modes
+
+| Mode | Group is satisfied when… |
+| --- | --- |
+| `all_active` | Every button ID in the required list is active. |
+| `any_active` | At least one button ID in the required list is active. |
+| `combination` | Every button in the required list is active **and** every ID in `forbidden_ids` is inactive. |
+
+`define_group(area_id, group_id, button_ids, mode, options)` requires a non-empty `button_ids` array. `mode` defaults to `all_active`. For `combination`, pass forbidden button IDs through `options.forbidden_ids`.
+
+An optional `options.on_change` callback is called when the group state changes after its initial baseline is recorded. It receives:
 
 ```lua
-{
-  area_id, object_id, bot_id,
-  next_id,                -- "Next 1"
-  active_anim, inactive_anim,
-  behavior,               -- "Repeatable"|"One-Time"|"Dynamic"|"Custom"|"Timed"
-  script_path,
-  bot_x, bot_y, bot_z,
-  activation_anim, activation_duration,
-  deactivation_anim, deactivation_duration,
-  is_animating (bool),
-  trigger_x, trigger_y, trigger_z,
-  trigger_half_w, trigger_half_h,
-  chain_type,             -- "Any"|"Exclusive"
-  activated_time,         -- seconds (Timed behavior)
-  timed_cancel (bool),
-  relock_target,          -- checkpoint object id (string) or nil
-  relock_area_wide (bool),
-  last_activator,         -- player_id
-  trigger_info,           -- emitter
-  custom_handlers,        -- module or nil
-  _skip_exclusive,        -- transient
-}
+function(area_id, group_id, satisfied, player_id)
+    -- satisfied is true when completed, false when incomplete
+end
 ```
 
-#### 3.2.3 Registered Tiled object type
+#### 3.2.12 Button effects and group effects
 
-| Object type | Handler | Cache? |
+Use `add_button_effect` to respond to a single button changing state:
+
+```lua
+ezbuttons.add_button_effect(
+    area_id,
+    button_a,
+    'activated', -- or 'deactivated'
+    button_c,
+    'toggle'    -- 'activate', 'deactivate', 'toggle', or 'reset'
+)
+```
+
+Use `add_group_effect` to respond to a group changing state:
+
+```lua
+ezbuttons.add_group_effect(
+    area_id,
+    'two_switches',
+    'completed', -- or 'incomplete'
+    reward_button,
+    'activate'   -- 'activate', 'deactivate', 'toggle', or 'reset'
+)
+```
+
+| API | Event values | Action values |
 | --- | --- | --- |
-| `"OW Button"` | inline (see 3.2.4) | default (true) |
+| `ezbuttons.add_button_effect(area_id, source_id, event_name, target_id, action)` | `activated`, `deactivated` | `activate`, `deactivate`, `toggle`, `reset` |
+| `ezbuttons.add_group_effect(area_id, group_id, event_name, target_id, action)` | `completed`, `incomplete` | `activate`, `deactivate`, `toggle`, `reset` |
 
-#### 3.2.4 Properties read from Tiled
+Effects are processed when button-state changes are processed by the runtime. Avoid defining effects that continually trigger each other; the runtime has a per-drain logic-event limit as a guard against runaway effect loops.
 
-From the OW Button object (props):
+#### 3.2.13 Public API
 
-| Property | Type | Used as |
+| Function | Parameters | Purpose |
 | --- | --- | --- |
-| `"Bot Details"` | object id (string) | Reference to a Button Bot Details object. |
-| `"Next 1"` | object id (string) | Chain link. |
-| `"Button Behavior"` | string | "Repeatable", "One-Time", "Dynamic", "Custom", "Timed" (default "One-Time"). |
-| `"Script Path"` | string | Loaded for Custom behavior. |
-| `"Trigger Object"` | object id (string) | Optional separate trigger object. |
-| `"Trigger Type"` | string | "rect" or "ellipse". Fallback if no Trigger Object. |
-| `"Trigger Width", "Trigger Height"` | numbers (px) | Fallback (default 4). |
-| `"Button Activated Behavior"` | object id (string) | Reference to Unlock Behavior object. |
-| `"Button Deactivated Behavior"` | object id (string) | Reference to Relock Behavior object. |
-| `"Button Chain Type"` | string | "Any" (default) or "Exclusive". |
-| `"Activated Time"` | number (seconds) | Default 1. Used for Timed behavior. |
+| `ezbuttons.is_button_active(area_id, object_id)` | Area ID, button object ID | Returns whether the button is active. |
+| `ezbuttons.activate_button(area_id, object_id, player_id)` | Area ID, button object ID, optional player ID | Activates a button through the runtime API. |
+| `ezbuttons.deactivate_button(area_id, object_id)` | Area ID, button object ID | Deactivates a button. |
+| `ezbuttons.reset_button(area_id, object_id)` | Area ID, button object ID | Resets a button to inactive. |
+| `ezbuttons.define_group(area_id, group_id, button_ids, mode, options)` | See group setup | Defines a logical group in Lua. |
+| `ezbuttons.on_group_change(area_id, group_id, callback)` | Area ID, group ID, callback | Sets/replaces the group's state-change callback. |
+| `ezbuttons.add_button_effect(area_id, source_id, event_name, target_id, action)` | See effects | Adds a button-state effect in Lua. |
+| `ezbuttons.add_group_effect(area_id, group_id, event_name, target_id, action)` | See effects | Adds a group-state effect in Lua. |
+| `ezbuttons.refresh_groups(area_id)` | Area ID | Recalculates and records group states as a baseline. |
+| `ezbuttons.get_group_state(area_id, group_id)` | Area ID, group ID | Returns the group's current satisfied state, or `nil` if undefined. |
 
-From Button Bot Details object (details_props):
+#### 3.2.14 Initialization and troubleshooting
 
-| Property | Type | Notes |
-| --- | --- | --- |
-| `"Asset Name"` | string | Required. |
-| `"Direction"` | string | Required. |
-| `"Animation Name"` | string | Optional override for animation file. |
-| `"Mug Animation Name"` | string | Optional. |
-| `"Active Animation"` | string | Default "ACTIVE". |
-| `"Inactive Animation"` | string | Default "INACTIVE". |
-| `"Activated Animation"` | string | Optional (transitional). |
-| `"Deactivated Animation"` | string | Optional. |
-| `"Activation Animation Duration"` | number | Default 0.5. |
-| `"Deactivation Animation Duration"` | number | Default 0.5. |
-
-From Unlock Behavior object (beh_props):
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `"Unlock This"` | object id (string) | Checkpoint to unlock. |
-| `"Unlock Permanently"` | bool or string | Default true. String "true" accepted. |
-| `"Area Wide"` | bool or string | Default false. |
-
-From Relock Behavior object (relock_props):
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `"Relock This"` | object id (string) | Checkpoint to relock. |
-| `"Area Wide"` | bool or string | Default false. |
-
-From Button Trigger object (trigger_obj.custom_properties):
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `"Trigger Type"` | string | "rect" (default) or "ellipse". |
-
-#### 3.2.5 Behavior matrix
-
-| Behavior | entered | departed |
-| --- | --- | --- |
-| Repeatable | Activate if not active. | Deactivate if active. |
-| One-Time | Activate if not active. | Nothing. |
-| Dynamic | Toggle (activate if inactive, deactivate if active). | Nothing. |
-| Timed | Activate then start a Async.sleep(activated_time) that calls deactivate_button_internal. | Nothing. |
-| Custom | Calls module.on_enter(player_id, info) if provided. | Calls module.on_exit(player_id, info) if provided. |
-
-Custom script requirements (load_custom_script): the required module must define a function on_enter. on_exit is optional. If loading fails, the behavior silently downgrades to "One-Time" (with a print).
-
-#### 3.2.6 Public API
-
-| Function | Parameters | Returns |
-| --- | --- | --- |
-| `ezbuttons.on_chain_unlocked(root_button_id, callback)` | string, function(player_id) | — |
-| `ezbuttons.build_chains()` | — | — |
-| `ezbuttons.is_button_active(area_id, object_id)` |  | boolean |
-| `ezbuttons.activate_button(area_id, object_id, player_id)` |  | — |
-| `ezbuttons.deactivate_button(area_id, object_id)` |  | — |
-| `ezbuttons.reset_button(area_id, object_id)` |  | — |
-| `ezbuttons.reset_chain(root_object_id)` |  | — |
-| `ezbuttons.bind_checkpoint_to_chain(root_button_id, checkpoint_area_id, checkpoint_object_id, once)` | string, string, string, boolean? | — |
-
-#### 3.2.7 Chain semantics
-
-Chains are built lazily by build_chains() (called from activate_button, deactivate_button, or explicitly).
-
-A chain is the linked list of buttons reachable via "Next 1".
-
-The root is the button whose id is not referenced as a "Next 1" by any other.
-
-chain_type is inherited from the root's "Button Chain Type".
-
-Exclusive chains: when a button activates, all other buttons in the same chain deactivate first.
-
-Checkpoint binding: read from each button's "Button Activated Behavior" object. Stored in button_to_checkpoint[button_id]; when chains are built, transferred to checkpoint_bindings[root_id] for each chain.
-
-#### 3.2.8 Activation effect on checkpoints
-
-When a chain becomes fully active:
-
-Area Wide: Net.list_players(cp_area) → for each, ezcheckpoints.force_unlock_checkpoint(pid, cp_area, cp_id, once). Also stores in cp_area_mem.area_wide_unlock[root_id].
-
-Single player: ezcheckpoints.force_unlock_checkpoint(player_id, cp_area, cp_id, once). If once is false, records in area_mem.timed_button_unlock_info[root_id] for later relock.
-
-#### 3.2.9 Deactivation effect
-
-Automatic relock triggers when the chain transitions fully‑active → not‑fully‑active. Handles:
-
-Area‑wide unlock record (uses cp_area_mem.area_wide_unlock[root_id]).
-
-Per‑player timed unlock record (uses area_mem.timed_button_unlock_info[root_id]).
-
-Explicit relock_target (from "Button Deactivated Behavior" object) — applies to last_activator (single) or to all players in the area (area wide).
-
-#### 3.2.10 Registration / initialization details
-
-Calls pcall(Net.exclude_object_for_player, player_id, object_id) to hide the placeholder.
-
-Bot is non‑solid, size 0.2, speed 1, dont_face_player = true, warp_in = true.
-
-Trigger created with trigger_id = "button_" .. area_id .. "_" .. object.id.
-
-#### 3.2.11 Net events registered
-
-Net:on("player_join", ...) — hides placeholders, syncs animations, applies area‑wide unlocks.
-
-Net:on("player_area_transfer", ...) — same.
-
-#### 3.2.12 Related object types (not handlers, referenced only)
-
-Button Bot Details
-
-Unlock Behavior
-
-Relock Behavior
-
-Button Trigger
-
-These are read by id from "Bot Details", "Button Activated Behavior", "Button Deactivated Behavior", "Trigger Object" properties.
+- Register group definitions and effects before expecting group transitions to trigger their effects.
+- Call `ezbuttons.refresh_groups(area_id)` after defining groups to establish their initial state. This sets the baseline; it does not itself fire a completion effect.
+- If an effect appears to do nothing, verify the area ID and every button's Tiled object ID. IDs are treated as strings by the group/effect APIs.
+- Verify that each effect target is an actual `OW Button` in the same area.
+- If a Tiled `Button Group`, `Button Effect`, or `Button Group Effect` appears in the editor but has no effect in-game, that is expected until runtime object loading is implemented.
+- For existing buttons, inspect the `OW Button` references and the related `Button Bot Details`, `Button Trigger`, `Unlock Behavior`, and `Relock Behavior` objects first. Replace former multi-button chains with groups and effects.
+- Logical groups and effects are the supported system for multi-button logic; legacy button chains are no longer supported.
 
 ### 3.3 ezcheckpoints.lua
 
@@ -3537,10 +3597,6 @@ Enums are emitted first (alphabetically iterated over pairs(Enums)), then classe
 
 **Values:** money, fragments, tokens, item, bossgate
 
-##### `ButtonChainType (string)`
-
-**Values:** Any, Exclusive
-
 ### 11.4 Object types (classes)
 
 For each class, the properties are listed as name, type, default value, and (where applicable) an enum reference.
@@ -3692,7 +3748,6 @@ Same property set as Custom Warp.
 | `Text 1` | string | "" |  |
 | `Text 2` | string | "" |  |
 | `Text 3` | string | "" |  |
-| `Next 1` | object | "" |  |
 | `Next 2` | object | "" |  |
 | `Item 1` | object | "" |  |
 | `Item 2` | object | "" |  |
@@ -3839,13 +3894,11 @@ No members.
 | Property | Type | Default | Enum |
 | --- | --- | --- | --- |
 | `Bot Details` | object | "" |  |
-| `Next 1` | object | "" |  |
 | `Button Behavior` | string | "One-Time" | ButtonBehavior |
 | `Script Path` | file | "" |  |
 | `Trigger Object` | object | "" |  |
 | `Button Activated Behavior` | object | "" |  |
 | `Button Deactivated Behavior` | object | "" |  |
-| `Button Chain Type` | string | "Any" | ButtonChainType |
 | `Activated Time` | number | 1 |  |
 
 ##### `Unlock Behavior`
@@ -4175,7 +4228,6 @@ Explosion Trigger — declared in the Tiled type generator, but no consumer in t
 | `lock_attempt` | ezlocks | (none) |
 | `explode` | various (ezmystery, dialogue_types.battle_npc) | ezexplosions (creates an ExplodingEffect) |
 | `weather_changed` | ezweather | (none) |
-| `ezbuttons.chain_unlocked` | ezbuttons | (none) |
 | `player_compressed / player_decompressed` | ezpress | (none) |
 | `mystery_collected` | ezmystery | (none) |
 | `encounter_started / encounter_finished` | ezencounters | (none) |
@@ -4380,7 +4432,6 @@ ezusers.lua defines local async / await internally as well.
 - ezfarms.players_using_bbs is per‑player BBS state only; it does not persist.
 - ezbbs.preload_boards creates a board file for each unique board Name found on any object with the BBS flag, using BOARDS_DIR as the directory.
 - ezannounce.start_watch runs at require time with the default interval of 10 seconds; it will not re‑start if called again (_watch_started guard).
-- ezbuttons.build_chains is idempotent (chains_built guard) once called.
 - ezbuttons and ezrushroads reuse global async/await but define them locally, so the global async/await from helpers.lua is still usable by everything else.
 
 ### 12.11 Loading order (from main.lua)

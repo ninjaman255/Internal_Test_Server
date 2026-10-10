@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="146">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="159">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -19,6 +19,7 @@
  <tileset firstgid="51" source="../assets/ezlibs-assets/ezmystery/OrangeMysteryData.tsx"/>
  <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
  <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
+ <tileset firstgid="68" source="../assets/tiles/gate.tsx"/>
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -472,6 +473,99 @@
     <property name="Target Area" value="footbomb"/>
     <property name="Target Object" value="149"/>
     <property name="Warp In" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="146" type="OW Button" x="832" y="608">
+   <properties>
+    <property name="Activated Time" value="0.3"/>
+    <property name="Bot Details" type="object" value="147"/>
+    <property name="Button Activated Behavior" type="object" value="150"/>
+    <property name="Button Behavior" propertytype="ButtonBehavior" value="Dynamic"/>
+    <property name="Button Chain Type" propertytype="ButtonChainType" value="Exclusive"/>
+    <property name="Button Deactivated Behavior" type="object" value="151"/>
+    <property name="Trigger Object" type="object" value="148"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="147" type="Button Bot Details" x="832" y="640">
+   <properties>
+    <property name="Activated Animation" value="ANIMATE_PRESS"/>
+    <property name="Activation Animation Duration" type="float" value="0.3"/>
+    <property name="Active Animation" value="PRESSED"/>
+    <property name="Animation Name" value="button"/>
+    <property name="Asset Name" value="blue_button"/>
+    <property name="Deactivated Animation" value="ANIMATE_PRESS"/>
+    <property name="Deactivation Animation Duration" type="float" value="0.3"/>
+    <property name="Direction" propertytype="Direction" value="Down"/>
+    <property name="Inactive Animation" value="UNPRESSED"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="148" type="Button Trigger" x="840" y="616" width="16" height="16">
+   <properties>
+    <property name="Trigger Type" propertytype="TriggerShape" value="rect"/>
+   </properties>
+  </object>
+  <object id="149" x="832" y="608"/>
+  <object id="150" type="Unlock Behavior" x="832" y="592">
+   <properties>
+    <property name="Area Wide" type="bool" value="false"/>
+    <property name="Unlock Permanently" type="bool" value="false"/>
+    <property name="Unlock This" type="object" value="152"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="151" type="Relock Behavior" x="848" y="592">
+   <properties>
+    <property name="Area Wide" type="bool" value="false"/>
+    <property name="Relock This" type="object" value="152"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="152" type="Checkpoint" gid="68" x="848" y="560" width="34" height="52">
+   <properties>
+    <property name="Skip Prompt" type="bool" value="true"/>
+    <property name="Unlocking Sound Path" value="/server/assets/ezlibs-assets/sfx/panel_change.ogg"/>
+   </properties>
+  </object>
+  <object id="153" type="Button Group" x="816" y="592">
+   <properties>
+    <property name="Button 1" type="object" value="146"/>
+    <property name="Button 2" type="object" value="154"/>
+    <property name="Group ID" value="Test 1"/>
+    <property name="Group Mode" propertytype="ButtonGroupMode" value="all_active"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="154" type="OW Button" x="864" y="608">
+   <properties>
+    <property name="Activated Time" value="0.3"/>
+    <property name="Bot Details" type="object" value="155"/>
+    <property name="Button Activated Behavior" type="object" value="150"/>
+    <property name="Button Behavior" propertytype="ButtonBehavior" value="Dynamic"/>
+    <property name="Button Chain Type" propertytype="ButtonChainType" value="Exclusive"/>
+    <property name="Button Deactivated Behavior" type="object" value="151"/>
+    <property name="Trigger Object" type="object" value="156"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="155" type="Button Bot Details" x="864" y="640">
+   <properties>
+    <property name="Activated Animation" value="ANIMATE_PRESS"/>
+    <property name="Activation Animation Duration" type="float" value="0.3"/>
+    <property name="Active Animation" value="PRESSED"/>
+    <property name="Animation Name" value="button"/>
+    <property name="Asset Name" value="blue_button"/>
+    <property name="Deactivated Animation" value="ANIMATE_PRESS"/>
+    <property name="Deactivation Animation Duration" type="float" value="0.3"/>
+    <property name="Direction" propertytype="Direction" value="Down"/>
+    <property name="Inactive Animation" value="UNPRESSED"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="156" type="Button Trigger" x="872" y="616" width="16" height="16">
+   <properties>
+    <property name="Trigger Type" propertytype="TriggerShape" value="rect"/>
    </properties>
   </object>
  </objectgroup>

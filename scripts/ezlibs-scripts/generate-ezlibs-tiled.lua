@@ -53,6 +53,23 @@ local Enums = {
     ButtonChainType = {
         type = "string",
         values = {"Any", "Exclusive"}
+    },
+    -- New ezbuttons group/effect schema values.
+    ButtonGroupMode = {
+        type = "string",
+        values = {"all_active", "any_active", "combination"}
+    },
+    ButtonEffectEvent = {
+        type = "string",
+        values = {"activated", "deactivated"}
+    },
+    ButtonGroupEvent = {
+        type = "string",
+        values = {"completed", "incomplete"}
+    },
+    ButtonEffectAction = {
+        type = "string",
+        values = {"activate", "deactivate", "toggle", "reset"}
     }
 }
 
@@ -439,6 +456,59 @@ local object_types = {
         color = "#aaddff",
         members = {
             prop("Trigger Type", "string", "rect", "TriggerShape"),
+        }
+    },
+    -- Button Group – lists member buttons and the rule for considering the group satisfied.
+    -- Button references are object properties so they can be selected in Tiled.
+    {
+        name = "Button Group",
+        color = "#66dd99",
+        members = {
+            prop("Group ID", "string", ""),
+            prop("Group Mode", "string", "all_active", "ButtonGroupMode"),
+            prop("Button 1", "object", ""),
+            prop("Button 2", "object", ""),
+            prop("Button 3", "object", ""),
+            prop("Button 4", "object", ""),
+            prop("Button 5", "object", ""),
+            prop("Button 6", "object", ""),
+            prop("Button 7", "object", ""),
+            prop("Button 8", "object", ""),
+            prop("Button 9", "object", ""),
+            prop("Button 10", "object", ""),
+            -- For combination groups, populated Forbidden Button references must be inactive.
+            prop("Forbidden Button 1", "object", ""),
+            prop("Forbidden Button 2", "object", ""),
+            prop("Forbidden Button 3", "object", ""),
+            prop("Forbidden Button 4", "object", ""),
+            prop("Forbidden Button 5", "object", ""),
+            prop("Forbidden Button 6", "object", ""),
+            prop("Forbidden Button 7", "object", ""),
+            prop("Forbidden Button 8", "object", ""),
+            prop("Forbidden Button 9", "object", ""),
+            prop("Forbidden Button 10", "object", "")
+        }
+    },
+    -- Button Effect – a button state transition applies an action to another button.
+    {
+        name = "Button Effect",
+        color = "#ffbb66",
+        members = {
+            prop("Source Button", "object", ""),
+            prop("Event", "string", "activated", "ButtonEffectEvent"),
+            prop("Target Button", "object", ""),
+            prop("Action", "string", "activate", "ButtonEffectAction")
+        }
+    },
+    -- Button Group Effect – a group transition applies an action to a target button.
+    {
+        name = "Button Group Effect",
+        color = "#ff9966",
+        members = {
+            prop("Button Group", "object", ""),
+            prop("Event", "string", "completed", "ButtonGroupEvent"),
+            prop("Target Button", "object", ""),
+            prop("Action", "string", "activate", "ButtonEffectAction")
         }
     }
 }
