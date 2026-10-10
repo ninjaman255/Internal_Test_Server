@@ -764,7 +764,7 @@ add_location_event_trigger will still add a trigger even if Event Name is missin
 
 Overworld buttons are Tiled objects that spawn a non-solid bot and a trigger. The Tiled setup supports individual button behavior, custom behavior scripts, trigger geometry, and checkpoint unlock/relock behavior. Multi-button logic is handled by area-scoped logical groups and button/group effects configured through the Lua API.
 
-> ⚠️ **Important — Tiled group objects are not runtime-wired yet.** The updated `generate-ezlibs-tiled.lua` schema can expose `Button Group`, `Button Effect`, and `Button Group Effect` objects in Tiled, but the current `ezbuttons.lua` does not automatically discover or read those objects. Configure groups and effects in Lua using the API below. Creating those Tiled objects alone will not activate group logic in-game.
+> **Button types are intentionally separated.** Use `OW Button` for independent actions such as unlocking and relocking checkpoints. Use `OW Button Group Member` for switches whose shared state is controlled by a `Button Group`. Group members do not execute individual checkpoint unlock/relock behavior; the group owns those actions.
 
 #### 3.2.1 How button setup works
 
@@ -772,7 +772,9 @@ A normal button setup uses these objects:
 
 | Tiled object type | Purpose |
 | --- | --- |
-| `OW Button` | Main button placeholder. Configure its behavior and references here. |
+| `OW Button` | Individual button placeholder. Its own activation/deactivation can unlock/relock checkpoints. |
+| `OW Button Group Member` | Group-only button placeholder. It shares the button visual/trigger behavior but does not run individual checkpoint actions. Add its object ID to a `Button Group`. |
+| `Button Group` | Defines group members, completion mode, and optional shared checkpoint unlock/relock actions. |
 | `Button Bot Details` | Describes the bot/visuals spawned for the button. |
 | `Button Trigger` | Optional separate trigger object. If omitted, the button's own trigger properties are used. |
 | `Unlock Behavior` | Optional referenced configuration for a checkpoint unlock when this button activates. |
@@ -799,7 +801,7 @@ These are the properties read by the existing runtime handler.
 | Property | Type / expected value | Purpose |
 | --- | --- | --- |
 | `Bot Details` | Object reference / object ID | Required reference to a `Button Bot Details` object. |
-| `Button Behavior` | `Repeatable`, `One-Time`, `Dynamic`, `Custom`, or `Timed` | Controls what happens when the trigger is entered or departed. Defaults to `One-Time`. |
+| `Button Behavior` | `Pressure Plate`, `One-Time`, `Toggle`, `Custom`, or `Timed` | Controls what happens when the trigger is entered or departed. Defaults to `One-Time`. |
 | `Script Path` | String | Module path for `Custom` behavior. |
 | `Trigger Object` | Object reference / object ID | Optional reference to a separate `Button Trigger` object. |
 | `Trigger Type` | `rect` or `ellipse` | Shape used when no separate trigger object is supplied. |
@@ -851,49 +853,49 @@ These are the properties read by the existing runtime handler.
 
 | `Button Behavior` | When the player enters the trigger | When the player leaves the trigger |
 | --- | --- | --- |
-| `Repeatable` | Activates if inactive. | Deactivates if active. |
+| `Pressure Plate` | Activates if inactive. | Deactivates if active. |
 | `One-Time` | Activates if inactive. | No action. |
-| `Dynamic` | Toggles between active and inactive. | No action. |
+| `Toggle` | Toggles between active and inactive. | No action. |
 | `Timed` | Activates, then schedules deactivation after `Activated Time`. | No action. |
 | `Custom` | Calls `module.on_enter(player_id, info)` if provided. | Calls `module.on_exit(player_id, info)` if provided. |
 
 For `Custom`, the module named by `Script Path` must load successfully and define `on_enter`. `on_exit` is optional. If loading fails, the runtime logs the failure and falls back to `One-Time`.
 
-#### 3.2.7 Multi-button logic with groups
+#### 3.2.7 Individual buttons versus group members
 
-Legacy button chains have been removed. For multi-button requirements, define a group with `ezbuttons.define_group(area_id, group_id, button_ids, mode, options)`. Supported modes are `all_active`, `any_active`, and `combination`. Use `ezbuttons.add_button_effect` and `ezbuttons.add_group_effect` to react to button and group state changes. Button and group IDs are scoped by `area_id`, so object IDs can repeat across different areas.
+Use `OW Button` when each button owns its own behavior. Its `Button Activated Behavior` and `Button Deactivated Behavior` references are processed independently.
+
+Use `OW Button Group Member` when the button should only contribute its active/inactive state to a group. This object type intentionally has no `Button Activated Behavior` or `Button Deactivated Behavior` properties. Even if stale properties remain on an older map object, the runtime suppresses individual checkpoint actions for this type.
+
+A `Button Group` references its members through `Button 1`–`Button 10`, and optionally `Forbidden Button 1`–`Forbidden Button 10`. All referenced members must be `OW Button Group Member` objects in the same area. `Group ID` is optional; if omitted, the Tiled `Button Group` object ID is used as the runtime group ID.
+
+Supported modes are `all_active`, `any_active`, and `combination`. For `combination`, all required members must be active and all populated forbidden members must be inactive. The runtime waits for referenced members to register, so the Tiled object order does not need to put buttons before groups.
+
+The existing Lua API remains available: `ezbuttons.define_group`, `ezbuttons.add_button_effect`, and `ezbuttons.add_group_effect`. Tiled `Button Effect` and `Button Group Effect` objects are also read by the runtime.
 
 #### 3.2.8 Checkpoint behavior
 
-When a button activates, its `Unlock Behavior` reference can unlock the configured checkpoint. `Unlock Permanently` maps to the runtime's `once` behavior, and `Area Wide` controls whether the effect applies to everyone in the area or only the activating player. Automatic relocking for non-permanent unlocks occurs when that button deactivates. An explicit `Relock Behavior` also runs on deactivation. For multi-button conditions, register a group callback and/or group effect through the Lua API.
+For an individual `OW Button`, `Button Activated Behavior` references an `Unlock Behavior` object and `Button Deactivated Behavior` references a `Relock Behavior` object. These actions run on that button's own activation/deactivation.
 
-#### 3.2.9 Button groups and button effects: what works in Tiled?
+For a `Button Group`, configure `Unlock Checkpoint`, `Unlock Permanently`, `Unlock Area Wide`, `Relock Checkpoint`, and `Relock Area Wide` directly on the group object. The unlock action runs when the group transitions to `completed`; the relock action runs when it transitions to `incomplete`. The group relock is explicit: set `Relock Checkpoint` to the checkpoint object ID you want to relock. With `all_active`, the group becomes incomplete as soon as any required member becomes inactive.
 
-The updated type generator adds these editor object types:
+When `Area Wide` is enabled, the action is applied to players returned by `Net.list_players(area_id)`. Otherwise, the action applies to the player who caused the group transition. A non-area-wide group action requires a valid player ID.
 
-| Tiled object type | Intended fields in the generated schema | Runtime status |
+#### 3.2.9 Tiled group and effect objects
+
+| Tiled object type | Key properties | Runtime behavior |
 | --- | --- | --- |
-| `Button Group` | `Group ID`, `Group Mode`, `Button 1`–`Button 10`, `Forbidden Button 1`–`Forbidden Button 10` | Editor schema only; `ezbuttons.lua` does not currently load this object automatically. |
-| `Button Effect` | `Source Button`, `Event`, `Target Button`, `Action` | Editor schema only; configure equivalent behavior in Lua. |
-| `Button Group Effect` | `Button Group`, `Event`, `Target Button`, `Action` | Editor schema only; configure equivalent behavior in Lua. |
+| `OW Button` | `Bot Details`, `Button Behavior`, trigger properties, `Button Activated Behavior`, `Button Deactivated Behavior` | Independent activation/deactivation and checkpoint behavior. |
+| `OW Button Group Member` | `Bot Details`, `Button Behavior`, trigger properties | Contributes state to one or more groups; no standalone checkpoint actions. |
+| `Button Group` | `Group ID`, `Group Mode`, member references, checkpoint action properties | Defines a group and optional checkpoint unlock/relock behavior. |
+| `Button Effect` | `Source Button`, `Event`, `Target Button`, `Action` | Runs an action on another button when the source changes state. |
+| `Button Group Effect` | `Button Group`, `Event`, `Target Button`, `Action` | Runs an action on another button when the group changes state. |
 
-**What can be configured directly in Tiled and works with the current runtime:**
-
-- Individual `OW Button` behavior and visual/bot properties.
-- Trigger shape and size, either through the button's fallback properties or a referenced `Button Trigger`.
-- Checkpoint unlock/relock behavior through referenced `Unlock Behavior` and `Relock Behavior` objects.
-
-**What cannot be configured in Tiled and work automatically yet:**
-
-- `Button Group` completion rules (`all_active`, `any_active`, or `combination`).
-- `Button Effect` rules that activate, deactivate, toggle, or reset another button.
-- `Button Group Effect` rules that run when a group becomes completed or incomplete.
-
-The group/effect object definitions are editor schema only; `ezbuttons.lua` does not automatically load them. Configure groups and effects in Lua using the API below.
+For the Tiled group checkpoint fields, `Unlock Checkpoint` and `Relock Checkpoint` are references to checkpoint objects. `Unlock Permanently` defaults to true; `Unlock Area Wide` and `Relock Area Wide` default to false.
 
 #### 3.2.10 Defining groups in Lua
 
-Require `ezbuttons` from a Lua script loaded by your server after the library is available. Define groups using the area ID and the Tiled object IDs of the member `OW Button` objects.
+Require `ezbuttons` from a Lua script loaded by your server after the library is available. When configuring groups through Lua, use the area ID and the Tiled object IDs of registered button objects. For Tiled-authored groups, use `OW Button Group Member` objects as the required and forbidden members.
 
 ```lua
 local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
@@ -3591,7 +3593,7 @@ Enums are emitted first (alphabetically iterated over pairs(Enums)), then classe
 
 ##### `ButtonBehavior (string)`
 
-**Values:** Repeatable, One-Time, Dynamic, Custom, Timed
+**Values:** Pressure Plate, One-Time, Toggle, Custom, Timed
 
 ##### `KeyType (string)`
 
@@ -4600,3 +4602,8 @@ lua tests/test_utilities.lua
 
 The test file should be run in the target environment before relying on the additions. The tests were not executed as part of preparing this documentation.
 
+
+
+### Button Behavior label update
+
+The current `Button Behavior` values are `Pressure Plate`, `One-Time`, `Toggle`, `Custom`, and `Timed`. Existing Tiled maps should update any saved `Repeatable` value to `Pressure Plate` and any saved `Dynamic` value to `Toggle`.

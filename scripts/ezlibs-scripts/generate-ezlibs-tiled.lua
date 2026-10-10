@@ -44,7 +44,7 @@ local Enums = {
     },
     ButtonBehavior = {
         type = "string",
-        values = {"Repeatable", "One-Time", "Dynamic", "Custom", "Timed"}
+        values = {"Pressure Plate", "One-Time", "Toggle", "Custom", "Timed"}
     },
     KeyType = {
         type = "string",
@@ -427,11 +427,30 @@ local object_types = {
             prop("Button Deactivated Behavior", "object", ""),
             -- Button chain exclusivity mode
             prop("Button Chain Type", "string", "Any", "ButtonChainType"),
+            -- Optional fallback trigger dimensions when no Trigger Object is assigned.
+            prop("Trigger Type", "string", "rect", "TriggerShape"),
+            prop("Trigger Width", "number", 4),
+            prop("Trigger Height", "number", 4),
             -- Timed behavior duration
             prop("Activated Time", "number", 1),
         }
     },
-    -- Unlock Behavior – defines unlock action triggered by a full button chain
+    -- OW Button Group Member – shares button visuals/trigger behavior but has no individual checkpoint actions.
+    {
+        name = "OW Button Group Member",
+        color = "#66ddbb",
+        members = {
+            prop("Bot Details", "object", ""),
+            prop("Button Behavior", "string", "One-Time", "ButtonBehavior"),
+            prop("Script Path", "file", ""),
+            prop("Trigger Object", "object", ""),
+            prop("Trigger Type", "string", "rect", "TriggerShape"),
+            prop("Trigger Width", "number", 4),
+            prop("Trigger Height", "number", 4),
+            prop("Activated Time", "number", 1),
+        }
+    },
+    -- Unlock Behavior – defines unlock action for an individual OW Button
     {
         name = "Unlock Behavior",
         color = "#ffcc00",
@@ -486,7 +505,13 @@ local object_types = {
             prop("Forbidden Button 7", "object", ""),
             prop("Forbidden Button 8", "object", ""),
             prop("Forbidden Button 9", "object", ""),
-            prop("Forbidden Button 10", "object", "")
+            prop("Forbidden Button 10", "object", ""),
+            -- Shared checkpoint actions execute only on group state transitions.
+            prop("Unlock Checkpoint", "object", ""),
+            prop("Unlock Permanently", "bool", true),
+            prop("Unlock Area Wide", "bool", false),
+            prop("Relock Checkpoint", "object", ""),
+            prop("Relock Area Wide", "bool", false)
         }
     },
     -- Button Effect – a button state transition applies an action to another button.
