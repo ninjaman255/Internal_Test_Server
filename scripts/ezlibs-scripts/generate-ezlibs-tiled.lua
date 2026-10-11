@@ -493,57 +493,25 @@ local object_types = {
             prop("Group ID", "string", ""),
             prop("Group Mode", "string", "all_active", "ButtonGroupMode"),
 
-            -- Required/active button references
+            -- Required/active button references. Add Button 2 through Button 9 as needed in Tiled.
             prop("Button 1", "object", ""),
-            prop("Button 2", "object", ""),
-            prop("Button 3", "object", ""),
-            prop("Button 4", "object", ""),
-            prop("Button 5", "object", ""),
-            prop("Button 6", "object", ""),
-            prop("Button 7", "object", ""),
-            prop("Button 8", "object", ""),
-            prop("Button 9", "object", ""),
-            prop("Button 10", "object", ""),
 
-            -- For combination groups, populated Forbidden Button references must be inactive.
+
+            -- For combination groups, populated Forbidden Button references must be inactive. Add Forbidden Button 2 through Forbidden Button 9 as needed in Tiled.
             prop("Forbidden Button 1", "object", ""),
-            prop("Forbidden Button 2", "object", ""),
-            prop("Forbidden Button 3", "object", ""),
-            prop("Forbidden Button 4", "object", ""),
-            prop("Forbidden Button 5", "object", ""),
-            prop("Forbidden Button 6", "object", ""),
-            prop("Forbidden Button 7", "object", ""),
-            prop("Forbidden Button 8", "object", ""),
-            prop("Forbidden Button 9", "object", ""),
-            prop("Forbidden Button 10", "object", ""),
 
-            -- Multiple checkpoint targets to unlock when the group becomes satisfied.
+
+            -- Multiple checkpoint targets to unlock when the group becomes satisfied. Add Unlock Checkpoint 2 through Unlock Checkpoint 9 as needed in Tiled.
             prop("Unlock Checkpoint 1", "object", ""),
-            prop("Unlock Checkpoint 2", "object", ""),
-            prop("Unlock Checkpoint 3", "object", ""),
-            prop("Unlock Checkpoint 4", "object", ""),
-            prop("Unlock Checkpoint 5", "object", ""),
-            prop("Unlock Checkpoint 6", "object", ""),
-            prop("Unlock Checkpoint 7", "object", ""),
-            prop("Unlock Checkpoint 8", "object", ""),
-            prop("Unlock Checkpoint 9", "object", ""),
-            prop("Unlock Checkpoint 10", "object", ""),
+
 
             -- Shared settings for all unlock targets.
             prop("Unlock Permanently", "bool", true),
             prop("Unlock Area Wide", "bool", false),
 
-            -- Multiple checkpoint targets to relock when the group becomes incomplete.
+            -- Multiple checkpoint targets to relock when the group becomes incomplete. Add Relock Checkpoint 2 through Relock Checkpoint 9 as needed in Tiled.
             prop("Relock Checkpoint 1", "object", ""),
-            prop("Relock Checkpoint 2", "object", ""),
-            prop("Relock Checkpoint 3", "object", ""),
-            prop("Relock Checkpoint 4", "object", ""),
-            prop("Relock Checkpoint 5", "object", ""),
-            prop("Relock Checkpoint 6", "object", ""),
-            prop("Relock Checkpoint 7", "object", ""),
-            prop("Relock Checkpoint 8", "object", ""),
-            prop("Relock Checkpoint 9", "object", ""),
-            prop("Relock Checkpoint 10", "object", ""),
+
 
             -- Shared setting for all relock targets.
             prop("Relock Area Wide", "bool", false),

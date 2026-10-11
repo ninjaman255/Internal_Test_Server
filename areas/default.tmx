@@ -510,7 +510,7 @@
     <property name="Unlocking Sound Path" value="/server/assets/ezlibs-assets/sfx/panel_change.ogg"/>
    </properties>
   </object>
-  <object id="153" type="Button Group" x="848" y="592">
+  <object id="153" type="Button Group" x="832" y="576">
    <properties>
     <property name="Button 1" type="object" value="146"/>
     <property name="Button 2" type="object" value="154"/>
@@ -518,9 +518,9 @@
     <property name="Group ID" value="Test 1"/>
     <property name="Group Mode" propertytype="ButtonGroupMode" value="combination"/>
     <property name="Relock Area Wide" type="bool" value="true"/>
-    <property name="Relock Checkpoint" type="object" value="152"/>
+    <property name="Relock Checkpoint 1" type="object" value="152"/>
     <property name="Unlock Area Wide" type="bool" value="true"/>
-    <property name="Unlock Checkpoint" type="object" value="152"/>
+    <property name="Unlock Checkpoint 1" type="object" value="152"/>
     <property name="Unlock Permanently" type="bool" value="false"/>
    </properties>
    <point/>
@@ -580,16 +580,6 @@
    <properties>
     <property name="Trigger Type" propertytype="TriggerShape" value="rect"/>
    </properties>
-  </object>
-  <object id="163" type="Button Group" x="928" y="576">
-   <properties>
-    <property name="Button 1" type="object" value="154"/>
-    <property name="Forbidden Button 1" type="object" value="160"/>
-    <property name="Forbidden Button 2" type="object" value="146"/>
-    <property name="Group ID" value="Test 1"/>
-    <property name="Group Mode" propertytype="ButtonGroupMode" value="combination"/>
-   </properties>
-   <point/>
   </object>
   <object id="164" type="Checkpoint" gid="68" x="880" y="528" width="34" height="52">
    <properties>

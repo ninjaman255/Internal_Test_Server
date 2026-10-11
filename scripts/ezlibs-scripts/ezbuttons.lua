@@ -1197,8 +1197,8 @@ end
 
 local function configure_group_object(area_id, object)
     local props = object.custom_properties or {}
-    local required_ids = property_ids(props, "Button ", 1, 10)
-    local forbidden_ids = property_ids(props, "Forbidden Button ", 1, 10)
+    local required_ids = property_ids(props, "Button ", 1, 9)
+    local forbidden_ids = property_ids(props, "Forbidden Button ", 1, 9)
     if #required_ids == 0 then
         print("[ezbuttons] Button Group has no required members:", tostring(object.id))
         return false
@@ -1219,10 +1219,10 @@ local function configure_group_object(area_id, object)
     if group_id == nil or tostring(group_id) == "" then group_id = tostring(object.id) end
     group_id = tostring(group_id)
     local mode = props["Group Mode"] or "all_active"
-    -- Supports numbered lists (Unlock Checkpoint 1..10 / Relock Checkpoint 1..10)
+    -- Supports numbered lists (Unlock Checkpoint 1..9 / Relock Checkpoint 1..9)
     -- while retaining the original singular properties for existing maps.
-    local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ", 1, 10)
-    local relock_checkpoints = property_ids(props, "Relock Checkpoint ", 1, 10)
+    local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ", 1, 9)
+    local relock_checkpoints = property_ids(props, "Relock Checkpoint ", 1, 9)
     if #unlock_checkpoints == 0 and props["Unlock Checkpoint"] ~= nil and tostring(props["Unlock Checkpoint"]) ~= "" then
         unlock_checkpoints[1] = tostring(props["Unlock Checkpoint"])
     end
