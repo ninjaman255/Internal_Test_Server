@@ -275,6 +275,53 @@ local object_types = {
             prop("Quest State", "string", "active"),
         }
     },
+    -- FootBomb Ref – a custom NPC reference that starts a private FootBomb match.
+    -- This intentionally includes the full NPC property set so Tiled can configure
+    -- the reference as an NPC, plus the FootBomb instance/dialogue/spawn settings.
+    {
+        name = "FootBomb Ref",
+        color = "#ffcc66",
+        members = {
+            -- Standard NPC properties
+            prop("Direction", "string", "Down", "Direction"),
+            prop("Asset Name", "string", "male-navi-exe6_teal"),
+            prop("Animation Name", "string", ""),
+            prop("Mug Animation Name", "string", ""),
+            prop("Dont Face Player", "bool", false),
+            prop("Next Waypoint 1", "object", ""),
+            prop("Dialogue Type", "string", "", "DialogueType"),
+            prop("Mugshot", "string", "male-navi-exe6_teal"),
+            prop("Text 1", "string", ""),
+            prop("Text 2", "string", ""),
+            prop("Text 3", "string", ""),
+            prop("Next 1", "object", ""),
+            prop("Next 2", "object", ""),
+            prop("Item 1", "object", ""),
+            prop("Item 2", "object", ""),
+            prop("Take Item", "bool", false),
+            prop("Date", "string", ""),
+            prop("Quest Name", "string", ""),
+            prop("Event Value", "string", ""),
+            prop("Dont Notify", "bool", false),
+            prop("Encounter Name", "string", ""),
+            prop("Failure Message", "string", ""),
+            prop("Player Exclusive", "bool", false),
+            prop("Quest NPC", "bool", false),
+            prop("Quest Exclusive", "string", ""),
+            prop("Quest State", "string", "active"),
+
+            -- FootBomb-specific behavior
+            prop("Instance Map", "string", "footbomb"),
+            prop("Intro Message", "string", "Hey! Want to play a round of FootBomb?"),
+            prop("Question", "string", "Would you like to join a FootBomb party and enter the field?"),
+            prop("Declined Message", "string", "No problem. Come back when you're ready."),
+            prop("Started Message", "string", "All right! I'll get your party onto the field."),
+            prop("Spawn X", "number", 26),
+            prop("Spawn Y", "number", 21),
+            prop("Spawn Z", "number", 0),
+        }
+    },
+
     {
         name = "Waypoint",
         color = "#55ff55",
@@ -627,7 +674,7 @@ local function main(output_path, pretty)
     print("Generated Tiled types: " .. output_path)
 end
 
-if arg and arg[0] and arg[0]:find("generate_tiled_types_json.lua") then
+if arg and arg[0] and (arg[0]:find("generate%-ezlibs%-tiled%.lua") or arg[0]:find("generate_tiled_types_json.lua")) then
     local out = arg[1]
     main(out)
 else

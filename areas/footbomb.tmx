@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="150">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="157">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -7,7 +7,6 @@
   <property name="Background Vel Y" value=".1"/>
   <property name="Name" value="                  "/>
   <property name="Song" value="/server/assets/demo/space.ogg"/>
-  <property name="Stasis" value="26,21,0"/>
  </properties>
  <tileset firstgid="1" source="../assets/tiles/coffee.tsx"/>
  <tileset firstgid="5" source="../assets/demo/warp.tsx"/>
@@ -23,8 +22,8 @@
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,16,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,16,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -65,15 +64,50 @@
 </data>
  </layer>
  <objectgroup id="7" name="Object Layer 0">
-  <object id="148" gid="68" x="760" y="664" width="208" height="64"/>
-  <object id="149" type="Custom Warp" gid="6" x="800" y="832" width="61" height="32">
+  <object id="148" gid="68" x="768" y="664" width="208" height="64"/>
+  <object id="150" name="FootBomb Ref" type="FootBomb Ref" x="704" y="736">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Up Right"/>
+    <property name="Animation Name" value=""/>
+    <property name="Asset Name" value="male-navi-exe6_teal"/>
+    <property name="Declined Message" value="No problem. Come back when you're ready."/>
+    <property name="Dialogue Type" value=""/>
+    <property name="Direction" value="Down"/>
+    <property name="Dont Face Player" type="bool" value="false"/>
+    <property name="Instance Map" value="footbomb"/>
+    <property name="Intro Message" value="Hey! Want to play a round of FootBomb?"/>
+    <property name="Mug Animation Name" value=""/>
+    <property name="Mugshot" value="male-navi-exe6_teal"/>
+    <property name="Question" value="Would you like to join a FootBomb party and enter the field?"/>
+    <property name="Started Message" value="All right! I'll get your party onto the field."/>
+   </properties>
+   <point/>
+  </object>
+  <object id="149" type="Custom Warp" gid="6" x="800" y="864" width="61" height="32">
+   <properties>
+    <property name="Direction" value="Up Right"/>
     <property name="Dont Teleport" type="bool" value="false"/>
     <property name="Target Area" value="default"/>
     <property name="Target Object" value="145"/>
     <property name="Warp In" type="bool" value="true"/>
    </properties>
+  </object>
+  <object id="151" name="Goalie Spot Left" x="752" y="688">
+   <point/>
+  </object>
+  <object id="152" name="Ball" x="832" y="736">
+   <point/>
+  </object>
+  <object id="153" name="Kicker" x="848" y="784">
+   <point/>
+  </object>
+  <object id="154" name="Move Forward" x="848" y="752">
+   <point/>
+  </object>
+  <object id="155" name="Goalie Spot Center" x="768" y="672">
+   <point/>
+  </object>
+  <object id="156" name="Goalie Spot Right" x="784" y="656">
+   <point/>
   </object>
  </objectgroup>
 </map>

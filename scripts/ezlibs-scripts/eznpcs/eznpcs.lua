@@ -524,8 +524,13 @@ function eznpcs.on_tick(delta_time)
     end
 end
 
-function eznpcs.create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name)
-    return create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name)
+function eznpcs.create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name,dont_face_player)
+    -- Preserve the legacy default when callers omit the optional flag, while
+    -- allowing custom typed NPC references to honor their Tiled property.
+    if dont_face_player == nil then
+        dont_face_player = true
+    end
+    return create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name,dont_face_player)
 end
 
 function eznpcs.handle_player_transfer(player_id)
