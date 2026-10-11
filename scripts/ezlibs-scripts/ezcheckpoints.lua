@@ -68,15 +68,33 @@ end
 
 -- New API: re-lock (make visible and interactive again) a previously unlocked checkpoint
 function ezcheckpoints.relock_checkpoint(player_id, area_id, object_id)
-    -- Remove from persistent memory (once=true) if present
-    ezmemory.unhide_object_from_player(player_id, area_id, object_id)
-    -- Remove from temporary (once=false / till disconnect) if present
+    -- Remove from persistent memory (once=true) if present. ezmemory safely
+    -- skips this operation if the player disconnected before this callback ran.
+    local persistent_ok = ezmemory.unhide_object_from_player(player_id, area_id, object_id)
+
+    -- Remove from temporary (once=false / till disconnect) state if present.
+    -- This in-memory cleanup is safe even when the player is no longer online.
     ezmemory.unhide_object_from_player_till_disconnect(player_id, area_id, object_id)
-    -- If the player is currently in this area, immediately show the object again
-    if Net.get_player_area(player_id) == area_id then
+
+    -- Re-check the live player area defensively; get_player_area can throw if
+    -- a delayed area-wide button callback holds a stale player ID.
+    local area_ok, player_area = false, nil
+    if type(Net.get_player_area) == "function" then
+        area_ok, player_area = pcall(Net.get_player_area, player_id)
+    end
+
+    if not area_ok then
+        print("[ezcheckpoints] Skipping live checkpoint re-include; player is no longer available: " .. tostring(player_id))
+        return false
+    end
+
+    if Net.include_object_for_player and player_area == area_id then
         pcall(Net.include_object_for_player, player_id, object_id)
     end
-    return true
+
+    -- A false persistent_ok means the player disappeared during the cleanup.
+    -- The live object update was safely skipped; do not throw into ezbuttons.
+    return persistent_ok ~= false
 end
 
 Net:on("object_interaction", function(event)

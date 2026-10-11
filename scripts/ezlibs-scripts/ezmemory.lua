@@ -803,6 +803,28 @@ function ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, ob
     })
 end
 
+-- Net player IDs can become stale while a delayed button/group callback is
+-- running. Keep these cleanup paths defensive: get_player_area can throw for
+-- an ID that has already disconnected.
+local function get_player_area_safely(player_id)
+    if type(Net.is_player) == "function" then
+        local ok, is_player = pcall(Net.is_player, player_id)
+        if not ok or not is_player then
+            return nil
+        end
+    end
+
+    if type(Net.get_player_area) ~= "function" then
+        return nil
+    end
+
+    local ok, area_id = pcall(Net.get_player_area, player_id)
+    if not ok then
+        return nil
+    end
+    return area_id
+end
+
 function ezmemory.unhide_object_from_player_till_disconnect(player_id, area_id, object_id)
     object_id = tostring(object_id)
     local dict = objects_hidden_till_disconnect_for_player
@@ -816,15 +838,31 @@ function ezmemory.unhide_object_from_player_till_disconnect(player_id, area_id, 
         end
     end
 
-    if Net.include_object_for_player and Net.get_player_area(player_id) == area_id then
+    -- Clear the temporary record even if the player has already left. Only
+    -- call the live-player API after safely confirming their current area.
+    local player_area = get_player_area_safely(player_id)
+    if Net.include_object_for_player and player_area == area_id then
         pcall(Net.include_object_for_player, player_id, object_id)
     end
+    return player_area ~= nil
 end
 
 function ezmemory.unhide_object_from_player(player_id, area_id, object_id)
     object_id = tostring(object_id)
-    local player_area = Net.get_player_area(player_id)
-    local safe_secret = helpers.get_safe_player_secret(player_id)
+
+    local player_area = get_player_area_safely(player_id)
+    if player_area == nil then
+        -- Do not attempt to resolve a player secret or mutate persistent
+        -- memory from an ID that is no longer known to the live server.
+        return false
+    end
+
+    -- A disconnect can still race the area check, so guard secret lookup too.
+    local secret_ok, safe_secret = pcall(helpers.get_safe_player_secret, player_id)
+    if not secret_ok or safe_secret == nil then
+        return false
+    end
+
     local player_area_memory = ezmemory.get_player_area_memory(safe_secret, area_id)
     if player_area_memory.hidden_objects[object_id] then
         player_area_memory.hidden_objects[object_id] = nil
@@ -834,6 +872,7 @@ function ezmemory.unhide_object_from_player(player_id, area_id, object_id)
     if Net.include_object_for_player and player_area == area_id then
         pcall(Net.include_object_for_player, player_id, object_id)
     end
+    return true
 end
 
 function ezmemory.hide_object_from_player(player_id, area_id, object_id)

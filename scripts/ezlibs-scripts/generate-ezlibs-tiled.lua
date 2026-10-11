@@ -60,6 +60,10 @@ local Enums = {
         type = "string",
         values = {"all_active", "any_active", "combination"}
     },
+    ButtonComboMode = {
+        type = "string",
+        values = {"Inclusive", "Exclusive"}
+    },
     ButtonEffectEvent = {
         type = "string",
         values = {"activated", "deactivated"}
@@ -493,36 +497,57 @@ local object_types = {
             prop("Group ID", "string", ""),
             prop("Group Mode", "string", "all_active", "ButtonGroupMode"),
 
-            -- Required/active button references. Add Button 2 through Button 9 as needed in Tiled.
+            -- Required/active button references
             prop("Button 1", "object", ""),
 
-
-            -- For combination groups, populated Forbidden Button references must be inactive. Add Forbidden Button 2 through Forbidden Button 9 as needed in Tiled.
+            -- For combination groups, populated Forbidden Button references must be inactive.
             prop("Forbidden Button 1", "object", ""),
 
-
-            -- Multiple checkpoint targets to unlock when the group becomes satisfied. Add Unlock Checkpoint 2 through Unlock Checkpoint 9 as needed in Tiled.
+            -- Checkpoint target template; add numbered properties as needed.
             prop("Unlock Checkpoint 1", "object", ""),
-
 
             -- Shared settings for all unlock targets.
             prop("Unlock Permanently", "bool", true),
             prop("Unlock Area Wide", "bool", false),
 
-            -- Multiple checkpoint targets to relock when the group becomes incomplete. Add Relock Checkpoint 2 through Relock Checkpoint 9 as needed in Tiled.
+            -- Checkpoint target template; add numbered properties as needed.
             prop("Relock Checkpoint 1", "object", ""),
-
 
             -- Shared setting for all relock targets.
             prop("Relock Area Wide", "bool", false),
 
-            -- Legacy properties retained for compatibility with existing maps.
-            prop("Unlock Checkpoint", "object", ""),
-            prop("Relock Checkpoint", "object", "")
         }
     },
 
     -- Button Effect – a button state transition applies an action to another button.
+    -- Button Combo – one button pattern plus the actions to perform when it matches.
+    -- Numbered properties are templates; map makers can add more in Tiled.
+    {
+        name = "Button Combo",
+        color = "#66bbdd",
+        members = {
+            prop("Button 1", "object", ""),
+            prop("Forbidden Button 1", "object", ""),
+            prop("Unlock Checkpoint 1", "object", ""),
+            prop("Unlock Permanently", "bool", true),
+            prop("Unlock Area Wide", "bool", false),
+            prop("Relock Checkpoint 1", "object", ""),
+            prop("Relock Area Wide", "bool", false)
+        }
+    },
+
+    -- Combo Button Group – any referenced Button Combo can satisfy the group.
+    -- Combo Mode controls matching for every referenced combo.
+    {
+        name = "Combo Button Group",
+        color = "#44bb88",
+        members = {
+            prop("Group ID", "string", ""),
+            prop("Combo Mode", "string", "Inclusive", "ButtonComboMode"),
+            prop("Button Combo 1", "object", "")
+        }
+    },
+
     {
         name = "Button Effect",
         color = "#ffbb66",

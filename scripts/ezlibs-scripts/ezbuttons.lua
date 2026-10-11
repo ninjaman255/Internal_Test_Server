@@ -57,9 +57,14 @@ local button_groups = {}       -- area_id -> group_id -> definition
 local button_effects = {}      -- area_id -> source_button_id -> { [event] = { rules... } }
 local group_effects = {}       -- area_id -> group_id -> { [event] = { rules... } }
 local pending_group_objects = {} -- area_id -> Tiled Button Group objects waiting for member buttons
-local group_object_ids = {}       -- area_id -> Tiled Button Group object ID -> runtime group ID
+local group_object_ids = {}       -- area_id -> Tiled Button Group/Combo Button Group object ID -> runtime group ID
 local pending_group_effect_objects = {} -- group effects waiting for their group definition
+local combo_object_definitions = {} -- area_id -> Tiled Button Combo object ID -> validated combo definition
+local pending_combo_objects = {} -- area_id -> Tiled Button Combo objects waiting for member buttons
+local pending_combo_group_objects = {} -- area_id -> Tiled Combo Button Group objects waiting for combos
 local try_configure_pending_groups
+local try_configure_pending_combos
+local try_configure_pending_combo_groups
 local logic_queue = {}
 local processing_logic_queue = false
 local MAX_LOGIC_EVENTS_PER_DRAIN = 1000
@@ -80,7 +85,40 @@ local function normalize_ids(ids)
     return result
 end
 
+local function combo_is_satisfied(area_id, combo)
+    local required = {}
+    for _, id in ipairs(combo.button_ids or {}) do
+        required[tostring(id)] = true
+        if not is_button_active(area_id, id) then return false end
+    end
+    if # (combo.button_ids or {}) == 0 then return false end
+
+    for _, id in ipairs(combo.forbidden_ids or {}) do
+        if is_button_active(area_id, id) then return false end
+    end
+
+    -- Inclusive allows other group-member buttons to be active. Exclusive requires
+    -- the active group-member set in this area to match this combo exactly.
+    if combo.mode == "Exclusive" then
+        for id, info in pairs(button_placeholders[area_id] or {}) do
+            if info.group_member and is_button_active(area_id, id) and not required[tostring(id)] then
+                return false
+            end
+        end
+    end
+    return true
+end
+
 local function group_is_satisfied(area_id, group)
+    if group.combo then
+        return combo_is_satisfied(area_id, group.combo)
+    end
+    if group.combos then
+        for _, combo in ipairs(group.combos) do
+            if combo_is_satisfied(area_id, combo) then return true end
+        end
+        return false
+    end
     local members = group.button_ids
     if group.mode == "any_active" then
         for _, id in ipairs(members) do
@@ -986,6 +1024,9 @@ local function register_button_object(area_id, object, group_member)
     if try_configure_pending_groups then
         try_configure_pending_groups(area_id)
     end
+    if try_configure_pending_combos then
+        try_configure_pending_combos(area_id)
+    end
 end
 
 object_registry.register_handler("OW Button", function(area_id, object)
@@ -1107,14 +1148,22 @@ function ezbuttons.get_group_state(area_id, group_id)
     return group_is_satisfied(area_id, group)
 end
 
-local function property_ids(props, prefix, first, last)
-    local ids = {}
-    for i = first, last do
-        local value = props[prefix .. tostring(i)]
-        if value ~= nil and value ~= "" then
-            ids[#ids + 1] = tostring(value)
+local function property_ids(props, prefix)
+    -- Tiled object types define only the first numbered property as a template.
+    -- Map makers can add any number of numbered properties; discover them from
+    -- the actual custom-properties table instead of imposing a hard upper limit.
+    local numbered = {}
+    for name, value in pairs(props or {}) do
+        if type(name) == "string" then
+            local suffix = name:match("^" .. prefix .. "(%d+)$")
+            if suffix and value ~= nil and tostring(value) ~= "" then
+                numbered[#numbered + 1] = { index = tonumber(suffix), value = tostring(value) }
+            end
         end
     end
+    table.sort(numbered, function(a, b) return a.index < b.index end)
+    local ids = {}
+    for _, entry in ipairs(numbered) do ids[#ids + 1] = entry.value end
     return ids
 end
 
@@ -1197,8 +1246,8 @@ end
 
 local function configure_group_object(area_id, object)
     local props = object.custom_properties or {}
-    local required_ids = property_ids(props, "Button ", 1, 9)
-    local forbidden_ids = property_ids(props, "Forbidden Button ", 1, 9)
+    local required_ids = property_ids(props, "Button ")
+    local forbidden_ids = property_ids(props, "Forbidden Button ")
     if #required_ids == 0 then
         print("[ezbuttons] Button Group has no required members:", tostring(object.id))
         return false
@@ -1219,16 +1268,9 @@ local function configure_group_object(area_id, object)
     if group_id == nil or tostring(group_id) == "" then group_id = tostring(object.id) end
     group_id = tostring(group_id)
     local mode = props["Group Mode"] or "all_active"
-    -- Supports numbered lists (Unlock Checkpoint 1..9 / Relock Checkpoint 1..9)
-    -- while retaining the original singular properties for existing maps.
-    local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ", 1, 9)
-    local relock_checkpoints = property_ids(props, "Relock Checkpoint ", 1, 9)
-    if #unlock_checkpoints == 0 and props["Unlock Checkpoint"] ~= nil and tostring(props["Unlock Checkpoint"]) ~= "" then
-        unlock_checkpoints[1] = tostring(props["Unlock Checkpoint"])
-    end
-    if #relock_checkpoints == 0 and props["Relock Checkpoint"] ~= nil and tostring(props["Relock Checkpoint"]) ~= "" then
-        relock_checkpoints[1] = tostring(props["Relock Checkpoint"])
-    end
+    -- Checkpoint targets are configured only through numbered properties.
+    local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ")
+    local relock_checkpoints = property_ids(props, "Relock Checkpoint ")
     local unlock_permanently = read_bool(props["Unlock Permanently"], true)
     local unlock_area_wide = read_bool(props["Unlock Area Wide"], false)
     local relock_area_wide = read_bool(props["Relock Area Wide"], false)
@@ -1290,6 +1332,167 @@ object_registry.register_handler("Button Group", function(area_id, object)
     try_configure_pending_groups(area_id)
 end)
 
+-- Button Combo objects define a button-state pattern and the actions to run
+-- when that individual pattern becomes satisfied. The matching mode comes from
+-- the parent Combo Button Group, not from the Button Combo object.
+local function configure_button_combo_object(area_id, object)
+    local props = object.custom_properties or {}
+    local required_ids = property_ids(props, "Button ")
+    local forbidden_ids = property_ids(props, "Forbidden Button ")
+    if #required_ids == 0 then
+        print("[ezbuttons] Button Combo has no required buttons:", tostring(object.id))
+        return false
+    end
+
+    for _, button_id in ipairs(required_ids) do
+        local info = button_placeholders[area_id] and button_placeholders[area_id][button_id]
+        if not info or not info.group_member then return false end
+    end
+    for _, button_id in ipairs(forbidden_ids) do
+        local info = button_placeholders[area_id] and button_placeholders[area_id][button_id]
+        if not info or not info.group_member then return false end
+    end
+
+    local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ")
+    local relock_checkpoints = property_ids(props, "Relock Checkpoint ")
+
+    combo_object_definitions[area_id] = combo_object_definitions[area_id] or {}
+    combo_object_definitions[area_id][tostring(object.id)] = {
+        object_id = tostring(object.id),
+        button_ids = normalize_ids(required_ids),
+        forbidden_ids = normalize_ids(forbidden_ids),
+        unlock_checkpoints = unlock_checkpoints,
+        relock_checkpoints = relock_checkpoints,
+        unlock_permanently = read_bool(props["Unlock Permanently"], true),
+        unlock_area_wide = read_bool(props["Unlock Area Wide"], false),
+        relock_area_wide = read_bool(props["Relock Area Wide"], false),
+    }
+    print("[ezbuttons] Configured Button Combo:", tostring(object.id),
+        "required=", #required_ids, "forbidden=", #forbidden_ids)
+
+    if try_configure_pending_combo_groups then
+        try_configure_pending_combo_groups(area_id)
+    end
+    return true
+end
+
+try_configure_pending_combos = function(area_id)
+    local pending = pending_combo_objects[area_id]
+    if not pending then return end
+    for index = #pending, 1, -1 do
+        if configure_button_combo_object(area_id, pending[index]) then
+            table.remove(pending, index)
+        end
+    end
+end
+
+object_registry.register_handler("Button Combo", function(area_id, object)
+    pending_combo_objects[area_id] = pending_combo_objects[area_id] or {}
+    pending_combo_objects[area_id][#pending_combo_objects[area_id] + 1] = object
+    if try_configure_pending_combos then try_configure_pending_combos(area_id) end
+end)
+
+local function configure_combo_button_group_object(area_id, object)
+    local props = object.custom_properties or {}
+    local combo_object_ids = property_ids(props, "Button Combo ")
+    if #combo_object_ids == 0 then
+        print("[ezbuttons] Combo Button Group has no Button Combo references:", tostring(object.id))
+        return false
+    end
+
+    local group_id = props["Group ID"]
+    if group_id == nil or tostring(group_id) == "" then group_id = tostring(object.id) end
+    group_id = tostring(group_id)
+
+    local combo_mode = props["Combo Mode"] or "Inclusive"
+    if combo_mode ~= "Inclusive" and combo_mode ~= "Exclusive" then
+        print("[ezbuttons] Combo Button Group has invalid Combo Mode:", tostring(object.id), tostring(combo_mode))
+        return false
+    end
+
+    local combos = {}
+    local known_combos = combo_object_definitions[area_id] or {}
+    for _, combo_object_id in ipairs(combo_object_ids) do
+        local definition = known_combos[tostring(combo_object_id)]
+        if not definition then return false end
+
+        -- Each referenced combo gets its own runtime identity and its own callback.
+        -- This means achieving one combo runs that combo's actions, not the parent group's.
+        local combo = {
+            object_id = definition.object_id,
+            button_ids = normalize_ids(definition.button_ids),
+            forbidden_ids = normalize_ids(definition.forbidden_ids),
+            mode = combo_mode,
+        }
+        combos[#combos + 1] = combo
+
+        local combo_runtime_id = "combo:" .. group_id .. ":" .. definition.object_id
+        button_groups[tostring(area_id)] = button_groups[tostring(area_id)] or {}
+        button_groups[tostring(area_id)][combo_runtime_id] = {
+            combo = combo,
+            callback = function(changed_area_id, changed_group_id, satisfied, player_id)
+                if satisfied then
+                    apply_group_checkpoint_action(changed_area_id, player_id, definition.unlock_checkpoints,
+                        definition.unlock_area_wide, true, definition.unlock_permanently, combo_runtime_id)
+                elseif #definition.relock_checkpoints > 0 then
+                    apply_group_checkpoint_action(changed_area_id, player_id, definition.relock_checkpoints,
+                        definition.relock_area_wide, false, false, combo_runtime_id)
+                end
+            end,
+            last_satisfied = nil,
+        }
+    end
+
+    -- This aggregate group only represents whether ANY referenced combo matches.
+    -- Its transition events remain useful for Button Group Effect objects, but it
+    -- does not own checkpoint actions; those belong to each Button Combo object.
+    button_groups[tostring(area_id)] = button_groups[tostring(area_id)] or {}
+    button_groups[tostring(area_id)][group_id] = {
+        combos = combos,
+        callback = nil,
+        last_satisfied = nil,
+    }
+
+    group_object_ids[area_id] = group_object_ids[area_id] or {}
+    group_object_ids[area_id][tostring(object.id)] = group_id
+    print("[ezbuttons] Configured Combo Button Group:", tostring(object.id), "group_id=", group_id,
+        "combos=", #combos, "mode=", combo_mode, "logic=any combo matches")
+
+    local pending = pending_group_effect_objects[area_id]
+    if pending then
+        for index = #pending, 1, -1 do
+            local effect_object = pending[index]
+            local effect_props = effect_object.custom_properties or {}
+            if tostring(effect_props["Button Group"] or "") == tostring(object.id) then
+                local target_id = effect_props["Target Button"]
+                if target_id and target_id ~= "" then
+                    local effect_ok, effect_err = pcall(ezbuttons.add_group_effect, area_id, group_id,
+                        effect_props["Event"] or "completed", tostring(target_id), effect_props["Action"] or "activate")
+                    if not effect_ok then print("[ezbuttons] Invalid Button Group Effect:", tostring(effect_err)) end
+                end
+                table.remove(pending, index)
+            end
+        end
+    end
+    return true
+end
+
+try_configure_pending_combo_groups = function(area_id)
+    local pending = pending_combo_group_objects[area_id]
+    if not pending then return end
+    for index = #pending, 1, -1 do
+        if configure_combo_button_group_object(area_id, pending[index]) then
+            table.remove(pending, index)
+        end
+    end
+end
+
+object_registry.register_handler("Combo Button Group", function(area_id, object)
+    pending_combo_group_objects[area_id] = pending_combo_group_objects[area_id] or {}
+    pending_combo_group_objects[area_id][#pending_combo_group_objects[area_id] + 1] = object
+    if try_configure_pending_combo_groups then try_configure_pending_combo_groups(area_id) end
+end)
+
 object_registry.register_handler("Button Effect", function(area_id, object)
     local props = object.custom_properties or {}
     local source_id = props["Source Button"]
@@ -1322,5 +1525,5 @@ object_registry.register_handler("Button Group Effect", function(area_id, object
     end
 end)
 
-print("[ezbuttons] Loaded (individual OW Buttons, group-only OW Button Group Members, Tiled group checkpoint actions, button/group effects)")
+print("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)")
 return ezbuttons
