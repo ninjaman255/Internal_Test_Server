@@ -193,56 +193,9 @@ function TournamentFlow.hide_board_from_all(tournament_id, keep_locked)
     end)
 end
 
-local function refresh_open_boards(tournament)
-    if not tournament then return end
 
-    for player_id, state in pairs(presentation_state) do
-        if state.tournament_id == tournament.id and Net.is_player(player_id) then
-            TournamentUI.update_battling_frames(player_id, tournament)
-        end
-    end
-end
-
-local function open_live_boards_for_waiting_viewers(tournament)
-    return async(function()
-        if not tournament then return end
-
-        local jobs = {}
-
-        for_each_viewer(tournament, function(player_id, viewer)
-            local should_watch = viewer.type == "spectator"
-
-            if viewer.type == "player" and viewer.eliminated and viewer.spectating ~= false then
-                should_watch = true
-            end
-
-            if viewer_is_in_active_match(tournament, player_id) then
-                should_watch = false
-            end
-
-            if Net.is_player_battling then
-                local ok, battling = pcall(Net.is_player_battling, player_id)
-                if ok and battling == true then
-                    should_watch = false
-                end
-            end
-
-            if should_watch then
-                local state = presentation_state[player_id]
-                if not state or state.tournament_id ~= tournament.id then
-                    jobs[#jobs + 1] = open_board_for_player(player_id, tournament)
-                else
-                    TournamentUI.update_battling_frames(player_id, tournament)
-                end
-            end
-        end)
-
-        for _, job in ipairs(jobs) do
-            await(job)
-        end
-    end)
-end
-
+-- Close any presentation boards still associated with this tournament.
+-- This is cleanup only; it does not reopen or refresh boards during battles.
 local function close_live_boards_for_tournament(tournament_id)
     local jobs = {}
 
@@ -252,11 +205,9 @@ local function close_live_boards_for_tournament(tournament_id)
         end
     end
 
-    return async(function()
-        for _, job in ipairs(jobs) do
-            await(job)
-        end
-    end)
+    for _, job in ipairs(jobs) do
+        await(job)
+    end
 end
 
 local function message_viewers(tournament, message)
@@ -690,9 +641,8 @@ function TournamentFlow.run_round_battles(tournament_id, round)
             end
         end
 
-        await(open_live_boards_for_waiting_viewers(tournament))
-        refresh_open_boards(tournament)
-
+        -- The bracket board stays closed for the entire battle phase.
+        -- It is shown again only after every match in this round has resolved.
         local jobs = {}
 
         for match_index, match in ipairs(matches) do
@@ -720,8 +670,6 @@ function TournamentFlow.run_round_battles(tournament_id, round)
                     match.loser.wants_updates = true
                 end
 
-                await(open_live_boards_for_waiting_viewers(tournament))
-                refresh_open_boards(tournament)
             end)
         end
 
@@ -730,7 +678,9 @@ function TournamentFlow.run_round_battles(tournament_id, round)
         end
 
         tournament.active_spectator_matches = {}
-        await(close_live_boards_for_tournament(tournament_id))
+        -- This helper awaits its own close jobs and returns no promise, so call
+        -- it directly rather than passing its nil return value to await().
+        close_live_boards_for_tournament(tournament_id)
     end)
 end
 
