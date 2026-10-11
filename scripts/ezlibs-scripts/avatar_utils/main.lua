@@ -3,6 +3,7 @@
 -- For players: copies assets from engine to local files on avatar change.
 -- For bots: registers existing local asset paths (no copying).
 
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('avatar_utils')
 local avatar_utils = require('scripts/ezlibs-scripts/avatar_utils/avatar_utils')
 
 -- Cache structure for players: cache[player_secret] = {
@@ -42,7 +43,7 @@ end
 local function update_player_avatar(player_id)
     local secret = get_player_secret(player_id)
     if not secret then
-        print("NaviSpot: Failed to get secret for player", player_id)
+        logger:for_player(player_id):warn("NaviSpot: Failed to get player secret")
         return nil
     end
 
@@ -62,7 +63,7 @@ local function update_player_avatar(player_id)
     )
 
     if not success then
-        print("NaviSpot: Failed to copy avatar for player", player_id)
+        logger:for_player(player_id):warn("NaviSpot: Failed to copy avatar assets")
         return nil
     end
 
@@ -98,7 +99,7 @@ end
 local function get_player_avatar_paths(input)
     local secret = resolve_secret(input)
     if not secret then
-        print("NaviSpot: Could not resolve secret from input:", tostring(input))
+        logger:warn("NaviSpot: Could not resolve player or secret input")
         return nil
     end
     return player_cache[secret]
@@ -119,17 +120,17 @@ end
 local function parse_player_animation(input, type)
     local secret = resolve_secret(input)
     if not secret then
-        print("NaviSpot: Could not resolve secret from input:", tostring(input))
+        logger:warn("NaviSpot: Could not resolve player or secret input")
         return nil
     end
     local entry = player_cache[secret]
     if not entry then
-        print("Player: Player not cached for secret:", secret)
+        logger:warn("Player avatar is not cached for the requested secret")
         return nil
     end
     local anim_path = (type == "sheet" and entry.sheet.animation) or (type == "mug" and entry.mug.animation)
     if not anim_path then
-        print("Player: No animation path for secret", secret, "type", type)
+        logger:warn("Player avatar has no animation path; type", type)
         return nil
     end
     return avatar_utils.parse_animation_file(anim_path)
@@ -174,12 +175,12 @@ end
 local function parse_bot_animation(bot_id, type)
     local entry = bot_cache[bot_id]
     if not entry then
-        print("Bot: Bot not registered:", bot_id)
+        logger:info("Bot: Bot not registered:", bot_id)
         return nil
     end
     local anim_path = (type == "sheet" and entry.sheet.animation) or (type == "mug" and entry.mug.animation)
     if not anim_path then
-        print("Bot: No animation path for bot", bot_id, "type", type)
+        logger:info("Bot: No animation path for bot", bot_id, "type", type)
         return nil
     end
     return avatar_utils.parse_animation_file(anim_path)

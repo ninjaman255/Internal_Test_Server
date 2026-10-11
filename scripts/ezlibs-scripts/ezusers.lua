@@ -5,6 +5,7 @@
 -- Per‑user permissions can be overridden without changing the role.
 -- Integrates with ezlibs via standard plugin hooks: handle_player_join, handle_player_disconnect.
 
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezusers')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local sha = require("scripts/ezlibs-scripts/sha256")
@@ -16,10 +17,10 @@ local ezconfig = require('scripts/ezlibs-scripts/ezconfig')  -- load server conf
 local admin_password_hash
 if ezconfig.ADMIN_SEED and ezconfig.ADMIN_SEED ~= "" then
     admin_password_hash = sha.sha256(ezconfig.ADMIN_SEED)
-    print("[ezusers] Admin password hash computed from seed.")
+    logger:info("[ezusers] Admin password hash computed from seed.")
 else
     admin_password_hash = ""
-    print("[ezusers] WARNING: ADMIN_SEED not set in config – admin access disabled.")
+    logger:warn("[ezusers] WARNING: ADMIN_SEED not set in config – admin access disabled.")
 end
 
 -- ============================================================================
@@ -104,7 +105,7 @@ function get_role(player_id)
         mem.role = "user"
         mem.permissions = deep_copy(permissions.user)
         ezmemory.save_player_memory(safe)
-        print("[ezusers] get_role: initialized role and permissions for player", player_id, "safe:", safe)
+        logger:for_safe_secret(safe):info("[ezusers] get_role: initialized role and permissions for player", player_id)
     end
     return mem.role
 end
@@ -112,21 +113,21 @@ end
 -- Assign a role to a player. This also resets their permissions to the new role's defaults.
 -- Returns true if successful, false if player_id invalid
 function assign_role(player_id, role)
-    print("[ezusers] assign_role called for player", player_id, "with role", role)
+    logger:for_player(player_id):info("[ezusers] assign_role called for player", player_id, "with role", role)
     local safe = get_safe_secret(player_id)
     if not safe then
-        print("[ezusers] Cannot assign role – no safe secret for player", player_id)
+        logger:for_player(player_id):warn("[ezusers] Cannot assign role – no safe secret for player", player_id)
         return false
     end
     if not permissions[role] then
-        print("[ezusers] Role '" .. tostring(role) .. "' does not exist.")
+        logger:info("[ezusers] Role '" .. tostring(role) .. "' does not exist.")
         return false
     end
     local mem = ezmemory.get_player_memory(safe)
     mem.role = role
     mem.permissions = deep_copy(permissions[role])
     ezmemory.save_player_memory(safe)
-    print("[ezusers] Assigned role", role, "to player", player_id, "(safe:", safe, ") and saved.")
+    logger:for_safe_secret(safe):info("[ezusers] Assigned role", role, "to player", player_id, "and saved.")
     return true
 end
 
@@ -229,12 +230,12 @@ end
 -- Verify a password attempt; if correct, grant the player the "admin" role.
 -- Returns true if password correct and role assigned, false otherwise.
 function check_password_and_grant_admin(player_id, password_attempt)
-    print("[ezusers] Password attempt for player", player_id)
+    logger:for_player(player_id):info("[ezusers] Password attempt")
     if sha.sha256(password_attempt) == admin_password_hash then
-        print("[ezusers] Password correct, granting admin")
+        logger:for_player(player_id):info("[ezusers] Password correct, granting admin")
         return assign_role(player_id, "admin")
     else
-        print("[ezusers] Password incorrect")
+        logger:for_player(player_id):warn("[ezusers] Password incorrect")
         return false
     end
 end
@@ -243,7 +244,7 @@ end
 -- Use this to extend the system dynamically.
 function add_role(role_name, permission_table)
     permissions[role_name] = permission_table
-    print("[ezusers] Added new role:", role_name)
+    logger:info("[ezusers] Added new role:", role_name)
 end
 
 -- (Optional) Update permissions for an existing role (merges with current).
@@ -251,14 +252,14 @@ end
 function update_permissions(role_name, permission_updates)
     local current = permissions[role_name]
     if not current then
-        print("[ezusers] Role '" .. role_name .. "' does not exist. Use add_role first.")
+        logger:info("[ezusers] Role '" .. role_name .. "' does not exist. Use add_role first.")
         return
     end
     -- Simple shallow merge – you can make this recursive if needed
     for k, v in pairs(permission_updates) do
         current[k] = v
     end
-    print("[ezusers] Updated permissions for role:", role_name)
+    logger:info("[ezusers] Updated permissions for role:", role_name)
 end
 
 -- ============================================================================
@@ -267,25 +268,25 @@ end
 
 -- Called when a player joins: ensure they have a role and permissions.
 function handle_player_join(player_id)
-    print("[ezusers] handle_player_join called for player", player_id)
+    logger:for_player(player_id):info("[ezusers] handle_player_join called for player", player_id)
     local safe = get_safe_secret(player_id)
     if not safe then
-        print("[ezusers] No safe secret for player", player_id)
+        logger:for_player(player_id):warn("[ezusers] No safe secret for player", player_id)
         return
     end
-    print("[ezusers] Player safe secret:", safe)
+    logger:for_safe_secret(safe):info("[ezusers] Player safe secret resolved")
     local mem = ezmemory.get_player_memory(safe)
     if mem.role == nil then
         mem.role = "user"
         mem.permissions = deep_copy(permissions.user)
         ezmemory.save_player_memory(safe)
-        print("[ezusers] Set role to 'user' and initialized permissions.")
+        logger:for_safe_secret(safe):info("[ezusers] Set role to user and initialized permissions.")
     else
         -- Ensure permissions exist (migration from older version)
         if mem.permissions == nil then
             mem.permissions = deep_copy(permissions[mem.role] or permissions.user)
             ezmemory.save_player_memory(safe)
-            print("[ezusers] Migrated: added permissions for existing player.")
+            logger:for_safe_secret(safe):info("[ezusers] Migrated: added permissions for existing player.")
         end
     end
 end

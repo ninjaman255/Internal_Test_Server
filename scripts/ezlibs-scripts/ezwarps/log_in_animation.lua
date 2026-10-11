@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezwarps')
 function create_jack_in_out_animation(is_arriving)
     local log_in_animation = {
         --these offsets will modify the warp landing location so that the player can animate from their spawn location nicely
@@ -13,7 +14,7 @@ function create_jack_in_out_animation(is_arriving)
                 Net.provide_asset(area_id, "/server/assets/ezlibs-assets/ezwarps/logout.png")
                 Net.provide_asset(area_id, "/server/assets/ezlibs-assets/ezwarps/logout.animation")
                 local warp_in_effect_id = "warp_in_effect_"..player_id
-                print('spawning log in effect bot')
+                logger:info('spawning log in effect bot')
                 Net.create_bot(warp_in_effect_id, {
                     warp_in = false,
                     texture_path = "/server/assets/ezlibs-assets/ezwarps/logout.png",

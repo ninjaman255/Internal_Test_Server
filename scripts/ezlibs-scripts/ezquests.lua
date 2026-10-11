@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezquests')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 
@@ -7,25 +8,25 @@ local ezquests = {
 
 function ezquests.add_quest(quest)
     if not quest.name then
-        warn('[ezquests] quest has no name')
+        logger:warn('[ezquests] quest has no name')
         return
     end
     if not quest.handle_event_async then
-        warn('[ezquests] quest',quest.name,'needs a handle_event function')
+        logger:warn('[ezquests] quest',quest.name,'needs a handle_event function')
         return
     end
     if not quest.determine_state then
-        warn('[ezquests] quest',quest.name,'needs a determine_state function')
+        logger:warn('[ezquests] quest',quest.name,'needs a determine_state function')
         return
     end
     if ezquests.quests[quest.name] then
-        warn('[ezquests] quest',quest.name,'already exists and will be replaced')
+        logger:warn('[ezquests] quest',quest.name,'already exists and will be replaced')
     end
     ezquests.quests[quest.name] = quest
 end
 
 function ezquests.set_player_quest_flag(player_id,quest_name,flag_name,flag_state)
-    print('[ezquests]',quest_name,'flag(',flag_name,')set to',flag_state,'for player',player_id)
+    logger:for_player(player_id):info('[ezquests]',quest_name,'flag(',flag_name,')set to',flag_state,'for player',player_id)
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local player_memory = ezmemory.get_player_memory(safe_secret)
     if not player_memory["quests"] then
@@ -51,7 +52,7 @@ function ezquests.get_player_quest_flag(player_id,quest_name,flag_name,flag_stat
 end
 
 function ezquests.clear_player_quest_flags(player_id,quest_name)
-    print('[ezquests] clearing all flags for quest',quest_name,'for player',player_id)
+    logger:for_player(player_id):info('[ezquests] clearing all flags for quest',quest_name,'for player',player_id)
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local player_memory = ezmemory.get_player_memory(safe_secret)
     if not player_memory["quests"] then
@@ -66,14 +67,14 @@ function ezquests.get_quest(quest_name)
     if quest then
         return quest
     else
-        warn('[ezquests] no quest with name ',quest_name)
+        logger:warn('[ezquests] no quest with name ',quest_name)
     end
 end
 
 function ezquests.get_player_quest_state(player_id, quest_name)
     local quest = ezquests.get_quest(quest_name)
     if not quest then
-        warn('[ezquests] quest "' .. tostring(quest_name) .. '" not found, returning nil')
+        logger:warn('[ezquests] quest "' .. tostring(quest_name) .. '" not found, returning nil')
         return nil
     end
     return quest:determine_state(player_id)
@@ -82,10 +83,10 @@ end
 function ezquests.quest_event(player_id,quest_name,event_value)
     local quest = ezquests.get_quest(quest_name)
     if not quest then
-        warn('[ezquests] cannot send event: quest "' .. tostring(quest_name) .. '" not found')
+        logger:warn('[ezquests] cannot send event: quest "' .. tostring(quest_name) .. '" not found')
         return async(function() end)()  -- return empty promise
     end
-    print('[ezquests] quest=',quest)
+    logger:info('[ezquests] quest event dispatched', quest_name)
     return quest:handle_event_async(player_id,event_value)
 end
 

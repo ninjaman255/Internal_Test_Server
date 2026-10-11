@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('object_registry')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 
 local object_registry = {
@@ -27,7 +28,7 @@ function object_registry.register_handler(object_type, callback, cache)
 end
 
 function object_registry.load_all()
-    print("[object_registry] Starting preload...")
+    logger:info("[object_registry] Starting preload...")
     local start_time = os.clock()
 
     local areas = Net.list_areas()
@@ -51,7 +52,7 @@ function object_registry.load_all()
     end
 
     local elapsed = os.clock() - start_time
-    print("[object_registry] Preload completed in " .. elapsed .. "s")
+    logger:info("[object_registry] Preload completed in " .. elapsed .. "s")
 end
 
 return object_registry

@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('eznpcs')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezquests = require('scripts/ezlibs-scripts/ezquests')
@@ -210,7 +211,7 @@ local dialogue_types = {
                 if dialogue.custom_properties[quest_state] then
                     return dialogue.custom_properties[quest_state]
                 else
-                    warn('[eznpcs] dialogue node',dialogue.id,'has no custom property for quest state',quest_state)
+                    logger:warn('[eznpcs] dialogue node',dialogue.id,'has no custom property for quest state',quest_state)
                 end
             end)
         end
@@ -297,7 +298,7 @@ local dialogue_types = {
 
                 local id = dialogue.custom_properties["Email Id"]
                 if not id or id == "" then
-                    warn("[eznpcs] email dialogue missing Email Id on node", dialogue.id)
+                    logger:warn("[eznpcs] email dialogue missing Email Id on node", dialogue.id)
                     return next_id
                 end
 
@@ -330,7 +331,7 @@ local dialogue_types = {
 
                     -- If either is missing, send with no mug + warn
                     if not has_asset(tex_path) or not has_asset(anim_path) then
-                        warn("[eznpcs] email mug asset missing. tex=", tex_path, "anim=", anim_path, " -> sending without mug")
+                        logger:warn("[eznpcs] email mug asset missing. tex=", tex_path, "anim=", anim_path, " -> sending without mug")
                         tex_path = nil
                         anim_path = nil
                     end
@@ -379,7 +380,7 @@ local dialogue_types = {
                 local fail_msg = dialogue.custom_properties["Failure Message"] or "You hesitated..."
 
                 if not encounter_name then
-                    warn("[eznpcs] battle_npc missing Encounter Name")
+                    logger:warn("[eznpcs] battle_npc missing Encounter Name")
                     return
                 end
 
@@ -403,13 +404,13 @@ local dialogue_types = {
                     return
                 end
 
-                print("[battle_npc] stats for player", player_id, ":", stats)
+                logger:for_player(player_id):info_data("[battle_npc] encounter completed", {stats = stats})
 
                 -- Determine win/loss based on reason field
                 -- reason 0 = normal victory, anything else = loss (2,3,4 as per request)
                 local won = (stats.reason == 1) and (stats.health and stats.health > 0)
 
-                print("[battle_npc] player", player_id, "won =", won, "reason =", stats.reason, "health =", stats.health, "bot_id =", npc.bot_id, "placeholder_id =", npc.first_dialogue.id)
+                logger:for_player(player_id):info_data("[battle_npc] result", {won = won, reason = stats.reason, health = stats.health, bot_id = npc.bot_id, placeholder_id = npc.first_dialogue.id})
 
                 -- Wait a moment for the player to return to the game world
                 await(Async.sleep(1.0))
@@ -453,7 +454,7 @@ local dialogue_types = {
 
 Net:on("battle_results", function (event)
     Net.is_player_battling(event.player_id)
-    print(Net.is_player_battling(event.player_id))
+    logger:for_player(event.player_id):debug("[battle_npc] battle_results received; is_player_battling =", Net.is_player_battling(event.player_id))
 end)
 
 return dialogue_types

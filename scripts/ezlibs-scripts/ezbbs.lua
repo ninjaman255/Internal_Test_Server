@@ -3,6 +3,7 @@
 -- Uses ezusers for permission checks.
 -- Board data stored in memory/board/<board_name>.json (path from ezconfig).
 
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbbs')
 local json = require("scripts/libs/json")
 local ezusers = require("scripts/ezlibs-scripts/ezusers")
 local helpers = require("scripts/ezlibs-scripts/helpers")
@@ -205,10 +206,10 @@ local function load_board(name, callback)
             board_cache[name] = data
             -- Save the newly created board to disk immediately
             save_board(name)
-            print("[ezbbs] Created board file for:", name)
+            logger:info("[ezbbs] Created board file for:", name)
         else
             board_cache[name] = data
-            print("[ezbbs] Loaded board:", name)
+            logger:info("[ezbbs] Loaded board:", name)
         end
         callback(data)
     end)
@@ -263,7 +264,7 @@ end
 -- Preload all boards at startup (create missing files)
 -- ----------------------------------------------------------------------
 local function preload_boards()
-    print("[ezbbs] Preloading boards...")
+    logger:info("[ezbbs] Preloading boards...")
     local areas = Net.list_areas()
     local board_names = {}
     for _, area_id in ipairs(areas) do
@@ -280,7 +281,7 @@ local function preload_boards()
             end
         end
     end
-    print("[ezbbs] Preload initiated for " .. #board_names .. " boards.")
+    logger:info("[ezbbs] Preload initiated for " .. #board_names .. " boards.")
 end
 
 -- ----------------------------------------------------------------------
@@ -309,7 +310,7 @@ function ezbbs.handle_object_interaction(player_id, object_id, button)
     local name = object.custom_properties.Name
     local color_string = object.custom_properties.Color
     if not name or not color_string then
-        print("[ezbbs] Board missing Name or Color property")
+        logger:info("[ezbbs] Board missing Name or Color property")
         return
     end
 
@@ -337,7 +338,7 @@ function ezbbs.handle_post_selection(player_id, post_id)
     local board_name = state.board_name
     local board_data = board_cache[board_name]  -- should be loaded already
     if not board_data then
-        print("[ezbbs] Board data not loaded for", board_name)
+        logger:info("[ezbbs] Board data not loaded for", board_name)
         return
     end
 

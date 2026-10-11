@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezencounters')
 local ezwarps = require('scripts/ezlibs-scripts/ezwarps/main')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
@@ -27,16 +28,16 @@ local load_encounters_for_areas = function ()
             area_encounter_tables[area_id] = require(encounter_table_path)
             for index, encounter_info in ipairs(area_encounter_tables[area_id].encounters) do
                 if not provided_encounter_assets[encounter_info.path] then
-                    print('[ezencounters] providing mob package '..encounter_info.path)
+                    logger:info('[ezencounters] providing mob package '..encounter_info.path)
                     Net.provide_asset(area_id, encounter_info.path)
                     provided_encounter_assets[encounter_info.path] = true
                 end
                 if encounter_info.name then
-                    print('[ezencounters] loaded named encounter '..encounter_info.name)
+                    logger:info('[ezencounters] loaded named encounter '..encounter_info.name)
                     named_encounters[encounter_info.name] = encounter_info
                 end
             end
-            print('[ezencounters] loaded encounter table for '..area_id)
+            logger:info('[ezencounters] loaded encounter table for '..area_id)
         end
     end
     return area_encounter_tables
@@ -132,7 +133,7 @@ ezencounters.begin_encounter_by_name = function(player_id,encounter_name,trigger
             local stats = await(ezencounters.begin_encounter(player_id,encounter_info,trigger_object))
             return stats
         else
-            print('[ezencounters] no encounter with name ',encounter_name,' has been added to any encounter tables!')
+            logger:info('[ezencounters] no encounter with name ',encounter_name,' has been added to any encounter tables!')
             return nil
         end
     end)
@@ -158,7 +159,7 @@ ezencounters.clear_tiles_since_encounter = function (player_id)
 end
 
 ezencounters.clear_last_position = function (player_id)
-    print('[ezencounters] clearing last position')
+    logger:info('[ezencounters] clearing last position')
     player_last_position[player_id] = nil
     ezencounters.clear_tiles_since_encounter(player_id)
     players_in_encounters[player_id] = nil
@@ -201,7 +202,7 @@ end
 
 local function on_radius_encounter_triggered(event)
     return async(function ()
-        print('[ezencounters] radius encounter triggered ',event.object.custom_properties)
+        logger:info('[ezencounters] radius encounter triggered ',event.object.custom_properties)
         local player_area = Net.get_player_area(event.player_id)
         local is_hidden_already = ezmemory.object_is_hidden_from_player(event.player_id,player_area,event.object.id)
         if is_hidden_already then

@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('eznpcs')
 local Direction = require("scripts/ezlibs-scripts/direction")
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
@@ -29,7 +30,7 @@ local npc_required_properties = {"Direction","Asset Name"}
 
 local function printd(...)
     local arg={...}
-    print('[eznpcs]',table.unpack(arg))
+    logger:info('[eznpcs]',table.unpack(arg))
 end
 
 -- Helper to safely evaluate boolean properties from Tiled (can be boolean or string)

@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezcheckpoints')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local condition = require('scripts/ezlibs-scripts/condition')
@@ -56,7 +57,7 @@ end
 function ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, once)
     local obj = Net.get_object_by_id(area_id, object_id)
     if not obj or obj.type ~= "Checkpoint" then
-        print("[ezcheckpoints] force_unlock_checkpoint: object not found or not a checkpoint")
+        logger:for_area(area_id):warn("[ezcheckpoints] force_unlock_checkpoint: object not found or not a checkpoint")
         return false
     end
     local props = obj.custom_properties or {}
@@ -84,7 +85,7 @@ function ezcheckpoints.relock_checkpoint(player_id, area_id, object_id)
     end
 
     if not area_ok then
-        print("[ezcheckpoints] Skipping live checkpoint re-include; player is no longer available: " .. tostring(player_id))
+        logger:for_player(player_id):warn("[ezcheckpoints] Skipping live checkpoint re-include; player is no longer available")
         return false
     end
 

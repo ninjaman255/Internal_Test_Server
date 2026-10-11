@@ -737,6 +737,7 @@ function TournamentFlow.unsquash_winner_after_move(tournament_id, round, match_i
         if not index then return end
 
         local jobs = current_viewer_jobs(tournament, function(player_id, state)
+            pcall(Net.play_sound_for_player, player_id, "/server/assets/tourney/sfx/mug-bleep.ogg")
             return TournamentUI.unsquash_mugshot(
                 player_id,
                 tournament_id,
@@ -824,6 +825,7 @@ function TournamentFlow.spawn_progress_bar_for_match(tournament_id, round, match
 
         local overlays = {}
         for_each_viewer(tournament, function(player_id)
+            pcall(Net.play_sound_for_player, player_id, "/server/assets/tourney/sfx/bar-move.ogg")
             local state = presentation_state[player_id]
             if state and state.tournament_id == tournament.id then
                 local overlay_id = TournamentUI.add_progress_bar_with_overlay(
@@ -880,7 +882,7 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                         round,
                         match_index
                     ))
-
+                    
                     -- 2. Squash the winner (overlay visible)
                     await(TournamentFlow.squash_winner_before_move(
                         tournament_id,
@@ -898,7 +900,6 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
 
                     -- 4. Keep both overlay and squashed mug visible for a moment
                     await(Async.sleep(0.6))
-
                     -- 5. Remove the overlay
                     TournamentFlow.remove_progress_bar_overlays(overlays)
 
@@ -908,6 +909,7 @@ function TournamentFlow.process_round_one_by_one(tournament_id, round)
                         round,
                         match_index
                     ))
+                    
                     await(Async.sleep(0.3))
                 end
 

@@ -2,30 +2,142 @@
 
 > 📝 **Documentation note**
 >
-> I'll document this across multiple messages, organized by system/module. This message covers the **overview**, **directory structure**, and the **Core Infrastructure** layer. Subsequent messages will cover the higher‑level systems.
+> This is the consolidated reference for the source in this ezlibs directory. Cross-cutting infrastructure and dependencies are documented in the shared section near the top; module-specific behavior remains in the system sections below.
 
 ## 🗂️ Table of Contents
 
-- [🧭 Part 1 — Overview & Core Infrastructure](#part-1)
-- [💾 Part 2 — ezmemory (Player/Area Memory) & ezusers (Roles/Permissions)](#part-2)
-- [🎛️ Part 3 — eztriggers, ezbuttons, ezcheckpoints, ezlocks, ezexplosions](#part-3)
-- [💬 Part 4 — eznpcs & dialogue_types](#part-4)
-- [🌀 Part 5 — ezwarps (Warp Objects & Animations)](#part-5)
-- [✉️ Part 6 — ezemail, ezmail, and ezannounce](#part-6)
-- [📌 Part 7 — ezbbs (Bulletin Board System)](#part-7)
-- [🌱 Part 8 — ezfarms](#part-8)
-- [💎 Part 9 — ezmystery](#part-9)
-- [🧩 Part 10 — ezquests, ezpress, ezchristmas, ezrushroads, ezweather, ezmenus](#part-10)
-- [🧱 Part 11 — generate-ezlibs-tiled.lua (Tiled Type Generator)](#part-11)
-- [🔎 Part 12 — Final Combined Cross‑Reference](#part-12)
-- [🧰 Part 13 — Utility Modules](#part-13)
+- [🔗 Shared Systems & Cross-Module Dependencies](#shared-systems--cross-module-dependencies)
+- [Part 1 — Overview & Core Infrastructure](#part-1)
+- [Part 2 — utils/ezutil.lua — General Utilities](#part-2)
+- [Part 3 — utils/ezvalidate.lua — Validation Helpers](#part-3)
+- [Part 4 — utils/ezdebug.lua — Logging Helpers](#part-4)
+- [Part 5 — ezlogger.lua — File-backed Diagnostics](#part-5)
+- [Part 6 — helpers.lua](#part-6)
+- [Part 7 — json.lua](#part-7)
+- [Part 8 — urlencode.lua](#part-8)
+- [Part 9 — sha256.lua](#part-9)
+- [Part 10 — ezconfig.lua](#part-10)
+- [Part 11 — ezcache.lua](#part-11)
+- [Part 12 — object_registry.lua](#part-12)
+- [Part 13 — ezemitter.lua](#part-13)
+- [Part 14 — ezbus.lua](#part-14)
+- [Part 15 — direction.lua](#part-15)
+- [Part 16 — condition.lua](#part-16)
+- [Part 17 — main.lua (root)](#part-17)
+- [Part 18 — ezmemory.lua](#part-18)
+- [Part 19 — ezusers.lua](#part-19)
+- [Part 20 — eztriggers.lua](#part-20)
+- [Part 21 — ezbuttons.lua](#part-21)
+- [Part 22 — ezcheckpoints.lua](#part-22)
+- [Part 23 — ezlocks.lua](#part-23)
+- [Part 24 — ezexplosions.lua](#part-24)
+- [Part 25 — eznpcs/eznpcs.lua](#part-25)
+- [Part 26 — eznpcs/dialogue_types.lua](#part-26)
+- [Part 27 — ezwarps/main.lua](#part-27)
+- [Part 28 — ezwarps/arrow_animation_factory.lua](#part-28)
+- [Part 29 — ezwarps/fall_in_animation.lua](#part-29)
+- [Part 30 — ezwarps/fall_off_2.lua](#part-30)
+- [Part 31 — ezwarps/lev_beast_in_animation.lua](#part-31)
+- [Part 32 — ezwarps/lev_beast_out_animation.lua](#part-32)
+- [Part 33 — ezwarps/log_in_animation.lua](#part-33)
+- [Part 34 — ezemail.lua](#part-34)
+- [Part 35 — ezmail.lua](#part-35)
+- [Part 36 — ezannounce/announcements_feed.lua](#part-36)
+- [Part 37 — ezannounce/ezannounce.lua](#part-37)
+- [Part 38 — ezbbs.lua (Bulletin Board System)](#part-38)
+- [Part 39 — ezfarms.lua](#part-39)
+- [Part 40 — ezmystery.lua](#part-40)
+- [Part 41 — ezquests.lua](#part-41)
+- [Part 42 — ezpress.lua](#part-42)
+- [Part 43 — ezchristmas.lua](#part-43)
+- [Part 44 — ezrushroads.lua](#part-44)
+- [Part 45 — ezweather.lua](#part-45)
+- [Part 46 — ezmenus.lua](#part-46)
+- [Part 47 — generate-ezlibs-tiled.lua (Tiled Type Generator)](#part-47)
+- [🔎 Final Combined Cross-Reference](#final-combined-cross-reference)
+
+---
+
+<a id="shared-systems--cross-module-dependencies"></a>
+## 🔗 Shared Systems & Cross-Module Dependencies
+
+This section is the **canonical cross-module reference** for shared infrastructure and the dependencies between ezlibs modules. Module-specific sections below remain the source for each module's own behavior, public API, Tiled properties, and event handlers. Where a shared mechanism is explained here, module sections should refer back to it rather than redefining the shared contract.
+
+### Shared infrastructure: one owner per concern
+
+| Shared concern | Canonical module(s) | Responsibility and usage notes |
+|---|---|---|
+| Common helper API | `helpers.lua` | Existing helper functions, safe `require`, item-property parsing, player-safe-secret derivation, directory creation, lock helpers, and legacy globals. Preserve its public names when refactoring. |
+| File-backed runtime diagnostics | `ezlogger.lua` | Module, player, and area/map scoped JSONL logs under `_DEBUGGING`. Prefer this for ezlibs runtime diagnostics; keep command-line/vendor diagnostics separate where documented. |
+| Lightweight console diagnostics | `utils/ezdebug.lua` | Optional configurable console/sink logger. It is distinct from the file-backed `ezlogger`; do not treat them as the same API. |
+| Table/list helpers | `utils/ezutil.lua` | Shared copy, merge, clamp, count, membership, and removal functions. Note which functions mutate their arguments. |
+| Input/data validation | `utils/ezvalidate.lua` | Small opt-in Lua type, required-field, and numeric-range checks. It does not validate Tiled schemas automatically. |
+| Cross-module events | `ezbus.lua` + `ezemitter.lua` | `ezbus` is the shared event-bus instance, backed by the emitter implementation. Event names and payloads are listed in the event cross-reference later in this document. |
+| Tiled object registration/cache | `object_registry.lua` + `ezcache.lua` | `object_registry` coordinates registered object handlers and preload; `ezcache` owns cached object lookup. Register consumers before `object_registry.load_all()` is called. |
+| Server configuration | `ezconfig.lua` | Shared access to `ezlibs-config`; configuration keys and consumers are indexed in the combined cross-reference. |
+| Persistent player/area state | `ezmemory.lua` | Owns the persisted memory model and public memory/item/currency/health operations. Other modules should use its public API instead of duplicating file writes or schemas. |
+| Condition evaluation | `condition.lua` | Shared condition evaluation used by systems such as checkpoints and Mystery Data; it depends on memory and quest state. |
+| Direction constants/helpers | `direction.lua` | Shared direction values and conversions; keep direction representation consistent across NPC and warp logic. |
+| JSON serialization | `json.lua` | Bundled JSON implementation used by logger, persistence, and tooling. A module that imports another JSON path has a distinct dependency; see the dependency map. |
+| URL encoding | `urlencode.lua` | Shared URL-encoding functions used by helpers/logger-related path or secret handling. |
+| Avatar processing | `avatar_utils/main.lua`, `avatar_utils/avatar_utils.lua`, `avatar_utils/base64.lua`, bundled `lua_yes_parser` | Avatar parsing/caching and support code. Higher-level consumers should use the public avatar utility entry points rather than copy parsing code. |
+| Tiled type definitions | `generate-ezlibs-tiled.lua` | Produces editor metadata for supported object types and properties. A type appearing in generated metadata does not, by itself, prove a runtime handler exists. |
+
+### Detailed shared utility APIs
+
+The following standalone Parts document each shared utility module individually. This section describes shared responsibilities and cross-module relationships; module-specific APIs are documented in their own Parts.
+
+### Dependency terms used below
+
+- **Direct source dependency** means the file contains a `require(...)` of that ezlibs module. It does not automatically mean the dependency is optional.
+- **Deferred require** means the `require` occurs inside a function rather than at the file's initial load. It can still be required for that code path.
+- **Runtime/event coupling** means modules communicate through `ezbus`, `Net` events, Tiled object registrations, shared memory, or exported handlers even when no direct `require` edge exists.
+- **Entrypoint-loaded** means `main.lua` explicitly requires the module. The plugin dispatch list is a separate concern: not every loaded module is included in the `plugins` array.
+
+For the complete source-derived direct-import inventory, including shared utility dependencies, see [MODULE_DEPENDENCIES.md](MODULE_DEPENDENCIES.md). The key application-level dependencies are summarized here:
+
+| Module | Direct ezlibs module dependencies observed in source | Important relationship |
+|---|---|---|
+| `eznpcs/eznpcs.lua` | `direction`, `helpers`, `ezmemory`, `ezcache`, `object_registry`, `ezbus`, `ezquests`, `eznpcs/dialogue_types` | Uses player memory and quest state; dialogue behavior is delegated to `dialogue_types`. |
+| `eznpcs/dialogue_types.lua` | `helpers`, `ezmemory`, `ezquests`, `ezemail`, `condition`, `ezbus`, `ezencounters/main` | Dialogue types can check memory/quests, send email, evaluate conditions, and start encounters. |
+| `ezmemory.lua` | `json`, `helpers`, `ezbus`, `ezconfig`, `avatar_utils/main`; deferred `eznpcs/eznpcs` | Memory owns persisted state but also consults NPC data on a deferred code path. This creates a source-level dependency cycle with `eznpcs`; avoid moving the deferred import to file initialization without testing. |
+| `ezquests.lua` | `ezmemory`, `helpers` | Quest state is persisted through player memory. |
+| `condition.lua` | `ezmemory`, `ezquests`, `helpers` | Condition evaluation depends on both memory and quest state. |
+| `ezusers.lua` | `helpers`, `ezmemory`, `sha256`, `ezconfig`, `object_registry`, `eztriggers` | User roles/password/admin-console behavior uses memory/configuration and registers an interactive admin object through trigger infrastructure. |
+| `ezbuttons.lua` | `object_registry`, `eznpcs/eznpcs`, `eztriggers`, `ezmemory`, `ezbus`, `helpers`, `ezcheckpoints` | Button group/effect logic interacts with NPCs, triggers, memory, event bus, and checkpoint behavior. |
+| `ezcheckpoints.lua` | `ezmemory`, `helpers`, `condition`, `ezbus` | Checkpoint conditions and state rely on memory/conditions and bus events. |
+| `eztriggers.lua` | `helpers`, `object_registry` | Shared trigger infrastructure used by several object-based modules. |
+| `ezfarms.lua` | `ezconfig`, `eznpcs/eznpcs`, `ezweather`, `ezmemory`, `helpers` | Farming depends on NPC interactions, weather, configuration, and persisted player/area state. |
+| `ezmystery.lua` | `ezmemory`, `ezcache`, `helpers`, `ezlocks`, `condition`, `ezencounters/main`, `ezbus`, `avatar_utils/main`, `avatar_utils/avatar_utils` | Collection/quiz flow combines memory, locks, conditions, encounters, events, and avatar processing. |
+| `ezencounters/main.lua` | `ezwarps/main`, `ezmemory`, `helpers`, `eztriggers`, `object_registry`, `ezbus`, `ezconfig` | Encounter objects use trigger/registry infrastructure and warp/memory/configuration support. |
+| `ezwarps/main.lua` | `json`, `ezwarps/arrow_animation_factory`, `ezwarps/log_in_animation`, `eztriggers`, `object_registry`, `ezbus`, `ezcache`, warp animation modules, `ezpress` | Warp handling composes registered warp objects, animations, events, cache, and compression behavior. |
+| `ezpress.lua` | `eztriggers`, `helpers`, `ezbus` | Compression/minish behavior shares trigger infrastructure and emits/consumes bus events. |
+| `ezrushroads.lua` | `helpers`, `ezmemory`, `eztriggers`, `ezbus` | Road state and progress depend on memory and shared triggers/events. |
+| `ezemail.lua` | `helpers`, `ezmemory`, `ezbus`, `ezconfig`; deferred `ezannounce/ezannounce` | Mail persistence uses memory; sending can notify the announcement system. |
+| `ezannounce/ezannounce.lua` | `helpers`, `ezmemory`, `ezemail`, `ezbus` | Announcements use memory and email functionality. Together with the deferred import in `ezemail`, this is a source-level cycle; preserve the deferred boundary unless both modules are refactored and tested together. |
+| `ezbbs.lua` | `ezusers`, `helpers`, `ezconfig`, plus `scripts/libs/json` | BBS permissions rely on `ezusers`; note that its JSON require path differs from the bundled `scripts/ezlibs-scripts/json` path. |
+| `ezweather.lua` | `ezbus` | Weather exposes/communicates state through the shared event bus. |
+| `ezchristmas.lua` | `ezweather` | Seasonal behavior reads the weather module. |
+| `ezlocks.lua` | `helpers`, `ezmemory`, `ezbus` | Lock behavior is coupled to memory and shared events. |
+| `ezexplosions.lua` | `ezbus` | Explosion effects are exposed through the shared bus. |
+| `ezemail.lua` and `ezannounce/ezannounce.lua` | See above | The separate `ezmail.lua` and root `ezannounce.lua` files also exist; do not assume they are interchangeable. The root `main.lua` explicitly loads `ezemail.lua` and `ezannounce/ezannounce.lua`. |
+
+### Dependency and load-order cautions
+
+1. **`eznpcs` and `ezmemory` form a deferred require cycle.** `eznpcs.lua` imports `ezmemory.lua` at file load, while `ezmemory.lua` imports `eznpcs.lua` inside a later function. This is materially different from two top-level imports and should be preserved unless the cycle is deliberately refactored.
+2. **`ezemail` and `ezannounce` form a deferred require cycle.** `ezannounce` imports `ezemail` at load time; `ezemail` imports `ezannounce` inside a function. Moving that import to the top of `ezemail.lua` could change module initialization behavior.
+3. **`main.lua` requires modules before calling `object_registry.load_all()`.** This lets their object handlers register before preload. Avoid loading object-consuming modules after preload unless their registration path explicitly supports that.
+4. **`main.lua` has both a `plugins` array and other required modules.** Being required does not guarantee a module is included in the central handler fan-out. Use the source `plugins` table and standalone event registrations as the authority for event routing.
+5. **The bus and `Net` event system are different layers.** `Net:on(...)` subscribes to engine events; `ezbus:on(...)` subscribes to internal ezlibs events. Do not assume an event in one system is automatically emitted in the other.
+6. **Shared memory namespaces are not module dependencies by themselves.** A module can read/write a memory bucket without requiring another module. See the memory namespace cross-reference for the exact names and ownership patterns.
+7. **Optional imports must be explicit.** `helpers.safe_require(...)` is used for optional/custom scripts in the inspected code. Ordinary `require(...)` calls should be treated as required unless the call site handles failure.
 
 ---
 
 <a id="part-1"></a>
-## 🧭 Part 1 — Overview & Core Infrastructure
+## Part 1 — Overview & Core Infrastructure
 
-### 1.1 Overview
+### Overview
 
 `ezlibs` is a modular Lua library for a server runtime that exposes a global `Net` API (event‑driven, with async primitives `Async`, `async`, `await`). It provides systems for:
 
@@ -48,11 +160,11 @@
 - Explosion VFX (`ezexplosions`)
 - Quest framework (`ezquests`)
 - Users/roles/permissions (`ezusers`)
-- Cross‑cutting helpers (`helpers`, `utils/ezutil.lua`, `utils/ezvalidate.lua`, `utils/ezdebug.lua`), event bus (`ezbus`), JSON (`json`), SHA‑256 (`sha256`), URL encoding (`urlencode`), direction math (`direction`), condition evaluation (`condition`), object cache (`ezcache`), avatar asset copy/parse (`avatar_utils`)
+- Cross‑cutting helpers (`helpers`, `ezlogger`, `utils/ezutil.lua`, `utils/ezvalidate.lua`, `utils/ezdebug.lua`), event bus (`ezbus`), JSON (`json`), SHA‑256 (`sha256`), URL encoding (`urlencode`), direction math (`direction`), condition evaluation (`condition`), object cache (`ezcache`), avatar asset copy/parse (`avatar_utils`)
 
 ---
 
-### 1.2 Directory Layout (as inferred from require paths)
+### Directory Layout (as inferred from require paths)
 
 ```
 scripts/
@@ -60,6 +172,7 @@ scripts/
     main.lua
     ezconfig.lua
     helpers.lua
+    ezlogger.lua
     json.lua
     urlencode.lua
     sha256.lua
@@ -126,13 +239,203 @@ scripts/
     eznpcs_events.lua     (loaded via safe_require from eznpcs.lua)
 ```
 
+
 ---
 
-### 1.3 `helpers.lua`
+<a id="part-2"></a>
+## Part 2 — utils/ezutil.lua — General Utilities
+
+| Function | Parameters | Returns | Notes |
+|---|---|---|---|
+| `ezutil.clamp(value, minimum, maximum)` | three numbers | `number` | Restricts `value` to the inclusive range. Asserts that arguments are numbers and `minimum <= maximum`. |
+| `ezutil.table_contains(list, value)` | `table`, any value | `boolean` | Searches array-style entries with `ipairs`; does not search arbitrary keys. |
+| `ezutil.table_remove_value(list, value, remove_all?)` | `table`, value, `boolean?` | `number` | Removes the first matching array entry by default. If `remove_all` is true, removes all matches. Returns the number removed. |
+| `ezutil.table_count(value)` | `table` | `number` | Counts all keys by iterating with `pairs`, including non-array keys. |
+| `ezutil.table_is_empty(value)` | `table` | `boolean` | Returns whether `next(value)` is `nil`. |
+| `ezutil.shallow_copy(source)` | `table` | `table` | Copies key/value pairs into a new table; nested tables remain shared references. |
+| `ezutil.deep_copy(source, seen?)` | any value | same kind of value | Recursively copies table keys and values, handles cycles/shared references, and preserves the source table's metatable. Non-table values are returned unchanged. |
+| `ezutil.table_merge(target, source)` | two tables | `table` | Copies source key/value pairs into `target`; source values overwrite matching target keys. Mutates and returns `target`. |
+
+Example:
+
+```lua
+local ezutil = require('scripts/ezlibs-scripts/utils/ezutil')
+
+local health = ezutil.clamp(125, 0, 100) -- 100
+local has_key = ezutil.table_contains({"Key", "Potion"}, "Key") -- true
+
+local settings = {volume = 5, enabled = true}
+ezutil.table_merge(settings, {volume = 8})
+-- settings.volume is now 8
+```
+
+### Practical Notes and Limitations
+
+- `table_contains` and `table_remove_value` operate on array-style lists, because they use `ipairs` and numeric sequence operations.
+- `table_count` counts all keys, not just the length of an array.
+- `shallow_copy` does not recursively copy nested values. Use `deep_copy` when recursive copying is needed.
+- `table_merge` is a shallow merge and mutates the target table.
+- `required_fields` checks for `nil`; it does not reject `false`, empty strings, or other values.
+- `table_field_types` checks Lua type names, not application-specific schemas or value ranges.
+- `ezdebug.traceback` depends on the standard `debug` library being available in the runtime.
+- The modules do not replace the host-specific `Net`, `Async`, or other ezlibs systems.
+
+### Tests
+
+The utility additions include a Lua test file at `tests/test_utilities.lua`. From the library directory, run it with a Lua 5.2 interpreter:
+
+```sh
+lua tests/test_utilities.lua
+```
+
+The test file should be run in the target environment before relying on the additions. The tests were not executed as part of preparing this documentation.
+
+
+---
+
+<a id="part-3"></a>
+## Part 3 — utils/ezvalidate.lua — Validation Helpers
+
+Validation functions return `true` when validation succeeds. On failure, they return `false` plus a reason string.
+
+| Function | Parameters | Returns | Notes |
+|---|---|---|---|
+| `ezvalidate.is_type(value, expected_type)` | any value, type-name string | `boolean` | Compares Lua's `type(value)` with `expected_type`. |
+| `ezvalidate.number_range(value, minimum?, maximum?)` | any value, optional numeric bounds | `boolean, string?` | Checks that the value is a number and falls within the supplied inclusive bounds. Either bound may be omitted. |
+| `ezvalidate.required_fields(value, fields)` | table, array of field names | `boolean, string?` | Checks that the value is a table and every listed field is not `nil`. A field containing `false` counts as present. |
+| `ezvalidate.table_field_types(value, expected)` | table, map of field names to type-name strings | `boolean, string?` | Checks that each named field has the requested Lua `type()`. |
+
+Example:
+
+```lua
+local ezvalidate = require('scripts/ezlibs-scripts/utils/ezvalidate')
+
+local ok, reason = ezvalidate.number_range(player_level, 1, 99)
+if not ok then
+    print("Invalid player level: " .. reason)
+end
+
+local valid = ezvalidate.required_fields(
+    {name = "Lan", enabled = false},
+    {"name", "enabled"}
+) -- true
+```
+
+
+---
+
+<a id="part-4"></a>
+## Part 4 — utils/ezdebug.lua — Logging Helpers
+
+`ezdebug` provides a small logger wrapper. By default, logging is enabled, the prefix is `[ezlibs]`, and output is sent to `print`.
+
+| Function/Field | Parameters | Returns | Notes |
+|---|---|---|---|
+| `ezdebug.configure(options)` | table | — | Updates any supplied `enabled`, `prefix`, or `sink` settings; validates their types. |
+| `ezdebug.info(...)` | any number of values | — | Writes an `INFO` message when logging is enabled. |
+| `ezdebug.warn(...)` | any number of values | — | Writes a `WARN` message when logging is enabled. |
+| `ezdebug.error(...)` | any number of values | — | Writes an `ERROR` message when logging is enabled. |
+| `ezdebug.traceback(message?, level?)` | optional message and stack level | `string` | Returns a traceback string using Lua's `debug.traceback`; it does not automatically log the result. |
+| `enabled` | boolean | field | Defaults to `true`. |
+| `prefix` | string | field | Defaults to `[ezlibs]`. |
+| `sink` | function | field | Defaults to `print`; receives the fully formatted log line. |
+
+Example:
+
+```lua
+local ezdebug = require('scripts/ezlibs-scripts/utils/ezdebug')
+
+ezdebug.configure({
+    prefix = "[my-system]",
+    enabled = true
+})
+
+ezdebug.info("Loaded", "player", player_id)
+ezdebug.warn("Unexpected state:", state)
+
+local trace = ezdebug.traceback("Unexpected error")
+ezdebug.error(trace)
+```
+
+A custom sink can redirect formatted log messages:
+
+```lua
+ezdebug.configure({
+    sink = function(message)
+        -- Replace this body with the project's chosen log destination.
+        print(message)
+    end
+})
+```
+
+
+---
+
+<a id="part-5"></a>
+## Part 5 — ezlogger.lua — File-backed Diagnostics
+
+`ezlogger` is the shared file-backed logging module used by ezlibs. It is based on the server's existing `scripts/logger/logger.lua` approach (append-only JSON Lines, levels, buffered writes, periodic flushing), but uses the JSON module bundled with ezlibs and does not depend on the separate logger's enum or JSON paths.
+
+### Output locations
+
+Logs are written relative to the server's working directory:
+
+```text
+scripts/ezlibs-scripts/_DEBUGGING/
+  ezbuttons/
+    debugging.log             # module-wide events
+    <safe-player-secret>.log  # player-specific events
+    <area-or-map-id>.log      # area/map-specific events
+```
+
+The file name is selected by the logger instance used at a call site. Player filenames use the same safe-secret derivation as `helpers.get_safe_player_secret`: `Net.get_player_secret(player_id)`, substring positions 2 through 32, then URL encoding. The secret is sanitized for use as a single filename component and is not automatically added to the log message. Area/map IDs are also sanitized so they cannot introduce directory separators.
+
+### API
+
+```lua
+local ezlogger = require('scripts/ezlibs-scripts/ezlogger')
+local logger = ezlogger.get('my_module')
+
+logger:debug('Detailed diagnostic', value)
+logger:info('Normal operation')
+logger:warn('Unexpected but recoverable condition')
+logger:error('Operation failed', err)
+
+-- Stable player-specific log, resolved through Net.get_player_secret.
+logger:for_player(player_id):info('Player-specific event')
+
+-- Use this when the safe secret has already been resolved by helpers.
+logger:for_safe_secret(safe_secret):info('Persistent player state updated')
+
+-- Area/map-specific log.
+logger:for_area(area_id):info('Map object initialized')
+
+-- Flush pending records now.
+logger:forceFlush()
+
+-- Global settings apply to existing and future logger instances.
+ezlogger.configure({ minLevel = 'info', console = false })
+```
+
+`ezlogger.get(module_name, options)` creates or returns a cached logger for that module. Supported levels are `debug`, `info`, `warn`, and `error`. The default minimum level is `debug`; console mirroring is enabled to preserve the existing `print`-based diagnostics. Set `console = false` to keep messages in files without mirroring them to the console. `configure` accepts `minLevel`, `flushInterval`, `maxBufferSize`, and `console`.
+
+Records are JSON objects, one per line, with timestamp, level, module, scope, message, and optional structured data. Writes are buffered and flushed on the server's `tick` event every configured interval, when the buffer reaches its size limit, or immediately for errors. `forceFlush()` and `ezlogger.flush_all()` are available for explicit flushing. If a log file cannot be created or opened, the logger reports the failure to the server console rather than recursively logging the failure.
+
+### Integration coverage
+
+Existing print/warning diagnostics were routed through `ezlogger` in the first-party ezlibs modules where they provide useful runtime diagnostics, including buttons, triggers, checkpoints, users, quests, email, memory, farms, Rush Roads, NPC dialogue, avatar utilities, announcements, BBS, weather, warps, encounters, helpers, object preload, and the ezlibs entry point. Player-oriented events in users, quests, email, compression, NPC battle results, avatar handling, and Rush Roads use player-specific logs where a player ID is available. Button/trigger setup, Rush Roads setup, and farm-map activity use area-specific logs where an area ID is available.
+
+The Tiled type generator, the standalone utility tests, the vendored parser, and SHA-256's startup capability report keep their existing console output because they are command-line/dependency diagnostics rather than ordinary ezlibs runtime logging.
+
+
+---
+
+<a id="part-6"></a>
+## Part 6 — helpers.lua
 
 Global utility functions. Most are provided on the `helpers` table. Some free functions (`async`, `await`, `first_value_from_table`, `get_table_length`) are also exported at the module level.
 
-#### Globals defined when this module loads
+### Globals defined when this module loads
 
 | Name | Signature | Description |
 |------|-----------|-------------|
@@ -143,7 +446,7 @@ Global utility functions. Most are provided on the `helpers` table. Some free fu
 
 > 💡 **Note:** these are defined as **globals**, not on the `helpers` table.
 
-#### `helpers` table API
+### `helpers` table API
 
 | Function | Parameters | Returns | Notes |
 |----------|-----------|---------|-------|
@@ -162,11 +465,11 @@ Global utility functions. Most are provided on the `helpers` table. Some free fu
 | `helpers.read_item_information(area_id, item_object_id)` | `area_id`, `item_object_id` | `item\|false` | Reads `Name`, `Amount`, `Description`, `Type`, `Price` from a cached object's custom_properties. Validates `keyitem`/`item` need `Name`, `keyitem` needs `Description`. |
 | `helpers.ensure_directory(path)` | `path: string` | `nil` | Tries LuaFileSystem first, then `os.execute mkdir`. |
 
-#### Events registered
+### Events registered
 
 - `Net:on("player_disconnect", ...)` — releases all locks owned by the disconnecting player.
 
-#### Item info structure returned by `read_item_information`
+### Item info structure returned by `read_item_information`
 
 ```lua
 {
@@ -178,9 +481,11 @@ Global utility functions. Most are provided on the `helpers` table. Some free fu
 }
 ```
 
+
 ---
 
-### 1.4 `json.lua`
+<a id="part-7"></a>
+## Part 7 — json.lua
 
 Pure‑Lua JSON library (rxi/json.lua v0.1.2). **API**:
 
@@ -193,22 +498,26 @@ Pure‑Lua JSON library (rxi/json.lua v0.1.2). **API**:
 - Circular refs and mixed‑key tables raise errors.
 - `decode` accepts standard JSON; error messages include line/col.
 
+
 ---
 
-### 1.5 `urlencode.lua`
+<a id="part-8"></a>
+## Part 8 — urlencode.lua
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
 | `urlencode.string(str)` | `str: string` | `string` | RFC 3986 unreserved chars kept; space→`+`; other chars `%XX`. Newlines normalized to CRLF. |
 | `urlencode.table(t)` | `t: table` | `string` | `k=v&k=v` form. |
 
+
 ---
 
-### 1.6 `sha256.lua`
+<a id="part-9"></a>
+## Part 9 — sha256.lua
 
 Pure‑Lua SHA library (Egor‑Skriptunoff's pure_lua_SHA v12). It auto‑selects an implementation branch based on the runtime's capabilities (FFI, INT64, INT32, LIB32, EMUL).
 
-#### Main API
+### Main API
 
 | Function | Parameters | Returns |
 |----------|-----------|---------|
@@ -240,9 +549,11 @@ Every hash function supports "chunk‑by‑chunk" input mode: call `sha.sha256()
 
 > Only `sha.sha256` is used directly by ezlibs (in `ezusers.lua`).
 
+
 ---
 
-### 1.7 `ezconfig.lua`
+<a id="part-10"></a>
+## Part 10 — ezconfig.lua
 
 Loads `ezlibs-config` (a Lua module in the server root) and returns it. Errors if missing.
 
@@ -261,9 +572,11 @@ Fields referenced elsewhere (not defined here — must be provided by the user's
 | `ADMIN_SEED` | `ezusers` |
 | `NEW_MAIL_MESSAGE_DELAY` | `ezemail` / `ezmail` |
 
+
 ---
 
-### 1.8 `ezcache.lua`
+<a id="part-11"></a>
+## Part 11 — ezcache.lua
 
 Central cache for specific Tiled object types so they can be hidden from the server's object list and looked up by ID efficiently.
 
@@ -276,9 +589,11 @@ Central cache for specific Tiled object types so they can be hidden from the ser
 | `ezcache.cache_object(area_id, object)` | `area_id`, `object` | `object\|nil` | Stores and calls `Net.remove_object(area_id, object.id)`. |
 | `ezcache.get_object_by_id_cached(area_id, object_id)` | `area_id`, `object_id` | `object\|nil` | Returns from cache, else fetches via `Net.get_object_by_id` (numeric id used). Caches if type qualifies. |
 
+
 ---
 
-### 1.9 `object_registry.lua`
+<a id="part-12"></a>
+## Part 12 — object_registry.lua
 
 Runs callbacks for Tiled objects whose `type` matches registered handlers, then optionally caches them.
 
@@ -289,9 +604,11 @@ Runs callbacks for Tiled objects whose `type` matches registered handlers, then 
 
 `object_registry.handlers[type]` = array of callbacks; `object_registry.types_to_cache[type]` = boolean.
 
+
 ---
 
-### 1.10 `ezemitter.lua`
+<a id="part-13"></a>
+## Part 13 — ezemitter.lua
 
 Generic EventEmitter (used by `ezbus` and by `eztriggers`).
 
@@ -312,9 +629,11 @@ Generic EventEmitter (used by `ezbus` and by `eztriggers`).
 - `emit` calls regular, once, any, and any‑once listeners. `once` listeners are cleared after firing. `any_once` listeners are cleared after any emit.
 - `async_iter` returns a function that yields either queued args or a promise resolver.
 
+
 ---
 
-### 1.11 `ezbus.lua`
+<a id="part-14"></a>
+## Part 14 — ezbus.lua
 
 ```lua
 local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')
@@ -324,7 +643,7 @@ return ezbus
 
 A single shared `EventEmitter` instance. All subsystems use `ezbus:on(...)` / `ezbus:emit(...)`.
 
-#### Known event names used across ezlibs
+### Known event names used across ezlibs
 
 | Event | Emitted by | Payload (fields) |
 |-------|-----------|------------------|
@@ -351,9 +670,11 @@ A single shared `EventEmitter` instance. All subsystems use `ezbus:on(...)` / `e
 | `warp` | `ezwarps` | `player_id`, `from_area`, `to_area`, `warp_type` |
 | `dialogue_ended` | `eznpcs` | `player_id`, `npc_id` |
 
+
 ---
 
-### 1.12 `direction.lua`
+<a id="part-15"></a>
+## Part 15 — direction.lua
 
 | Field/Function | Parameters | Returns |
 |----------------|-----------|---------|
@@ -364,9 +685,11 @@ A single shared `EventEmitter` instance. All subsystems use `ezbus:on(...)` / `e
 | `Direction.from_points(point_a, point_b)` | `{x,y,z}`, `{x,y,z}` | `string` |
 | `Direction.from_offset(x, y)` | `number, number` | `string` |
 
+
 ---
 
-### 1.13 `condition.lua`
+<a id="part-16"></a>
+## Part 16 — condition.lua
 
 | Function | Parameters | Returns | Notes |
 |----------|-----------|---------|-------|
@@ -390,13 +713,15 @@ Condition table shapes:
 { type="quest_flag", quest=string, flag=string, value=any, op=string }
 ```
 
+
 ---
 
-### 1.14 `main.lua` (root)
+<a id="part-17"></a>
+## Part 17 — main.lua (root)
 
 Bootstraps the whole library: requires every module, registers the object registry preload, hooks all `Net:on` events, and fans out to each module's `handle_*` hooks.
 
-#### SFX provided to every joining player
+### SFX provided to every joining player
 
 ```lua
 local sfx = {
@@ -408,11 +733,11 @@ local sfx = {
 }
 ```
 
-#### Load order (plugins array)
+### Load order (plugins array)
 
 `ezweather, eznpcs, ezmemory, ezmystery, ezwarps, ezencounters, eztriggers, ezemail, ezannouncement, ezcheckpoints, ezrushroads, ezpress, ezusers, ezbbs, ezbuttons` (+ optional user `custom_plugin` from `scripts/ezlibs-custom/custom`).
 
-#### `Net` event fan‑out
+### `Net` event fan‑out
 
 For each `Net:on("<event>", ...)` handler, `main.lua` iterates the `plugins` array calling `<plugin>.handle_<event>(...)` if present:
 
@@ -436,14 +761,14 @@ For each `Net:on("<event>", ...)` handler, `main.lua` iterates the `plugins` arr
 | `player_area_transfer` | `plugin.handle_player_transfer(player_id)` |
 | `textbox_response` | `plugin.handle_textbox_response(player_id, response)` |
 
-#### Startup actions (in order)
+### Startup actions (in order)
 
 1. `object_registry.load_all()`
 2. `eznpcs.load_npcs()`
 3. `ezrushroads.init()`
 4. Print `[main] ezlibs loaded in <seconds>s`.
 
-#### `battle_results` payload passed to plugins (`stats`)
+### `battle_results` payload passed to plugins (`stats`)
 
 ```lua
 {
@@ -457,7 +782,7 @@ For each `Net:on("<event>", ...)` handler, `main.lua` iterates the `plugins` arr
 }
 ```
 
-#### `player_avatar_change` `details` passed to plugins
+### `player_avatar_change` `details` passed to plugins
 
 ```lua
 {
@@ -470,16 +795,15 @@ For each `Net:on("<event>", ...)` handler, `main.lua` iterates the `plugins` arr
 }
 ```
 
+
 ---
 
-<a id="part-2"></a>
-## 💾 Part 2 — ezmemory (Player/Area Memory) & ezusers (Roles/Permissions)
-
-### 2.1 ezmemory.lua
+<a id="part-18"></a>
+## Part 18 — ezmemory.lua
 
 Central persistence layer. Manages player memory, area memory, items, and hidden objects. Interacts with the filesystem via Async.read_file / Async.write_file and a JSON codec.
 
-#### 2.1.1 Files & directories at startup
+### Files & directories at startup
 
 Ensures ./memory/ exists.
 
@@ -489,7 +813,7 @@ Creates PLAYERS_PATH and ITEMS_PATH (default content "{}") if missing.
 
 Ensures ezconfig.AREA_PATH_FOLDER and ezconfig.PLAYER_PATH_FOLDER exist.
 
-#### 2.1.2 File path helpers
+### File path helpers
 
 get_file_paths(base):
 
@@ -501,7 +825,7 @@ ezmemory_load_file(file_path) (async): reads main, falls back to backup, returns
 
 ezmemory_save_file(file_path, value) (async): writes backup first, then main.
 
-#### 2.1.3 Internal state
+### Internal state
 
 ```lua
 player_memory       = {}  -- [safe_secret] = memory table
@@ -515,7 +839,7 @@ highest_item_id     = 1
 memory_loaded_flags = {area_memory=false, player_memory=false, items=false}.
 ```
 
-#### 2.1.4 Player memory schema
+### Player memory schema
 
 ```lua
 {
@@ -535,7 +859,7 @@ memory_loaded_flags = {area_memory=false, player_memory=false, items=false}.
 }
 ```
 
-#### 2.1.5 Area memory schema
+### Area memory schema
 
 ```lua
 {
@@ -548,7 +872,7 @@ memory_loaded_flags = {area_memory=false, player_memory=false, items=false}.
 }
 ```
 
-#### 2.1.6 Item schema
+### Item schema
 
 ```lua
 {
@@ -558,7 +882,7 @@ memory_loaded_flags = {area_memory=false, player_memory=false, items=false}.
 }
 ```
 
-#### 2.1.7 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -611,7 +935,7 @@ memory_loaded_flags = {area_memory=false, player_memory=false, items=false}.
 | `ezmemory.play_anim_get(player_id)` |  | — | Plays ITEM_GET then ITEM_GET_HOLD. Wrapped in pcall. |
 | `ezmemory.set_direction_anim(player_id, direction)` |  | — | Plays idle anim for direction. |
 
-#### 2.1.8 update_player_health(player_id) (private)
+### update_player_health(player_id) (private)
 
 Reads area custom props:
 
@@ -625,25 +949,29 @@ Reads area custom props:
 
 Sets max HP and current HP accordingly.
 
-#### 2.1.9 Net events registered
+### Net events registered
 
 Net:on("handle_player_join", ...) — provides item_get sfx.
 
 Net:on("player_request", ...) — kicks player if memory still loading.
 
-#### 2.1.10 Startup
+### Startup
 
 Runs load_all_memory() immediately on require. Loads items (and creates key items via Net.create_item), player list + per‑player memory, and area memory (falling back to initialize_area_memory_file).
 
-### 2.2 ezusers.lua
+
+---
+
+<a id="part-19"></a>
+## Part 19 — ezusers.lua
 
 User roles, permissions, and the "Admin Console" Tiled object.
 
-#### 2.2.1 Configuration
+### Configuration
 
 Reads ezconfig.ADMIN_SEED (string). Stores admin_password_hash = sha.sha256(ADMIN_SEED). If seed empty, admin_password_hash = "" and admin access disabled with a warning.
 
-#### 2.2.2 Built‑in roles (permissions table)
+### Built‑in roles (permissions table)
 
 ```lua
 permissions = {
@@ -658,7 +986,7 @@ permissions = {
 }
 ```
 
-#### 2.2.3 Public API (returned table keys)
+### Public API (returned table keys)
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -674,7 +1002,7 @@ permissions = {
 | `handle_player_join(player_id)` |  | — | Ensures role & permissions exist (migrates old accounts). |
 | `handle_player_disconnect(player_id)` |  | — | No‑op. |
 
-#### 2.2.4 Admin Console object handler
+### Admin Console object handler
 
 object_registry.register_handler("Admin Console", callback, false) — not cached.
 
@@ -688,7 +1016,7 @@ If 1, prompt_player for password.
 
 If check_password_and_grant_admin succeeds, message: "Password correct. You are now an admin.".
 
-#### 2.2.5 Dependencies
+### Dependencies
 
 helpers.get_safe_player_secret
 
@@ -700,16 +1028,15 @@ ezconfig.ADMIN_SEED
 
 object_registry, eztriggers (for interact trigger)
 
+
 ---
 
-<a id="part-3"></a>
-## 🎛️ Part 3 — eztriggers, ezbuttons, ezcheckpoints, ezlocks, ezexplosions
-
-### 3.1 eztriggers.lua
+<a id="part-20"></a>
+## Part 20 — eztriggers.lua
 
 The spatial trigger system. Three trigger kinds (interact, radius, rectangle) plus a "location trigger" wrapper driven by Tiled objects. Also holds a global event table (_event_table) that Location Trigger objects can reference by name.
 
-#### 3.1.1 Internal tables
+### Internal tables
 
 ```lua
 eztriggers.interact_triggers  = {}   -- [area_id][trigger_object_id] = { object=..., emitter=... }
@@ -720,7 +1047,7 @@ eztriggers._event_table       = {}   -- [event_name] = { name, action }
 
 overlapping_players is [player_id] = true.
 
-#### 3.1.2 Trigger emitters
+### Trigger emitters
 
 All three factories return a Net.EventEmitter (see ezemitter.lua). The events they emit:
 
@@ -730,7 +1057,7 @@ All three factories return a Net.EventEmitter (see ezemitter.lua). The events th
 | Radius | "entered" and "departed" with {player_id, object} |
 | Rectangle | "entered" and "departed" with {player_id, object} |
 
-#### 3.1.3 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -746,7 +1073,7 @@ All three factories return a Net.EventEmitter (see ezemitter.lua). The events th
 | `eztriggers.handle_player_transfer(player_id)` |  | — | Clears both radius and rectangle overlaps. |
 | `eztriggers.handle_player_disconnect(player_id)` |  | — | Same as above. |
 
-#### 3.1.4 Registered Tiled object type
+### Registered Tiled object type
 
 | Object type | Registered handler | Cache? |
 | --- | --- | --- |
@@ -754,19 +1081,23 @@ All three factories return a Net.EventEmitter (see ezemitter.lua). The events th
 
 Requires object.data.type to be "ellipse" or "rect" to build the correct trigger shape.
 
-#### 3.1.5 Notes
+### Notes
 
 Radius triggers require both radius_x and radius_y to be nonzero (else return early).
 
 add_location_event_trigger will still add a trigger even if Event Name is missing, but will warn about the missing event name.
 
-### 3.2 ezbuttons.lua
+
+---
+
+<a id="part-21"></a>
+## Part 21 — ezbuttons.lua
 
 Overworld buttons are Tiled objects that spawn a non-solid bot and a trigger. The Tiled setup supports individual button behavior, custom behavior scripts, trigger geometry, and checkpoint unlock/relock behavior. Multi-button logic is handled by area-scoped logical groups and button/group effects configured through the Lua API.
 
 > **Button types are intentionally separated.** Use `OW Button` for independent actions such as unlocking and relocking checkpoints. Use `OW Button Group Member` for switches whose shared state is controlled by a `Button Group`. Group members do not execute individual checkpoint unlock/relock behavior; the group owns those actions.
 
-#### 3.2.1 How button setup works
+### How button setup works
 
 A normal button setup uses these objects:
 
@@ -782,7 +1113,7 @@ A normal button setup uses these objects:
 
 The `OW Button` references the related objects by their Tiled object IDs. Keep those references pointed at the intended objects in the same area/map. For Lua groups and effects, use the **Tiled object ID of the `OW Button`**, not its display name or the bot ID.
 
-#### 3.2.2 Setting up a single button in Tiled
+### Setting up a single button in Tiled
 
 1. Add a `Button Bot Details` object to the map and set its required properties:
    - `Asset Name`
@@ -794,7 +1125,7 @@ The `OW Button` references the related objects by their Tiled object IDs. Keep t
 6. If the interaction area needs to be separate from the button placeholder, add a `Button Trigger` object, set its `Trigger Type`, and reference it from the `OW Button`'s `Trigger Object` property.
 7. Save the map and make sure the generated Tiled type definitions are installed in the editor.
 
-#### 3.2.3 `OW Button` properties
+### `OW Button` properties
 
 These are the properties read by the existing runtime handler.
 
@@ -811,7 +1142,7 @@ These are the properties read by the existing runtime handler.
 | `Button Deactivated Behavior` | Object reference / object ID | Optional reference to a `Relock Behavior` object. |
 | `Activated Time` | Number (seconds) | Duration used by `Timed` behavior; defaults to 1 second. |
 
-#### 3.2.4 `Button Bot Details` properties
+### `Button Bot Details` properties
 
 | Property | Type | Purpose |
 | --- | --- | --- |
@@ -826,7 +1157,7 @@ These are the properties read by the existing runtime handler.
 | `Activation Animation Duration` | Number | Activation transition duration; defaults to 0.5 seconds. |
 | `Deactivation Animation Duration` | Number | Deactivation transition duration; defaults to 0.5 seconds. |
 
-#### 3.2.5 Trigger, unlock, and relock properties
+### Trigger, unlock, and relock properties
 
 **`Button Trigger`**
 
@@ -849,7 +1180,7 @@ These are the properties read by the existing runtime handler.
 | `Relock This` | Object reference / object ID | Checkpoint object to relock. |
 | `Area Wide` | Boolean or string `"true"` / `"false"` | Relock for all players in the area; defaults to `false`. |
 
-#### 3.2.6 Existing button behaviors
+### Existing button behaviors
 
 | `Button Behavior` | When the player enters the trigger | When the player leaves the trigger |
 | --- | --- | --- |
@@ -861,7 +1192,7 @@ These are the properties read by the existing runtime handler.
 
 For `Custom`, the module named by `Script Path` must load successfully and define `on_enter`. `on_exit` is optional. If loading fails, the runtime logs the failure and falls back to `One-Time`.
 
-#### 3.2.7 Individual buttons versus group members
+### Individual buttons versus group members
 
 Use `OW Button` when each button owns its own behavior. Its `Button Activated Behavior` and `Button Deactivated Behavior` references are processed independently.
 
@@ -873,7 +1204,7 @@ Supported modes are `all_active`, `any_active`, and `combination`. For `combinat
 
 The existing Lua API remains available: `ezbuttons.define_group`, `ezbuttons.add_button_effect`, and `ezbuttons.add_group_effect`. Tiled `Button Effect` and `Button Group Effect` objects are also read by the runtime.
 
-#### 3.2.8 Checkpoint behavior
+### Checkpoint behavior
 
 For an individual `OW Button`, `Button Activated Behavior` references an `Unlock Behavior` object and `Button Deactivated Behavior` references a `Relock Behavior` object. These actions run on that button's own activation/deactivation.
 
@@ -881,7 +1212,7 @@ For a `Button Group`, configure `Unlock Checkpoint`, `Unlock Permanently`, `Unlo
 
 When `Area Wide` is enabled, the action is applied to players returned by `Net.list_players(area_id)`. Otherwise, the action applies to the player who caused the group transition. A non-area-wide group action requires a valid player ID.
 
-#### 3.2.9 Tiled group and effect objects
+### Tiled group and effect objects
 
 | Tiled object type | Key properties | Runtime behavior |
 | --- | --- | --- |
@@ -893,7 +1224,7 @@ When `Area Wide` is enabled, the action is applied to players returned by `Net.l
 
 For the Tiled group checkpoint fields, `Unlock Checkpoint` and `Relock Checkpoint` are references to checkpoint objects. `Unlock Permanently` defaults to true; `Unlock Area Wide` and `Relock Area Wide` default to false.
 
-#### 3.2.10 Defining groups in Lua
+### Defining groups in Lua
 
 Require `ezbuttons` from a Lua script loaded by your server after the library is available. When configuring groups through Lua, use the area ID and the Tiled object IDs of registered button objects. For Tiled-authored groups, use `OW Button Group Member` objects as the required and forbidden members.
 
@@ -938,7 +1269,7 @@ Replace the example area and object IDs with the real values from your map. The 
 
 If you need to establish a group's initial-state baseline explicitly, call `ezbuttons.refresh_groups(area_id)` **after the button objects have been loaded and their desired initial states are established**. Do not call it at module top-level if that script runs before `object_registry.load_all()`. Without an explicit refresh, the first observed satisfied state can emit a `completed` transition.
 
-#### 3.2.11 Group modes
+### Group modes
 
 | Mode | Group is satisfied when… |
 | --- | --- |
@@ -956,7 +1287,7 @@ function(area_id, group_id, satisfied, player_id)
 end
 ```
 
-#### 3.2.12 Button effects and group effects
+### Button effects and group effects
 
 Use `add_button_effect` to respond to a single button changing state:
 
@@ -989,7 +1320,7 @@ ezbuttons.add_group_effect(
 
 Effects are processed when button-state changes are processed by the runtime. Avoid defining effects that continually trigger each other; the runtime has a per-drain logic-event limit as a guard against runaway effect loops.
 
-#### 3.2.13 Public API
+### Public API
 
 | Function | Parameters | Purpose |
 | --- | --- | --- |
@@ -1004,7 +1335,7 @@ Effects are processed when button-state changes are processed by the runtime. Av
 | `ezbuttons.refresh_groups(area_id)` | Area ID | Recalculates and records group states as a baseline. |
 | `ezbuttons.get_group_state(area_id, group_id)` | Area ID, group ID | Returns the group's current satisfied state, or `nil` if undefined. |
 
-#### 3.2.14 Initialization and troubleshooting
+### Initialization and troubleshooting
 
 - Register group definitions and effects before expecting group transitions to trigger their effects.
 - Call `ezbuttons.refresh_groups(area_id)` after defining groups to establish their initial state. This sets the baseline; it does not itself fire a completion effect.
@@ -1014,15 +1345,21 @@ Effects are processed when button-state changes are processed by the runtime. Av
 - For existing buttons, inspect the `OW Button` references and the related `Button Bot Details`, `Button Trigger`, `Unlock Behavior`, and `Relock Behavior` objects first. Replace former multi-button chains with groups and effects.
 - Logical groups and effects are the supported system for multi-button logic; legacy button chains are no longer supported.
 
-### 3.3 ezcheckpoints.lua
+> **Current `Button Behavior` values:** `Pressure Plate`, `One-Time`, `Toggle`, `Custom`, and `Timed`. Existing Tiled maps should update any saved `Repeatable` value to `Pressure Plate` and any saved `Dynamic` value to `Toggle`.
+
+
+---
+
+<a id="part-22"></a>
+## Part 22 — ezcheckpoints.lua
 
 Security Cube / checkpoint unlocking with optional password, money, fragments, tokens, or item requirements. Also handles boss gates (mention only — full code is not present in provided files).
 
-#### 3.3.1 Registered event
+### Registered event
 
 Net:on("object_interaction", ...) — filters button == 0, area = player's area, object type must be "Checkpoint".
 
-#### 3.3.2 Tiled properties read
+### Tiled properties read
 
 | Property | Type | Default |
 | --- | --- | --- |
@@ -1041,7 +1378,7 @@ Net:on("object_interaction", ...) — filters button == 0, area = player's area,
 | `"Unlock Failed Message"` | string | "You were unable to unlock the Security Cube" |
 | `"Boss Gate"` | string "true"/"false" | — |
 
-#### 3.3.3 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -1049,7 +1386,7 @@ Net:on("object_interaction", ...) — filters button == 0, area = player's area,
 | `ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, once)` |  | Promise\|false | Reads the checkpoint's own properties and calls the above. |
 | `ezcheckpoints.relock_checkpoint(player_id, area_id, object_id)` |  | boolean | Removes from both persistent and temporary hidden lists; calls Net.include_object_for_player if player is in area. |
 
-#### 3.3.4 Prompt messages generated per key type
+### Prompt messages generated per key type
 
 Password: "Please input the password".
 
@@ -1065,15 +1402,19 @@ Item (amount > 1): "Use N X to Unlock?" / "Show N X to Unlock?".
 
 If "Skip Prompt" is "true", the prompt message is empty and the flow skips the question (password still prompts for input).
 
-#### 3.3.5 Locking
+### Locking
 
 Uses helpers.get_lock(player_id, player_id .. "_" .. area_id .. "_" .. checkpoint_object.id). All code paths release the lock.
 
-#### 3.3.6 Event registered
+### Event registered
 
 ezbus:emit("checkpoint_unlocked", {player_id, area_id, object_id}) when successful.
 
-### 3.4 ezlocks.lua
+
+---
+
+<a id="part-23"></a>
+## Part 23 — ezlocks.lua
 
 Small reusable lock/payment helpers, all returning Promise (async).
 
@@ -1085,17 +1426,21 @@ Small reusable lock/payment helpers, all returning Promise (async).
 
 > 💡 **Note:** check_item uses ezmemory.count_player_item and ezmemory.remove_player_item; check_money uses ezmemory.spend_player_money when consume, else Net.get_player_money.
 
-### 3.5 ezexplosions.lua
+
+---
+
+<a id="part-24"></a>
+## Part 24 — ezexplosions.lua
 
 Explosion VFX subsystem driven via ezbus:on("explode", ...).
 
-#### 3.5.1 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
 | `ezexplosions.explode(actor_id, area_id, max_explosions)` |  | ExplodingEffect | Creates a new effect. max_explosions may be nil for infinite. |
 
-#### 3.5.2 ExplodingEffect object
+### ExplodingEffect object
 
 Fields set in :new:
 
@@ -1117,7 +1462,7 @@ ExplodingEffect:new(actor_id, opt_area_id, max_explosions).
 
 ExplodingEffect:remove() — sets stopped = true. Bots are cleaned up on their next explode() tick.
 
-#### 3.5.3 Behavior
+### Behavior
 
 On spawn, creates total_explosions bots at the actor's position (staggered by EXPLOSION_DURATION / total_explosions).
 
@@ -1131,7 +1476,7 @@ EXPLOSION_DURATION = .6 seconds per cycle.
 
 Assets used: "/server/assets/ezlibs-assets/ezexplosions/explosion.png", "/server/assets/ezlibs-assets/ezexplosions/explosion.animation".
 
-#### 3.5.4 Actors supported by update_tracked_position
+### Actors supported by update_tracked_position
 
 Bots (via Net.is_bot): area & position from bot.
 
@@ -1139,22 +1484,22 @@ Players (via Net.is_player): area & position from player.
 
 Otherwise treated as a tile object: Net.get_object_by_id(area_id, actor_id).
 
-#### 3.5.5 Event registered
+### Event registered
 
 ezbus:on("explode", function(event) ezexplosions.explode(event.actor_id, event.area_id, event.max_explosions) end)
 
 Expected payload: {actor_id, area_id, max_explosions}.
 
+
 ---
 
-<a id="part-4"></a>
-## 💬 Part 4 — eznpcs & dialogue_types
+<a id="part-25"></a>
+## Part 25 — eznpcs/eznpcs.lua
 
 Two files: eznpcs/eznpcs.lua (NPC runtime, bot management, waypoints, exclusivity) and eznpcs/dialogue_types.lua (dialogue state‑machine node types).
 
-### 4.1 eznpcs/eznpcs.lua
 
-#### 4.1.1 Constants & asset layout
+### Constants & asset layout
 
 ```lua
 npc_asset_folder           = '/server/assets/ezlibs-assets/eznpcs/'
@@ -1170,7 +1515,7 @@ Mugshot animation: <folder>mug/<Mug Animation Name>.animation (or generic defaul
 
 Required object properties (fails if missing): "Direction", "Asset Name" (npc_required_properties).
 
-#### 4.1.2 Internal state
+### Internal state
 
 ```lua
 placeholder_to_botid         = {}   -- [area_id][placeholder_id(string)] = global bot ID (non-exclusive NPCs)
@@ -1184,7 +1529,7 @@ custom_events_script_loaded  = false
 events                       = require('scripts/ezlibs-scripts/eznpcs/dialogue_types')
 ```
 
-#### 4.1.3 npc_data (bot) schema
+### npc_data (bot) schema
 
 ```lua
 {
@@ -1210,7 +1555,7 @@ events                       = require('scripts/ezlibs-scripts/eznpcs/dialogue_t
 }
 ```
 
-#### 4.1.4 Behaviours (internal)
+### Behaviours (internal)
 
 Each behaviour is { type=string, action=function, initialize=function? }.
 
@@ -1221,7 +1566,7 @@ Each behaviour is { type=string, action=function, initialize=function? }.
 
 add_behaviour(npc, behaviour) stores it as npc[behaviour.type] and calls initialize if present.
 
-#### 4.1.5 Waypoint logic
+### Waypoint logic
 
 move_npc(npc, delta_time):
 
@@ -1247,7 +1592,7 @@ Reads "Wait Time" (number) and "Direction" (sets bot direction).
 
 next_waypoints extracted via helpers.extract_numbered_properties(waypoint, "Next Waypoint ").
 
-#### 4.1.6 Public API (returned table keys)
+### Public API (returned table keys)
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -1267,13 +1612,13 @@ next_waypoints extracted via helpers.extract_numbered_properties(waypoint, "Next
 | `eznpcs.remove_quest_exclusive_npc(player_id, placeholder_id)` |  | — | Same for quest‑exclusive. |
 | `eznpcs.get_bot_id_for_placeholder(area_id, placeholder_id)` |  | bot_id\|nil |  |
 
-#### 4.1.7 Registered Tiled object types
+### Registered Tiled object types
 
 | Object type | Handler | Cache? |
 | --- | --- | --- |
 | `"NPC"` | inline (see 4.1.8) | default (true) |
 
-#### 4.1.8 NPC registration logic
+### NPC registration logic
 
 For each NPC object:
 
@@ -1287,7 +1632,7 @@ If "Player Exclusive", its placeholder is added to exclusive_placeholders.
 
 Else it's a normal global NPC: create_bot_from_object(area_id, object) (no player_id).
 
-#### 4.1.9 NPC object properties consumed
+### NPC object properties consumed
 
 | Property | Type | Meaning |
 | --- | --- | --- |
@@ -1303,7 +1648,7 @@ Else it's a normal global NPC: create_bot_from_object(area_id, object) (no playe
 | `"Quest Exclusive"` | string (quest name) | Triggers quest‑exclusive placeholder behavior. |
 | `"Quest State"` | string | Default "active". Required quest state for spawning. |
 
-#### 4.1.10 handle_object_interaction dispatch
+### handle_object_interaction dispatch
 
 If object type is "NPC":
 
@@ -1313,7 +1658,7 @@ Quest Exclusive: if player doesn't yet have a bot and their quest state matches,
 
 Otherwise, if object has an "Interact Relay" property: look up the bot id from placeholder_to_botid[area_id][relay_id] and dispatch.
 
-#### 4.1.11 Exclusivity system
+### Exclusivity system
 
 Non‑exclusive bots visible to everyone (via include_for_all).
 
@@ -1323,15 +1668,15 @@ On player_join, other players' exclusive bots are excluded for the joiner.
 
 On player_disconnect, all of that player's exclusive bots are removed (Net.remove_bot).
 
-#### 4.1.12 Quest events
+### Quest events
 
 ezbus:on("quest_event", function(event) update_quest_exclusive_for_player(event.player_id) end). When any quest event is emitted, the player's quest‑exclusive NPCs are recomputed.
 
-#### 4.1.13 Conversation clearing
+### Conversation clearing
 
 clear_player_conversation(player_id) unlocks input, resets bot direction (if not dont_face_player), clears the conversation slot, and emits ezbus:emit("dialogue_ended", {player_id, npc_id}).
 
-#### 4.1.14 do_dialogue dispatcher
+### do_dialogue dispatcher
 
 Recursive:
 
@@ -1341,11 +1686,15 @@ Calls events[dialogue_type].action(npc, player_id, dialogue, relay_object) which
 
 Looks up the next dialogue via ezcache.get_object_by_id_cached(area_id, next_id) and recurses.
 
-### 4.2 eznpcs/dialogue_types.lua
+
+---
+
+<a id="part-26"></a>
+## Part 26 — eznpcs/dialogue_types.lua
 
 Dialogue state‑machine nodes. Each type is a table {name=string, action=function(npc, player_id, dialogue, relay_object) -> Promise} returning the next dialogue object id (or nil to end).
 
-#### 4.2.1 Helper used
+### Helper used
 
 helpers.extract_numbered_properties(object, "Text ") → array of Text 1, Text 2, ...
 helpers.extract_numbered_properties(object, "Next ") → array of Next 1, Next 2, ...
@@ -1354,15 +1703,15 @@ helpers.extract_numbered_properties(object, "Body ") → array of Body 1..10
 
 Mugshot resolution: eznpcs.get_dialogue_mugshot(npc, player_id, dialogue).
 
-#### 4.2.2 Dialogue types
+### Dialogue types
 
-##### `first`
+#### `first`
 
 Reads Text 1 and Next 1.
 
 Plays a single message and continues to the first Next.
 
-##### `question`
+#### `question`
 
 Reads Text 1.
 
@@ -1372,7 +1721,7 @@ Picks next_dialogues[2 - res] (so answer 1 → Next 1, answer 0 → Next 2).
 
 Returns next id.
 
-##### `quiz`
+#### `quiz`
 
 Reads Text 1..3 (question + two options).
 
@@ -1380,7 +1729,7 @@ Async.quiz_player(player_id, text1, text2, text3, mug.texture, mug.anim) → ret
 
 Returns next_dialogues[res + 1].
 
-##### `random`
+#### `random`
 
 Picks a random index among Text 1..N.
 
@@ -1388,7 +1737,7 @@ Plays that text.
 
 Returns next_dialogues[chosen_index] or next_dialogues[1].
 
-##### `itemcheck`
+#### `itemcheck`
 
 Reads Item 1..N (references to Item objects) and Next 1, Next 2.
 
@@ -1402,7 +1751,7 @@ Otherwise uses condition.item(player_id, name, amount, take_item).
 
 All must pass; returns Next 1 on success, Next 2 otherwise.
 
-##### `questcheck`
+#### `questcheck`
 
 Reads "Quest Name", "Flag Name", "Flag Value", "Operator" (or "Op"), "Invert" (string "true").
 
@@ -1412,7 +1761,7 @@ If "Invert" == "true", negates result.
 
 Returns Next 1 if passed, else Next 2.
 
-##### `before`
+#### `before`
 
 Reads "Date" (string: sec min hour day month year, with * as wildcard).
 
@@ -1424,11 +1773,11 @@ Text 1 + Next 1 if before
 
 Text 2 + Next 2 otherwise
 
-##### `after`
+#### `after`
 
 Same as before, but uses condition.date_after(date).
 
-##### `shop`
+#### `shop`
 
 Reads Item 1..N (references to Item objects) and Next 1.
 
@@ -1438,7 +1787,7 @@ Calls ezmemory.open_shop_async(player_id, shop_items, mug.texture, mug.anim).
 
 Returns Next 1 after shop closes.
 
-##### `password`
+#### `password`
 
 Correct password = dialogue.custom_properties["Text 1"].
 
@@ -1446,7 +1795,7 @@ Async.prompt_player(player_id) for input.
 
 If equal, returns "Next 1" (from custom properties), else "Next 2".
 
-##### `quest_switch`
+#### `quest_switch`
 
 Reads "Quest Name".
 
@@ -1456,7 +1805,7 @@ Returns dialogue.custom_properties[state] (i.e., a property named after the stat
 
 Warns if no matching property exists.
 
-##### `quest_event`
+#### `quest_event`
 
 Reads "Quest Name", "Event Value", Next 1.
 
@@ -1466,7 +1815,7 @@ Emits ezbus:emit("quest_event", {player_id, quest_name, event_value}).
 
 Returns Next 1.
 
-##### `item`
+#### `item`
 
 Reads Item 1..N.
 
@@ -1476,7 +1825,7 @@ For each item, calls ezmemory.give_item_with_optional_notify(player_id, area_id,
 
 Returns Next 1.
 
-##### `email`
+#### `email`
 
 Reads "Email Id" (required, warns if missing).
 
@@ -1506,7 +1855,7 @@ Uses ezemail.send_once (persist=true) or ezemail.send_temp (persist=false).
 
 Returns Next 1.
 
-##### `battle_npc`
+#### `battle_npc`
 
 Reads "Text 1" (intro, optional), "Text 2" (question, default "Ready to fight?"), "Encounter Name" (required), "Failure Message" (default "You hesitated...").
 
@@ -1536,7 +1885,7 @@ Waits 2.5 s.
 
 Net.kick_player(player_id, "You were defeated!", true).
 
-#### 4.2.3 Local Net event
+### Local Net event
 
 ```lua
 Net:on("battle_results", function (event)
@@ -1547,10 +1896,11 @@ end)
 
 Just logs battle state — informational.
 
+
 ---
 
-<a id="part-5"></a>
-## 🌀 Part 5 — ezwarps (Warp Objects & Animations)
+<a id="part-27"></a>
+## Part 27 — ezwarps/main.lua
 
 Two categories of files:
 
@@ -1570,9 +1920,8 @@ lev_beast_out_animation.lua
 
 log_in_animation.lua
 
-### 5.1 ezwarps/main.lua
 
-#### 5.1.1 Internal state
+### Internal state
 
 ```lua
 landings            = {}   -- [incoming_data] = landing record
@@ -1581,7 +1930,7 @@ players_in_animations = {} -- [player_id] = true (locked during animation)
 warp_types_with_landings = {"Server Warp", "Custom Warp", "Interact Warp", "Radius Warp"}
 ```
 
-#### 5.1.2 Landing record schema
+### Landing record schema
 
 Created by add_landing(area_id, incoming_data, x, y, z, direction, warp_in, arrival_animation):
 
@@ -1598,7 +1947,7 @@ Created by add_landing(area_id, incoming_data, x, y, z, direction, warp_in, arri
 
 Keyed by incoming_data in the landings table.
 
-#### 5.1.3 Special animation registry
+### Special animation registry
 
 ```lua
 local special_animations = {
@@ -1627,25 +1976,25 @@ animate = function(player_id, warp_object?) -> Promise
 
 Optional: duration = number (only lev_beast_out_animation and similar custom entries use this)
 
-#### 5.1.4 Helper: property_is_true(value)
+### Helper: property_is_true(value)
 
 Accepts true, "true", "True" as true. Anything else (including nil, false, "false", numbers) is false.
 
-#### 5.1.5 Helper: table_has_value(table, val)
+### Helper: table_has_value(table, val)
 
 Linear search via ipairs.
 
-#### 5.1.6 add_landing(area_id, incoming_data, x, y, z, direction, warp_in, arrival_animation)
+### add_landing(area_id, incoming_data, x, y, z, direction, warp_in, arrival_animation)
 
 Stores a landing at landings[incoming_data]. Logs the record.
 
-#### 5.1.7 add_interact_warp(object, object_id, area_id, area_name)
+### add_interact_warp(object, object_id, area_id, area_name)
 
 Creates an interact trigger via eztriggers.add_interact_trigger(area_id, object). On "interaction":
 
 If players_in_animations[event.player_id] is not set, calls use_warp(event.player_id, object).
 
-#### 5.1.8 add_radius_warp(object, object_id, area_id, area_name)
+### add_radius_warp(object, object_id, area_id, area_name)
 
 Reads "Activation Radius" (number) and doubles it to get diameter.
 
@@ -1657,11 +2006,11 @@ If not in an animation → use_warp.
 
 Otherwise → clears players_in_animations[player_id] (so the warp will fire when the animation ends).
 
-#### 5.1.9 add_custom_warp(object, object_id, area_id, area_name)
+### add_custom_warp(object, object_id, area_id, area_name)
 
 Currently a no‑op beyond logging. The comment says triggers are handled in process_warp_object. It only validates the target (looks up "Target Object" in "Target Area" via ezcache) and logs a warning when the target can't be found.
 
-#### 5.1.10 process_warp_object(area_id, object) (local)
+### process_warp_object(area_id, object) (local)
 
 Runs for each "Server Warp", "Custom Warp", "Interact Warp", and "Radius Warp" object:
 
@@ -1685,7 +2034,7 @@ Registers the trigger based on object.type:
 
 "Server Warp" → no trigger; landings handled above.
 
-#### 5.1.11 Registered object types (all non‑cached)
+### Registered object types (all non‑cached)
 
 ```lua
 object_registry.register_handler("Radius Warp",  process_warp_object, false)
@@ -1695,11 +2044,11 @@ object_registry.register_handler("Interact Warp",process_warp_object, false)
 
 > 💡 **Note:** "Server Warp" does not register a handler here, so it must be handled elsewhere (or the landings registry via "Incoming Data" is expected to be pre‑registered by the user, since Server Warps typically live on remote servers).
 
-#### 5.1.12 prepare_player_arrival(player_id, x, y, z, special_animation_name)
+### prepare_player_arrival(player_id, x, y, z, special_animation_name)
 
 Returns {x, y, z}. If a special animation exists for the name, applies its pre_animation_offsets and stores player_animations[player_id] = special_animation_name. Returns the offset‑adjusted position.
 
-#### 5.1.13 doAnimationForWarp(player_id, animation_name, is_leave_animation, warp_object?)
+### doAnimationForWarp(player_id, animation_name, is_leave_animation, warp_object?)
 
 Async:
 
@@ -1717,7 +2066,7 @@ Unlocks player input.
 
 The is_leave_animation argument is passed but unused in the current implementation. animation_duration local is computed but unused.
 
-#### 5.1.14 use_warp(player_id, warp_object, warp_meta?)
+### use_warp(player_id, warp_object, warp_meta?)
 
 Async. Reads:
 
@@ -1767,7 +2116,7 @@ Else: Net.transfer_player(player_id, target_area, true, target_object.x+0.5, tar
 
 ezbus:emit("warp", {player_id, from_area, to_area=target_area, warp_type="custom"}).
 
-#### 5.1.15 Net event handlers exported
+### Net event handlers exported
 
 | Function | Called by main.lua root when | Behavior |
 | --- | --- | --- |
@@ -1777,7 +2126,7 @@ ezbus:emit("warp", {player_id, from_area, to_area=target_area, warp_type="custom
 | `ezwarps.handle_player_transfer(player_id)` | Net:on("player_area_transfer") | Same as above. |
 | `ezwarps.player_is_in_animation(player_id)` | used internally | Returns true if players_in_animations[player_id]. |
 
-### 5.2 Special animation module contract
+### Special animation module contract
 
 Each module/table must expose:
 
@@ -1789,7 +2138,11 @@ warp_object is only passed when the caller provides it (i.e., use_warp). For arr
 
 Some modules also define duration (used by the caller to delay the warp; only lev_beast_out_animation currently defines it, but the caller code in main.lua does not actually use it — the animation itself handles timing).
 
-### 5.3 arrow_animation_factory.lua
+
+---
+
+<a id="part-28"></a>
+## Part 28 — ezwarps/arrow_animation_factory.lua
 
 Returns a function create_arrow_animation(is_arriving, direction_str) that returns a special‑animation table.
 
@@ -1819,7 +2172,11 @@ Animates player X/Y from current to (current + x_distance, current + y_distance)
 
 Sleeps 1 s.
 
-### 5.4 fall_in_animation.lua
+
+---
+
+<a id="part-29"></a>
+## Part 29 — ezwarps/fall_in_animation.lua
 
 pre_animation_offsets = {x=0, y=0, z=40}.
 
@@ -1837,7 +2194,11 @@ Net.shake_player_camera(player_id, 3, 2).
 
 Unlocks player input.
 
-### 5.5 fall_off_2.lua
+
+---
+
+<a id="part-30"></a>
+## Part 30 — ezwarps/fall_off_2.lua
 
 pre_animation_offsets = {x=0, y=0, z=0}.
 
@@ -1857,7 +2218,11 @@ Net.shake_player_camera(player_id, 1, 0.5).
 
 Unlocks player input.
 
-### 5.6 lev_beast_in_animation.lua
+
+---
+
+<a id="part-31"></a>
+## Part 31 — ezwarps/lev_beast_in_animation.lua
 
 pre_animation_offsets = {x=0, y=0, z=0}.
 
@@ -1881,7 +2246,11 @@ Net.shake_player_camera(player_id, 3, 1), plays "IDLE_DL".
 
 Plays '/server/assets/ezlibs-assets/ezwarps/lev-bus-arrive.ogg', waits, plays 'resources/sfx/falzar.ogg', shakes camera, waits, plays '/server/assets/ezlibs-assets/ezwarps/lev-bus-leave.ogg', unlocks input, waits seconds_leaving, removes bot.
 
-### 5.7 lev_beast_out_animation.lua
+
+---
+
+<a id="part-32"></a>
+## Part 32 — ezwarps/lev_beast_out_animation.lua
 
 pre_animation_offsets = {x=0, y=0, z=0}.
 duration = 8 (declared on the module).
@@ -1898,7 +2267,11 @@ Beast keyframes: identical pattern to lev_beast_in.
 
 Plays 'resources/sfx/falzar.ogg', shakes camera, "IDLE_DL", then '/server/assets/ezlibs-assets/ezwarps/lev-bus-arrive.ogg', Net.animate_player_properties, Net.animate_bot_properties, messages the player with their own mugshot "AHHH! The Lev Beast is here!?", then '/server/assets/ezlibs-assets/ezwarps/lev-bus-leave.ogg', waits, removes bot.
 
-### 5.8 log_in_animation.lua
+
+---
+
+<a id="part-33"></a>
+## Part 33 — ezwarps/log_in_animation.lua
 
 Exposes create_jack_in_out_animation(is_arriving) which returns a special‑animation table.
 
@@ -1922,10 +2295,11 @@ Sleeps vanish_time, then includes (if arriving) or excludes (if leaving) the pla
 
 Sleeps duration, unlocks camera, removes bot.
 
+
 ---
 
-<a id="part-6"></a>
-## ✉️ Part 6 — ezemail, ezmail, and ezannounce
+<a id="part-34"></a>
+## Part 34 — ezemail.lua
 
 Three files provide the in‑game email/inbox system and the server announcement feed:
 
@@ -1935,9 +2309,8 @@ ezmail.lua — appears to be a byte‑for‑byte duplicate of ezemail.lua.
 
 ezannounce/ezannounce.lua + ezannounce/announcements_feed.lua — server announcement feed that turns feed entries into emails.
 
-### 6.1 ezemail.lua (and ezmail.lua)
 
-#### 6.1.1 Module constants
+### Module constants
 
 ```lua
 local NEW_MAIL_MESSAGE_DELAY   = CONFIG.NEW_MAIL_MESSAGE_DELAY or 1.5
@@ -1959,7 +2332,7 @@ ezbus
 
 CONFIG (scripts/ezlibs-scripts/ezconfig)
 
-#### 6.1.2 Mail record schema (memory bucket)
+### Mail record schema (memory bucket)
 
 Stored in mem.emails.by_id[mail.id]:
 
@@ -1978,7 +2351,7 @@ Stored in mem.emails.by_id[mail.id]:
 
 If mug_texture_path / mug_animation_path are missing or empty, no mugshot is sent with the notification.
 
-#### 6.1.3 Internal helpers
+### Internal helpers
 
 _preload_email_assets(player_id, mail) — calls Net.provide_asset_for_player for both mug paths if they are non‑empty and the API exists. Wrapped in pcall.
 
@@ -1996,7 +2369,7 @@ _mark_email_read(player_id, email_id) — marks a stored mail read = true and sa
 
 _notify_new_mail(player_id, msg, delay_seconds) — rings the player HUD (Net.ring_player_hud), then after delay_seconds calls Net.message_player(player_id, msg, mug.texture, mug.anim) using the player's own mugshot.
 
-#### 6.1.4 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -2013,7 +2386,7 @@ notify_message — string (default "Looks like you got an e-mail.")
 
 notify_delay — number (default NEW_MAIL_MESSAGE_DELAY)
 
-#### 6.1.5 send_once semantics
+### send_once semantics
 
 If the mail id is tombstoned → blocked, returns.
 
@@ -2027,7 +2400,7 @@ Always send Net.send_player_email(player_id, mail) for the current session; emit
 
 Notify only when first_time and opts.notify ~= false.
 
-#### 6.1.6 send_temp semantics
+### send_temp semantics
 
 Always sends (no memory persistence).
 
@@ -2035,21 +2408,29 @@ Emits ezbus:emit("email_sent", {player_id, email_id, persistent=false}).
 
 Notifies when opts.notify ~= false.
 
-#### 6.1.7 Events registered
+### Events registered
 
 Net:on("player_join", ...): calls ezemail.resend_all(player_id), then require('scripts/ezlibs-scripts/ezannounce/ezannounce').send_missing(player_id) inside a pcall. Optionally calls send_test_email when ENABLE_TEST_EMAIL_ON_JOIN.
 
 Net:on("email_read", ...): calls _mark_email_read(event.player_id, event.email_id).
 
-#### 6.1.8 Event bus emissions
+### Event bus emissions
 
 ezbus:emit("email_sent", {player_id, email_id, persistent}).
 
-### 6.2 ezmail.lua
+
+---
+
+<a id="part-35"></a>
+## Part 35 — ezmail.lua
 
 Content matches ezemail.lua exactly (same constants, same functions, same event registrations). It appears to be a duplicate file. If the runtime requires only one, ezemail is the one used by main.lua (require('scripts/ezlibs-scripts/ezemail')).
 
-### 6.3 ezannounce/announcements_feed.lua
+
+---
+
+<a id="part-36"></a>
+## Part 36 — ezannounce/announcements_feed.lua
 
 Static data module. Returns an array of announcement tables:
 
@@ -2073,9 +2454,13 @@ Ships with a single example entry ANN_EXAMPLE_001.
 
 May also carry a top‑level field tombstones (list or map form) which ezemail reads to prune/block mails.
 
-### 6.4 ezannounce/ezannounce.lua
 
-#### 6.4.1 Module constants
+---
+
+<a id="part-37"></a>
+## Part 37 — ezannounce/ezannounce.lua
+
+### Module constants
 
 ```lua
 local FEED_MODULE = 'scripts/ezlibs-scripts/ezannounce/announcements_feed'
@@ -2101,11 +2486,11 @@ ezemail (scripts/ezlibs-scripts/ezemail)
 
 ezbus
 
-#### 6.4.2 ezannounce.ANNOUNCEMENTS
+### ezannounce.ANNOUNCEMENTS
 
 An additional optional list on the module table. Not used internally by the code (the feed is loaded via FEED_MODULE), but exposed for user editing.
 
-#### 6.4.3 Internal helpers
+### Internal helpers
 
 _get_email_bucket(player_id) — returns mem.emails.by_id.
 
@@ -2115,7 +2500,7 @@ _feed_signature(feed) — concatenation of tostring(ann.id or "") for each entry
 
 _reload_feed() — clears package.loaded[FEED_MODULE], re‑requires it, compares signature. On change, updates _feed_cache / _feed_sig and returns true. Logs reloads.
 
-#### 6.4.4 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -2124,7 +2509,7 @@ _reload_feed() — clears package.loaded[FEED_MODULE], re‑requires it, compare
 | `ezannounce.broadcast_missing_to_online()` | — | — | Iterates _online and calls send_missing(pid). |
 | `ezannounce.start_watch(interval)` | number? (default 10) | — | Starts a polling loop that reloads the feed and broadcasts to online players when it changes. Idempotent (_watch_started). |
 
-#### 6.4.5 Tombstone support
+### Tombstone support
 
 feed.tombstones may be:
 
@@ -2134,7 +2519,7 @@ Map style: { ID1=true, ID2=true }
 
 Both are flattened into tomb[normalized_id] = true.
 
-#### 6.4.6 Notification behavior in send_missing
+### Notification behavior in send_missing
 
 For each pending announcement, a mail table is built:
 
@@ -2155,30 +2540,31 @@ Then ezemail.send_once(player_id, mail, {notify = not did_notify, notify_message
 
 Only the first announcement (highest priority) triggers the ring/HUD notification.
 
-#### 6.4.7 Events registered
+### Events registered
 
 Net:on("player_disconnect", ...) — removes player_id from _online.
 
-#### 6.4.8 Startup
+### Startup
 
 Calls ezannounce.start_watch() at module load.
 
-#### 6.4.9 Event bus emissions
+### Event bus emissions
 
 ezbus:emit("announcement_sent", {player_id, announcement_id}).
 
+
 ---
 
-<a id="part-7"></a>
-## 📌 Part 7 — ezbbs (Bulletin Board System)
+<a id="part-38"></a>
+## Part 38 — ezbbs.lua (Bulletin Board System)
 
 Single file: ezbbs.lua.
 
-### 7.1 Purpose
+### Purpose
 
 Provides a shared Bulletin Board System (BBS) usable via Tiled "BBS" objects placed in the world. Allows players to post, read, pin, and delete messages. Persists each board's posts to BOARDS_DIR/<board_name>.json. Uses ezusers for permission checks (pin/delete/admin posting).
 
-### 7.2 Module constants
+### Module constants
 
 ```lua
 local BOARDS_DIR   = ezconfig.BOARD_PATH_FOLDER     -- from ezconfig; should end with '/'
@@ -2188,7 +2574,7 @@ local AUTHOR_LIMIT = 7
 
 TITLE_LIMIT and AUTHOR_LIMIT are used by sanitize_title to truncate. Pinned titles are prefixed with "PIN: " (5 chars), so the title is truncated to TITLE_LIMIT - 5 for pinned posts.
 
-### 7.3 Module state
+### Module state
 
 ```lua
 local last_read_time = {}    -- [player_id] = os.time() when they last opened a board
@@ -2236,7 +2622,7 @@ player_states[player_id] schema:
 }
 ```
 
-### 7.4 Board save lifecycle
+### Board save lifecycle
 
 save_board(board_name):
 
@@ -2252,7 +2638,7 @@ Uses Async.write_file(filename, json.encode(data, true)).and_then(...).
 
 On completion, clears saving[board_name] and re‑triggers a save if pending_save[board_name] was set.
 
-### 7.5 Post creation & display (internal)
+### Post creation & display (internal)
 
 push_post(board_name, area_id, post)
 Reads board_cache[board_name].posts.
@@ -2299,7 +2685,7 @@ If #posts >= post_limit, removes the oldest non‑pinned post (first iteration o
 
 Inserts the post, saves the board, and push_posts it.
 
-### 7.6 Board load & open (internal)
+### Board load & open (internal)
 
 load_board(name, callback)
 If board_cache[name] exists, calls callback(board_cache[name]) immediately.
@@ -2328,7 +2714,7 @@ Stores player_states[player_id] = { status="READING", area_id, board_id, board_n
 load_board_and_open(name, player_id, area_id, object, color, postable)
 Wraps load_board(name, ...) and calls open_board_with_data in the callback.
 
-### 7.7 Preload
+### Preload
 
 preload_boards() (called at module load):
 
@@ -2340,7 +2726,7 @@ Calls load_board(name, function() end) once per unique name (ensures the JSON fi
 
 Prints the number of unique boards found.
 
-### 7.8 Display ordering
+### Display ordering
 
 bbs_display_order_ids(board_data) — splits posts into pinned/unpinned, sorts pinned by bbs_compare_pinned, unpinned by bbs_compare_unpinned, and returns the ordered ids plus the two sorted arrays.
 
@@ -2348,7 +2734,7 @@ bbs_compare_pinned(a, b) — compares pin_time or time desc; then time desc; the
 
 bbs_compare_unpinned(a, b) — time desc, then id desc.
 
-### 7.9 Helper functions (internal)
+### Helper functions (internal)
 
 shallow_copy(original) — copies top‑level keys.
 
@@ -2356,7 +2742,7 @@ contains_only_whitespace(text) — true when there is no non‑whitespace charac
 
 sanitize_title(text, limit) — replaces \t\r\n with spaces and truncates to limit.
 
-### 7.10 Registered Net events
+### Registered Net events
 
 main.lua dispatches player_join, player_disconnect, object_interaction, post_selection, board_close, and textbox_response to ezbbs where present.
 
@@ -2430,7 +2816,7 @@ Stores state.submission_title = response, calls create_post(player_id, state), t
 ezbbs.handle_board_close(player_id)
 Sets last_read_time[player_id] = os.time().
 
-### 7.11 Board object custom properties
+### Board object custom properties
 
 | Property | Type | Used by |
 | --- | --- | --- |
@@ -2441,7 +2827,7 @@ Sets last_read_time[player_id] = os.time().
 | `"Character Limit"` | number | Default 256 |
 | `"Post Limit"` | number | Default 50 |
 
-### 7.12 Permissions checked
+### Permissions checked
 
 ezusers.has_permission(player_id, "BBS.CanPin") — treats as admin for admin‑only flows.
 
@@ -2449,18 +2835,19 @@ ezusers.has_permission(player_id, "BBS.CanPin") — pin/unpin toggle.
 
 ezusers.has_permission(player_id, "BBS.CanDelete") — delete post.
 
+
 ---
 
-<a id="part-8"></a>
-## 🌱 Part 8 — ezfarms
+<a id="part-39"></a>
+## Part 39 — ezfarms.lua
 
 Single file: ezfarms.lua.
 
-### 8.1 Purpose
+### Purpose
 
 A grid‑based farming system operating on a single designated map (CONFIG.FARM_MAP). Players till soil, water it, plant seeds, and harvest vegetables over real time (with a configurable timescale). Uses the Reference Seed tile object on the farm map as the anchor for computing plant GIDs.
 
-### 8.2 Module constants
+### Module constants
 
 ```lua
 farm_area          = CONFIG.FARM_MAP
@@ -2470,7 +2857,7 @@ delay_till_update  = 5     -- seconds between update_all_tiles calls (not multip
 
 On load, reference_seed = Net.get_object_by_name(farm_area, "Reference Seed"). If this fails (object not found), the module prints an error and returns {} early, effectively disabling the system.
 
-### 8.3 PlantData table
+### PlantData table
 
 Key = plant name; value = {price, growth_time_multi, local_gid, harvest = {min, max}}.
 
@@ -2504,7 +2891,7 @@ GigFreez = "GigFreez"
 
 For every plant X (not Dead): ToolNames["X seed"] = "X".
 
-### 8.4 Growth stage descriptions
+### Growth stage descriptions
 
 ```lua
 growth_stage_descriptions = {
@@ -2517,7 +2904,7 @@ growth_stage_descriptions = {
 }
 ```
 
-### 8.5 Tile IDs
+### Tile IDs
 
 ```lua
 Tiles = {
@@ -2527,7 +2914,7 @@ Tiles = {
 }
 ```
 
-### 8.6 Sound effect paths
+### Sound effect paths
 
 ```lua
 sfx = {
@@ -2544,7 +2931,7 @@ sfx = {
 
 All of these are provided to every player on join.
 
-### 8.7 Time periods
+### Time periods
 
 ```lua
 Period = {
@@ -2562,7 +2949,7 @@ Period.RainDuration           = 1 * Hour
 Period.WitherTime             = 48 * Hour
 Every value is then multiplied by period_multiplier.
 
-### 8.8 Sell price formula
+### Sell price formula
 
 ```lua
 sell_price = floor(plant.price * ((((plant.growth_time_multi * 0.4) ^ 1.1) + 1) / av_harvest))
@@ -2572,7 +2959,7 @@ Where av_harvest = (harvest[1] + harvest[2]) / 2.
 
 Computed for all plants except Dead and stored as PlantData[name].sell_price.
 
-### 8.9 GID calculation
+### GID calculation
 
 calculate_plant_gid(plant_name, growth_stage):
 
@@ -2584,7 +2971,7 @@ Stages 1..4 (growing/grown): (first_gid + 1) + PlantData[name].local_gid + growt
 
 Stage 5 (dead): uses Dead.local_gid + random(0, 3).
 
-### 8.10 Growth stage determination
+### Growth stage determination
 
 determine_growth_stage(plant_name, elapsed_since_planted, elapsed_since_water, death_time):
 
@@ -2600,7 +2987,7 @@ If elapsed_since_water > Period.UnwateredPlantDeath and elapsed_since_planted > 
 
 If elapsed_since_planted > death_time → stage 5, logs "died of old age".
 
-### 8.11 Runtime state
+### Runtime state
 
 ```lua
 players_using_bbs = {}   -- [player_id] = "Buy Seeds" | "Select Tool" | "Sell Veggies"
@@ -2629,7 +3016,7 @@ area_memory.tile_states[loc_string] schema (persisted in ezmemory):
 
 loc_string = "x,y,z".
 
-### 8.12 Public API (returned table keys)
+### Public API (returned table keys)
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -2642,7 +3029,7 @@ loc_string = "x,y,z".
 | `ezfarms.list_player_tools(player_id)` |  | table | Returns {tool_name = count} for tools held by the player. |
 | `ezfarms.open_held_item_select(player_id)` |  | — | Opens a "Select Tool" BBS with held tools. |
 
-### 8.13 load_farm()
+### load_farm()
 
 Gets area_memory = ezmemory.get_area_memory(farm_area).
 
@@ -2654,7 +3041,7 @@ Saves area memory.
 
 Sets farm_loaded = true.
 
-### 8.14 update_all_tiles()
+### update_all_tiles()
 
 current_time = os.time().
 
@@ -2664,7 +3051,7 @@ For each loc_string, tile_memory in area_memory.tile_states, calls update_tile.
 
 Returns something_changed (boolean).
 
-### 8.15 update_tile(current_time, loc_string, area_weather) (internal)
+### update_tile(current_time, loc_string, area_weather) (internal)
 
 Steps:
 
@@ -2704,7 +3091,7 @@ Dirt → Grass when no plant and elapsed_since_tilled > Period.EmptyDirtToGrass.
 
 Sets tile memory gid and calls Net.set_tile.
 
-### 8.16 BBS interactions
+### BBS interactions
 
 Triggered from handle_object_interaction when a player opens a BBS the farm system manages. handle_post_selection reads players_using_bbs[player_id] to decide which BBS:
 
@@ -2741,7 +3128,7 @@ Opens a "Select Tool" BBS with a red color.
 
 Each row: {id=tool_name, read=true, title=tool_name, author="x " .. count}.
 
-### 8.17 Tile interactions (handle_tile_interaction)
+### Tile interactions (handle_tile_interaction)
 
 Flow:
 
@@ -2807,7 +3194,7 @@ If not the owner: messages "<owner_name>'s <name> looks <growth_stage_descriptio
 try_plant_seed(tile, tile_loc_string, player_id, seed)
 Only on Dirt or DirtWet. If no existing plant or one is dead, calls plant. Else calls try_harvest.
 
-### 8.18 handle_object_interaction(player_id, object_id)
+### handle_object_interaction(player_id, object_id)
 
 Returns unless on the farm map.
 
@@ -2823,7 +3210,7 @@ Else: sets farming.water = 50, plays water_tile, messages "Filled CyberWtrCan".
 
 Else: uses Net.get_player_mugshot and messages "\x02I could fill something here...\x02" with the player's own mugshot.
 
-### 8.19 Tiled object types used
+### Tiled object types used
 
 | Type | Used by | Notes |
 | --- | --- | --- |
@@ -2832,7 +3219,7 @@ Else: uses Net.get_player_mugshot and messages "\x02I could fill something here.
 
 Farm tiles themselves are regular tiles, not objects — the module reads/writes them with Net.get_tile / Net.set_tile.
 
-### 8.20 Reference Seed object
+### Reference Seed object
 
 The Reference Seed must:
 
@@ -2842,14 +3229,15 @@ Be found by name in CONFIG.FARM_MAP.
 
 Its data.gid is the base for computing every plant sprite.
 
+
 ---
 
-<a id="part-9"></a>
-## 💎 Part 9 — ezmystery
+<a id="part-40"></a>
+## Part 40 — ezmystery.lua
 
 Single file: ezmystery.lua.
 
-### 9.1 Purpose
+### Purpose
 
 Implements the "Mystery Data" collectible objects. Supports:
 
@@ -2865,7 +3253,7 @@ Explosion on quiz failure.
 
 Anonymous data collection (hidden permanently or until disconnect).
 
-### 9.2 Module state
+### Module state
 
 ```lua
 local object_cache = {}                    -- unused in current code
@@ -2902,7 +3290,7 @@ AvatarCache (avatar_utils/main)
 
 AvatarUtils (avatar_utils/avatar_utils)
 
-### 9.3 Helpers
+### Helpers
 
 is_property_true(val)
 Truthy for true, string "true" (case insensitive), and any nonzero number.
@@ -2929,7 +3317,7 @@ Net:on("avatar_change", ...).
 Net:on("object_interaction", ...)
 If the interacted object is Mystery Data, calls try_collect_datum(player_id, area_id, object).
 
-### 9.4 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -2938,7 +3326,7 @@ If the interacted object is Mystery Data, calls try_collect_datum(player_id, are
 | `ezmystery.handle_player_transfer(player_id)` |  | — | Calls hide_random_data. |
 | `ezmystery.handle_player_join(player_id)` |  | — | Calls hide_random_data. |
 
-### 9.5 hide_random_data(player_id)
+### hide_random_data(player_id)
 
 Flow:
 
@@ -2956,7 +3344,7 @@ While #datum_list > desired_mystery_count, hides one at random via ezmemory.hide
 
 Stores the remaining list under revealed_mysteries_for_players[player_id][area_id].
 
-### 9.6 Quiz subsystem
+### Quiz subsystem
 
 run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message)
 Loads quiz_list via ezcache.get_object_by_id_cached. Returns false if missing.
@@ -2977,7 +3365,7 @@ On choice nil, < 0, or choice + 1 ~= correct_answer, shows the failure message a
 
 Returns true when all questions are answered correctly.
 
-### 9.7 Collection flow (try_collect_datum)
+### Collection flow (try_collect_datum)
 
 Returns a Promise.
 
@@ -3021,7 +3409,7 @@ on_fail = "On Fail" or "retry".
 
 Releases lock.
 
-### 9.8 read_datum_information(area_id, object)
+### read_datum_information(area_id, object)
 
 Calls helpers.read_item_information(area_id, object.id).
 
@@ -3029,7 +3417,7 @@ If it succeeds and item_info.type == "random", extracts Next N options; returns 
 
 Returns the item_info table.
 
-### 9.9 collect_datum(player_id, object, datum_id_override, is_quiz)
+### collect_datum(player_id, object, datum_id_override, is_quiz)
 
 Returns a Promise.
 
@@ -3065,7 +3453,7 @@ If "Once" is true → ezmemory.hide_object_from_player.
 
 Always ezmemory.hide_object_from_player_till_disconnect.
 
-### 9.10 Tiled object types and properties
+### Tiled object types and properties
 
 Object types
 | Type | Handler |
@@ -3105,7 +3493,7 @@ Area custom properties
 
 If min > max, hiding is skipped (no mysteries visible).
 
-### 9.11 Quiz objects (referenced, not handled here)
+### Quiz objects (referenced, not handled here)
 
 "Quiz List" type: has numbered properties "Next 1..10" pointing to "Quiz Question" objects.
 
@@ -3113,22 +3501,21 @@ If min > max, hiding is skipped (no mysteries visible).
 
 These are built by the user in Tiled; ezmystery just reads them via ezcache.
 
+
 ---
 
-<a id="part-10"></a>
-## 🧩 Part 10 — ezquests, ezpress, ezchristmas, ezrushroads, ezweather, ezmenus
-
-### 10.1 ezquests.lua
+<a id="part-41"></a>
+## Part 41 — ezquests.lua
 
 Quest framework. A quest is a Lua table registered at runtime via ezquests.add_quest.
 
-#### 10.1.1 Internal state
+### Internal state
 
 ```lua
 ezquests.quests = {}   -- [quest_name] = quest table
 ```
 
-#### 10.1.2 Quest schema
+### Quest schema
 
 A quest must be:
 
@@ -3140,7 +3527,7 @@ A quest must be:
 }
 ```
 
-#### 10.1.3 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -3152,7 +3539,7 @@ A quest must be:
 | `ezquests.get_player_quest_state(player_id, quest_name)` |  | string\|nil | Calls quest:determine_state(player_id). Returns nil (with warning) if quest missing. |
 | `ezquests.quest_event(player_id, quest_name, event_value)` |  | Promise | Calls quest:handle_event_async(player_id, event_value). If quest missing, warns and returns an empty async Promise. |
 
-#### 10.1.4 Persistent quest memory layout
+### Persistent quest memory layout
 
 Stored under player_memory.quests:
 
@@ -3164,7 +3551,7 @@ Stored under player_memory.quests:
 }
 ```
 
-#### 10.1.5 Bundled example quest
+### Bundled example quest
 
 Get Punched — demonstrates the API:
 
@@ -3174,7 +3561,7 @@ determine_state: returns "punched", "accepted", or "unaccepted" based on flags.
 
 It is added to ezquests.quests via ezquests.add_quest(quest_get_punched).
 
-#### 10.1.6 Relationship with other systems
+### Relationship with other systems
 
 dialogue_types.quest_switch — reads state via ezquests.get_player_quest_state.
 
@@ -3184,24 +3571,28 @@ condition.quest_flag — reads flag via ezquests.get_player_quest_flag.
 
 eznpcs — listens on quest_event to refresh quest‑exclusive NPCs.
 
-### 10.2 ezpress.lua
+
+---
+
+<a id="part-42"></a>
+## Part 42 — ezpress.lua
 
 "Minish Mode" — scales players up/down via ScaleX / ScaleY animations.
 
-#### 10.2.1 Module constants
+### Module constants
 
 ```lua
 local compressSfx = "/server/assets/ezlibs-assets/sfx/compress.ogg"
 ```
 
-#### 10.2.2 Internal state
+### Internal state
 
 ```lua
 compressed_players = {}    -- [player_id] = true
 area_triggers      = {}    -- [area_id] = array of { x, y, z, width, height, type = "compress"|"decompress" }
 ```
 
-#### 10.2.3 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -3214,7 +3605,7 @@ area_triggers      = {}    -- [area_id] = array of { x, y, z, width, height, typ
 | `ezpress.handle_player_transfer(player_id)` |  | — | Applies map property immediately, then checks tiles (animated). |
 | `ezpress.handle_player_disconnect(player_id)` |  | — | Clears compressed_players[player_id]. |
 
-#### 10.2.4 Init scan (runs at module load)
+### Init scan (runs at module load)
 
 Scans every area for objects with Compress == true or Decompress == true (either boolean or string "true"). For each, creates a rectangle trigger via eztriggers.add_rectangle_trigger(area_id, obj, obj.width, obj.height).
 
@@ -3226,24 +3617,28 @@ Wires:
 
 Also stores the tile rect in area_triggers[area_id] for the manual check on join/transfer.
 
-#### 10.2.5 Tiled object properties
+### Tiled object properties
 
 | Property | Type | Meaning |
 | --- | --- | --- |
 | `"Compress"` | bool/string | Identifies a compress tile |
 | `"Decompress"` | bool/string | Identifies a decompress tile |
 
-#### 10.2.6 Area custom property
+### Area custom property
 
 | Property | Type | Meaning |
 | --- | --- | --- |
 | `"Minish Mode"` | string "true" / bool true | Applies compression on area enter |
 
-#### 10.2.7 Cross‑module behavior
+### Cross‑module behavior
 
 ezwarps/main.lua calls ezpress.get_area_minish_mode(target_area) before a warp and immediately compresses/decompresses the player (no animation) so the arriving sprite is already scaled.
 
-### 10.3 ezchristmas.lua
+
+---
+
+<a id="part-43"></a>
+## Part 43 — ezchristmas.lua
 
 Very small module. On require:
 
@@ -3255,11 +3650,15 @@ Prints "[ezchristmas] let it snow, let it snow, let it snow. in <area_id>".
 
 Returns ezchristmas (empty table). It has no public API; loading it is the effect.
 
-### 10.4 ezrushroads.lua
+
+---
+
+<a id="part-44"></a>
+## Part 44 — ezrushroads.lua
 
 A "Rush Road" minigame where eating Rush Food activates tiles that launch the player across a grid.
 
-#### 10.4.1 Module constants
+### Module constants
 
 ```lua
 local rush_texture   = "/server/assets/ezlibs-assets/ezrushroads/rushy.png"
@@ -3284,7 +3683,7 @@ get_table_length(tbl).
 
 get_anim_state_from_direction(direction) — returns "IDLE_DR" for "Down Right", "IDLE_DL" for "Down Left", otherwise nil.
 
-#### 10.4.2 State
+### State
 
 ```lua
 rush_roads          = {}   -- [area_id][road_id] = road info
@@ -3294,7 +3693,7 @@ bot_occupants       = {}   -- [bot_name] = { players = {[player_id]=true}, road 
 any_player          = {}   -- [player_id] = true
 ```
 
-#### 10.4.3 Food memory layout (persisted)
+### Food memory layout (persisted)
 
 Stored under player_memory.rushroads:
 
@@ -3317,7 +3716,7 @@ Item schema (created per player):
 
 Item id: "rush_food_" .. player_id.
 
-#### 10.4.4 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -3330,7 +3729,7 @@ Item id: "rush_food_" .. player_id.
 | `ezrushroads.handle_player_transfer(player_id)` |  | — | Updates visibility, clears the active animation. |
 | `ezrushroads.handle_object_interaction(player_id, object_id)` |  | Promise\|nil | Handles activation of a Rush Road group. |
 
-#### 10.4.5 Road info schema (per area in rush_roads[area_id][road_id])
+### Road info schema (per area in rush_roads[area_id][road_id])
 
 ```lua
 {
@@ -3344,7 +3743,7 @@ Item id: "rush_food_" .. player_id.
 }
 ```
 
-#### 10.4.6 Grouping (group_rush_roads_in_area)
+### Grouping (group_rush_roads_in_area)
 
 Builds a list of all road ids in the area.
 
@@ -3352,7 +3751,7 @@ Runs a DFS over cardinal‑adjacency (|dx|+|dy| == 1 after rounding x/y to int) 
 
 Prints how many groups were formed.
 
-#### 10.4.7 Permanent bot creation (create_permanent_bot)
+### Permanent bot creation (create_permanent_bot)
 
 Bot name: "rush_perm_" .. area_id .. "_" .. road_id.
 
@@ -3364,7 +3763,7 @@ Animation state: "IDLE_DL" or "IDLE_DR".
 
 Registers in bot_occupants[bot_name] = { players = {}, road = road }.
 
-#### 10.4.8 Trigger setup (process_rush_road)
+### Trigger setup (process_rush_road)
 
 Registers the road in rush_roads[area_id].
 
@@ -3378,15 +3777,15 @@ Wires:
 
 "departed" → ezbus:emit("rush_tile_departed", {player_id, area_id, road_id, bot_name}).
 
-#### 10.4.9 ezbus:on("rush_tile_entered", ...)
+### ezbus:on("rush_tile_entered", ...)
 
 Adds the player to bot_occupants[bot_name].players. When the first player steps in, moves the permanent bot from (original_x, original_y) to (down_x, down_y, down_z).
 
-#### 10.4.10 ezbus:on("rush_tile_departed", ...)
+### ezbus:on("rush_tile_departed", ...)
 
 Removes the player. When the last leaves, returns the bot to (original_x, original_y, original_z).
 
-#### 10.4.11 Visibility control (update_visibility_for_player)
+### Visibility control (update_visibility_for_player)
 
 Reads player_memory.rushroads.cleared[area_id] set.
 
@@ -3398,7 +3797,7 @@ Else: Net.include_object_for_player.
 
 For the road's permanent bot: include_actor_for_player if cleared, exclude_actor_for_player otherwise.
 
-#### 10.4.12 handle_object_interaction(player_id, object_id)
+### handle_object_interaction(player_id, object_id)
 
 Triggered by a Rush Road object interaction.
 
@@ -3444,9 +3843,13 @@ Unlocks input.
 
 Clears the animation state.
 
-### 10.5 ezweather.lua
 
-#### 10.5.1 Module constants
+---
+
+<a id="part-45"></a>
+## Part 45 — ezweather.lua
+
+### Module constants
 
 ```lua
 weather_properties = {
@@ -3459,14 +3862,14 @@ weather_properties = {
 }
 ```
 
-#### 10.5.2 State
+### State
 
 ```lua
 volatile_memory        = {}  -- [area_id] = { type, camera_tint }
 fine_weather_properties= {}  -- [area_id][property_name] = default value
 ```
 
-#### 10.5.3 Init scan
+### Init scan
 
 On module load, for each area:
 
@@ -3474,7 +3877,7 @@ Reads area custom properties.
 
 Records each weather_properties entry (or "" if missing) in fine_weather_properties[area_id].
 
-#### 10.5.4 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
@@ -3486,7 +3889,7 @@ Records each weather_properties entry (or "" if missing) in fine_weather_propert
 | `ezweather.handle_player_transfer(player_id)` |  | — | Fades the player's camera to the current area's tint. |
 | `ezweather.handle_player_join(player_id)` |  | — | Same as transfer. |
 
-#### 10.5.5 Asset paths
+### Asset paths
 
 Rain: "/server/assets/ezlibs-assets/ezweather/rain.animation" + "/server/assets/ezlibs-assets/ezweather/rain.png", parallax 1.3, Vel X 0.2, Vel Y 0.3.
 
@@ -3494,24 +3897,28 @@ Snow: "/server/assets/ezlibs-assets/ezweather/snow.animation" + "/server/assets/
 
 Fog: "/server/assets/ezlibs-assets/ezweather/fog.animation" + "/server/assets/ezlibs-assets/ezweather/fog.png", parallax 0.0, Vel X 0.05, Vel Y 0.05.
 
-#### 10.5.6 Area custom properties used
+### Area custom properties used
 
 | Property | Type | Meaning |
 | --- | --- | --- |
 | `"Rain Song"` | string | Optional song path to play when raining |
 | `"Snow Song"` | string | Optional song path to play when snowing |
 
-### 10.6 ezmenus.lua
+
+---
+
+<a id="part-46"></a>
+## Part 46 — ezmenus.lua
 
 A small helper for building open‑board menus with async await helpers.
 
-#### 10.6.1 Public API
+### Public API
 
 | Function | Parameters | Returns | Notes |
 | --- | --- | --- | --- |
 | `ezmenus.open_menu(player_id, board_name, color, posts)` |  | board_emitter | Calls Net.open_board, then augments the returned emitter with two new methods. |
 
-#### 10.6.2 Extended emitter methods
+### Extended emitter methods
 
 board_emitter.close_async() — returns a Promise. Registers a one‑time "board_close" listener, calls Net.close_bbs(player_id), then polls until the close event fires or a 2‑second timeout elapses.
 
@@ -3519,14 +3926,15 @@ board_emitter.selection_once() — returns a Promise resolving to the selected p
 
 color is {r, g, b}. posts is the array of post entries passed through to Net.open_board.
 
+
 ---
 
-<a id="part-11"></a>
-## 🧱 Part 11 — generate-ezlibs-tiled.lua (Tiled Type Generator)
+<a id="part-47"></a>
+## Part 47 — generate-ezlibs-tiled.lua (Tiled Type Generator)
 
 This script generates a Tiled‑compatible JSON file (ezlibs-tiled-types.json by default) containing every custom enum and object type (class) used by ezlibs. Run it once and import into Tiled to get autocomplete/defaults for all the custom properties.
 
-### 11.1 How it runs
+### How it runs
 
 At the end of the file:
 
@@ -3545,7 +3953,7 @@ If required as a module, returns { generate = main } so a caller can run main(ou
 
 json.encode(types, pretty) uses the ezlibs json.lua. Pretty printing is only enabled when explicitly passed as truthy.
 
-### 11.2 Output structure
+### Output structure
 
 The output is a JSON array of objects. Each entry has:
 
@@ -3557,55 +3965,55 @@ id, name, color, drawFill, type, useAs, members for classes.
 
 Enums are emitted first (alphabetically iterated over pairs(Enums)), then classes in source order.
 
-### 11.3 Enums (Enums table)
+### Enums (Enums table)
 
-##### `Direction (string)`
+#### `Direction (string)`
 
 **Values:** Up, Down, Left, Right, Up Left, Up Right, Down Left, Down Right
 
-##### `MysteryType (string)`
+#### `MysteryType (string)`
 
 **Values:** keyitem, item, money, random, quiz, fragments, tokens, encounter
 
-##### `WaypointType (string)`
+#### `WaypointType (string)`
 
 **Values:** first, random, before, after
 
-##### `DialogueType (string)`
+#### `DialogueType (string)`
 
 **Values:** first, question, quiz, random, itemcheck, before, after, shop, password, quest_switch, quest_event, item, email, questcheck, battle_npc
 
-##### `ItemType (string)`
+#### `ItemType (string)`
 
 **Values:** item, keyitem, money, fragments, tokens
 
-##### `CurrencyType (string)`
+#### `CurrencyType (string)`
 
 **Values:** money, fragments, tokens
 
-##### `QuizFailAction (string)`
+#### `QuizFailAction (string)`
 
 **Values:** retry, hide_once, hide_temp, explode
 
-##### `TriggerShape (string)`
+#### `TriggerShape (string)`
 
 **Values:** rect, ellipse
 
-##### `ButtonBehavior (string)`
+#### `ButtonBehavior (string)`
 
 **Values:** Pressure Plate, One-Time, Toggle, Custom, Timed
 
-##### `KeyType (string)`
+#### `KeyType (string)`
 
 **Values:** money, fragments, tokens, item, bossgate
 
-### 11.4 Object types (classes)
+### Object types (classes)
 
 For each class, the properties are listed as name, type, default value, and (where applicable) an enum reference.
 
 Type tokens used in the members array: string, number, bool, object, file.
 
-##### `Checkpoint`
+#### `Checkpoint`
 
 **Color:** `#ffaa00`
 
@@ -3625,7 +4033,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Unlocked Message` | string | "The Security Cube was unlocked!" |  |
 | `Unlock Failed Message` | string | "You were unable to unlock the Security Cube" |  |
 
-##### `Mystery Data`
+#### `Mystery Data`
 
 **Color:** `#00aaff`
 
@@ -3651,7 +4059,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Cost Failure Message` | string | "" |  |
 | `Next 1..10` | object | "" |  |
 
-##### `Quiz List`
+#### `Quiz List`
 
 **Color:** `#aa66cc`
 
@@ -3659,7 +4067,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | --- | --- | --- |
 | `Next 1..10` | object | "" |
 
-##### `Quiz Question`
+#### `Quiz Question`
 
 **Color:** `#88aa44`
 
@@ -3671,7 +4079,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Option 3` | string | "" |
 | `Correct Answer` | number | 1 |
 
-##### `Location Trigger`
+#### `Location Trigger`
 
 **Color:** `#88ff88`
 
@@ -3680,7 +4088,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Event Name` | string | "" |
 | `Name` | string | "" |
 
-##### `Server Warp`
+#### `Server Warp`
 
 **Color:** `#ff8888`
 
@@ -3696,7 +4104,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Data` | string | "" |  |
 | `Warp Out` | bool | false |  |
 
-##### `Custom Warp`
+#### `Custom Warp`
 
 **Color:** `#ff8888`
 
@@ -3711,13 +4119,13 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Target Object` | string | "" |  |
 | `Leave Animation` | string | "" |  |
 
-##### `Interact Warp`
+#### `Interact Warp`
 
 **Color:** `#ff8888`
 
 Same property set as Custom Warp.
 
-##### `Radius Warp`
+#### `Radius Warp`
 
 **Color:** `#ff8888`
 
@@ -3733,7 +4141,7 @@ Same property set as Custom Warp.
 | `Target Object` | string | "" |  |
 | `Leave Animation` | string | "" |  |
 
-##### `NPC`
+#### `NPC`
 
 **Color:** `#aaaaaa`
 
@@ -3765,7 +4173,7 @@ Same property set as Custom Warp.
 | `Quest Exclusive` | string | "" |  |
 | `Quest State` | string | "active" |  |
 
-##### `Waypoint`
+#### `Waypoint`
 
 **Color:** `#55ff55`
 
@@ -3777,7 +4185,7 @@ Same property set as Custom Warp.
 | `Date` | string | "" |  |
 | `Next Waypoint 1..5` | object | "" |  |
 
-##### `Radius Encounter`
+#### `Radius Encounter`
 
 **Color:** `#ff5555`
 
@@ -3788,13 +4196,13 @@ Same property set as Custom Warp.
 | `Path` | file | "" |
 | `Once` | bool | false |
 
-##### `Water Refill`
+#### `Water Refill`
 
 **Color:** `#4444ff`
 
 No members.
 
-##### `Item`
+#### `Item`
 
 **Color:** `#ffdd44`
 
@@ -3806,7 +4214,7 @@ No members.
 | `Amount` | number | 1 |  |
 | `Price` | number | 999999 |  |
 
-##### `Dialogue`
+#### `Dialogue`
 
 **Color:** `#cc66cc`
 
@@ -3838,7 +4246,7 @@ No members.
 | `Encounter Name` | string | "" |  |
 | `Failure Message` | string | "" |  |
 
-##### `Explosion Trigger`
+#### `Explosion Trigger`
 
 **Color:** `#ff6600`
 
@@ -3848,7 +4256,7 @@ No members.
 | `Follow` | bool | false |
 | `Once` | bool | false |
 
-##### `Rush Road`
+#### `Rush Road`
 
 **Color:** `#ffaa00`
 
@@ -3857,7 +4265,7 @@ No members.
 | `Rush Object` | object | "" |  |
 | `Direction` | string | "Down Left" | Direction |
 
-##### `Compression Tile`
+#### `Compression Tile`
 
 **Color:** `#88aaff`
 
@@ -3866,13 +4274,13 @@ No members.
 | `Compress` | bool | false |
 | `Decompress` | bool | false |
 
-##### `Admin Console`
+#### `Admin Console`
 
 **Color:** `#ffaa00`
 
 No members.
 
-##### `Button Bot Details`
+#### `Button Bot Details`
 
 **Color:** `#99ddff`
 
@@ -3889,7 +4297,7 @@ No members.
 | `Activation Animation Duration` | number | 0.5 |  |
 | `Deactivation Animation Duration` | number | 0.5 |  |
 
-##### `OW Button`
+#### `OW Button`
 
 **Color:** `#66ccff`
 
@@ -3903,7 +4311,7 @@ No members.
 | `Button Deactivated Behavior` | object | "" |  |
 | `Activated Time` | number | 1 |  |
 
-##### `Unlock Behavior`
+#### `Unlock Behavior`
 
 **Color:** `#ffcc00`
 
@@ -3913,7 +4321,7 @@ No members.
 | `Unlock Permanently` | bool | false |
 | `Area Wide` | bool | false |
 
-##### `Relock Behavior`
+#### `Relock Behavior`
 
 **Color:** `#ff8888`
 
@@ -3922,7 +4330,7 @@ No members.
 | `Relock This` | object | "" |
 | `Area Wide` | bool | false |
 
-##### `Button Trigger`
+#### `Button Trigger`
 
 **Color:** `#aaddff`
 
@@ -3930,7 +4338,7 @@ No members.
 | --- | --- | --- | --- |
 | `Trigger Type` | string | "rect" | TriggerShape |
 
-### 11.5 Type mapping notes
+### Type mapping notes
 
 type = "object" — a reference to another Tiled object's id (usually used together with numbered properties Next 1..N).
 
@@ -3940,7 +4348,7 @@ type = "bool" — Tiled emits these as booleans in the map JSON. The runtime rea
 
 propertyType — set only when the enum name is passed. The Tiled JSON key is propertyType.
 
-### 11.6 Registration mapping (which scripts actually consume each class)
+### Registration mapping (which scripts actually consume each class)
 
 | Tiled type | Consumer(s) |
 | --- | --- |
@@ -3983,18 +4391,19 @@ Explosion Trigger — no consumer in the code shown.
 
 Button Bot Details, Unlock Behavior, Relock Behavior, Button Trigger — read only as referenced objects from OW Button properties.
 
+
 ---
 
-<a id="part-12"></a>
-## 🔎 Part 12 — Final Combined Cross‑Reference
+<a id="final-combined-cross-reference"></a>
+## 🔎 Final Combined Cross-Reference
 
 This part consolidates information that appears across multiple parts, so you can find every consumer of an event, every registered Tiled object type, every asset path, etc., in one place.
 
-### 12.1 Net event matrix
+### Net event matrix
 
 main.lua (root) routes each Net:on(<event>) to all plugins that define the corresponding handle_* (or on_tick). Handlers listed per plugin are those that exist in the supplied files.
 
-##### `battle_results`
+#### `battle_results`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4002,26 +4411,26 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezencounters | own Net:on("battle_results", ...): dispatches stored callbacks and clears the encounter; emits encounter_finished |
 | eznpcs/dialogue_types.lua | own Net:on("battle_results", ...): just logs Net.is_player_battling |
 
-##### `shop_purchase`
+#### `shop_purchase`
 
 | Plugin | Handler |
 | --- | --- |
 | main.lua | plugin.handle_shop_purchase(player_id, item_name) |
 
-##### `shop_close`
+#### `shop_close`
 
 | Plugin | Handler |
 | --- | --- |
 | main.lua | plugin.handle_shop_close(player_id) |
 
-##### `custom_warp`
+#### `custom_warp`
 
 | Plugin | Handler |
 | --- | --- |
 | main.lua | plugin.handle_custom_warp(player_id, object_id) |
 | ezwarps | ezwarps.handle_custom_warp (dispatched via main) |
 
-##### `player_move`
+#### `player_move`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4029,7 +4438,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | eztriggers | eztriggers.handle_player_move (dispatched via main) |
 | ezencounters | ezencounters.handle_player_move (dispatched via main) |
 
-##### `player_request`
+#### `player_request`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4037,14 +4446,14 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezmemory | own Net:on("player_request", ...) — kicks player if memory not loaded |
 | ezwarps | ezwarps.handle_player_request (landing lookup by data) |
 
-##### `tile_interaction`
+#### `tile_interaction`
 
 | Plugin | Handler |
 | --- | --- |
 | main.lua | plugin.handle_tile_interaction(player_id, x, y, z, button) |
 | ezfarms | ezfarms.handle_tile_interaction |
 
-##### `post_selection`
+#### `post_selection`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4052,7 +4461,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezbbs | ezbbs.handle_post_selection |
 | ezfarms | ezfarms.handle_post_selection |
 
-##### `board_close`
+#### `board_close`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4060,7 +4469,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezbbs | ezbbs.handle_board_close |
 | ezfarms | ezfarms.handle_board_close |
 
-##### `player_avatar_change`
+#### `player_avatar_change`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4069,7 +4478,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | avatar_utils/main.lua | own Net:on("player_avatar_change", ...): calls update_player_avatar |
 | ezmystery | own Net:on("avatar_change", ...) (note the event name differs) |
 
-##### `player_join`
+#### `player_join`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4086,14 +4495,14 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezfarms | ezfarms.handle_player_join |
 | ezweather | ezweather.handle_player_join |
 
-##### `actor_interaction`
+#### `actor_interaction`
 
 | Plugin | Handler |
 | --- | --- |
 | main.lua | plugin.handle_actor_interaction(player_id, actor_id, button) |
 | eznpcs | eznpcs.handle_actor_interaction |
 
-##### `tick`
+#### `tick`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4101,7 +4510,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | eznpcs | eznpcs.on_tick |
 | ezfarms | ezfarms.on_tick |
 
-##### `player_disconnect`
+#### `player_disconnect`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4119,7 +4528,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezencounters | ezencounters.handle_player_disconnect |
 | ezfarms | (no explicit handler; handle_board_close clears its per‑player BBS state) |
 
-##### `object_interaction`
+#### `object_interaction`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4130,7 +4539,7 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezrushroads | ezrushroads.handle_object_interaction |
 | ezfarms | ezfarms.handle_object_interaction |
 
-##### `player_area_transfer`
+#### `player_area_transfer`
 
 | Plugin | Handler |
 | --- | --- |
@@ -4145,14 +4554,14 @@ main.lua (root) routes each Net:on(<event>) to all plugins that define the corre
 | ezweather | ezweather.handle_player_transfer |
 | ezbuttons | own Net:on("player_area_transfer", ...) (hides/syncs/unlocks) |
 
-##### `textbox_response`
+#### `textbox_response`
 
 | Plugin | Handler |
 | --- | --- |
 | main.lua | plugin.handle_textbox_response(player_id, response) |
 | ezbbs | ezbbs.handle_textbox_response |
 
-#### Standalone Net:on registrations (not routed by main)
+### Standalone Net:on registrations (not routed by main)
 
 helpers: player_disconnect
 
@@ -4172,13 +4581,13 @@ ezbuttons: player_join, player_area_transfer
 
 avatar_utils/main.lua: player_avatar_change
 
-#### Net events consumed but not emitted by main.lua in this library
+### Net events consumed but not emitted by main.lua in this library
 
 email_read (only ezemail listens)
 
 avatar_change (only ezmystery listens)
 
-### 12.2 Tiled object type → handler map
+### Tiled object type → handler map
 
 Every object_registry.register_handler call in the supplied files:
 
@@ -4218,7 +4627,7 @@ Compression Tile — ezpress.init() scans for objects with Compress or Decompres
 
 Explosion Trigger — declared in the Tiled type generator, but no consumer in the supplied scripts.
 
-### 12.3 ezbus event matrix
+### ezbus event matrix
 
 | Event | Emitter | Listener(s) |
 | --- | --- | --- |
@@ -4238,7 +4647,7 @@ Explosion Trigger — declared in the Tiled type generator, but no consumer in t
 | `warp` | ezwarps.use_warp | (none) |
 | `dialogue_ended` | eznpcs.clear_player_conversation | (none) |
 
-### 12.4 Permissions matrix
+### Permissions matrix
 
 Only ezbbs and ezusers consult ezusers.has_permission in the supplied files.
 
@@ -4257,7 +4666,7 @@ New players get role = "user" with user permissions.
 
 Correct admin password assigns role = "admin" and copies the admin permission set.
 
-### 12.5 Config keys (ezlibs-config.lua)
+### Config keys (ezlibs-config.lua)
 
 Consumed by the library. None are provided by ezconfig.lua; the user must supply them in ezlibs-config.lua at the server root.
 
@@ -4276,9 +4685,9 @@ Consumed by the library. None are provided by ezconfig.lua; the user must supply
 
 ENCOUNTERS_PATH must be a directory prefix such that <prefix><area_id> is a Lua module returning {minimum_steps_before_encounter = number, encounter_chance_per_step = number, encounters = { {name=string|nil, path=string, weight=number, results_callback=function|nil}, ... }}.
 
-### 12.6 Asset paths referenced by the library
+### Asset paths referenced by the library
 
-#### SFX
+### SFX
 
 | Path | Used by |
 | --- | --- |
@@ -4302,7 +4711,7 @@ ENCOUNTERS_PATH must be a directory prefix such that <prefix><area_id> is a Lua 
 | `/server/assets/ezlibs-assets/ezwarps/log_out.ogg` | log_in_animation |
 | `resources/sfx/falzar.ogg` | lev_beast_in/out |
 
-#### Textures / Animations
+### Textures / Animations
 
 | Path | Used by |
 | --- | --- |
@@ -4337,7 +4746,7 @@ ENCOUNTERS_PATH must be a directory prefix such that <prefix><area_id> is a Lua 
 | `/server/assets/ezlibs-assets/ezweather/fog.animation` | ezweather |
 | `/server/assets/ezlibs-assets/ezweather/fog.png` | ezweather |
 
-#### Avatar cache paths (avatar_utils/main.lua)
+### Avatar cache paths (avatar_utils/main.lua)
 
 assets/avatars/sheet/<secret>.png
 
@@ -4349,7 +4758,7 @@ assets/avatars/mug/<secret>.animation
 
 (avatar_utils.copy_player_avatar_to also registers these as /server/‑prefixed assets via set_or_update_asset.)
 
-### 12.7 Item schema (persisted)
+### Item schema (persisted)
 
 Generated by ezmemory.create_or_update_item:
 
@@ -4377,7 +4786,7 @@ helpers.read_item_information(area_id, item_object_id) returns:
 
 Accepted type values used throughout the library: item, keyitem, money, fragments, tokens, random, quiz, encounter.
 
-### 12.8 Memory namespace cross‑reference
+### Memory namespace cross‑reference
 
 player_memory[safe_secret] (persisted at <PLAYER_PATH_FOLDER><safe_secret>.json)
 | Field | Managed by |
@@ -4406,7 +4815,7 @@ item_id → item record (see §12.7).
 Board files: <BOARD_PATH_FOLDER><sanitized_board_name>.json
 {posts = { post, ... }, next_id = number}.
 
-### 12.9 Global symbols defined by the library
+### Global symbols defined by the library
 
 These are defined as globals (not module‑scoped) by helpers.lua:
 
@@ -4422,7 +4831,7 @@ ezbuttons.lua and ezrushroads.lua also define their own local async and await (s
 
 ezusers.lua defines local async / await internally as well.
 
-### 12.10 Things the library does not do
+### Things the library does not do
 
 > ⚠️ **To avoid over‑claiming:**
 
@@ -4436,7 +4845,7 @@ ezusers.lua defines local async / await internally as well.
 - ezannounce.start_watch runs at require time with the default interval of 10 seconds; it will not re‑start if called again (_watch_started guard).
 - ezbuttons and ezrushroads reuse global async/await but define them locally, so the global async/await from helpers.lua is still usable by everything else.
 
-### 12.11 Loading order (from main.lua)
+### Loading order (from main.lua)
 
 1. helpers
 2. ezbus (via ezemitter)
@@ -4466,7 +4875,7 @@ ezusers.lua defines local async / await internally as well.
 
 Then all Net:on handlers are wired up and [main] ezlibs loaded in <seconds>s is printed.
 
-### 12.12 Quick action cheat sheet
+### Quick action cheat sheet
 
 - Add a new Tiled custom type → add an entry to object_types in generate-ezlibs-tiled.lua and register a handler with object_registry.register_handler(...).
 - Add a new dialogue type → add a table with name and action to dialogue_types.lua, or eznpcs.add_event({name, action}).
@@ -4474,136 +4883,3 @@ Then all Net:on handlers are wired up and [main] ezlibs loaded in <seconds>s is 
 - Persist a player value → store it in ezmemory.get_player_memory(safe_secret) under a unique key and call ezmemory.save_player_memory(safe_secret).
 - Persist an area value → ezmemory.get_area_memory(area_id) + ezmemory.save_area_memory(area_id).
 - Hide/show an object for a player → ezmemory.hide_object_from_player / unhide_object_from_player (permanent) or ..._till_disconnect (session).
-
-
----
-
-<a id="part-13"></a>
-## 🧰 Part 13 — Utility Modules
-
-The `utils/` directory contains small, reusable helpers intended to reduce duplicated table handling, validation, and logging code. These modules are dependency-free and use Lua 5.2 language and standard-library features; they do not require the server's `Net` API.
-
-> 💡 **Integration note:** These are opt-in utility modules. Use `require` to load the module you need. The documented helper changes in `helpers.lua` reuse `ezutil` for table counting and deep copying; the other utilities do not need to be adopted by existing systems unless useful.
-
-### 13.1 `utils/ezutil.lua` — General Utilities
-
-| Function | Parameters | Returns | Notes |
-|---|---|---|---|
-| `ezutil.clamp(value, minimum, maximum)` | three numbers | `number` | Restricts `value` to the inclusive range. Asserts that arguments are numbers and `minimum <= maximum`. |
-| `ezutil.table_contains(list, value)` | `table`, any value | `boolean` | Searches array-style entries with `ipairs`; does not search arbitrary keys. |
-| `ezutil.table_remove_value(list, value, remove_all?)` | `table`, value, `boolean?` | `number` | Removes the first matching array entry by default. If `remove_all` is true, removes all matches. Returns the number removed. |
-| `ezutil.table_count(value)` | `table` | `number` | Counts all keys by iterating with `pairs`, including non-array keys. |
-| `ezutil.table_is_empty(value)` | `table` | `boolean` | Returns whether `next(value)` is `nil`. |
-| `ezutil.shallow_copy(source)` | `table` | `table` | Copies key/value pairs into a new table; nested tables remain shared references. |
-| `ezutil.deep_copy(source, seen?)` | any value | same kind of value | Recursively copies table keys and values, handles cycles/shared references, and preserves the source table's metatable. Non-table values are returned unchanged. |
-| `ezutil.table_merge(target, source)` | two tables | `table` | Copies source key/value pairs into `target`; source values overwrite matching target keys. Mutates and returns `target`. |
-
-Example:
-
-```lua
-local ezutil = require('scripts/ezlibs-scripts/utils/ezutil')
-
-local health = ezutil.clamp(125, 0, 100) -- 100
-local has_key = ezutil.table_contains({"Key", "Potion"}, "Key") -- true
-
-local settings = {volume = 5, enabled = true}
-ezutil.table_merge(settings, {volume = 8})
--- settings.volume is now 8
-```
-
-### 13.2 `utils/ezvalidate.lua` — Validation Helpers
-
-Validation functions return `true` when validation succeeds. On failure, they return `false` plus a reason string.
-
-| Function | Parameters | Returns | Notes |
-|---|---|---|---|
-| `ezvalidate.is_type(value, expected_type)` | any value, type-name string | `boolean` | Compares Lua's `type(value)` with `expected_type`. |
-| `ezvalidate.number_range(value, minimum?, maximum?)` | any value, optional numeric bounds | `boolean, string?` | Checks that the value is a number and falls within the supplied inclusive bounds. Either bound may be omitted. |
-| `ezvalidate.required_fields(value, fields)` | table, array of field names | `boolean, string?` | Checks that the value is a table and every listed field is not `nil`. A field containing `false` counts as present. |
-| `ezvalidate.table_field_types(value, expected)` | table, map of field names to type-name strings | `boolean, string?` | Checks that each named field has the requested Lua `type()`. |
-
-Example:
-
-```lua
-local ezvalidate = require('scripts/ezlibs-scripts/utils/ezvalidate')
-
-local ok, reason = ezvalidate.number_range(player_level, 1, 99)
-if not ok then
-    print("Invalid player level: " .. reason)
-end
-
-local valid = ezvalidate.required_fields(
-    {name = "Lan", enabled = false},
-    {"name", "enabled"}
-) -- true
-```
-
-### 13.3 `utils/ezdebug.lua` — Logging Helpers
-
-`ezdebug` provides a small logger wrapper. By default, logging is enabled, the prefix is `[ezlibs]`, and output is sent to `print`.
-
-| Function/Field | Parameters | Returns | Notes |
-|---|---|---|---|
-| `ezdebug.configure(options)` | table | — | Updates any supplied `enabled`, `prefix`, or `sink` settings; validates their types. |
-| `ezdebug.info(...)` | any number of values | — | Writes an `INFO` message when logging is enabled. |
-| `ezdebug.warn(...)` | any number of values | — | Writes a `WARN` message when logging is enabled. |
-| `ezdebug.error(...)` | any number of values | — | Writes an `ERROR` message when logging is enabled. |
-| `ezdebug.traceback(message?, level?)` | optional message and stack level | `string` | Returns a traceback string using Lua's `debug.traceback`; it does not automatically log the result. |
-| `enabled` | boolean | field | Defaults to `true`. |
-| `prefix` | string | field | Defaults to `[ezlibs]`. |
-| `sink` | function | field | Defaults to `print`; receives the fully formatted log line. |
-
-Example:
-
-```lua
-local ezdebug = require('scripts/ezlibs-scripts/utils/ezdebug')
-
-ezdebug.configure({
-    prefix = "[my-system]",
-    enabled = true
-})
-
-ezdebug.info("Loaded", "player", player_id)
-ezdebug.warn("Unexpected state:", state)
-
-local trace = ezdebug.traceback("Unexpected error")
-ezdebug.error(trace)
-```
-
-A custom sink can redirect formatted log messages:
-
-```lua
-ezdebug.configure({
-    sink = function(message)
-        -- Replace this body with the project's chosen log destination.
-        print(message)
-    end
-})
-```
-
-### 13.4 Practical Notes and Limitations
-
-- `table_contains` and `table_remove_value` operate on array-style lists, because they use `ipairs` and numeric sequence operations.
-- `table_count` counts all keys, not just the length of an array.
-- `shallow_copy` does not recursively copy nested values. Use `deep_copy` when recursive copying is needed.
-- `table_merge` is a shallow merge and mutates the target table.
-- `required_fields` checks for `nil`; it does not reject `false`, empty strings, or other values.
-- `table_field_types` checks Lua type names, not application-specific schemas or value ranges.
-- `ezdebug.traceback` depends on the standard `debug` library being available in the runtime.
-- The modules do not replace the host-specific `Net`, `Async`, or other ezlibs systems.
-
-### 13.5 Tests
-
-The utility additions include a Lua test file at `tests/test_utilities.lua`. From the library directory, run it with a Lua 5.2 interpreter:
-
-```sh
-lua tests/test_utilities.lua
-```
-
-The test file should be run in the target environment before relying on the additions. The tests were not executed as part of preparing this documentation.
-
-
-
-### Button Behavior label update
-
-The current `Button Behavior` values are `Pressure Plate`, `One-Time`, `Toggle`, `Custom`, and `Timed`. Existing Tiled maps should update any saved `Repeatable` value to `Pressure Plate` and any saved `Dynamic` value to `Toggle`.

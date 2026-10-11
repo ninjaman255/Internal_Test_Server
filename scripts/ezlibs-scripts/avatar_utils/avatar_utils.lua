@@ -1,6 +1,7 @@
 -- avatar_utils.lua
 -- Utility functions for handling player avatars and mugshots
 
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('avatar_utils')
 local lua_yes_parser = require('scripts/ezlibs-scripts/avatar_utils/lua_yes_parser/lib')
 local base64 = require('scripts/ezlibs-scripts/avatar_utils/base64')
 
@@ -91,7 +92,7 @@ avatar_utils.copy_player_avatar_to = function(player_id, new_texture_path, new_a
     local animation_data = Net.read_asset(avatar.animation_path)
     local anim_file = io.open(new_animation_path, "wb")
     if not anim_file then
-        print("ERROR: Cannot write to " .. new_animation_path)
+        logger:error("Cannot write player animation asset")
         return false
     end
     anim_file:write(animation_data)
@@ -102,7 +103,7 @@ avatar_utils.copy_player_avatar_to = function(player_id, new_texture_path, new_a
     local texture_data = base64.decode(texture_data_b64_string)
     local tex_file = io.open(new_texture_path, "wb")
     if not tex_file then
-        print("ERROR: Cannot write to " .. new_texture_path)
+        logger:error("Cannot write player texture asset")
         return false
     end
     tex_file:write(texture_data)
@@ -112,7 +113,7 @@ avatar_utils.copy_player_avatar_to = function(player_id, new_texture_path, new_a
     local mug_anim_data = Net.read_asset(mugshot.animation_path)
     local mug_anim_file = io.open(mug_animation_path, "wb")
     if not mug_anim_file then
-        print("ERROR: Cannot write to " .. mug_animation_path)
+        logger:error("Cannot write player mug animation asset")
         return false
     end
     mug_anim_file:write(mug_anim_data)
@@ -123,7 +124,7 @@ avatar_utils.copy_player_avatar_to = function(player_id, new_texture_path, new_a
     local mug_texture_data = base64.decode(mug_texture_data_b64)
     local mug_tex_file = io.open(mug_texture_path, "wb")
     if not mug_tex_file then
-        print("ERROR: Cannot write to " .. mug_texture_path)
+        logger:error("Cannot write player mug texture asset")
         return false
     end
     mug_tex_file:write(mug_texture_data)
@@ -145,7 +146,7 @@ local function write_temp_file(content)
     local temp_path = os.tmpname()  -- returns a unique temporary filename
     local file, err = io.open(temp_path, "wb")
     if not file then
-        print("Failed to create temp file:", err)
+        logger:warn("Failed to create temporary avatar file")
         return nil
     end
     file:write(content)
@@ -161,7 +162,7 @@ avatar_utils.parse_animation_data = function(data)
     -- Write data to a temporary file
     local temp_path = write_temp_file(data)
     if not temp_path then
-        print("Failed to write temporary animation file")
+        logger:warn("Failed to write temporary animation file")
         return nil
     end
 
@@ -171,7 +172,7 @@ avatar_utils.parse_animation_data = function(data)
     os.remove(temp_path)
 
     if not ok or not yes_data then
-        print("Failed to parse animation data:", yes_data)
+        logger:warn("Failed to parse animation data:", yes_data)
         return nil
     end
 
@@ -219,11 +220,11 @@ end
 --- @param filepath string path to the .animation file
 --- @return table|nil parsed animation structure, or nil on failure
 avatar_utils.parse_animation_file = function(filepath)
-    print('Parsing animation file: ' .. filepath)
+    logger:debug("Parsing animation file")
 
     local file, err = io.open(filepath, "r")
     if not file then
-        print("Animation file not found: " .. filepath .. ", error: " .. tostring(err))
+        logger:warn("Animation file not found; error:", tostring(err))
         return nil
     end
     local content = file:read("*a")

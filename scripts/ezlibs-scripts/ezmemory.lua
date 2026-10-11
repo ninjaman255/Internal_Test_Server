@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezmemory')
 local json = require('scripts/ezlibs-scripts/json')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local table = require('table')
@@ -62,9 +63,9 @@ local function ensure_file(path, default_content)
         if f then
             f:write(default_content)
             f:close()
-            print("[ezmemory] Created default file:", path)
+            logger:info("[ezmemory] Created default file:", path)
         else
-            print("[ezmemory] Warning: Could not create file", path)
+            logger:warn("[ezmemory] Warning: Could not create file", path)
         end
     else
         f:close()
@@ -147,7 +148,7 @@ end)
 
 local function printd(...)
     local arg = { ... }
-    print('[ezmemory]', table.unpack(arg))
+    logger:info('[ezmemory]', table.unpack(arg))
 end
 
 local function normalize_player_memory(mem)
@@ -312,7 +313,7 @@ end
 
 function ezmemory.create_or_update_item(item_name, item_description, is_key)
     if not item_name or not item_description then
-        warn('[ezmemory] item not created, missing name or description')
+        logger:warn('[ezmemory] item not created, missing name or description')
         return
     end
     local existing_item_id = ezmemory.get_item_id_by_name(item_name)
@@ -460,7 +461,7 @@ function ezmemory.get_player_name_from_safesecret(safe_secret)
     if player_list[safe_secret] then
         name = player_list[safe_secret]
     end
-    print("NAME=", name)
+    logger:info("NAME=", name)
     return name
 end
 
@@ -649,7 +650,7 @@ end
 
 function ezmemory.spend_player_fragments(player_id, amount)
     if not (Net.get_player_fragments and Net.set_player_fragments) then
-        print("Fragments support isn't installed in ezmemory yet.")
+        logger:info("Fragments support isn't installed in ezmemory yet.")
         return false
     end
 
@@ -1134,7 +1135,7 @@ end
 
 function ezmemory.set_direction_anim(player_id, direction)
     pcall(function()
-        print(direction)
+        logger:info(direction)
         Net.animate_player(player_id, idle_map[direction], true)
     end)
 end

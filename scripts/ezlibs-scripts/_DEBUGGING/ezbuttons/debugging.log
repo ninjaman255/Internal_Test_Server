@@ -1,0 +1,154 @@
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/blue_button.png"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t3513173c-7e27-44d8-acf6-99682a8a4fb8\tat\t26\t19\t0"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t146\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/pink_button.png"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t4a2b2cb9-4238-41f8-a43c-4d28309f2607\tat\t27\t19\t0"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t154\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/purple_button.png"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\tb9f7895b-f97e-46ed-bb35-5bfbc570e57a\tat\t28\t19\t0"}
+{"timestamp":"2026-10-11 10:55:05","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t160\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 10:56:11","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:11","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:12","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:12","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:12","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t154\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:12","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false"}
+{"timestamp":"2026-10-11 10:56:12","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false"}
+{"timestamp":"2026-10-11 10:56:12","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false"}
+{"timestamp":"2026-10-11 10:56:14","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:14","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:14","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t160\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:14","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false"}
+{"timestamp":"2026-10-11 10:56:16","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:16","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:16","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t146\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:16","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:16","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:20","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:21","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t146\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:21","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t146\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:22","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:22","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:24","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:24","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:25","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:25","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:25","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t160\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:26","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:27","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:27","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t154\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:27","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:27","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:29","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:29","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:30","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:30","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t154\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:30","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t154\tdeactivated"}
+{"timestamp":"2026-10-11 10:56:33","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🟢 TRIGGER ENTERED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:33","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] 🔴 TRIGGER DEPARTED: button=\t160\t player=\td2740b0d-a919-4771-8071-2272b6df405b\t behavior=\tToggle"}
+{"timestamp":"2026-10-11 10:56:33","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button\t160\tdeactivated"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/blue_button.png"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\td50ab709-01fc-48d1-b3d6-81a6361faa6c\tat\t26\t19\t0"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t146\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/pink_button.png"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\tcdcd42e6-a255-4b90-86c0-21b215cce472\tat\t27\t19\t0"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t154\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/purple_button.png"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\tb6ba9382-342b-4c7f-9b69-1789dbd1ad03\tat\t28\t19\t0"}
+{"timestamp":"2026-10-11 11:51:51","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t160\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/blue_button.png"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t1874299a-87d3-43e5-952f-e48b3163a8c3\tat\t26\t19\t0"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t146\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/pink_button.png"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\ta7639b55-36c4-476e-a2ef-d310ef5599e8\tat\t27\t19\t0"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t154\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/purple_button.png"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t190c1b9d-de03-4402-8ab4-9f54a0af8108\tat\t28\t19\t0"}
+{"timestamp":"2026-10-11 11:54:18","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t160\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/blue_button.png"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\td5fdbeae-5cc2-4f34-8811-df075361b421\tat\t26\t19\t0"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t146\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/pink_button.png"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t185fca75-3d4a-4097-9a61-8e0a7e487ba8\tat\t27\t19\t0"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t154\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/purple_button.png"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\ta9901072-a9a1-40cd-9f7b-862f44b7f1fb\tat\t28\t19\t0"}
+{"timestamp":"2026-10-11 11:57:28","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t160\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/blue_button.png"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\td0c8952e-3c31-46d2-85fc-f7d3f6fa55c3\tat\t26\t19\t0"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t146\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/pink_button.png"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t2461a403-9744-4d17-833b-fcd9029bfc34\tat\t27\t19\t0"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t154\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/purple_button.png"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t5e2893b1-473a-4b4f-90ad-4344ac5ac0ff\tat\t28\t19\t0"}
+{"timestamp":"2026-10-11 12:00:00","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t160\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/blue_button.png"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t6f4e6264-927f-443d-926b-6c5e2592f021\tat\t26\t19\t0"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t146\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/pink_button.png"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t7d7fc0cb-e3c5-4fa2-b499-106d86c17b03\tat\t27\t19\t0"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t154\t(checkpoint actions are group-owned)"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button texture:\t/server/assets/ezlibs-assets/ezbuttons/purple_button.png"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Button animation:\t/server/assets/ezlibs-assets/ezbuttons/button.animation"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Texture provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] Animation provision:\ttrue\t"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] created button bot id:\t99135229-cfa3-468c-bc83-db5044b6cf2b\tat\t28\t19\t0"}
+{"timestamp":"2026-10-11 12:01:15","level":"info","module":"ezbuttons","scope":"module","msg":"[ezbuttons] OW Button Group Member initialized:\t160\t(checkpoint actions are group-owned)"}

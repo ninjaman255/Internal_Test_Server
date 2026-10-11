@@ -4,6 +4,7 @@
 -- Supports five interaction behaviors: Pressure Plate, One-Time, Toggle, Custom, Timed.
 -- Supports area‑wide unlock/relock via "Area Wide" flag on Unlock/Relock Behavior objects.
 
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbuttons')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
@@ -161,7 +162,7 @@ local function apply_logic_action(area_id, target_id, action, player_id)
             end
         end
     else
-        print("[ezbuttons] Unknown logic action:", tostring(action))
+        logger:info("[ezbuttons] Unknown logic action:", tostring(action))
     end
 end
 
@@ -190,7 +191,7 @@ local function process_logic_event(event)
             local group_event = now and "completed" or "incomplete"
             if type(group.callback) == "function" then
                 local ok, err = pcall(group.callback, area_id, group_id, now, event.player_id)
-                if not ok then print("[ezbuttons] Group callback failed:", tostring(err)) end
+                if not ok then logger:warn("[ezbuttons] Group callback failed:", tostring(err)) end
             end
             local area_group_effects = group_effects[area_id] and group_effects[area_id][group_id]
             local group_rules = area_group_effects and area_group_effects[group_event]
@@ -223,10 +224,10 @@ local function enqueue_logic_event(area_id, object_id, active, player_id)
         local event = table.remove(logic_queue, 1)
         processed = processed + 1
         local ok, err = pcall(process_logic_event, event)
-        if not ok then print("[ezbuttons] Logic event processing failed:", tostring(err)) end
+        if not ok then logger:warn("[ezbuttons] Logic event processing failed:", tostring(err)) end
     end
     if #logic_queue > 0 then
-        print("[ezbuttons] Logic event limit reached; clearing queued events to prevent an infinite effect loop")
+        logger:info("[ezbuttons] Logic event limit reached; clearing queued events to prevent an infinite effect loop")
         logic_queue = {}
     end
     processing_logic_queue = false
@@ -256,7 +257,7 @@ local function set_button_animation(bot_id, anim_state, loop)
     if loop == nil then loop = true end
     local ok, err = pcall(Net.animate_bot, bot_id, anim_state, loop)
     if not ok then
-        print("[ezbuttons] animate failed bot=", tostring(bot_id), " anim=", tostring(anim_state), " err=", tostring(err))
+        logger:warn("[ezbuttons] animate failed bot=", tostring(bot_id), " anim=", tostring(anim_state), " err=", tostring(err))
     end
 end
 
@@ -337,29 +338,29 @@ local function create_button_bot(area_id, asset_name, x, y, z, direction,
 
     -- Diagnostic: explicitly provide the button texture and animation assets
     -- before creating the bot, then report whether either call raises an error.
-    print("[ezbuttons] Button texture:", texture_path)
-    print("[ezbuttons] Button animation:", animation_path)
+    logger:info("[ezbuttons] Button texture:", texture_path)
+    logger:info("[ezbuttons] Button animation:", animation_path)
 
     local texture_ok, texture_err = pcall(
         Net.provide_asset,
         area_id,
         texture_path
     )
-    print("[ezbuttons] Texture provision:", texture_ok, texture_err or "")
+    logger:info("[ezbuttons] Texture provision:", texture_ok, texture_err or "")
 
     local animation_ok, animation_err = pcall(
         Net.provide_asset,
         area_id,
         animation_path
     )
-    print("[ezbuttons] Animation provision:", animation_ok, animation_err or "")
+    logger:info("[ezbuttons] Animation provision:", animation_ok, animation_err or "")
 
     local bot_id = Net.create_bot(npc_data)
     if not bot_id then
-        print("[ezbuttons] Failed to create bot for button", asset_name)
+        logger:warn("[ezbuttons] Failed to create bot for button", asset_name)
         return nil
     end
-    print("[ezbuttons] created button bot id:", bot_id, "at", x, y, z)
+    logger:info("[ezbuttons] created button bot id:", bot_id, "at", x, y, z)
     return bot_id
 end
 
@@ -398,9 +399,9 @@ local function create_button_trigger(area_id, object, width_px, height_px, trigg
     local emitter = eztriggers.add_rectangle_trigger(area_id, object, width_px, height_px, trigger_id)
     if emitter then
         button_triggers[trigger_id] = emitter
-        print("[ezbuttons] ✅ Trigger created successfully: " .. trigger_id)
+        logger:for_area(area_id):info("[ezbuttons] ✅ Trigger created successfully: " .. trigger_id)
     else
-        print("[ezbuttons] ❌ FAILED to create trigger for " .. trigger_id)
+        logger:for_area(area_id):warn("[ezbuttons] ❌ FAILED to create trigger for " .. trigger_id)
     end
     return emitter
 end
@@ -417,7 +418,7 @@ perform_activation = function(area_id, object_id, player_id, info)
     info.last_activator = player_id
 
     set_button_active_state(area_id, object_id, info.bot_id, info.active_anim, info.inactive_anim, true)
-    print("[ezbuttons] Button", object_id, "activated by player", player_id)
+    logger:for_player(player_id):info("[ezbuttons] Button", object_id, "activated in area", area_id)
     enqueue_logic_event(area_id, object_id, true, player_id)
 
     -- Group members only report their active state to group logic. Their checkpoint
@@ -439,11 +440,11 @@ perform_activation = function(area_id, object_id, player_id, info)
                 }
                 ezmemory.save_area_memory(info.area_id)
             end
-            print("[ezbuttons] Area-wide checkpoint unlock applied by button " .. tostring(object_id))
+            logger:info("[ezbuttons] Area-wide checkpoint unlock applied by button " .. tostring(object_id))
         else
             local ok, err = pcall(ezcheckpoints.force_unlock_checkpoint, player_id, info.area_id, cp_id, info.unlock_permanently)
             if not ok then
-                print("[ezbuttons] Failed to unlock checkpoint: " .. tostring(err))
+                logger:for_area(area_id):warn("[ezbuttons] Failed to unlock checkpoint: " .. tostring(err))
             elseif not info.unlock_permanently then
                 local area_mem = ezmemory.get_area_memory(area_id)
                 area_mem.timed_button_unlock_info = area_mem.timed_button_unlock_info or {}
@@ -469,7 +470,7 @@ perform_deactivation = function(area_id, object_id, info)
     end
 
     set_button_active_state(area_id, object_id, info.bot_id, info.active_anim, info.inactive_anim, false)
-    print("[ezbuttons] Button", object_id, "deactivated")
+    logger:info("[ezbuttons] Button", object_id, "deactivated")
 
     -- Individual buttons own their own relock behavior. Group members must not
     -- execute per-button relocks; the owning Button Group handles its transition.
@@ -486,13 +487,13 @@ perform_deactivation = function(area_id, object_id, info)
         end
         area_wide_entries[object_key] = nil
         ezmemory.save_area_memory(area_wide_entry.area_id)
-        print("[ezbuttons] Area-wide checkpoint relock applied by button " .. object_key)
+        logger:info("[ezbuttons] Area-wide checkpoint relock applied by button " .. object_key)
     else
         local unlocks = area_mem and area_mem.timed_button_unlock_info
         local unlock_info = unlocks and unlocks[object_key]
         if unlock_info then
             local ok, err = pcall(ezcheckpoints.relock_checkpoint, unlock_info.player_id, unlock_info.area_id, unlock_info.checkpoint_object_id)
-            if not ok then print("[ezbuttons] Failed to relock checkpoint: " .. tostring(err)) end
+            if not ok then logger:for_area(area_id):warn("[ezbuttons] Failed to relock checkpoint: " .. tostring(err)) end
             unlocks[object_key] = nil
             ezmemory.save_area_memory(area_id)
         end
@@ -506,14 +507,14 @@ perform_deactivation = function(area_id, object_id, info)
             for _, pid in ipairs(players) do
                 pcall(ezcheckpoints.relock_checkpoint, pid, info.area_id, info.relock_target)
             end
-            print("[ezbuttons] Explicit area‑wide relock for checkpoint " .. info.relock_target .. " in area " .. info.area_id)
+            logger:info("[ezbuttons] Explicit area‑wide relock for checkpoint " .. info.relock_target .. " in area " .. info.area_id)
         else
             -- Per‑player explicit relock
             if info.last_activator then
-                print("[ezbuttons] Explicit Relock Behavior: relocking " .. info.relock_target .. " for player " .. info.last_activator)
+                logger:info("[ezbuttons] Explicit Relock Behavior: relocking " .. info.relock_target .. " for player " .. info.last_activator)
                 pcall(ezcheckpoints.relock_checkpoint, info.last_activator, info.area_id, info.relock_target)
             else
-                print("[ezbuttons] No last_activator for explicit relock; cannot relock")
+                logger:warn("[ezbuttons] No last_activator for explicit relock; cannot relock")
             end
         end
     end
@@ -553,7 +554,7 @@ deactivate_button_internal = function(area_id, object_id, info)
     if not info then
         info = button_placeholders[area_id] and button_placeholders[area_id][tostring(object_id)]
         if not info then
-            print("[ezbuttons] No button info for", object_id)
+            logger:info("[ezbuttons] No button info for", object_id)
             return false
         end
     end
@@ -566,12 +567,12 @@ deactivate_button_internal = function(area_id, object_id, info)
     if info.is_animating then
         info.pending_state = false
         info.pending_player_id = nil
-        print("[ezbuttons] Button", object_id, "is animating; queued deactivation")
+        logger:info("[ezbuttons] Button", object_id, "is animating; queued deactivation")
         return true
     end
 
     if not is_button_active(area_id, object_id) then
-        print("[ezbuttons] Button", object_id, "already inactive")
+        logger:info("[ezbuttons] Button", object_id, "already inactive")
         return false
     end
 
@@ -608,19 +609,19 @@ local function start_timed_deactivation(area_id, object_id, info)
 
     local delay = tonumber(info.activated_time) or 0
     if delay < 0 then delay = 0 end
-    print(string.format("   [DEBUG] Timed deactivation scheduled for button %s in %.2f seconds (generation %d)", tostring(object_id), delay, timer_generation))
+    logger:info(string.format("   [DEBUG] Timed deactivation scheduled for button %s in %.2f seconds (generation %d)", tostring(object_id), delay, timer_generation))
 
     async(function()
         await(Async.sleep(delay))
         if info.timed_cancel or info.timer_generation ~= timer_generation then
-            print("   [DEBUG] Timed deactivation CANCELLED for button " .. tostring(object_id) .. " (generation " .. tostring(timer_generation) .. ")")
+            logger:info("   [DEBUG] Timed deactivation CANCELLED for button " .. tostring(object_id) .. " (generation " .. tostring(timer_generation) .. ")")
             return
         end
         if is_button_active(area_id, object_id) then
-            print("   [DEBUG] Timed deactivation FIRING for button " .. tostring(object_id) .. " (generation " .. tostring(timer_generation) .. ")")
+            logger:info("   [DEBUG] Timed deactivation FIRING for button " .. tostring(object_id) .. " (generation " .. tostring(timer_generation) .. ")")
             deactivate_button_internal(area_id, object_id, info)
         else
-            print("   [DEBUG] Button " .. tostring(object_id) .. " already inactive, skipping timed deactivation")
+            logger:info("   [DEBUG] Button " .. tostring(object_id) .. " already inactive, skipping timed deactivation")
         end
     end)
 end
@@ -630,19 +631,19 @@ activate_button = function(area_id, object_id, player_id)
     object_id = tostring(object_id)
     local info = button_placeholders[area_id] and button_placeholders[area_id][object_id]
     if not info then
-        print("[ezbuttons] No button info for", object_id)
+        logger:info("[ezbuttons] No button info for", object_id)
         return false
     end
 
     if info.is_animating then
         info.pending_state = true
         info.pending_player_id = player_id
-        print("[ezbuttons] Button", object_id, "is animating; queued activation")
+        logger:info("[ezbuttons] Button", object_id, "is animating; queued activation")
         return true
     end
 
     if is_button_active(area_id, object_id) then
-        print("[ezbuttons] Button", object_id, "already active")
+        logger:info("[ezbuttons] Button", object_id, "already active")
         return false
     end
 
@@ -669,7 +670,7 @@ deactivate_button = function(area_id, object_id)
     object_id = tostring(object_id)
     local info = button_placeholders[area_id] and button_placeholders[area_id][object_id]
     if not info then
-        print("[ezbuttons] No button info for", object_id)
+        logger:info("[ezbuttons] No button info for", object_id)
         return false
     end
 
@@ -709,13 +710,13 @@ local function register_button_object(area_id, object, group_member)
     -- Bot Details
     local bot_details_obj_id = props["Bot Details"]
     if not bot_details_obj_id or bot_details_obj_id == "" then
-        print("[ezbuttons] OW Button missing Bot Details reference, skipping", object.id)
+        logger:info("[ezbuttons] OW Button missing Bot Details reference, skipping", object.id)
         return
     end
 
     local bot_details_obj = Net.get_object_by_id(area_id, tostring(bot_details_obj_id))
     if not bot_details_obj then
-        print("[ezbuttons] OW Button Bot Details object not found in area", area_id, "for button", object.id)
+        logger:warn("[ezbuttons] OW Button Bot Details object not found in area", area_id, "for button", object.id)
         return
     end
 
@@ -723,7 +724,7 @@ local function register_button_object(area_id, object, group_member)
     local asset_name = details_props["Asset Name"]
     local direction = details_props["Direction"]
     if not asset_name or not direction then
-        print("[ezbuttons] OW Button Bot Details missing Asset Name or Direction, skipping button", object.id)
+        logger:info("[ezbuttons] OW Button Bot Details missing Asset Name or Direction, skipping button", object.id)
         return
     end
 
@@ -770,10 +771,10 @@ local function register_button_object(area_id, object, group_member)
                     unlock_area_wide = (val:lower() == "true")
                 end
             end
-            print(string.format("   [DEBUG] Button %s: Unlock Behavior -> checkpoint=%s, permanent=%s, area_wide=%s",
+            logger:info(string.format("   [DEBUG] Button %s: Unlock Behavior -> checkpoint=%s, permanent=%s, area_wide=%s",
                   tostring(object.id), tostring(unlock_checkpoint_obj), tostring(unlock_permanently), tostring(unlock_area_wide)))
         else
-            print("[ezbuttons] Warning: Unlock Behavior object", behavior_obj_id, "not found in area", area_id)
+            logger:for_area(area_id):warn("[ezbuttons] Warning: Unlock Behavior object", behavior_obj_id, "not found in area", area_id)
         end
     end
 
@@ -796,13 +797,13 @@ local function register_button_object(area_id, object, group_member)
                 end
             end
             if relock_target and relock_target ~= "" then
-                print("[ezbuttons] Button " .. tostring(object.id) .. " will relock checkpoint " .. relock_target .. " on deactivation (area_wide=" .. tostring(relock_area_wide) .. ")")
+                logger:info("[ezbuttons] Button " .. tostring(object.id) .. " will relock checkpoint " .. relock_target .. " on deactivation (area_wide=" .. tostring(relock_area_wide) .. ")")
             else
-                print("[ezbuttons] Warning: Relock Behavior object " .. deactivated_behavior_id .. " does not have a valid Relock This property")
+                logger:for_area(area_id):warn("[ezbuttons] Warning: Relock Behavior object " .. deactivated_behavior_id .. " does not have a valid Relock This property")
                 relock_target = nil
             end
         else
-            print("[ezbuttons] Warning: Relock Behavior object", deactivated_behavior_id, "not found in area", area_id)
+            logger:for_area(area_id):warn("[ezbuttons] Warning: Relock Behavior object", deactivated_behavior_id, "not found in area", area_id)
         end
     end
 
@@ -910,7 +911,7 @@ local function register_button_object(area_id, object, group_member)
     end
 
     if not emitter then
-        print("[ezbuttons] ❌ CRITICAL: Trigger creation failed for button", object.id)
+        logger:for_area(area_id):error("[ezbuttons] ❌ CRITICAL: Trigger creation failed for button", object.id)
         return
     end
 
@@ -919,7 +920,7 @@ local function register_button_object(area_id, object, group_member)
     if behavior == "Custom" then
         local mod, err = load_custom_script(script_path)
         if not mod then
-            print("[ezbuttons] Custom script error for button", object.id, ":", err, "- falling back to One-Time")
+            logger:info("[ezbuttons] Custom script error for button", object.id, ":", err, "- falling back to One-Time")
             behavior = "One-Time"
         else
             custom_handlers = mod
@@ -933,13 +934,13 @@ local function register_button_object(area_id, object, group_member)
     emitter:on("entered", function(event)
         if type(event) ~= "table" or not event.object
             or tostring(event.object.id) ~= tostring(trigger_source_obj.id) then
-            print("[ezbuttons] Ignoring enter event for mismatched trigger on button", tostring(object.id))
+            logger:info("[ezbuttons] Ignoring enter event for mismatched trigger on button", tostring(object.id))
             return
         end
         local player_id = event.player_id
         if player_id == nil then return end
         info.trigger_players[player_id] = true
-        print("[ezbuttons] 🟢 TRIGGER ENTERED: button=", tostring(object.id), " player=", tostring(player_id), " behavior=", behavior)
+        logger:info("[ezbuttons] 🟢 TRIGGER ENTERED: button=", tostring(object.id), " player=", tostring(player_id), " behavior=", behavior)
 
         if behavior == "Pressure Plate" then
             if not is_button_active(area_id, object.id) then
@@ -962,7 +963,7 @@ local function register_button_object(area_id, object, group_member)
                 end
                 info.pending_state = not current_target
                 info.pending_player_id = info.pending_state and player_id or nil
-                print("[ezbuttons] Toggle requested during animation; queued state:", tostring(info.pending_state))
+                logger:info("[ezbuttons] Toggle requested during animation; queued state:", tostring(info.pending_state))
             elseif is_button_active(area_id, object.id) then
                 deactivate_button(area_id, object.id)
             else
@@ -983,13 +984,13 @@ local function register_button_object(area_id, object, group_member)
     emitter:on("departed", function(event)
         if type(event) ~= "table" or not event.object
             or tostring(event.object.id) ~= tostring(trigger_source_obj.id) then
-            print("[ezbuttons] Ignoring depart event for mismatched trigger on button", tostring(object.id))
+            logger:info("[ezbuttons] Ignoring depart event for mismatched trigger on button", tostring(object.id))
             return
         end
         local player_id = event.player_id
         if player_id == nil then return end
         info.trigger_players[player_id] = nil
-        print("[ezbuttons] 🔴 TRIGGER DEPARTED: button=", tostring(object.id), " player=", tostring(player_id), " behavior=", behavior)
+        logger:info("[ezbuttons] 🔴 TRIGGER DEPARTED: button=", tostring(object.id), " player=", tostring(player_id), " behavior=", behavior)
 
         if behavior == "Pressure Plate" then
             local someone_inside = next(info.trigger_players) ~= nil
@@ -1012,13 +1013,13 @@ local function register_button_object(area_id, object, group_member)
     end)
 
     info.trigger_info = emitter
-    print("[ezbuttons] ✅ OW Button fully initialized:", object.id, "behavior=", behavior, "trigger size=", trigger_width_px, "x", trigger_height_px)
+    logger:for_area(area_id):info("[ezbuttons] ✅ OW Button fully initialized:", object.id, "behavior=", behavior, "trigger size=", trigger_width_px, "x", trigger_height_px)
 
     if not group_member and unlock_checkpoint_obj and unlock_checkpoint_obj ~= "" then
-        print("[ezbuttons] Button", object.id, "will unlock checkpoint", unlock_checkpoint_obj,
+        logger:info("[ezbuttons] Button", object.id, "will unlock checkpoint", unlock_checkpoint_obj,
               "when activated (area_wide=" .. tostring(unlock_area_wide) .. ")")
     elseif group_member then
-        print("[ezbuttons] OW Button Group Member initialized:", tostring(object.id), "(checkpoint actions are group-owned)")
+        logger:info("[ezbuttons] OW Button Group Member initialized:", tostring(object.id), "(checkpoint actions are group-owned)")
     end
 
     if try_configure_pending_groups then
@@ -1199,7 +1200,7 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
                             target_player_id, area_id, checkpoint_id)
                     end
                     if not ok then
-                        print("[ezbuttons] Group checkpoint action failed:", tostring(err))
+                        logger:warn("[ezbuttons] Group checkpoint action failed:", tostring(err))
                     end
                 end
 
@@ -1231,10 +1232,10 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
                         player_id, area_id, checkpoint_id)
                 end
                 if not ok then
-                    print("[ezbuttons] Group checkpoint action failed:", tostring(err))
+                    logger:warn("[ezbuttons] Group checkpoint action failed:", tostring(err))
                 end
             else
-                print("[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false")
+                logger:info("[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false")
             end
         end
     end
@@ -1249,7 +1250,7 @@ local function configure_group_object(area_id, object)
     local required_ids = property_ids(props, "Button ")
     local forbidden_ids = property_ids(props, "Forbidden Button ")
     if #required_ids == 0 then
-        print("[ezbuttons] Button Group has no required members:", tostring(object.id))
+        logger:info("[ezbuttons] Button Group has no required members:", tostring(object.id))
         return false
     end
 
@@ -1288,13 +1289,13 @@ local function configure_group_object(area_id, object)
         end
     })
     if not ok then
-        print("[ezbuttons] Failed to configure Button Group", tostring(object.id), tostring(err))
+        logger:warn("[ezbuttons] Failed to configure Button Group", tostring(object.id), tostring(err))
         return false
     end
 
     group_object_ids[area_id] = group_object_ids[area_id] or {}
     group_object_ids[area_id][tostring(object.id)] = group_id
-    print("[ezbuttons] Configured Button Group:", tostring(object.id), "group_id=", group_id, "mode=", tostring(mode), "members=", #required_ids)
+    logger:for_area(area_id):info("[ezbuttons] Configured Button Group:", tostring(object.id), "group_id=", group_id, "mode=", tostring(mode), "members=", #required_ids)
 
     -- Register group effects that may have appeared earlier in the Tiled object list.
     local pending = pending_group_effect_objects[area_id]
@@ -1307,7 +1308,7 @@ local function configure_group_object(area_id, object)
                 if target_id and target_id ~= "" then
                     local effect_ok, effect_err = pcall(ezbuttons.add_group_effect, area_id, group_id,
                         effect_props["Event"] or "completed", tostring(target_id), effect_props["Action"] or "activate")
-                    if not effect_ok then print("[ezbuttons] Invalid Button Group Effect:", tostring(effect_err)) end
+                    if not effect_ok then logger:warn("[ezbuttons] Invalid Button Group Effect:", tostring(effect_err)) end
                 end
                 table.remove(pending, index)
             end
@@ -1340,7 +1341,7 @@ local function configure_button_combo_object(area_id, object)
     local required_ids = property_ids(props, "Button ")
     local forbidden_ids = property_ids(props, "Forbidden Button ")
     if #required_ids == 0 then
-        print("[ezbuttons] Button Combo has no required buttons:", tostring(object.id))
+        logger:info("[ezbuttons] Button Combo has no required buttons:", tostring(object.id))
         return false
     end
 
@@ -1367,7 +1368,7 @@ local function configure_button_combo_object(area_id, object)
         unlock_area_wide = read_bool(props["Unlock Area Wide"], false),
         relock_area_wide = read_bool(props["Relock Area Wide"], false),
     }
-    print("[ezbuttons] Configured Button Combo:", tostring(object.id),
+    logger:for_area(area_id):info("[ezbuttons] Configured Button Combo:", tostring(object.id),
         "required=", #required_ids, "forbidden=", #forbidden_ids)
 
     if try_configure_pending_combo_groups then
@@ -1396,7 +1397,7 @@ local function configure_combo_button_group_object(area_id, object)
     local props = object.custom_properties or {}
     local combo_object_ids = property_ids(props, "Button Combo ")
     if #combo_object_ids == 0 then
-        print("[ezbuttons] Combo Button Group has no Button Combo references:", tostring(object.id))
+        logger:info("[ezbuttons] Combo Button Group has no Button Combo references:", tostring(object.id))
         return false
     end
 
@@ -1406,7 +1407,7 @@ local function configure_combo_button_group_object(area_id, object)
 
     local combo_mode = props["Combo Mode"] or "Inclusive"
     if combo_mode ~= "Inclusive" and combo_mode ~= "Exclusive" then
-        print("[ezbuttons] Combo Button Group has invalid Combo Mode:", tostring(object.id), tostring(combo_mode))
+        logger:warn("[ezbuttons] Combo Button Group has invalid Combo Mode:", tostring(object.id), tostring(combo_mode))
         return false
     end
 
@@ -1455,7 +1456,7 @@ local function configure_combo_button_group_object(area_id, object)
 
     group_object_ids[area_id] = group_object_ids[area_id] or {}
     group_object_ids[area_id][tostring(object.id)] = group_id
-    print("[ezbuttons] Configured Combo Button Group:", tostring(object.id), "group_id=", group_id,
+    logger:for_area(area_id):info("[ezbuttons] Configured Combo Button Group:", tostring(object.id), "group_id=", group_id,
         "combos=", #combos, "mode=", combo_mode, "logic=any combo matches")
 
     local pending = pending_group_effect_objects[area_id]
@@ -1468,7 +1469,7 @@ local function configure_combo_button_group_object(area_id, object)
                 if target_id and target_id ~= "" then
                     local effect_ok, effect_err = pcall(ezbuttons.add_group_effect, area_id, group_id,
                         effect_props["Event"] or "completed", tostring(target_id), effect_props["Action"] or "activate")
-                    if not effect_ok then print("[ezbuttons] Invalid Button Group Effect:", tostring(effect_err)) end
+                    if not effect_ok then logger:warn("[ezbuttons] Invalid Button Group Effect:", tostring(effect_err)) end
                 end
                 table.remove(pending, index)
             end
@@ -1498,12 +1499,12 @@ object_registry.register_handler("Button Effect", function(area_id, object)
     local source_id = props["Source Button"]
     local target_id = props["Target Button"]
     if source_id == nil or source_id == "" or target_id == nil or target_id == "" then
-        print("[ezbuttons] Button Effect missing Source Button or Target Button:", tostring(object.id))
+        logger:info("[ezbuttons] Button Effect missing Source Button or Target Button:", tostring(object.id))
         return
     end
     local ok, err = pcall(ezbuttons.add_button_effect, area_id, tostring(source_id),
         props["Event"] or "activated", tostring(target_id), props["Action"] or "activate")
-    if not ok then print("[ezbuttons] Invalid Button Effect:", tostring(err)) end
+    if not ok then logger:warn("[ezbuttons] Invalid Button Effect:", tostring(err)) end
 end)
 
 object_registry.register_handler("Button Group Effect", function(area_id, object)
@@ -1511,19 +1512,19 @@ object_registry.register_handler("Button Group Effect", function(area_id, object
     local group_object_id = props["Button Group"]
     local target_id = props["Target Button"]
     if group_object_id == nil or group_object_id == "" or target_id == nil or target_id == "" then
-        print("[ezbuttons] Button Group Effect missing Button Group or Target Button:", tostring(object.id))
+        logger:info("[ezbuttons] Button Group Effect missing Button Group or Target Button:", tostring(object.id))
         return
     end
     local group_id = group_object_ids[area_id] and group_object_ids[area_id][tostring(group_object_id)]
     if group_id then
         local ok, err = pcall(ezbuttons.add_group_effect, area_id, group_id,
             props["Event"] or "completed", tostring(target_id), props["Action"] or "activate")
-        if not ok then print("[ezbuttons] Invalid Button Group Effect:", tostring(err)) end
+        if not ok then logger:warn("[ezbuttons] Invalid Button Group Effect:", tostring(err)) end
     else
         pending_group_effect_objects[area_id] = pending_group_effect_objects[area_id] or {}
         table.insert(pending_group_effect_objects[area_id], object)
     end
 end)
 
-print("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)")
+logger:info("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)")
 return ezbuttons

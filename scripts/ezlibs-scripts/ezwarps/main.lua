@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezwarps')
 local json = require('scripts/ezlibs-scripts/json')
 local create_arrow_animation = require('scripts/ezlibs-scripts/ezwarps/arrow_animation_factory')
 local create_jack_in_out_animation = require('scripts/ezlibs-scripts/ezwarps/log_in_animation')
@@ -42,7 +43,7 @@ end
 
 -- Logs the given message on screen --
 function log(message)
-   print('[ezwarps] '.. message)
+   logger:info('[ezwarps] '.. message)
 end
 
 -- Normalizes a custom property that may be a real boolean or a string

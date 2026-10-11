@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezannounce')
 local helpers  = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezemail  = require('scripts/ezlibs-scripts/ezemail') -- <-- adjust path to wherever your ezemail.lua is
@@ -72,7 +73,7 @@ local function _reload_feed()
 
   local ok, feed = pcall(require, FEED_MODULE)
   if not ok or type(feed) ~= "table" then
-    print("[ezannounce] feed reload failed:", tostring(feed))
+    logger:warn("[ezannounce] feed reload failed:", tostring(feed))
     return false
   end
 
@@ -84,7 +85,7 @@ local function _reload_feed()
 
   _feed_cache = feed
   _feed_sig = sig
-  print("[ezannounce] feed reloaded, entries:", tostring(#feed))
+  logger:info("[ezannounce] feed reloaded, entries:", tostring(#feed))
   return true
 end
 

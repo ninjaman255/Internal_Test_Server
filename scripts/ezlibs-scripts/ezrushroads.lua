@@ -1,6 +1,7 @@
 -- ezrushroads.lua
 -- Rush Roads minigame integrated with ezlibs
 -- Uses eztriggers for tile detection and ezmemory for persistence
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezrushroads')
 local ezrushroads = {}-- ezrushroads.lua
 -- ezrushroads.lua
 -- Rush Roads minigame integrated with ezlibs
@@ -172,7 +173,7 @@ local function group_rush_roads_in_area(area_id)
         end
     end
 
-    print("[ezrushroads] Grouped " .. #road_ids .. " roads in " .. area_id .. " into " .. group_counter .. " groups")
+    logger:for_area(area_id):info("[ezrushroads] Grouped " .. #road_ids .. " roads into " .. group_counter .. " groups")
 end
 
 -- ============================================================================
@@ -194,7 +195,7 @@ local function create_permanent_bot(area_id, road_id, linked_obj, direction)
         anim_path = RUSH_DL_ANIM
     end
 
-    print(string.format("[ezrushroads] Creating permanent bot %s at (%.2f, %.2f, %.2f) with anim %s (direction: %s, anim file: %s)",
+    logger:for_area(area_id):info(string.format("[ezrushroads] Creating permanent bot %s at (%.2f, %.2f, %.2f) with anim %s (direction: %s, anim file: %s)",
         bot_name, bot_x, bot_y, bot_z, anim_state, direction, anim_path))
 
     local success, err = pcall(Net.create_bot, bot_name, {
@@ -223,12 +224,12 @@ local function create_permanent_bot(area_id, road_id, linked_obj, direction)
 
         -- Register in bot_occupants (record persists forever)
         bot_occupants[bot_name] = { players = {}, road = road }
-        print("[ezrushroads] Created permanent bot " .. bot_name .. " and registered occupants")
+        logger:for_area(area_id):info("[ezrushroads] Created permanent bot " .. bot_name .. " and registered occupants")
 
         -- Bot is initially invisible for all players; visibility is controlled per player via cleared status
         return true
     else
-        print("[ezrushroads] Failed to create permanent bot: " .. tostring(err))
+        logger:for_area(area_id):warn("[ezrushroads] Failed to create permanent bot: " .. tostring(err))
         return false
     end
 end
@@ -258,7 +259,7 @@ local function process_rush_road(area_id, object)
         anim_state = nil
     }
     rush_roads[area_id][object.id] = road
-    print("[ezrushroads] Registered road " .. object.id .. " at (" .. object.x .. "," .. object.y .. "," .. object.z .. ")")
+    logger:for_area(area_id):info("[ezrushroads] Registered road " .. object.id .. " at (" .. object.x .. "," .. object.y .. "," .. object.z .. ")")
 
     -- If there is a linked object, create a permanent bot FIRST
     local linked_id = object.custom_properties["Rush Object"]
@@ -268,7 +269,7 @@ local function process_rush_road(area_id, object)
             local direction = object.custom_properties["Direction"] or "Down Left"
             create_permanent_bot(area_id, object.id, linked_obj, direction)
         else
-            print("[ezrushroads] Linked object " .. tostring(linked_id) .. " not found in " .. area_id)
+            logger:for_area(area_id):warn("[ezrushroads] Linked object " .. tostring(linked_id) .. " not found")
         end
     end
 
@@ -280,7 +281,7 @@ local function process_rush_road(area_id, object)
         emitter:on("entered", function(event)
             local player_id = event.player_id
             if road.bot_name then
-                print("[ezrushroads] 🟢 Tile entered by player " .. player_id .. " for road " .. object.id .. " bot " .. road.bot_name)
+                logger:for_player(player_id):info("[ezrushroads] Tile entered for road " .. object.id .. " bot " .. road.bot_name)
                 ezbus:emit("rush_tile_entered", {
                     player_id = player_id,
                     area_id = area_id,
@@ -288,14 +289,14 @@ local function process_rush_road(area_id, object)
                     bot_name = road.bot_name
                 })
             else
-                print("[ezrushroads] ⚠️ Tile entered but no bot_name yet for road " .. object.id)
+                logger:for_player(player_id):warn("[ezrushroads] Tile entered but no bot_name yet for road " .. object.id)
             end
         end)
 
         emitter:on("departed", function(event)
             local player_id = event.player_id
             if road.bot_name then
-                print("[ezrushroads] 🔴 Tile departed by player " .. player_id .. " for road " .. object.id)
+                logger:for_player(player_id):info("[ezrushroads] Tile departed for road " .. object.id)
                 ezbus:emit("rush_tile_departed", {
                     player_id = player_id,
                     area_id = area_id,
@@ -311,7 +312,7 @@ end
 -- After all objects are loaded, scan for Rush Roads and process them
 -- ============================================================================
 function ezrushroads.init()
-    print("[ezrushroads] Initializing...")
+    logger:info("[ezrushroads] Initializing...")
     local areas = Net.list_areas()
     for _, area_id in ipairs(areas) do
         local objects = Net.list_objects(area_id)
@@ -328,7 +329,7 @@ function ezrushroads.init()
         group_rush_roads_in_area(area_id)
     end
 
-    print("[ezrushroads] Initialized")
+    logger:info("[ezrushroads] Initialized")
 end
 
 -- ============================================================================
@@ -355,10 +356,10 @@ local function update_visibility_for_player(player_id, area_id)
         if road.bot_name then
             if is_cleared then
                 Net.include_actor_for_player(player_id, road.bot_name)
-                print("[ezrushroads] 👁️ Showing permanent bot " .. road.bot_name .. " for player " .. player_id)
+                logger:info("[ezrushroads] 👁️ Showing permanent bot " .. road.bot_name .. " for player " .. player_id)
             else
                 Net.exclude_actor_for_player(player_id, road.bot_name)
-                print("[ezrushroads] 🙈 Hiding permanent bot " .. road.bot_name .. " for player " .. player_id)
+                logger:info("[ezrushroads] 🙈 Hiding permanent bot " .. road.bot_name .. " for player " .. player_id)
             end
         end
     end
@@ -370,7 +371,7 @@ end
 local function create_temp_bots_for_player(player_id)
     if player_temp_bots[player_id] then return end
     player_temp_bots[player_id] = {}
-    print("[ezrushroads] Creating temp bots for player " .. player_id)
+    logger:for_player(player_id):info("[ezrushroads] Creating temp bots")
 
     for area_id, roads in pairs(rush_roads) do
         player_temp_bots[player_id][area_id] = {}
@@ -397,7 +398,7 @@ local function create_temp_bots_for_player(player_id)
                 end
                 player_temp_bots[player_id][area_id][road_id] = bot_name
             else
-                print("[ezrushroads] Failed to create temp bot: " .. tostring(err))
+                logger:for_player(player_id):warn("[ezrushroads] Failed to create temp bot: " .. tostring(err))
             end
         end
     end
@@ -433,18 +434,18 @@ ezbus:on("rush_tile_entered", function(event)
     local bot_name = event.bot_name
     local occ = bot_occupants[bot_name]
     if not occ then
-        print("[ezrushroads] ❌ ERROR: No occupant record for bot " .. bot_name)
+        logger:for_player(player_id):warn("[ezrushroads] No occupant record for bot " .. tostring(bot_name))
         return
     end
 
     if not occ.players[player_id] then
         occ.players[player_id] = true
         local new_count = get_table_length(occ.players)
-        print("[ezrushroads] Player " .. player_id .. " entered tile, now " .. new_count .. " occupants")
+        logger:for_player(player_id):debug("[ezrushroads] Entered tile; current occupants=" .. new_count)
         if new_count == 1 then
             local road = occ.road
             if road.down_x and road.down_y then
-                print(string.format("[ezrushroads] ⬇️ Moving bot %s down to (%.2f, %.2f)", bot_name, road.down_x, road.down_y))
+                logger:info(string.format("[ezrushroads] ⬇️ Moving bot %s down to (%.2f, %.2f)", bot_name, road.down_x, road.down_y))
                 Net.move_bot(bot_name, road.down_x, road.down_y, road.down_z)
             end
         end
@@ -456,18 +457,18 @@ ezbus:on("rush_tile_departed", function(event)
     local bot_name = event.bot_name
     local occ = bot_occupants[bot_name]
     if not occ then
-        print("[ezrushroads] ❌ ERROR: No occupant record for bot " .. bot_name .. " on departure")
+        logger:for_player(player_id):warn("[ezrushroads] No occupant record for bot " .. tostring(bot_name) .. " on departure")
         return
     end
 
     if occ.players[player_id] then
         occ.players[player_id] = nil
         local new_count = get_table_length(occ.players)
-        print("[ezrushroads] Player " .. player_id .. " departed tile, remaining " .. new_count)
+        logger:for_player(player_id):debug("[ezrushroads] Departed tile; remaining occupants=" .. new_count)
         if new_count == 0 then
             local road = occ.road
             if road.original_x and road.original_y then
-                print(string.format("[ezrushroads] ⬆️ Returning bot %s to (%.2f, %.2f)", bot_name, road.original_x, road.original_y))
+                logger:info(string.format("[ezrushroads] ⬆️ Returning bot %s to (%.2f, %.2f)", bot_name, road.original_x, road.original_y))
                 Net.move_bot(bot_name, road.original_x, road.original_y, road.original_z)
             end
         end
@@ -514,7 +515,7 @@ function ezrushroads.handle_player_disconnect(player_id)
                 -- Reset bot position to original (no delay needed on disconnect)
                 local road = occ.road
                 if road and road.original_x and road.original_y then
-                    print("[ezrushroads] Player disconnect resetting bot " .. bot_name)
+                    logger:for_player(player_id):info("[ezrushroads] Disconnect reset bot " .. bot_name)
                     Net.move_bot(bot_name, road.original_x, road.original_y, road.original_z)
                 end
             end
@@ -611,7 +612,7 @@ function ezrushroads.handle_object_interaction(player_id, object_id)
         for id, r in pairs(group_roads) do
             local temp_bot = player_temp_bots[player_id][area][id]
             if not temp_bot then
-                print("[ezrushroads] Missing temp bot for road " .. id)
+                logger:for_area(area):warn("[ezrushroads] Missing temp bot for road " .. id)
                 goto continue
             end
 
@@ -660,7 +661,7 @@ function ezrushroads.handle_object_interaction(player_id, object_id)
                 for id, _ in pairs(group_roads) do
                     if rush_roads[area][id].bot_name then
                         Net.include_actor_for_player(player_id, rush_roads[area][id].bot_name)
-                        print("[ezrushroads] 👁️ Showing permanent bot " .. rush_roads[area][id].bot_name .. " after animation")
+                        logger:for_player(player_id):debug("[ezrushroads] Showing permanent bot " .. rush_roads[area][id].bot_name .. " after animation")
                     end
                 end
 

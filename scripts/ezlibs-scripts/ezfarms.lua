@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezfarms')
 local ezfarms = {}
 
 local CONFIG = require('scripts/ezlibs-scripts/ezconfig')
@@ -18,7 +19,7 @@ local reference_seed
 --Try getting the reference seed, if we cant then there is no map set up for ezfarms and we should cancel loading
 local status, err = pcall(function() reference_seed = Net.get_object_by_name(farm_area, "Reference Seed") end)
 if err then
-    print('[ezfarms] unable to find the holy Reference Seed in ' .. farm_area .. ' aborting loading of ezfarms')
+    logger:for_area(farm_area):warn('[ezfarms] unable to find the holy Reference Seed in ' .. farm_area .. ' aborting loading of ezfarms')
     return {}
 end
 
@@ -143,11 +144,11 @@ local function determine_growth_stage(plant_name, elapsed_since_planted, elpased
     local death_time = (unique_growth_stage_time * stages) + Period.WitherTime
     local growth_stage = math.min(4, math.floor(elapsed_since_planted / unique_growth_stage_time))
     if elpased_since_water > Period.UnwateredPlantDeath and elapsed_since_planted > Period.JustPlantedGracePeriod then
-        print("[ezfarms] a " .. plant_name .. " dried up and died")
+        logger:for_area(farm_area):info("[ezfarms] a " .. plant_name .. " dried up and died")
         growth_stage = 5
     end
     if elapsed_since_planted > death_time then
-        print("[ezfarms] a " .. plant_name .. " died of old age")
+        logger:for_area(farm_area):info("[ezfarms] a " .. plant_name .. " died of old age")
         growth_stage = 5
     end
     return growth_stage
@@ -199,7 +200,7 @@ local function update_tile(current_time, loc_string, area_weather)
         else
             if growth_stage ~= plant_ram[loc_string].growth_stage then
                 --if a differenet growth stage has been calculated, update the custom property and gid of the object
-                print('[ezfarms] a plant changed growth stage! from ' ..
+                logger:for_area(farm_area):info('[ezfarms] a plant changed growth stage! from ' ..
                     plant_ram[loc_string].growth_stage .. ' to ' .. growth_stage)
                 local plant_gid = calculate_plant_gid(tile_memory.plant, growth_stage)
                 local plant_tile_data = {
@@ -253,7 +254,7 @@ local function update_tile(current_time, loc_string, area_weather)
 end
 
 function load_farm()
-    print('[ezfarms] farm area loading')
+    logger:for_area(farm_area):info('[ezfarms] farm area loading')
     area_memory = ezmemory.get_area_memory(farm_area)
     --create tile states if it does not exist
     if not area_memory.tile_states then
@@ -485,7 +486,7 @@ local function water_tile(tile, tile_loc_string, player_id, safe_secret)
 end
 
 local function plant(tile_loc_string, player_id, seed, current_time)
-    print('[ezfarms] planting ' .. seed)
+    logger:for_area(farm_area):info('[ezfarms] planting ' .. seed)
     local safe_secret = helpers.get_safe_player_secret(player_id)
     local plant_to_plant = ToolNames[seed]
     area_memory.tile_states[tile_loc_string].time.planted = current_time
@@ -557,7 +558,7 @@ end
 
 local function try_plant_seed(tile, tile_loc_string, player_id, seed)
     if tile.gid == Tiles.Dirt or tile.gid == Tiles.DirtWet then
-        print("Trying to plant " .. seed)
+        logger:for_area(farm_area):info("Trying to plant " .. seed)
         local safe_secret = helpers.get_safe_player_secret(player_id)
         local current_time = os.time()
         local prexisting_plant = plant_ram[tile_loc_string]

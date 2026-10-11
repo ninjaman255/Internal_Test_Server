@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('helpers')
 local helpers = {}
 local ezutil = require('scripts/ezlibs-scripts/utils/ezutil')
 local urlencode = require('scripts/ezlibs-scripts/urlencode')
@@ -81,10 +82,10 @@ function helpers.safe_require(script_path)
         return require(script_path)
     else
         if string.find(err, "module '" .. script_path .. "' not found") then
-            warn("(safe_require) no script found at " .. script_path)
+            logger:warn("(safe_require) no script found at " .. script_path)
         else
-            warn("(safe_require) error loading script " .. script_path)
-            warn("(safe_require) reason " .. err)
+            logger:warn("(safe_require) error loading script " .. script_path)
+            logger:warn("(safe_require) reason " .. err)
         end
     end
 end
@@ -166,11 +167,11 @@ function helpers.read_item_information(area_id, item_object_id)
     item.type = item_props["Type"] or "item"
     item.price = tonumber(item_props["Price"] or 999999)
     if (item.type == "keyitem" or item.type == "item" ) and not item.name then
-        warn("[helpers] item "..item_object_id.." needs a 'Name'")
+        logger:warn("[helpers] item "..item_object_id.." needs a 'Name'")
         return false
     end
     if item.type == "keyitem" and item.description == "???" then
-        warn("[helpers] key item "..item_object_id.."("..item.name..") should have a 'Description'")
+        logger:warn("[helpers] key item "..item_object_id.."("..item.name..") should have a 'Description'")
         return false
     end
     return item
@@ -191,12 +192,12 @@ function helpers.ensure_directory(path)
         if not attr then
             local ok, err = pcall(lfs.mkdir, dir)
             if ok then
-                print("[helpers] Created directory:", dir)
+                logger:info("[helpers] Created directory:", dir)
             else
-                print("[helpers] Warning: Could not create directory", dir, "error:", err)
+                logger:warn("[helpers] Warning: Could not create directory", dir, "error:", err)
             end
         elseif attr.mode ~= "directory" then
-            print("[helpers] Warning:", dir, "exists but is not a directory.")
+            logger:warn("[helpers] Warning:", dir, "exists but is not a directory.")
         end
         return
     end
@@ -210,9 +211,9 @@ function helpers.ensure_directory(path)
     end
     local success = pcall(os.execute, command)
     if success then
-        print("[helpers] Created directory via os.execute:", dir)
+        logger:info("[helpers] Created directory via os.execute:", dir)
     else
-        print("[helpers] Warning: Could not create directory", dir, "via os.execute. Please create it manually.")
+        logger:warn("[helpers] Warning: Could not create directory", dir, "via os.execute. Please create it manually.")
     end
 end
 

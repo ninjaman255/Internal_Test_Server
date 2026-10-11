@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezemail')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
@@ -36,7 +37,13 @@ end
 
 local function _dbg(...)
     if EZEMAIL_DEBUG then
-        print("[ezemail]", ...)
+        logger:info("[ezemail]", ...)
+    end
+end
+
+local function _dbg_player(player_id, ...)
+    if EZEMAIL_DEBUG then
+        logger:for_player(player_id):debug("[ezemail]", ...)
     end
 end
 
@@ -111,16 +118,16 @@ local function _mark_email_read(player_id, email_id)
     local stored, key = _find_mail_in_bucket(bucket, email_id)
 
     if not stored then
-        _dbg("email_read fired but mail id not found in memory:", tostring(email_id))
+        _dbg_player(player_id, "email_read fired but mail id not found in memory:", tostring(email_id))
         return
     end
 
     if stored.read ~= true then
         stored.read = true
         ezmemory.save_player_memory(safe_secret)
-        _dbg("marked read:", tostring(key))
+        _dbg_player(player_id, "marked read:", tostring(key))
     else
-        _dbg("already read:", tostring(key))
+        _dbg_player(player_id, "already read:", tostring(key))
     end
 end
 
@@ -330,7 +337,7 @@ Net:on("email_read", function(event)
   local player_id = event.player_id
   local email_id = event.email_id
 
-  _dbg("email_read fired for player", player_id, "email", email_id)
+  _dbg_player(player_id, "email_read fired for email", email_id)
 
   -- Mark the email as read in persistent memory
   _mark_email_read(player_id, email_id)

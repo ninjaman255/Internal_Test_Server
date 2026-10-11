@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezmail')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
@@ -36,7 +37,7 @@ end
 
 local function _dbg(...)
     if EZEMAIL_DEBUG then
-        print("[ezemail]", ...)
+        logger:info("[ezemail]", ...)
     end
 end
 

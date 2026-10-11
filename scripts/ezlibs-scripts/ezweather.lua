@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezweather')
 local ezweather = {}
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
@@ -22,7 +23,7 @@ for i, area_id in ipairs(areas) do
 end
 
 function ezweather.start_rain_in_area(area_id)
-    print('[ezweather] starting rain in '..area_id)
+    logger:info('[ezweather] starting rain in '..area_id)
 
     volatile_memory[area_id] = {
         type="rain",
@@ -48,7 +49,7 @@ function ezweather.start_rain_in_area(area_id)
 end
 
 function ezweather.start_snow_in_area(area_id)
-    print('[ezweather] starting snow in '..area_id)
+    logger:info('[ezweather] starting snow in '..area_id)
 
     volatile_memory[area_id] = {
         type="snow",
@@ -74,7 +75,7 @@ function ezweather.start_snow_in_area(area_id)
 end
 
 function ezweather.start_fog_in_area(area_id)
-    print('[ezweather] starting fog in '..area_id)
+    logger:info('[ezweather] starting fog in '..area_id)
 
     volatile_memory[area_id] = {
         type="fog",
@@ -110,7 +111,7 @@ end
 
 
 function ezweather.clear_weather_in_area(area_id)
-    print('[ezweather] restoring fine weather properties for '..area_id)
+    logger:info('[ezweather] restoring fine weather properties for '..area_id)
 
     --fade camera to no tint
     volatile_memory[area_id] = {camera_tint={r=0, g=0, b=0, a=0},type="clear"}
@@ -132,14 +133,14 @@ function ezweather.clear_weather_in_area(area_id)
 end
 
 function ezweather.handle_player_transfer(player_id)
-    print('[ezweather] player transfered '..player_id)
+    logger:info('[ezweather] player transfered '..player_id)
     local area_id = Net.get_player_area(player_id)
     local area_weather = ezweather.get_area_weather(area_id)
     Net.fade_player_camera(player_id, area_weather.camera_tint, 1)
 end
 
 function ezweather.handle_player_join(player_id)
-    print('[ezweather] player joined '..player_id)
+    logger:info('[ezweather] player joined '..player_id)
     local area_id = Net.get_player_area(player_id)
     local area_weather = ezweather.get_area_weather(area_id)
     Net.fade_player_camera(player_id, area_weather.camera_tint, 1)

@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezmystery')
 local ezmystery = {}
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
@@ -52,7 +53,7 @@ end
 local function fetch_player_avatar_and_details(player_id)
     local player_secret = Net.get_player_secret(player_id)
     local player_avatar = AvatarCache.get_player_avatar_paths(player_secret)
-    print(player_avatar)
+    logger:info(player_avatar)
 
     local texture_path = ""
     local anim_path = ""
@@ -67,7 +68,7 @@ local function fetch_player_avatar_and_details(player_id)
     player_avatars[player_secret] = { texture_path = texture_path, anim_path = anim_path }
     local parsed = AvatarUtils.parse_animation_file(anim_path)
     player_animations[player_secret] = parsed
-    print(player_animations)
+    logger:info(player_animations)
 end
 
 Net:on("player_join", function(event)
@@ -140,20 +141,20 @@ end
 local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_message)
     local quiz_list = ezcache.get_object_by_id_cached(area_id, quiz_list_id)
     if not quiz_list then
-        warn("[ezmystery] Quiz List object not found: " .. tostring(quiz_list_id))
+        logger:warn("[ezmystery] Quiz List object not found: " .. tostring(quiz_list_id))
         return false
     end
 
     local question_ids = helpers.extract_numbered_properties(quiz_list, "Next ")
     if #question_ids == 0 then
-        warn("[ezmystery] Quiz List has no Next properties")
+        logger:warn("[ezmystery] Quiz List has no Next properties")
         return false
     end
 
     for _, qid in ipairs(question_ids) do
         local qobj = ezcache.get_object_by_id_cached(area_id, qid)
         if not qobj then
-            warn("[ezmystery] Quiz question object not found: " .. tostring(qid))
+            logger:warn("[ezmystery] Quiz question object not found: " .. tostring(qid))
             return false
         end
 
@@ -169,7 +170,7 @@ local function run_quiz_from_list(player_id, area_id, quiz_list_id, failure_mess
         if opt3 and #opt3 > 0 then table.insert(options, opt3) end
 
         if #options == 0 then
-            warn("[ezmystery] Quiz question " .. tostring(qid) .. " has no options")
+            logger:warn("[ezmystery] Quiz question " .. tostring(qid) .. " has no options")
             return false
         end
 
@@ -269,7 +270,7 @@ function try_collect_datum(player_id, area_id, object)
         if datum_type == "quiz" then
             local quiz_list_id = object.custom_properties["Quiz List"]
             if not quiz_list_id or #quiz_list_id == 0 then
-                warn("[ezmystery] Quiz type missing Quiz List property")
+                logger:warn("[ezmystery] Quiz type missing Quiz List property")
                 can_collect = false
             else
                 local failure_message = object.custom_properties["Failure Message"] or "Incorrect answer."
@@ -312,7 +313,7 @@ function read_datum_information(area_id, object)
     if item_info.type == "random" then
         local random_options = helpers.extract_numbered_properties(object, "Next ")
         if #random_options == 0 then
-            warn('[ezmystery] ' .. object.id .. ' is type=random, but has no Next #')
+            logger:warn('[ezmystery] ' .. object.id .. ' is type=random, but has no Next #')
             return false
         end
     end
@@ -352,7 +353,7 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
             -- Start an encounter
             local encounter_name = item_info.name
             if not encounter_name or encounter_name == "" then
-                warn("[ezmystery] Encounter type missing Name property")
+                logger:warn("[ezmystery] Encounter type missing Name property")
                 return
             end
 
@@ -386,7 +387,7 @@ function collect_datum(player_id, object, datum_id_override, is_quiz)
         -- For non-encounter types, apply hiding after reward
         if item_info.type ~= "encounter" then
             if is_property_true(object.custom_properties["Once"]) then
-                print("[ezmystery] Hiding permanently for player", player_id, "object", datum_id_override)
+                logger:for_player(player_id):info("[ezmystery] Hiding permanently; object", datum_id_override)
                 ezmemory.hide_object_from_player(player_id, area_id, datum_id_override)
             end
             ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, datum_id_override)

@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('eztriggers')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 
@@ -25,7 +26,7 @@ function eztriggers.add_location_event_trigger(area_id,object)
         trigger_name = object.name
     end
 
-    print("[eztriggers] Configuring ("..trigger_name..") Location Trigger ↴")
+    logger:for_area(area_id):info("[eztriggers] Configuring ("..trigger_name..") Location Trigger ↴")
 
     if object.data then
         local collision_shape_type = object.data.type
@@ -35,14 +36,14 @@ function eztriggers.add_location_event_trigger(area_id,object)
             emitter = eztriggers.add_rectangle_trigger(area_id, object, object.width, object.height)
         else
             -- no satisfied condition
-            warn("[eztriggers] No collision shape supported: "..collision_shape_type)
+            logger:for_area(area_id):warn("[eztriggers] No collision shape supported: "..collision_shape_type)
         end
     else
-        warn("[eztriggers] Location trigger is missing collision data.")
+        logger:for_area(area_id):warn("[eztriggers] Location trigger is missing collision data.")
     end
     
     if emitter then
-        print("[eztriggers]"..object.data.type.." trigger added (width="..object.width..", height="..object.height..")")
+        logger:for_area(area_id):info("[eztriggers]"..object.data.type.." trigger added (width="..object.width..", height="..object.height..")")
         local extra_str = "."
         if event_name then
             --If the trigger had an event name, add a handler for activating that event
@@ -57,9 +58,9 @@ function eztriggers.add_location_event_trigger(area_id,object)
                     end
                 end
             end)
-            print("[eztriggers] Successfully added Location Trigger "..trigger_name.." for event: "..event_name)
+            logger:for_area(area_id):info("[eztriggers] Successfully added Location Trigger "..trigger_name.." for event: "..event_name)
         else
-            warn("[eztriggers] added Location Trigger "..trigger_name.." however no Event Name has been specifed")
+            logger:for_area(area_id):warn("[eztriggers] added Location Trigger "..trigger_name.." however no Event Name has been specifed")
         end
     end
 end
@@ -76,13 +77,13 @@ function eztriggers.add_interact_trigger(area_id,trigger_object)
         eztriggers.interact_triggers[area_id][trigger_object.id] = {object=trigger_object,emitter=emitter}
         return emitter
     else
-        warn("[eztriggers] "..trigger_object.id.." is already registered as a interact trigger")
+        logger:for_area(area_id):warn("[eztriggers] "..trigger_object.id.." is already registered as a interact trigger")
     end
 end
 
 function eztriggers.add_radius_trigger(area_id, trigger_object, diameter_x, diameter_y, center_x, center_y, trigger_id)
     if not trigger_object or area_id == nil or trigger_object.id == nil then
-        warn("[eztriggers] Cannot register ellipse trigger without area and object IDs")
+        logger:warn("[eztriggers] Cannot register ellipse trigger without area and object IDs")
         return nil
     end
 
@@ -95,7 +96,7 @@ function eztriggers.add_radius_trigger(area_id, trigger_object, diameter_x, diam
     -- object: each button receives its own emitter and overlap state.
     local trigger_key = trigger_id or trigger_object.id
     if eztriggers.radius_triggers[area_id][trigger_key] then
-        warn("[eztriggers] Trigger key " .. tostring(trigger_key) .. " is already registered as an ellipse trigger in area " .. tostring(area_id))
+        logger:for_area(area_id):warn("[eztriggers] Trigger key " .. tostring(trigger_key) .. " is already registered as an ellipse trigger in area " .. tostring(area_id))
         return nil
     end
 
@@ -107,7 +108,7 @@ function eztriggers.add_radius_trigger(area_id, trigger_object, diameter_x, diam
     center_y = tonumber(center_y)
 
     if not width or not height or not object_x or not object_y or not center_x or not center_y then
-        warn("[eztriggers] Invalid ellipse trigger geometry for object " .. tostring(trigger_object.id))
+        logger:for_area(area_id):warn("[eztriggers] Invalid ellipse trigger geometry for object " .. tostring(trigger_object.id))
         return nil
     end
 
@@ -124,7 +125,7 @@ function eztriggers.add_radius_trigger(area_id, trigger_object, diameter_x, diam
     }
     eztriggers.radius_triggers[area_id][trigger_key] = trigger_info
     if DEBUG_BUTTON_TRIGGER_GEOMETRY and is_button_trigger(trigger_info) then
-        print(string.format(
+        logger:info(string.format(
             "[eztriggers][geometry][REGISTER][ELLIPSE] area=%s trigger_id=%s source_object_id=%s source_x=%s source_y=%s source_z=%s raw_width=%s raw_height=%s center_offset_x=%s center_offset_y=%s center_x=%s center_y=%s radius_x=%s radius_y=%s bounds=[%s,%s]-[%s,%s]",
             tostring(area_id), tostring(trigger_key), tostring(trigger_object.id),
             tostring(trigger_object.x), tostring(trigger_object.y), tostring(trigger_object.z),
@@ -141,7 +142,7 @@ end
 
 function eztriggers.add_rectangle_trigger(area_id, trigger_object, width, height, trigger_id)
     if not trigger_object or area_id == nil or trigger_object.id == nil then
-        warn("[eztriggers] Cannot register rectangle trigger without area and object IDs")
+        logger:warn("[eztriggers] Cannot register rectangle trigger without area and object IDs")
         return nil
     end
 
@@ -153,7 +154,7 @@ function eztriggers.add_rectangle_trigger(area_id, trigger_object, width, height
     -- can register independent emitters against the same source object.
     local trigger_key = trigger_id or trigger_object.id
     if eztriggers.rectangle_triggers[area_id][trigger_key] then
-        warn("[eztriggers] Trigger key " .. tostring(trigger_key) .. " is already registered as a rectangle trigger in area " .. tostring(area_id))
+        logger:for_area(area_id):warn("[eztriggers] Trigger key " .. tostring(trigger_key) .. " is already registered as a rectangle trigger in area " .. tostring(area_id))
         return nil
     end
 
@@ -163,7 +164,7 @@ function eztriggers.add_rectangle_trigger(area_id, trigger_object, width, height
     local trigger_height = tonumber(height) or tonumber(trigger_object.height)
     if not object_x or not object_y or not trigger_width or not trigger_height
         or trigger_width < 0 or trigger_height < 0 then
-        warn("[eztriggers] Invalid rectangle trigger geometry for object " .. tostring(trigger_object.id))
+        logger:for_area(area_id):warn("[eztriggers] Invalid rectangle trigger geometry for object " .. tostring(trigger_object.id))
         return nil
     end
 
@@ -178,7 +179,7 @@ function eztriggers.add_rectangle_trigger(area_id, trigger_object, width, height
     }
     eztriggers.rectangle_triggers[area_id][trigger_key] = trigger_info
     if DEBUG_BUTTON_TRIGGER_GEOMETRY and is_button_trigger(trigger_info) then
-        print(string.format(
+        logger:info(string.format(
             "[eztriggers][geometry][REGISTER][RECTANGLE] area=%s trigger_id=%s source_object_id=%s source_x=%s source_y=%s source_z=%s source_width=%s source_height=%s registered_width=%s registered_height=%s bounds=[%s,%s]-[%s,%s]",
             tostring(area_id), tostring(trigger_key), tostring(trigger_object.id),
             tostring(trigger_object.x), tostring(trigger_object.y), tostring(trigger_object.z),
@@ -265,7 +266,7 @@ eztriggers.handle_player_move = function(player_id, x, y, z)
                     local axis_2 = (dy * dy) / (rad_y * rad_y)
                     local inside_ellipse = (axis_1 + axis_2) <= 1.0
                     if DEBUG_BUTTON_TRIGGER_GEOMETRY and is_button_trigger(trigger_info) then
-                        print(string.format(
+                        logger:for_player(player_id):debug(string.format(
                             "[eztriggers][geometry][CHECK][ELLIPSE] player=%s area=%s trigger_id=%s player_xyz=(%s,%s,%s) center=(%s,%s) radii=(%s,%s) normalized_distance=%s inside=%s trigger_z=%s",
                             tostring(player_id), tostring(player_area_id), tostring(trigger_info.id),
                             tostring(x), tostring(y), tostring(z), tostring(trigger_info.center_x),
@@ -300,7 +301,7 @@ eztriggers.handle_player_move = function(player_id, x, y, z)
                 end
 
                 if DEBUG_BUTTON_TRIGGER_GEOMETRY and is_button_trigger(trigger_info) then
-                    print(string.format(
+                    logger:for_player(player_id):debug(string.format(
                         "[eztriggers][geometry][CHECK][RECTANGLE] player=%s area=%s trigger_id=%s player_xyz=(%s,%s,%s) source_object_id=%s origin=(%s,%s) size=(%s,%s) bounds=[%s,%s]-[%s,%s] inside=%s trigger_z=%s",
                         tostring(player_id), tostring(player_area_id), tostring(trigger_info.id),
                         tostring(x), tostring(y), tostring(z), tostring(trigger_info.object.id),
@@ -318,14 +319,14 @@ end
 
 function eztriggers.add_event(event_object)
     if not (event_object.name and event_object.action) then
-        warn('[eztriggers] Cant add invalid event, events need a name and action {}')
+        logger:warn('[eztriggers] Cant add invalid event, events need a name and action {}')
         return
     end
 
     local entry = eztriggers._event_table[event_object.name]
 
     if entry ~= nil then
-        warn("[eztriggers] "..event_object.name.." is already registered as an event")
+        logger:warn("[eztriggers] "..event_object.name.." is already registered as an event")
     else
         eztriggers._event_table[event_object.name] = event_object
     end
@@ -365,5 +366,5 @@ object_registry.register_handler("Location Trigger", function(area_id, object)
     eztriggers.add_location_event_trigger(area_id, object)
 end)
 
-print("[eztriggers] Loaded")
+logger:info("[eztriggers] Loaded")
 return eztriggers

@@ -1,3 +1,4 @@
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezlibs-main')
 local startup_start = os.clock()
 
 local helpers = require('scripts/ezlibs-scripts/helpers')
@@ -220,4 +221,4 @@ Net:on("textbox_response", function(event)
     end
 end)
 
-print("[main] ezlibs loaded in " .. (os.clock() - startup_start) .. "s")
+logger:info("[main] ezlibs loaded in " .. (os.clock() - startup_start) .. "s")

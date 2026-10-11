@@ -23,7 +23,7 @@ Provides `is_type`, `number_range`, `required_fields`, and `table_field_types`. 
 
 ## `ezdebug.lua`
 
-Provides configurable `info`, `warn`, `error`, and `traceback` helpers. It defaults to `print`, can be configured with `ezdebug.configure({ enabled = ..., prefix = ..., sink = ... })`, and is opt-in. Existing `warn`/`print` calls were not replaced because the server's logging contract is not established by the Lua standard library alone.
+Provides configurable `info`, `warn`, `error`, and `traceback` helpers. It defaults to `print` and can be configured with `ezdebug.configure({ enabled = ..., prefix = ..., sink = ... })`. It remains a small optional console/sink wrapper; the server-aware, file-backed logger is `scripts/ezlibs-scripts/ezlogger.lua`. First-party ezlibs runtime diagnostics have been routed through `ezlogger` where appropriate.
 
 ## Tests
 

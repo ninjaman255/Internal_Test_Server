@@ -4,6 +4,7 @@
 -- Objects with "Decompress" = true restore normal size on entry.
 -- Areas with "Minish Mode" = true compress all players inside (overridden by tiles).
 
+local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpress')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
@@ -31,7 +32,7 @@ end
 -- Compression / Decompression animations
 -- ----------------------------------------------------------------------------
 function ezpress.compress(player_id, immediate)
-    print("[ezpress] compress called for player", player_id, "currently compressed =", compressed_players[player_id] or false, "immediate =", immediate)
+    logger:for_player(player_id):info("[ezpress] compress called; currently compressed =", compressed_players[player_id] or false, "immediate =", immediate)
     if compressed_players[player_id] then
         return  -- already compressed
     end
@@ -54,7 +55,7 @@ function ezpress.compress(player_id, immediate)
 end
 
 function ezpress.decompress(player_id, immediate)
-    print("[ezpress] decompress called for player", player_id, "currently compressed =", compressed_players[player_id] or false, "immediate =", immediate)
+    logger:for_player(player_id):info("[ezpress] decompress called; currently compressed =", compressed_players[player_id] or false, "immediate =", immediate)
     if not compressed_players[player_id] then
         return  -- already normal size
     end
@@ -81,7 +82,7 @@ end
 -- ----------------------------------------------------------------------------
 function ezpress.apply_map_property(player_id, area_id, immediate)
     local minish = ezpress.get_area_minish_mode(area_id)
-    print("[ezpress] apply_map_property: player", player_id, "area", area_id, "minish_mode (live) =", minish, "immediate =", immediate)
+    logger:for_player(player_id):info("[ezpress] apply_map_property: area", area_id, "minish_mode (live) =", minish, "immediate =", immediate)
     if minish then
         ezpress.compress(player_id, immediate)
     else
@@ -130,7 +131,7 @@ end
 function ezpress.handle_player_transfer(player_id)
     local area = Net.get_player_area(player_id)
     local pos = Net.get_player_position(player_id)
-    print("[ezpress] handle_player_transfer: player", player_id, "to area", area)
+    logger:for_player(player_id):info("[ezpress] handle_player_transfer to area", area)
 
     -- Apply area minish mode immediately before arrival animations
     ezpress.apply_map_property(player_id, area, true)
@@ -147,7 +148,7 @@ end
 -- Initialisation: scan all areas for compression tiles (Minish Mode not cached)
 -- ----------------------------------------------------------------------------
 local function init()
-    print("[ezpress] Scanning for compression tiles...")
+    logger:info("[ezpress] Scanning for compression tiles...")
 
     local areas = Net.list_areas()
     for _, area_id in ipairs(areas) do
@@ -180,7 +181,7 @@ local function init()
                             ezpress.apply_map_property(event.player_id, area_id, false)
                         end)
                     else
-                        print("[ezpress] Warning: could not create trigger for object", object_id)
+                        logger:warn("[ezpress] Warning: could not create trigger for object", object_id)
                     end
 
                     -- Store for manual checks
@@ -193,14 +194,14 @@ local function init()
                         type = trigger_type
                     })
 
-                    print(string.format("[ezpress] Added %s tile at (%.1f,%.1f,z=%d) in %s",
+                    logger:info(string.format("[ezpress] Added %s tile at (%.1f,%.1f,z=%d) in %s",
                         trigger_type, obj.x, obj.y, obj.z, area_id))
                 end
             end
         end
     end
 
-    print("[ezpress] Initialisation complete.")
+    logger:info("[ezpress] Initialisation complete.")
 end
 
 -- Run initialisation immediately when the module is loaded

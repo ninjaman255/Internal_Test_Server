@@ -739,6 +739,8 @@ function TournamentUI.prewarm_player(player_id)
     safe_provide(player_id, constants.crown_anim_path)
     safe_provide(player_id, constants.title_banner_anim_path)
     safe_provide(player_id, constants.tournament_music)
+    safe_provide(player_id, constants.bar_move_sfx)
+    safe_provide(player_id, constants.mug_bleep_sfx)
 
     -- Pre-warm the cheer sound effect for champion crowning
     safe_provide(player_id, constants.cheer_sfx)
