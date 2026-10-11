@@ -222,21 +222,6 @@ local function round_key(round)
     return "round3"
 end
 
-local function format_round_matches(tournament, round)
-    local lines = { "Round " .. tostring(round) .. ":" }
-
-    for i, match in ipairs(tournament.matches[round_key(round)] or {}) do
-        lines[#lines + 1] = string.format(
-            "M%d: %s vs %s",
-            i,
-            tostring(match.player1.name),
-            tostring(match.player2.name)
-        )
-    end
-
-    return table.concat(lines, "\n")
-end
-
 local function await_with_timeout(promise, timeout_seconds)
     return async(function()
         local completed = false
@@ -939,7 +924,6 @@ function TournamentFlow.announce_champion(tournament_id)
                 TournamentUI.show_champion_indicator(player_id, tournament)
                 pcall(Net.play_sound_for_player, player_id, "/server/assets/tourney/sfx/cheer.ogg")
             end
-            pcall(Net.message_player, player_id, "Tournament Complete! Champion: " .. tostring(winner.name))
         end)
     end)
 end
@@ -962,9 +946,8 @@ function TournamentFlow.run_tournament(tournament_id)
             tournament.current_round = round
             tournament.status = "round_" .. tostring(round)
 
-            message_viewers(tournament, format_round_matches(tournament, round))
-            await(Async.sleep(0.75))
-
+            -- Matchups remain visible through the tournament bracket UI.
+            -- Do not send round matchup lists as chat messages.
             await(TournamentFlow.run_round_battles(tournament_id, round))
 
             if not TournamentCore.is_round_complete(tournament_id, round) then

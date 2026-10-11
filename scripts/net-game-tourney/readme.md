@@ -119,7 +119,7 @@ The board interaction listener obtains the area using `Net.get_player_area(playe
 | `main.lua` | Startup and server event integration | Event callbacks only; no returned module table |
 | `tournament-constants.lua` | Shared paths and UI configuration | Returns a constants table |
 | `tournament-core.lua` | Bracket initialization and rule-facing facade | `create_tournament`, `add_participant`, `initialize_tournament`, `record_battle`, `advance_round`, `get_winner`, cleanup/query functions |
-| `tournament-flow.lua` | Live display coordination and battles | `show_board_to_all`, `hide_board_from_all`, `run_round_battles`, `start_player_battle`, `run_tournament`, champion announcement, disconnect handling |
+| `tournament-flow.lua` | Live display coordination and battles | `show_board_to_all`, `hide_board_from_all`, `run_round_battles`, `start_player_battle`, `run_tournament`, champion indicator/audio, disconnect handling |
 | `tournament-manager.lua` | Board queues, properties, join/leave/spectate, scheduled starts and rewards | `init`, `handle_board_interaction`, disconnect/transfer/battle handlers, queue queries and cleanup |
 | `tournament-npcs.lua` | Weighted metadata roster and unique selection tracking | `get_unique_random_npc(s)`, `get_random_npc(s)`, `cleanup_tournament_npcs` |
 | `tournament-state.lua` | Central state storage, participant mapping, match results and positions | `create_tournament`, `add_participant`, `record_battle`, round and spectator functions |
@@ -427,6 +427,8 @@ The runtime entry point observed in this module is `Async.initiate_pvp(...)`. It
 
 ### 7.5 Round execution and visual progression
 
+Round matchup lists are not sent to players as chat messages. Matchups and round results remain represented by the tournament bracket UI and its visual progression. Tournament start and other unrelated informational messages are unchanged. At completion, the champion indicator and cheer sound remain enabled, but the champion-completion chat message is omitted.
+
 Public flow functions include:
 
 | Function | Purpose visible from implementation |
@@ -438,7 +440,7 @@ Public flow functions include:
 | `spawn_progress_bar_for_match(...)` | Creates match progress display elements. |
 | `remove_progress_bar_overlays(overlays)` | Removes temporary overlays created for progress. |
 | `process_round_one_by_one(tournament_id, round)` | Coordinates serial round progression and visuals. |
-| `announce_champion(tournament_id)` | Announces the winner/champion. |
+| `announce_champion(tournament_id)` | Updates the champion indicator on the bracket UI and plays the cheer sound for viewers; it does not send a champion-completion chat message. |
 | `run_tournament(tournament_id)` | Main tournament progression routine. |
 | `handle_player_disconnect(player_id)` | Handles a disconnect in flow-related tournament state. |
 
@@ -781,7 +783,7 @@ These checks do not imply every external API can never fail. Runtime calls and a
 6. **Presentation:** UI draws the bracket for participants and spectators; assets are checked/provided and per-player visuals are tracked.
 7. **Battles:** flow coordinates player readiness, PvP/encounter initiation, result handling, timeouts, and NPC matchup outcomes.
 8. **Result/visual update:** state records the battle, round completion/advancement updates the bracket, and flow moves/tints participant visuals.
-9. **Completion:** the champion is announced; manager completion logic handles queue finalization and configured rewards.
+9. **Completion:** the bracket UI displays the champion indicator and viewers hear the cheer sound; no champion-completion chat message is sent. Manager completion logic handles queue finalization and configured rewards.
 10. **Cleanup:** queue/tournament state, NPC selection state, UI elements, input/HUD/music presentation state, and stale records are cleaned through their respective modules.
 
 This sequence summarizes the architecture; exact branches differ by board type, participant mix, and tournament configuration.
