@@ -54,6 +54,7 @@
 - [Part 45 — ezweather.lua](#part-45)
 - [Part 46 — ezmenus.lua](#part-46)
 - [Part 47 — generate-ezlibs-tiled.lua (Tiled Type Generator)](#part-47)
+- [Part 48 — ezmapinstance.lua — Map Instance Lifecycle](#part-48)
 - [🔎 Final Combined Cross-Reference](#final-combined-cross-reference)
 
 ---
@@ -67,6 +68,7 @@ This section is the **canonical cross-module reference** for shared infrastructu
 
 | Shared concern | Canonical module(s) | Responsibility and usage notes |
 |---|---|---|
+| Map cloning and private-area lifecycle | `ezmapinstance.lua` | Creates and tracks cloned map areas, records host/party membership, transfers players to explicit coordinates, and removes cloned areas. It is a utility module, not a plugin in the root dispatcher. |
 | Common helper API | `helpers.lua` | Existing helper functions, safe `require`, item-property parsing, player-safe-secret derivation, directory creation, lock helpers, and legacy globals. Preserve its public names when refactoring. |
 | File-backed runtime diagnostics | `ezlogger.lua` | Module, player, and area/map scoped JSONL logs under `_DEBUGGING`. Prefer this for ezlibs runtime diagnostics; keep command-line/vendor diagnostics separate where documented. |
 | Lightweight console diagnostics | `utils/ezdebug.lua` | Optional configurable console/sink logger. It is distinct from the file-backed `ezlogger`; do not treat them as the same API. |
@@ -4393,6 +4395,139 @@ Button Bot Details, Unlock Behavior, Relock Behavior, Button Trigger — read on
 
 
 ---
+
+<a id="part-48"></a>
+## Part 48 — `ezmapinstance.lua` — Map Instance Lifecycle
+
+### Purpose
+
+`ezmapinstance.lua` extracts the generic map-instance responsibilities that were previously embedded in Nebulous Liberations. It is intended to be required by a gameplay module when that module needs to clone an area, associate players with the clone, track a host, transfer players into the clone, and remove the clone when finished.
+
+The module is a **utility API**, not an event plugin. It does not register `Net:on(...)` handlers and should not be added to the `plugins` fan-out merely for its own sake.
+
+### Responsibilities and boundaries
+
+| Responsibility | `ezmapinstance` | Calling gameplay module |
+|---|---|---|
+| Clone an existing area with `Net.clone_area` | Yes | Supplies source and preferred instance IDs |
+| Avoid an already listed/registered area ID | Yes | May choose the preferred ID |
+| Track instance ID, source area, host, members, and metadata | Yes | Supplies party/host metadata |
+| Transfer a player to explicit coordinates | Yes | Chooses the spawn point and coordinates |
+| Choose spawn points or sequence multiple spawn points | No | Yes |
+| Initialize gameplay objects after cloning | No | Yes |
+| Run mission/battle/quest rules | No | Yes |
+| Decide party leader election policy | No | Yes; module supports setting the host |
+| Remove a cloned area and clear its registry | Yes | Calls cleanup at the appropriate time |
+
+### Import
+
+```lua
+local ezmapinstance = require("scripts/ezlibs-scripts/ezmapinstance")
+```
+
+No additional ezlibs modules are required by this utility. It relies on the host-provided `Net` API and Lua's `os.time()`.
+
+### Public API
+
+| Function | Parameters | Returns | Notes |
+|---|---|---|---|
+| `create(base_area_id, preferred_instance_id, options)` | Source area ID/name, preferred clone ID, optional table | `record` or `nil, error` | Clones the map and registers it. The actual ID may be suffixed if the preferred ID is already in use. |
+| `get(instance_id)` | Cloned area ID | Record or `nil` | Looks up one instance. |
+| `get_for_player(player_id)` | Player ID | Record or `nil` | Uses the player-to-instance index. |
+| `list()` | — | Array of records | Returns a new array containing current records. |
+| `set_host(instance_id, player_id)` | Instance ID, player ID | `true` or `false, error` | Updates the recorded host; the caller decides host-election rules. |
+| `get_host(instance_id)` | Instance ID | Player ID or `nil` | Returns the recorded host. |
+| `is_host(instance_id, player_id)` | Instance ID, player ID | Boolean | Checks the current host. |
+| `register_player(instance_id, player_id)` | Instance ID, player ID | `true` or `false, error` | Adds membership and removes the player from a previously tracked instance. It does not transfer the player. |
+| `unregister_player(instance_id, player_id)` | Instance ID, player ID | `true` or `false, error` | Removes membership tracking without transferring the player. If the host leaves, the first remaining member becomes host. |
+| `transfer_player(instance_id, player_id, x, y, z)` | Instance ID, player ID, numeric coordinates | `true` or `false, error` | Transfers to the cloned area with `Net.transfer_player(player_id, instance_id, true, x, y, z)` and tracks membership after the call succeeds. |
+| `remove(instance_id)` | Instance ID | `true` or `false, error` | Removes the cloned area using `Net.remove_area` and clears instance/player indexes. |
+
+### `create` options and returned record
+
+The optional `options` table accepts:
+
+```lua
+{
+    host_id = player_id,          -- optional; defaults to player_ids[1]
+    player_ids = { player_a, player_b },
+    party_id = party_identifier,  -- optional; caller-defined
+    metadata = { module = "my_module" }
+}
+```
+
+The returned record contains:
+
+```lua
+{
+    id = "actual_clone_id",
+    area_id = "actual_clone_id",
+    base_area_id = "source_area_id",
+    host_id = player_id,
+    party_id = party_identifier,
+    player_ids = { player_a, player_b },
+    metadata = {},
+    created_at = os.time(),
+    removed = false
+}
+```
+
+`metadata` is caller-owned extension data. The utility does not interpret it. The returned record is the live registry record, so changes to its fields affect the tracked instance.
+
+### Example: create and prepare an instance
+
+```lua
+local ezmapinstance = require("scripts/ezlibs-scripts/ezmapinstance")
+
+local record, err = ezmapinstance.create(
+    "dungeon_template",
+    tostring(party_members[1]),
+    {
+        host_id = party_members[1],
+        player_ids = party_members,
+        metadata = { module = "my_dungeon" }
+    }
+)
+
+if not record then
+    print("Could not create dungeon instance: " .. tostring(err))
+    return
+end
+
+-- The area is cloned now. Perform module-specific initialization next.
+local spawn = Net.get_object_by_name(record.id, "Spawn")
+if not spawn then
+    ezmapinstance.remove(record.id)
+    return
+end
+
+for _, player_id in ipairs(party_members) do
+    local ok, transfer_error = ezmapinstance.transfer_player(
+        record.id, player_id, spawn.x, spawn.y, spawn.z
+    )
+    if not ok then
+        print("Transfer failed: " .. tostring(transfer_error))
+    end
+end
+```
+
+The caller must validate its spawn object, initialize game-specific state, and decide what to do if a player transfer fails. This helper does not roll back transfers that succeeded before a later transfer fails.
+
+### Host and party behavior
+
+The utility does not create parties and does not assume that all games use the same party system. It stores the ordered `player_ids` provided by the caller. If `host_id` is omitted, the first supplied player becomes host. When the currently recorded host is unregistered, the first remaining member becomes host. A caller can override this behavior by calling `set_host`.
+
+For Nebulous Liberations, `utils/parties.lua` stores party members in order. The first member is the implicit leader, so the integration passes the first active party member as `host_id`. This is an explicit record in the map-instance registry; it does not add a host property to the existing party table.
+
+### Lifecycle and important limitations
+
+- `create` uses `Net.list_areas()` when available to avoid choosing an area ID that is already listed, and also checks IDs registered in this module.
+- The utility uses `pcall` around map cloning, player transfers, and map removal so API errors can be returned to the caller.
+- The engine may return `nil` on successful `Net.clone_area`, `Net.transfer_player`, or `Net.remove_area` calls; `nil` is therefore not treated as failure.
+- `remove` clears player-to-instance mappings for the members still recorded in the instance. Call `unregister_player` when players leave or disconnect so that membership stays accurate.
+- `transfer_player` accepts explicit numeric coordinates. Spawn selection, spawn-point sequencing, and respawn-area policy are intentionally outside this module.
+- The module registry is in-memory and is not persisted across server restarts. It tracks instances created through this module during the current process.
+- The API is statically reviewed against the server source; a live runtime test is still required to confirm the engine's exact map clone and transfer behavior.
 
 <a id="final-combined-cross-reference"></a>
 ## 🔎 Final Combined Cross-Reference
