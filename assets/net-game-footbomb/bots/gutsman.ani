@@ -1,0 +1,36 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bots/gutsman.png"
+
+anim IDLE_UR
+frame dur=6f x=29 y=72 w=27 h=37 originx=9 originy=35
+
+anim IDLE_U
+frame dur=6f x=75 y=37 w=32 h=35 originx=15 originy=34
+
+anim WALK_UR
+frame dur=6f x=0 y=0 w=48 h=37 originx=22 originy=36
+frame dur=6f x=0 y=37 w=39 h=35 originx=16 originy=34
+frame dur=6f x=0 y=72 w=29 h=36 originx=10 originy=35
+frame dur=6f x=215 y=35 w=38 h=37 originx=19 originy=36
+frame dur=6f x=39 y=37 w=36 h=35 originx=20 originy=34
+frame dur=6f x=48 y=0 w=42 h=37 originx=20 originy=35
+
+anim WALK_U
+frame dur=6f x=131 y=36 w=37 h=38 originx=21 originy=36
+frame dur=6f x=90 y=0 w=41 h=37 originx=20 originy=36
+frame dur=6f x=131 y=0 w=42 h=36 originx=18 originy=35
+frame dur=6f x=168 y=36 w=37 h=38 originx=15 originy=36
+frame dur=6f x=215 y=0 w=41 h=35 originx=19 originy=34
+frame dur=6f x=173 y=0 w=42 h=36 originx=22 originy=35
+
+anim FOOTBOMB_READY_DEFENSE
+frame dur=5f x=126 y=93 w=36 h=33 originx=17 originy=32
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=5f x=172 y=82 w=46 h=44 originx=20 originy=43
+
+anim FOOTBOMB_IDLE_DEFENSE
+frame dur=5f x=87 y=94 w=34 h=32 originx=17 originy=31
+
+anim IDLE_D
+frame dur=5f x=87 y=94 w=34 h=32 originx=17 originy=31

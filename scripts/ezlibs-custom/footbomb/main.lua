@@ -29,6 +29,7 @@ local NAVI_OPTIONS = {
     { name = "Normal Navi", texture = BOT_ASSET_FOLDER .. "normal-navi-green.png", animation = BOT_ASSET_FOLDER .. "normal-navi-green.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
     { name = "ProtoMan", texture = BOT_ASSET_FOLDER .. "protoman-bn5.png", animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
     { name = "Glyde", texture = BOT_ASSET_FOLDER .. "glyde.png", animation = BOT_ASSET_FOLDER .. "glyde.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
+    { name = "GutsMan", texture = BOT_ASSET_FOLDER .. "gutsman.png", animation = BOT_ASSET_FOLDER .. "gutsman.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
     {
         name = "Prog",
         texture = BOT_ASSET_FOLDER .. "prog.png",
