@@ -1,44 +1,58 @@
 # FootBomb Ref NPC
 
-The `FootBomb Ref` custom object in `areas/footbomb.tmx` starts FootBomb matchmaking. The map object remains a point reference and spawns the visible ref NPC using the standard eznpcs sheet assets.
+The `FootBomb Ref` custom object in `areas/footbomb.tmx` starts FootBomb matchmaking. The ref NPC uses the standard eznpcs assets for its appearance and dialogue mug.
 
 ## Interaction and match modes
 
-1. The NPC says, **“Hey! Would you like to play FootBomb?”**
+1. The ref asks, **“Hey! Would you like to play FootBomb?”**
 2. The quiz options are exactly **`VS [NPC]`**, **`VS Player`**, and **`No`**.
 3. **No** exits without creating an instance.
-4. **VS [NPC]** creates a private clone of the configured `Instance Map`, creates both MegaMan-skin match bots before transferring the player, and assigns the first bot to the player. The second bot is the NPC opponent. The mode does not accept another player.
-5. **VS Player** marks the first player as waiting at the ref. The next player to interact with that ref is asked whether they want to join. Accepting creates an instance, spawns both bots before transfer, then transfers both players and assigns one bot per player. Declining leaves the first player waiting.
-6. Each player has a consistent bot assignment for the match and two screen-space cursor markers intended to sit above and below the represented bot. The camera is locked/moved toward the bot position on ticks when the server exposes the relevant camera and bot-position APIs.
+4. **VS [NPC]** creates a private clone of the configured `Instance Map`, spawns both match bots before transferring the human player, and assigns the human to Player 1. The Player 2 bot is a fixed MegaMan opponent, and the instance does not offer player matchmaking.
+5. **VS Player** lets the first player wait at the ref. The next player to interact is asked to join. Accepting creates an instance and spawns both bots before transferring either player. The waiting player is assigned Player 1; the joining player is assigned Player 2.
+6. Each human player receives their own consistent bot assignment, camera follow, top/bottom screen-space cursor markers, and a selected-Navi name label. The cursors are visual indicators; pressing **Up** or **Down** changes that player's assigned bot's Navi skin and updates the label. Available skins are MegaMan, Roll, and ProtoMan. The NPC opponent remains MegaMan.
 7. On leaving the instance or disconnecting, the player's cursor UI and camera lock are cleaned up. Empty instances and their match bots are removed.
+
+## Required Tiled objects
+
+The source map configured by `Instance Map` must contain these two **point objects**, with names spelled exactly as shown:
+
+- `Player 1 Spawn`
+- `Player 2 Spawn`
+
+The Player 1 bot is created at the first point and the Player 2 bot at the second point. For a two-human match, the server's matchmaking order assigns the waiting player to Player 1 and the joining player to Player 2. In VS NPC mode, the human bot uses Player 1 Spawn and the fixed MegaMan opponent uses Player 2 Spawn.
+
+The current `areas/footbomb.tmx` in the reviewed archive already contains both point objects (IDs 157 and 158). If the map is moved or replaced, preserve these names and their point coordinates.
 
 ## Assets
 
-Both match bots use:
+Match bots use the FootBomb-specific sprite sheets and animations:
 
-- `/server/assets/ezlibs-assets/eznpcs/sheet/megaman.png`
-- `/server/assets/ezlibs-assets/eznpcs/sheet/megaman.animation`
+- `/server/assets/net-game-footbomb/bots/megaman.png`
+- `/server/assets/net-game-footbomb/bots/megaman.animation`
+- `/server/assets/net-game-footbomb/bots/roll.png`
+- `/server/assets/net-game-footbomb/bots/roll.animation`
+- `/server/assets/net-game-footbomb/bots/protoman-bn5.png`
+- `/server/assets/net-game-footbomb/bots/protoman-bn5.animation`
 
-The two cursor markers use the existing `/server/assets/net-games/cursors/green_cursor.png` and `orange_cursor.png` assets.
+The two cursor markers use `/server/assets/net-games/cursors/green_cursor.png` and `/server/assets/net-games/cursors/orange_cursor.png`.
 
 ## Tiled properties
 
-The custom type reuses the standard NPC properties from `scripts/ezlibs-types.json`, including `Direction`, `Asset Name`, `Animation Name`, `Mug Animation Name`, `Dont Face Player`, and dialogue-related properties. FootBomb-specific properties:
+The custom type reuses standard NPC properties from `scripts/ezlibs-types.json`, including `Direction`, `Asset Name`, `Animation Name`, `Mug Animation Name`, `Dont Face Player`, and dialogue-related properties. FootBomb-specific property:
 
 | Property | Default | Purpose |
 |---|---|---|
 | `Instance Map` | `footbomb` | Source map cloned for each match. |
-| `Intro Message` | NPC default dialogue | The runtime currently uses the requested fixed FootBomb question. |
-| `Question` | — | The runtime currently uses the requested fixed three-option quiz. |
-| `Spawn X`, `Spawn Y`, `Spawn Z` | Object-relative fallback | Fallback coordinates if the server doesn't report a spawn point. |
 
-The instance spawn is resolved through `Net.get_spawn_position` first. No Tiled map edits are required for the current interaction/matchmaking pass. The two player bots are placed one world unit to either side of the resolved spawn.
+The runtime currently uses the fixed FootBomb prompt and three-option quiz requested for this interaction, rather than the legacy `Intro Message`, `Question`, `Started Message`, and `Declined Message` values.
 
 ## Integration and current scope
 
 - `scripts/ezlibs-scripts/ezmapinstance.lua` owns cloned instance tracking and player transfers.
 - `scripts/ezlibs-scripts/object_registry.lua` registers the `FootBomb Ref` object handler.
 - `scripts/ezlibs-custom/custom.lua` dispatches actor interaction, player transfer, and disconnect events to this module.
-- `scripts/net-games/main.lua` provides the UI element methods.
+- `scripts/input-controller/main.lua` provides logical Up/Down press edges.
+- `scripts/net-games/main.lua` provides per-player UI elements and the `draw_text`, `update_text`, and `remove_text` methods used for the selected Navi label.
+- The camera is moved toward each assigned bot with `Net.move_player_camera` while the player camera is locked.
 
-This implements the NPC choice flow, private-vs-NPC and two-player matchmaking, bot spawning/assignment, cursor markers, and best-effort camera tracking. It does **not** yet forward movement/input from the hidden player actor to their bot, and it does not implement FootBomb rules, scoring, or end-of-match flow. The engine's `net-games` wrapper documents `detach_camera()` as unsupported; camera tracking here therefore uses the lower-level `Net.move_player_camera` API if available and must be verified in the running server.
+This implements the dialogue choice flow, private VS NPC and two-player matchmaking, named spawn-point placement, human bot assignment, skin cycling, cursor markers, and camera following. It does **not** yet forward gameplay movement/input from the hidden player actor to their bot, and it does not implement FootBomb rules, scoring, or end-of-match flow. Camera follow and bot skin recreation still need a live-server test.

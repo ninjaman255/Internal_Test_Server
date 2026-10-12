@@ -101,7 +101,13 @@ local function handle_player_controlled_movement(self)
 end
 
 local function emitter_off(emitter, event, cb)
-    if type(emitter.off) == "function" then
+    if not emitter then return end
+
+    -- InputController forwards the exact method exposed by ezemitter.lua.
+    -- Prefer it, then support aliases used by other emitter implementations.
+    if type(emitter.remove_listener) == "function" then
+        emitter:remove_listener(event, cb)
+    elseif type(emitter.off) == "function" then
         emitter:off(event, cb)
     elseif type(emitter.removeListener) == "function" then
         emitter:removeListener(event, cb)
@@ -254,16 +260,20 @@ function CameraController:_on_input_event(kind, ev)
         "mode=", tostring(CameraMode:getName(self.mode)),
         "pending=", tostring(self:hasPendingMove()))
 
+    -- Inactive controllers may still have listeners registered until destroy.
+    -- Ignore all events first so an inactive camera cannot consume Cancel or
+    -- interfere with whichever system currently owns the player's input.
+    if not self.is_active then
+        dbg("_on_input_event: not active, ignoring")
+        return
+    end
+
     if ev.action == "Cancel" and kind == "pressed" then
         dbg("_on_input_event: Cancel pressed -> deactivate")
         self:deactivate()
         return
     end
 
-    if not self.is_active then
-        dbg("_on_input_event: not active, ignoring")
-        return
-    end
     if self:hasPendingMove() then
         dbg("_on_input_event: pending move, ignoring")
         return

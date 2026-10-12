@@ -288,7 +288,25 @@ end
 -- ---------------------------------------------------------------------------
 
 function InputController:on(event, callback)
-    self.emitter:on(event, callback)
+    if self.emitter then
+        self.emitter:on(event, callback)
+    end
+    return self
+end
+
+-- Forward the EventEmitter removal API through the controller. Consumers
+-- subscribe to InputController rather than reaching into its implementation,
+-- so they must also be able to detach their own callbacks during cleanup.
+function InputController:off(event, callback)
+    if self.emitter and type(self.emitter.remove_listener) == "function" then
+        self.emitter:remove_listener(event, callback)
+    end
+    return self
+end
+
+-- Use the EventEmitter's native naming as well as the common `off` alias.
+function InputController:remove_listener(event, callback)
+    return self:off(event, callback)
 end
 
 function InputController:_swallowing()
