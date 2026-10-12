@@ -1,6 +1,6 @@
 -- CameraManager.lua
 local CameraManager = {}
-CameraManager.DEBUG = true   -- set false once diagnosed
+CameraManager.DEBUG = false
 
 local PlayerControllers = {}
 CameraManager.PlayerControllers = PlayerControllers
@@ -51,9 +51,16 @@ function CameraManager:activate_camera(player_id, mode, lock_input)
 
     dbg("activate_camera: found controller, is_active=", tostring(controller.is_active))
 
-    controller:activate(mode, lock_input)
+    local activated = controller:activate(mode, lock_input)
     dbg("activate_camera: EXIT player=", tostring(player_id),
         "is_active now=", tostring(controller.is_active))
+
+    -- CameraController returns false when another system (e.g. FootBomb)
+    -- owns the shared input controller. Do not report that as a successful
+    -- activation merely because the controller object exists.
+    if activated == false or not controller.is_active then
+        return false
+    end
     return true
 end
 

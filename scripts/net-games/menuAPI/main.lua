@@ -19,16 +19,25 @@ local function get_controller(player_id)
         or InputSystem.create_controller(player_id)
 end
 
+local function menu_input_owner(player_id)
+    return "menuAPI:" .. tostring(player_id)
+end
+
 local function guard_input(player_id, swallow_seconds)
     local ctrl = get_controller(player_id)
+    local owner = menu_input_owner(player_id)
+
+    -- A menu must never clear or consume another system's input edges.
+    if not ctrl or not ctrl:has_input_control(owner) then return false end
 
     if swallow_seconds and swallow_seconds > 0 then
-        ctrl:swallow(swallow_seconds)
+        ctrl:swallow(swallow_seconds, owner)
     else
-        ctrl:consume()
+        ctrl:consume(owner)
     end
 
-    ctrl:require_release({ "Confirm", "Cancel" })
+    ctrl:require_release({ "Confirm", "Cancel" }, owner)
+    return true
 end
 
 local cfg = {
@@ -522,7 +531,21 @@ function MenuAPI.open(player_id, spec)
     local stack = stack_for(player_id, true)
     local was_empty = #stack == 0
     stack[#stack + 1] = st
-    if was_empty and st.lock_input then set_input_locked(player_id, true) end
+
+    if was_empty then
+        local ctrl = get_controller(player_id)
+        local owner = menu_input_owner(player_id)
+        st.input_claimed = ctrl and ctrl:claim_input(owner) or false
+        if st.input_claimed then
+            if st.lock_input then set_input_locked(player_id, true) end
+        else
+            print("[MenuAPI] Could not claim input for player " .. tostring(player_id)
+                .. "; another system currently owns the controller")
+        end
+    else
+        -- The stack already owns the controller; nested menus share its lease.
+        st.input_claimed = true
+    end
 
     -- Ensure font assets exist even if MenuAPI was required after player_join.
     pcall(Displayer.Font.allocateAllFontsForPlayer, player_id)
@@ -545,12 +568,20 @@ function MenuAPI.close(player_id, opts)
     if #stack == 0 then
         stacks[player_id] = nil
         if st.lock_input and opts.keep_locked ~= true then set_input_locked(player_id, false) end
+
+        -- Release only the menu's own lease. If FootBomb or another system
+        -- forcibly took ownership while the menu was open, this is a no-op.
+        local ctrl = InputSystem.get_controller(player_id)
+        if ctrl then
+            guard_input(player_id, 0.08)
+            ctrl:release_input(menu_input_owner(player_id))
+        end
     else
         -- Returning to the previous menu does not require a full redraw because it
         -- remained rendered beneath the pushed menu; refresh only its cursor.
         draw_cursor(stack[#stack])
+        guard_input(player_id, 0.08)
     end
-    guard_input(player_id, 0.08)
     return true
 end
 
@@ -561,7 +592,12 @@ function MenuAPI.close_all(player_id, opts)
     for i = #stack, 1, -1 do cleanup(stack[i]) end
     stacks[player_id] = nil
     if opts.keep_locked ~= true then set_input_locked(player_id, false) end
-    guard_input(player_id)
+
+    local ctrl = InputSystem.get_controller(player_id)
+    if ctrl then
+        guard_input(player_id)
+        ctrl:release_input(menu_input_owner(player_id))
+    end
 end
 
 function MenuAPI.is_open(player_id) return active(player_id) ~= nil end
@@ -609,36 +645,50 @@ end
 
 -- Poll the canonical per-player InputController.
 -- virtual_input and repeat timing are handled by input-controller/main.lua.
-Net:on("tick", function(_event)
+Net:on("tick", function(event)
     for player_id, stack in pairs(stacks) do
         local st = stack[#stack]
         local ctrl = InputSystem.get_controller(player_id)
+        local owner = menu_input_owner(player_id)
 
-        if st and ctrl then
+        -- If another context temporarily took ownership and then released it,
+        -- an open menu may reclaim the now-unowned controller. It never steals
+        -- from an active owner.
+        if st and ctrl and not ctrl:has_input_control(owner)
+            and ctrl:get_input_owner() == nil then
+            if ctrl:claim_input(owner) then
+                if st.lock_input then set_input_locked(player_id, true) end
+                ctrl:require_release({ "Up", "Down", "Left", "Right", "Confirm", "Cancel" }, owner)
+            end
+        end
+
+        -- The menu polls only while it owns the shared controller. This is
+        -- important because is_action_pressed consumes the pending edge.
+        if st and ctrl and ctrl:has_input_control(owner) then
             if st.type == 4 then
-                if ctrl:is_action_pressed("Left")
-                    or ctrl:is_action_pressed("Right") then
+                if ctrl:is_action_pressed("Left", owner)
+                    or ctrl:is_action_pressed("Right", owner) then
                     move_selection(st, 1)
-                elseif ctrl:is_action_pressed("Confirm") then
+                elseif ctrl:is_action_pressed("Confirm", owner) then
                     confirm(st)
-                elseif ctrl:is_action_pressed("Cancel") then
+                elseif ctrl:is_action_pressed("Cancel", owner) then
                     handle_cancel(st)
                 end
 
             elseif MENU_TYPES[st.type].selectable then
-                if ctrl:is_action_pressed("Up")
-                    or ctrl:is_action_repeated("Up") then
+                if ctrl:is_action_pressed("Up", owner)
+                    or ctrl:is_action_repeated("Up", owner) then
                     move_selection(st, -1)
-                elseif ctrl:is_action_pressed("Down")
-                    or ctrl:is_action_repeated("Down") then
+                elseif ctrl:is_action_pressed("Down", owner)
+                    or ctrl:is_action_repeated("Down", owner) then
                     move_selection(st, 1)
-                elseif ctrl:is_action_pressed("Confirm") then
+                elseif ctrl:is_action_pressed("Confirm", owner) then
                     confirm(st)
-                elseif ctrl:is_action_pressed("Cancel") then
+                elseif ctrl:is_action_pressed("Cancel", owner) then
                     handle_cancel(st)
                 end
 
-            elseif ctrl:is_action_pressed("Cancel") then
+            elseif ctrl:is_action_pressed("Cancel", owner) then
                 handle_cancel(st)
             end
         end

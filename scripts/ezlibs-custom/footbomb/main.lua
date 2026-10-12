@@ -264,7 +264,31 @@ local function remove_representation(player_id)
     if rep.cursor_top then pcall(games.remove_ui_element, rep.cursor_top, player_id) end
     if rep.cursor_bottom then pcall(games.remove_ui_element, rep.cursor_bottom, player_id) end
     if rep.skin_text_id then pcall(games.remove_text, rep.skin_text_id, player_id) end
+
+    -- Return the shared controller to the unclaimed state only if this
+    -- representation still owns it. Never release a newer system's lease.
+    local input = rep.input or InputAPI.get_controller(player_id)
+    if input and rep.input_owner then
+        pcall(input.release_input, input, rep.input_owner)
+    end
+    if input and rep.input_diagnostics_token and input.diagnostics == rep.input_diagnostics_token then
+        input.diagnostics = nil
+    end
+
     if type(Net.unlock_player_camera) == "function" then pcall(Net.unlock_player_camera, player_id) end
+    if type(Net.track_with_player_camera) == "function" then pcall(Net.track_with_player_camera, player_id) end
+
+    -- Simon Says explicitly locks player input while its minigame is active.
+    -- This engine emits virtual_input events while input is locked; FootBomb's
+    -- shared InputController depends on those events for directional selection.
+    -- Release the lock when the FootBomb representation is removed.
+    if type(Net.unlock_player_input) == "function" then
+        local ok, err = pcall(Net.unlock_player_input, player_id)
+        if not ok then
+            log("Could not unlock player input during FootBomb cleanup: " .. tostring(err))
+        end
+    end
+
     player_representations[player_id] = nil
 end
 
@@ -287,16 +311,90 @@ local function setup_player_representation(player_id, instance, bot_record)
         cursor_top = "footbomb_cursor_top_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
         cursor_bottom = "footbomb_cursor_bottom_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
         skin_text_id = "footbomb_navi_name_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
-        skin_index = bot_record.skin_index or 1
+        skin_index = bot_record.skin_index or 1,
+        input = InputAPI.get_controller(player_id) or InputAPI.create_controller(player_id),
+        input_owner = "footbomb:" .. tostring(instance.id) .. ":" .. tostring(player_id)
     }
     player_representations[player_id] = rep
+
+    -- Match Simon Says' input lifecycle: lock normal player movement while
+    -- FootBomb is active so the engine emits virtual_input events to the shared
+    -- InputController. The player actor is off-map, so ordinary movement is
+    -- not useful here; the selector needs the virtual input stream instead.
+    if type(Net.lock_player_input) == "function" then
+        local ok, err = pcall(Net.lock_player_input, player_id)
+        if ok then
+            log("selector locked player input for virtual_input player=" .. tostring(player_id))
+        else
+            log("Could not lock player input for selector player=" .. tostring(player_id)
+                .. ": " .. tostring(err))
+        end
+    else
+        log("Net.lock_player_input is unavailable; selector virtual_input may not be emitted")
+    end
+
+    -- Diagnostic ownership handoff. Compare this instance with the instance
+    -- printed by InputAPI and CameraController to detect duplicate registries.
+    log("selector setup player=" .. tostring(player_id)
+        .. " area=" .. tostring(rep.area_id)
+        .. " instance=" .. tostring(rep.instance_id)
+        .. " input_instance=" .. tostring(rep.input)
+        .. " owner_before_claim=" .. tostring(rep.input and rep.input:get_input_owner())
+        .. " requested_owner=" .. tostring(rep.input_owner))
+
+    -- Entering FootBomb is an explicit context handoff: take exclusive input
+    -- ownership from the camera controller (or another previous UI owner).
+    if rep.input then
+        local claimed = rep.input:claim_input(rep.input_owner, true)
+        log("selector claim result player=" .. tostring(player_id)
+            .. " input_instance=" .. tostring(rep.input)
+            .. " claimed=" .. tostring(claimed)
+            .. " owner_after_claim=" .. tostring(rep.input:get_input_owner()))
+        if claimed then
+            -- Enable targeted direction diagnostics only while this FootBomb
+            -- representation owns the shared controller.
+            rep.input_diagnostics_token = "footbomb-selector:" .. tostring(player_id)
+            rep.input.diagnostics = rep.input_diagnostics_token
+            rep.input:require_release({ "Up", "Down", "Confirm", "Cancel" }, rep.input_owner)
+            log("selector diagnostics enabled player=" .. tostring(player_id)
+                .. " controller=" .. tostring(rep.input)
+                .. " active=" .. tostring(rep.input:is_active()))
+        else
+            log("Could not claim input for player " .. tostring(player_id))
+        end
+    else
+        log("No input controller available for player " .. tostring(player_id))
+    end
 
     pcall(games.add_ui_element, rep.cursor_top, player_id, CURSOR_TOP_TEXTURE, nil, nil, 112, 43, 100, 1, 1)
     pcall(games.add_ui_element, rep.cursor_bottom, player_id, CURSOR_BOTTOM_TEXTURE, nil, nil, 112, 104, 100, 1, 1)
     -- Draw the selected Navi name between the two visual cursor markers.
     pcall(games.draw_text, rep.skin_text_id, player_id, NAVI_OPTIONS[rep.skin_index].name, 86, 72, 100, "THICK", 1.5)
-    if type(Net.lock_player_camera) == "function" then pcall(Net.lock_player_camera, player_id) end
+    -- The real player actor is intentionally moved off-map. Do NOT lock the
+    -- camera to that actor: doing so pins the view at roughly (-1000, -1000)
+    -- and makes the player activate the free-camera controller to see the bot.
     move_player_off_map(player_id, instance.area_id)
+
+    if type(Net.unlock_player_camera) == "function" then
+        pcall(Net.unlock_player_camera, player_id)
+    end
+
+    -- Set an immediate initial focus; the tick handler keeps tracking the bot.
+    local position = bot_record.position
+    if type(Net.get_bot_position) == "function" then
+        local ok, current = pcall(Net.get_bot_position, bot_record.id)
+        if ok and type(current) == "table"
+            and type(current.x) == "number" and type(current.y) == "number" then
+            position = {
+                x = current.x,
+                y = current.y,
+                z = as_number(current.z, position and position.z or 0)
+            }
+        end
+    end
+    if position and type(Net.move_player_camera) == "function" then
+        pcall(Net.move_player_camera, player_id, position.x, position.y, position.z or 0, 0)
+    end
 end
 
 local function setup_representations_for_match(instance, player_ids, bots)
@@ -521,11 +619,23 @@ end
 Net:on("tick", function(event)
     for player_id, rep in pairs(player_representations) do
         if Net.get_player_area(player_id) == rep.area_id then
-            local input = InputAPI.get_controller(player_id)
-            if input then
-                if input:is_action_pressed("Up") then
+            local input = rep.input or InputAPI.get_controller(player_id)
+            if input and rep.input_owner and input:has_input_control(rep.input_owner) then
+                -- Peek before consuming so diagnostics can distinguish a missing
+                -- directional edge from an edge hidden by the release gate.
+                local up_pending = input:peek_action_pressed("Up", rep.input_owner)
+                local down_pending = input:peek_action_pressed("Down", rep.input_owner)
+                if up_pending or down_pending then
+                    log("selector edge observed player=" .. tostring(player_id)
+                        .. " up=" .. tostring(up_pending)
+                        .. " down=" .. tostring(down_pending)
+                        .. " owner_matches=" .. tostring(input:get_input_owner() == rep.input_owner))
+                end
+                if input:is_action_pressed("Up", rep.input_owner) then
+                    log("selector consuming Up player=" .. tostring(player_id))
                     cycle_player_skin(player_id, -1)
-                elseif input:is_action_pressed("Down") then
+                elseif input:is_action_pressed("Down", rep.input_owner) then
+                    log("selector consuming Down player=" .. tostring(player_id))
                     cycle_player_skin(player_id, 1)
                 end
             end

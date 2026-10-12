@@ -157,6 +157,12 @@ function InputController:_init(player_id, button_mappings, direction_raw_names, 
     -- behaviour. Pass { auto_activate = false } to construct it dormant.
     self.active = config.auto_activate ~= false
     self.destroyed = false
+
+    -- Exclusive logical-input ownership. The controller continues collecting
+    -- raw input, but interactive systems should claim ownership before reading
+    -- edges or reacting to button events. Ownership changes are published on
+    -- the same emitter as button events.
+    self.input_owner = nil
 end
 
 -- Create a subclass.
@@ -242,6 +248,17 @@ function InputController:_clear_transient_state()
 end
 
 function InputController:destroy()
+    if self.destroyed then return end
+    if self.input_owner ~= nil then
+        local previous_owner = self.input_owner
+        self.input_owner = nil
+        self.emitter:emit("input_owner_changed", {
+            player_id = self.player_id,
+            previous_owner = previous_owner,
+            owner = nil,
+            destroyed = true,
+        })
+    end
     self.active = false
     self.destroyed = true
     self:_clear_transient_state()
@@ -288,15 +305,12 @@ end
 -- ---------------------------------------------------------------------------
 
 function InputController:on(event, callback)
-    if self.emitter then
-        self.emitter:on(event, callback)
-    end
-    return self
+    return self.emitter:on(event, callback)
 end
 
--- Forward the EventEmitter removal API through the controller. Consumers
--- subscribe to InputController rather than reaching into its implementation,
--- so they must also be able to detach their own callbacks during cleanup.
+-- Match the underlying EventEmitter API and let consumers reliably detach
+-- subscriptions during teardown. CameraController previously tried to
+-- unsubscribe, but InputController did not expose the emitter's method.
 function InputController:off(event, callback)
     if self.emitter and type(self.emitter.remove_listener) == "function" then
         self.emitter:remove_listener(event, callback)
@@ -304,9 +318,82 @@ function InputController:off(event, callback)
     return self
 end
 
--- Use the EventEmitter's native naming as well as the common `off` alias.
 function InputController:remove_listener(event, callback)
     return self:off(event, callback)
+end
+
+-- Claim exclusive interactive control. A forced claim is intended for an
+-- explicit context transition (for example, entering a minigame) and not for
+-- competing systems to repeatedly steal control from each other.
+function InputController:claim_input(owner, force)
+    if self.destroyed or owner == nil then
+        print("[InputController] claim denied player=" .. tostring(self.player_id)
+            .. " instance=" .. tostring(self) .. " reason=destroyed_or_nil_owner")
+        return false
+    end
+    if self.input_owner == owner then return true end
+    if self.input_owner ~= nil and force ~= true then
+        print("[InputController] claim denied player=" .. tostring(self.player_id)
+            .. " instance=" .. tostring(self) .. " current_owner=" .. tostring(self.input_owner)
+            .. " requested_owner=" .. tostring(owner))
+        return false
+    end
+
+    local previous_owner = self.input_owner
+    self.input_owner = owner
+    print("[InputController] ownership changed player=" .. tostring(self.player_id)
+        .. " instance=" .. tostring(self) .. " previous_owner=" .. tostring(previous_owner)
+        .. " new_owner=" .. tostring(owner) .. " forced=" .. tostring(force == true))
+
+    -- Discard edge flags from the previous owner and require currently-held
+    -- actions to be released before the new owner can act on them.
+    for action, state in pairs(self.logical) do
+        if state and state.down then
+            self.release_required[action] = true
+        end
+    end
+    self:consume(owner)
+
+    self.emitter:emit("input_owner_changed", {
+        player_id = self.player_id,
+        previous_owner = previous_owner,
+        owner = owner,
+    })
+    return true
+end
+
+function InputController:release_input(owner)
+    if owner == nil or self.input_owner ~= owner then
+        print("[InputController] release ignored player=" .. tostring(self.player_id)
+            .. " instance=" .. tostring(self) .. " current_owner=" .. tostring(self.input_owner)
+            .. " requested_owner=" .. tostring(owner))
+        return false
+    end
+
+    local previous_owner = self.input_owner
+    self.input_owner = nil
+    print("[InputController] ownership released player=" .. tostring(self.player_id)
+        .. " instance=" .. tostring(self) .. " previous_owner=" .. tostring(previous_owner))
+    for action, state in pairs(self.logical) do
+        if state and state.down then
+            self.release_required[action] = true
+        end
+    end
+    self:consume()
+    self.emitter:emit("input_owner_changed", {
+        player_id = self.player_id,
+        previous_owner = previous_owner,
+        owner = nil,
+    })
+    return true
+end
+
+function InputController:has_input_control(owner)
+    return owner ~= nil and self.input_owner == owner and not self.destroyed
+end
+
+function InputController:get_input_owner()
+    return self.input_owner
 end
 
 function InputController:_swallowing()
@@ -318,16 +405,29 @@ function InputController:_emit_edge(kind, action, state)
     if not self:is_active() then return end
     if self:_swallowing() then return end
     if kind == "pressed" then
-        if self.release_required[action] then return end
+        if self.release_required[action] then
+            if self.diagnostics and (action == "Up" or action == "Down") then
+                print("[InputController] direction edge blocked player=" .. tostring(self.player_id)
+                    .. " diagnostic=" .. tostring(self.diagnostics)
+                    .. " action=" .. tostring(action) .. " reason=release_required")
+            end
+            return
+        end
         self.pressed_actions[action] = true
-        self.emitter:emit("button_pressed", { player_id = self.player_id, action = action, state = state or 1 })
+        if self.diagnostics and (action == "Up" or action == "Down") then
+            print("[InputController] direction edge queued player=" .. tostring(self.player_id)
+                .. " diagnostic=" .. tostring(self.diagnostics)
+                .. " action=" .. tostring(action)
+                .. " owner=" .. tostring(self.input_owner))
+        end
+        self.emitter:emit("button_pressed", { player_id = self.player_id, action = action, state = state or 1, input_owner = self.input_owner })
     elseif kind == "released" then
         self.released_actions[action] = true
-        self.emitter:emit("button_released", { player_id = self.player_id, action = action, state = state or 3 })
+        self.emitter:emit("button_released", { player_id = self.player_id, action = action, state = state or 3, input_owner = self.input_owner })
     elseif kind == "repeat" then
         if self.release_required[action] then return end
         self.repeat_actions[action] = true
-        self.emitter:emit("button_repeat", { player_id = self.player_id, action = action, state = state or 4 })
+        self.emitter:emit("button_repeat", { player_id = self.player_id, action = action, state = state or 4, input_owner = self.input_owner })
     end
 end
 
@@ -340,8 +440,20 @@ function InputController:handle_raw_input(events)
     local normalized = normalize_events(events)
     for _, ev in ipairs(normalized) do
         local name, state = ev.name, ev.state
+        local previous_state = self.raw_states[name]
         self.raw_states[name] = state
         self.raw_last_seen[name] = self.time
+
+        -- Optional, owner-scoped diagnostics used by FootBomb while tracing
+        -- selector input. Only log direction state changes to avoid packet spam.
+        if self.diagnostics and self.direction_raw_names[name]
+            and previous_state ~= state then
+            print("[InputController] direction raw player=" .. tostring(self.player_id)
+                .. " diagnostic=" .. tostring(self.diagnostics)
+                .. " name=" .. tostring(name)
+                .. " state=" .. tostring(state)
+                .. " previous=" .. tostring(previous_state))
+        end
 
         if state == 4 then
             self.raw_states[name] = 2
@@ -406,6 +518,15 @@ function InputController:_update_direction()
         print("[ICTRL] player=" .. tostring(self.player_id) ..
               " dir " .. tostring(old_dir) .. " -> " .. tostring(new_dir))
     end
+    if self.diagnostics then
+        print("[InputController] direction changed player=" .. tostring(self.player_id)
+            .. " diagnostic=" .. tostring(self.diagnostics)
+            .. " from=" .. tostring(old_dir) .. " to=" .. tostring(new_dir)
+            .. " pressed_up=" .. tostring(self.pressed_actions.Up == true)
+            .. " pressed_down=" .. tostring(self.pressed_actions.Down == true)
+            .. " release_up=" .. tostring(self.release_required.Up == true)
+            .. " release_down=" .. tostring(self.release_required.Down == true))
+    end
 
     if old_dir then
         self:_set_action_down(old_dir, false)
@@ -466,49 +587,75 @@ end
 -- Queries
 -- ---------------------------------------------------------------------------
 
-function InputController:is_action_down(action)
+-- Backward compatibility is retained while the controller is unclaimed. Once
+-- an owner exists, callers must identify themselves; legacy pollers can no
+-- longer consume the active owner's edge flags by calling without an owner.
+local function can_access_input(self, owner)
+    if self.input_owner ~= nil then
+        return owner ~= nil and self.input_owner == owner
+    end
+    return owner == nil
+end
+
+function InputController:is_action_down(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     local state = self.logical[action]
     return state and state.down or false
 end
 
-function InputController:peek_action_pressed(action)
+function InputController:peek_action_pressed(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     return (not self.release_required[action]) and (not self:_swallowing()) and self.pressed_actions[action] == true
 end
 
-function InputController:peek_action_released(action)
+function InputController:peek_action_released(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     return (not self:_swallowing()) and self.released_actions[action] == true
 end
 
-function InputController:peek_action_repeated(action)
+function InputController:peek_action_repeated(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     return (not self.release_required[action]) and (not self:_swallowing()) and self.repeat_actions[action] == true
 end
 
-function InputController:is_action_pressed(action)
+function InputController:is_action_pressed(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     if self.release_required[action] or self:_swallowing() then return false end
     if self.pressed_actions[action] then self.pressed_actions[action] = nil; return true end
     return false
 end
 
-function InputController:is_action_released(action)
+function InputController:is_action_released(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     if self:_swallowing() then return false end
     if self.released_actions[action] then self.released_actions[action] = nil; return true end
     return false
 end
 
-function InputController:is_action_repeated(action)
+function InputController:is_action_repeated(action, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if not self:is_active() then return false end
     if self.release_required[action] or self:_swallowing() then return false end
     if self.repeat_actions[action] then self.repeat_actions[action] = nil; return true end
     return false
 end
 
-function InputController:get_active_direction()
+function InputController:get_active_direction(owner)
+    if not can_access_input(self, owner) then return nil end
+    if owner ~= nil and not self:has_input_control(owner) then return nil end
     if not self:is_active() then return nil end
     return self.prev_direction
 end
@@ -517,21 +664,29 @@ end
 -- Control
 -- ---------------------------------------------------------------------------
 
-function InputController:require_release(actions)
+function InputController:require_release(actions, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     if type(actions) == "string" then actions = { actions } end
     for _, action in ipairs(actions or {}) do
-        if self:is_action_down(action) then self.release_required[action] = true end
+        if self:is_action_down(action, owner) then self.release_required[action] = true end
         self.pressed_actions[action] = nil
         self.repeat_actions[action] = nil
     end
+    return true
 end
 
-function InputController:swallow(seconds)
+function InputController:swallow(seconds, owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     self.swallow_until = math.max(self.swallow_until, self.time + math.max(0, tonumber(seconds) or 0))
-    self:consume()
+    self:consume(owner)
+    return true
 end
 
-function InputController:consume()
+function InputController:consume(owner)
+    if not can_access_input(self, owner) then return false end
+    if owner ~= nil and not self:has_input_control(owner) then return false end
     self.pressed_actions = {}
     self.released_actions = {}
     self.repeat_actions = {}

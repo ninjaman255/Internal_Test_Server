@@ -51,8 +51,8 @@ The runtime currently uses the fixed FootBomb prompt and three-option quiz reque
 - `scripts/ezlibs-scripts/ezmapinstance.lua` owns cloned instance tracking and player transfers.
 - `scripts/ezlibs-scripts/object_registry.lua` registers the `FootBomb Ref` object handler.
 - `scripts/ezlibs-custom/custom.lua` dispatches actor interaction, player transfer, and disconnect events to this module.
-- `scripts/input-controller/main.lua` provides logical Up/Down press edges.
+- `scripts/input-controller/main.lua` provides logical Up/Down press edges and exclusive input ownership. Entering FootBomb force-claims the shared controller for that player's match representation; the camera controller releases its input handling on the ownership-change event. While an owner holds the controller, legacy polling calls without that owner are denied so they cannot consume its press edges. Leaving the instance releases only FootBomb's own claim.
 - `scripts/net-games/main.lua` provides per-player UI elements and the `draw_text`, `update_text`, and `remove_text` methods used for the selected Navi label.
-- The camera is moved toward each assigned bot with `Net.move_player_camera` while the player camera is locked.
+- FootBomb moves the real player actor off-map, explicitly unlocks that player's camera, then positions and continuously updates the camera at the assigned bot with `Net.move_player_camera`. The camera editor cannot claim input while FootBomb owns the shared controller, so activating the camera controller is not required for Navi selection or camera follow. MenuAPI also claims the shared controller while its menu stack is open and only polls input while it owns the lease.
 
 This implements the dialogue choice flow, private VS NPC and two-player matchmaking, named spawn-point placement, human bot assignment, skin cycling, cursor markers, and camera following. It does **not** yet forward gameplay movement/input from the hidden player actor to their bot, and it does not implement FootBomb rules, scoring, or end-of-match flow. Camera follow and bot skin recreation still need a live-server test.

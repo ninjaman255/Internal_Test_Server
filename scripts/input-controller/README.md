@@ -355,6 +355,57 @@ Registers a callback for one of the supported events.
 > ⚠️ **Important:** Events are emitted only while the input is **not
 > swallowed**.
 
+## Exclusive input ownership (pub/sub handoff)
+
+The controller can be shared by multiple systems, but only one system should
+own interactive input at a time. This is useful when handing control between
+the camera editor, a menu, and a minigame. Ownership changes are published as
+`input_owner_changed` events through the controller's existing emitter (the
+same general pub/sub style used by `ezemitter.lua`). The emitter itself does
+not decide who owns input; `InputController` enforces the claim and consumers
+must check their ownership before handling input.
+
+```lua
+local input = InputAPI.get_controller(player_id)
+local owner = "my-menu:" .. tostring(player_id)
+
+-- Non-forced claims fail if another system already owns input.
+if input and input:claim_input(owner) then
+    if input:is_action_pressed("Confirm", owner) then
+        -- This menu owns the Confirm edge.
+    end
+end
+
+-- Release only this owner's claim.
+if input then input:release_input(owner) end
+```
+
+### Ownership methods
+
+| Method | Purpose |
+|---|---|
+| `claim_input(owner, force?)` | Claims control. Returns `false` if another owner holds it unless `force == true`. |
+| `release_input(owner)` | Releases control only when `owner` is the current owner. |
+| `has_input_control(owner)` | Checks whether this owner holds control. |
+| `get_input_owner()` | Returns the current owner token, or `nil`. |
+| `off(event, callback)` / `remove_listener(event, callback)` | Detaches a listener; use during cleanup. |
+
+An owner can be any stable non-`nil` token, such as a unique string or the
+system/controller object itself. `claim_input(owner, true)` is intended for an
+explicit context transition, not as a repeated competition mechanism. Claim
+and release clear queued edge flags and require any action already held during
+the transition to be released before it can trigger for the next owner.
+
+Owner-scoped queries accept the owner as the final argument, for example
+`is_action_pressed("Up", owner)` and `get_active_direction(owner)`. If the
+provided owner does not hold control, these calls return `false` or `nil`.
+Legacy queries without an owner remain available while the controller is
+unclaimed. Once a system owns input, queries and mutating helpers called
+without that owner are denied, so legacy pollers cannot consume the owner's
+edges. Button events are still broadcast; event subscribers must check
+`has_input_control(self)` before acting. Button event payloads include
+`input_owner`.
+
 ---
 
 # ⚙️ Input Processing

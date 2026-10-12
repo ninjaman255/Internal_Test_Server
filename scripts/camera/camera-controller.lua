@@ -12,7 +12,7 @@ local PredefinedEnums = require("scripts/enum/predefined-enums")
 local CameraMode = PredefinedEnums.CameraMode
 
 local CameraController = {}
-CameraController.DEBUG = true   -- set false once diagnosed
+CameraController.DEBUG = false
 
 -- Movement constants
 local X_CAMERA_ADJUST = 0.15
@@ -44,7 +44,8 @@ local function handle_player_controlled_movement(self)
         return
     end
 
-    local d = self.input:get_active_direction()
+    if not self.input:has_input_control(self) then return end
+    local d = self.input:get_active_direction(self)
     dbg("movement: dir=", tostring(d),
         "release_required=", tostring(self.input.release_required[d]))
 
@@ -101,13 +102,7 @@ local function handle_player_controlled_movement(self)
 end
 
 local function emitter_off(emitter, event, cb)
-    if not emitter then return end
-
-    -- InputController forwards the exact method exposed by ezemitter.lua.
-    -- Prefer it, then support aliases used by other emitter implementations.
-    if type(emitter.remove_listener) == "function" then
-        emitter:remove_listener(event, cb)
-    elseif type(emitter.off) == "function" then
+    if type(emitter.off) == "function" then
         emitter:off(event, cb)
     elseif type(emitter.removeListener) == "function" then
         emitter:removeListener(event, cb)
@@ -139,6 +134,8 @@ function CameraController:new(player_id, opts)
 
     dbg("new: player=", tostring(player_id),
         "mode=", tostring(CameraMode:getName(mode)),
+        "input_instance=", tostring(input),
+        "input_owner=", tostring(input and input:get_input_owner()),
         "input_ctrl=", tostring(input ~= nil),
         "first_repeat=", cam_first,
         "repeat=", cam_repeat)
@@ -165,6 +162,25 @@ function CameraController:new(player_id, opts)
 
     setmetatable(controller, self)
     self.__index = self
+
+    -- Observe exclusive input ownership. A minigame can take control of the
+    -- player's shared controller; the camera then stops processing input but
+    -- leaves the camera position alone for the new owner to manage.
+    controller._handler_owner_changed = function(change)
+        dbg("input_owner_changed: player=", tostring(controller.player_id),
+            "camera_input_instance=", tostring(controller.input),
+            "previous_owner=", tostring(change and change.previous_owner),
+            "new_owner=", tostring(change and change.owner),
+            "camera_active=", tostring(controller.is_active))
+        if controller.is_active and change and change.owner ~= controller then
+            dbg("input ownership transferred away from camera for player", tostring(controller.player_id))
+            controller:deactivate(true)
+        end
+    end
+    if controller.input then
+        controller.input:on("input_owner_changed", controller._handler_owner_changed)
+    end
+
     return controller
 end
 
@@ -254,19 +270,18 @@ end
 -- Input event handling
 -- --------------------------------------------------------------------------
 function CameraController:_on_input_event(kind, ev)
+    -- Check both activity and ownership before handling *any* action. In the
+    -- previous ordering, Cancel deactivated the camera even while it was
+    -- inactive and another system owned the shared input controller.
+    if not self.is_active or not self.input or not self.input:has_input_control(self) then
+        return
+    end
+
     dbg("_on_input_event: kind=", kind,
         "action=", tostring(ev.action),
         "is_active=", tostring(self.is_active),
         "mode=", tostring(CameraMode:getName(self.mode)),
         "pending=", tostring(self:hasPendingMove()))
-
-    -- Inactive controllers may still have listeners registered until destroy.
-    -- Ignore all events first so an inactive camera cannot consume Cancel or
-    -- interfere with whichever system currently owns the player's input.
-    if not self.is_active then
-        dbg("_on_input_event: not active, ignoring")
-        return
-    end
 
     if ev.action == "Cancel" and kind == "pressed" then
         dbg("_on_input_event: Cancel pressed -> deactivate")
@@ -301,7 +316,7 @@ function CameraController:_on_input_event(kind, ev)
         dbg("_on_input_event: skipping movement for released event")
         return
     end
-    local active = self.input and self.input:get_active_direction()
+    local active = self.input and self.input:get_active_direction(self)
     if not active then
         dbg("_on_input_event: no active direction, skipping")
         return
@@ -317,7 +332,7 @@ end
 
 -- Legacy entry point.
 function CameraController:handle_input()
-    if not self.is_active then return end
+    if not self.is_active or not self.input or not self.input:has_input_control(self) then return end
     if self:hasPendingMove() then return end
 
     if self.mode == CameraMode.PlayerControlled then
@@ -359,6 +374,14 @@ function CameraController:activate(mode, lock_player_input)
     assert(CameraMode:isValid(new_mode), "Invalid CameraMode for activation")
     self.mode = new_mode
 
+    dbg("activate: input_instance=", tostring(self.input),
+        "input_owner_before_claim=", tostring(self.input and self.input:get_input_owner()))
+    if not self.input or not self.input:claim_input(self) then
+        dbg("activate: input is owned by another system; refusing camera activation")
+        self._activating = false
+        return false
+    end
+
     local should_lock = (lock_player_input == nil) and true or lock_player_input
     self.input_locked = should_lock
     dbg("activate: locking input =", tostring(should_lock))
@@ -376,7 +399,7 @@ function CameraController:activate(mode, lock_player_input)
 
     if self.input then
         dbg("activate: require_release for CAMERA_DIRECTIONS")
-        self.input:require_release(CAMERA_DIRECTIONS)
+        self.input:require_release(CAMERA_DIRECTIONS, self)
     end
 
     -- Install the camera's repeat cadence on the shared controller.
@@ -397,6 +420,7 @@ function CameraController:activate(mode, lock_player_input)
         "mode=", tostring(CameraMode:getName(self.mode)))
 
     self._activating = false
+    return true
 end
 
 function CameraController:deactivate(keep_camera_position)
@@ -409,6 +433,10 @@ function CameraController:deactivate(keep_camera_position)
 
     self.is_active = false
     self.pending_position = nil
+
+    -- Release only our own lease; if another system already took ownership,
+    -- leave its lease untouched.
+    if self.input then self.input:release_input(self) end
 
     if keep_camera_position ~= true then
         Net.unlock_player_camera(self.player_id)
@@ -435,6 +463,10 @@ function CameraController:destroy()
     dbg("destroy: player=", tostring(self.player_id))
     self:deactivate(true)
     self:_unbind_input()
+    if self.input and self._handler_owner_changed then
+        emitter_off(self.input, "input_owner_changed", self._handler_owner_changed)
+    end
+    self._handler_owner_changed = nil
 end
 
 function CameraController:returnToPlayer()
@@ -458,7 +490,7 @@ function CameraController:setMode(new_mode, custom_handlers)
         self.custom_handlers = custom_handlers
     end
     if self.input then
-        self.input:require_release(CAMERA_DIRECTIONS)
+        self.input:require_release(CAMERA_DIRECTIONS, self)
     end
     if self.is_active then
         self:_apply_repeat_delays()
