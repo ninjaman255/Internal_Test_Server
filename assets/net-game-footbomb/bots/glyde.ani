@@ -1,0 +1,36 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bots/glyde.png"
+
+anim IDLE_U
+frame dur=6f x=0 y=0 w=29 h=39 originx=13 originy=37
+
+anim IDLE_UR
+frame dur=6f x=29 y=0 w=29 h=39 originx=14 originy=37 flipx=1
+
+anim WALK_U
+frame dur=6f x=58 y=0 w=29 h=39 originx=14 originy=37
+frame dur=6f x=87 y=0 w=29 h=39 originx=14 originy=37
+frame dur=6f x=116 y=0 w=29 h=39 originx=14 originy=37
+frame dur=6f x=145 y=0 w=29 h=39 originx=14 originy=37
+frame dur=6f x=174 y=0 w=29 h=39 originx=14 originy=37
+frame dur=6f x=203 y=0 w=29 h=39 originx=14 originy=37
+
+anim WALK_UR
+frame dur=6f x=0 y=39 w=29 h=39 originx=15 originy=37 flipx=1
+frame dur=6f x=29 y=39 w=29 h=39 originx=15 originy=37 flipx=1
+frame dur=6f x=58 y=39 w=29 h=39 originx=13 originy=37 flipx=1
+frame dur=6f x=87 y=39 w=29 h=39 originx=13 originy=37 flipx=1
+frame dur=6f x=116 y=39 w=29 h=39 originx=13 originy=37 flipx=1
+frame dur=6f x=145 y=39 w=29 h=39 originx=13 originy=37 flipx=1
+
+anim FOOTBOMB_READY_DEFENSE
+frame dur=5f x=33 y=85 w=21 h=35 originx=10 originy=34
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=5f x=70 y=84 w=36 h=36 originx=19 originy=35
+
+anim FOOTBOMB_IDLE_DEFENSE
+frame dur=5f x=5 y=85 w=21 h=35 originx=10 originy=34
+
+anim IDLE_D
+frame dur=5f x=5 y=85 w=21 h=35 originx=10 originy=34

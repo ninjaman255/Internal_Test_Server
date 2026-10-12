@@ -1,0 +1,36 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bots/roll.png"
+
+anim IDLE_U
+frame dur=3f x=49 y=56 w=43 h=51 originx=23 originy=42
+
+anim IDLE_UR
+frame dur=3f x=92 y=56 w=43 h=51 originx=24 originy=42
+
+anim WALK_U
+frame dur=6f x=135 y=56 w=23 h=35 originx=12 originy=32
+frame dur=6f x=158 y=56 w=23 h=35 originx=12 originy=32
+frame dur=6f x=181 y=56 w=23 h=35 originx=11 originy=32
+frame dur=6f x=204 y=56 w=23 h=35 originx=11 originy=32
+frame dur=6f x=227 y=56 w=23 h=35 originx=11 originy=32
+frame dur=6f x=135 y=91 w=23 h=35 originx=11 originy=32
+
+anim WALK_UR
+frame dur=6f x=0 y=0 w=49 h=56 originx=26 originy=45
+frame dur=6f x=49 y=0 w=49 h=56 originx=26 originy=45
+frame dur=6f x=98 y=0 w=49 h=56 originx=26 originy=45
+frame dur=6f x=147 y=0 w=49 h=56 originx=26 originy=45
+frame dur=6f x=196 y=0 w=49 h=56 originx=26 originy=45
+frame dur=6f x=0 y=56 w=49 h=56 originx=26 originy=45
+
+anim FOOTBOMB_READY_DEFENSE
+frame dur=5f x=30 y=115 w=19 h=34 originx=9 originy=33
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=5f x=51 y=110 w=32 h=39 originx=16 originy=38
+
+anim FOOTBOMB_IDLE_DEFENSE
+frame dur=5f x=7 y=116 w=19 h=33 originx=9 originy=32
+
+anim IDLE_D
+frame dur=5f x=7 y=116 w=19 h=33 originx=9 originy=32
