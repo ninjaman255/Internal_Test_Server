@@ -26,7 +26,8 @@ local BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
 local NAVI_OPTIONS = {
     { name = "MegaMan", texture = BOT_ASSET_FOLDER .. "megaman.png", animation = BOT_ASSET_FOLDER .. "megaman.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
     -- { name = "Roll", texture = BOT_ASSET_FOLDER .. "roll.png", animation = BOT_ASSET_FOLDER .. "roll.animation" },
-    -- { name = "ProtoMan", texture = BOT_ASSET_FOLDER .. "protoman-bn5.png", animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation" },
+    { name = "Normal Navi", texture = BOT_ASSET_FOLDER .. "normal-navi-green.png", animation = BOT_ASSET_FOLDER .. "normal-navi-green.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
+    { name = "ProtoMan", texture = BOT_ASSET_FOLDER .. "protoman-bn5.png", animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
     {
         name = "Prog",
         texture = BOT_ASSET_FOLDER .. "prog.png",
