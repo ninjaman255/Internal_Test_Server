@@ -7,6 +7,7 @@ local EzMapInstance = require("scripts/ezlibs-scripts/ezmapinstance")
 local games = require("scripts/net-games/main")
 local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
+local CameraManager = require("scripts/camera/camera-manager")
 
 local FootBomb = {}
 local npc_refs = {}                 -- area_id -> actor_id -> reference
@@ -186,10 +187,12 @@ local function create_match_bots(instance, spawn_points, vs_npc)
 
     for slot = 1, 2 do
         local position = spawn_points[slot]
+        local skin_index = (vs_npc and slot == 2) and math.random(1, #NAVI_OPTIONS) or 1
+        local skin = NAVI_OPTIONS[skin_index]
         local ok, bot_id = pcall(Net.create_bot, actor_ids[slot], {
             name = labels[slot], area_id = instance.area_id,
-            texture_path = MEGAMAN_TEXTURE, animation_path = MEGAMAN_ANIMATION,
-            animation = "IDLE_D",
+            texture_path = skin.texture, animation_path = skin.animation,
+            animation = skin.animation_state or "IDLE_D",
             x = position.x, y = position.y, z = position.z,
             direction = "Down", solid = false, size = 0.2, warp_in = false,
             dont_face_player = true
@@ -201,7 +204,8 @@ local function create_match_bots(instance, spawn_points, vs_npc)
         created[#created + 1] = {
             id = bot_id, actor_id = actor_ids[slot], slot = slot,
             position = { x = position.x, y = position.y, z = position.z },
-            skin_index = 1, fixed_skin = vs_npc and slot == 2
+            skin_index = skin_index, fixed_skin = vs_npc and slot == 2,
+            navi_name = skin.name
         }
     end
 
@@ -223,7 +227,7 @@ local function transfer_match_players(instance, player_ids, spawn_points)
 
         local spawn = spawn_points[slot]
         local ok, result = pcall(EzMapInstance.transfer_player, instance.id, player_id,
-            spawn.x, spawn.y, spawn.z)
+            spawn.x, spawn.y, spawn.z, false)
         if ok and result ~= false then
             transferred[#transferred + 1] = player_id
         else
@@ -288,13 +292,44 @@ local function move_player_off_map(player_id, area_id)
     return false
 end
 
-local function remove_representation(player_id)
-    local rep = player_representations[player_id]
+local function hide_selector_ui(player_id, rep)
+    rep = rep or player_representations[player_id]
     if not rep then return end
+
     if rep.cursor_top then pcall(games.remove_ui_element, rep.cursor_top, player_id) end
     if rep.cursor_bottom then pcall(games.remove_ui_element, rep.cursor_bottom, player_id) end
     if rep.skin_text_id then pcall(games.remove_text, rep.skin_text_id, player_id) end
     if rep.confirm_prompt_text_id then pcall(games.remove_text, rep.confirm_prompt_text_id, player_id) end
+    rep.selector_ui_visible = false
+end
+
+local function show_selector_ui(player_id, rep)
+    if not rep or player_representations[player_id] ~= rep then return end
+    if rep.confirming or rep.selection_confirmed or rep.match_started then return end
+    if Net.get_player_area(player_id) ~= rep.area_id then return end
+    if rep.selector_ui_visible then return end
+
+    local bot_x = math.floor(SCREEN_WIDTH / 2)
+    local bot_y = math.floor(SCREEN_HEIGHT / 2)
+    pcall(games.add_ui_element, rep.cursor_top, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION,
+        "CURSOR_UP", bot_x, bot_y - 40, 100, 2.0, 2.0)
+    pcall(games.add_ui_element, rep.cursor_bottom, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION,
+        "CURSOR_DOWN", bot_x, bot_y + 20, 100, 2.0, 2.0)
+
+    draw_navi_name(player_id, rep, NAVI_OPTIONS[rep.skin_index].name)
+    local prompt_width = TextLayout.measureLine(NAVI_CONFIRM_PROMPT, {
+        font = "THICK", scale = NAVI_CONFIRM_PROMPT_SCALE
+    })
+    local prompt_x = math.max(0, math.floor((SCREEN_WIDTH - prompt_width) / 2))
+    pcall(games.draw_text, rep.confirm_prompt_text_id, player_id, NAVI_CONFIRM_PROMPT,
+        prompt_x, NAVI_CONFIRM_PROMPT_Y, 100, "THICK", NAVI_CONFIRM_PROMPT_SCALE)
+    rep.selector_ui_visible = true
+end
+
+local function remove_representation(player_id)
+    local rep = player_representations[player_id]
+    if not rep then return end
+    hide_selector_ui(player_id, rep)
 
     -- Net.toggle_player_hud is the engine API used by Simon Says to hide and
     -- restore the player's HUD around a minigame. Only undo the toggle when
@@ -399,24 +434,8 @@ local function setup_player_representation(player_id, instance, bot_record)
         log("No input controller available for player " .. tostring(player_id))
     end
 
-    local SCREEN_HEIGHT = 160
-    local bot_x = math.max(0, math.floor((SCREEN_WIDTH / 2)))
-    local bot_y = math.max(0, math.floor((SCREEN_HEIGHT / 2)))
+    show_selector_ui(player_id, rep)
 
-    pcall(games.add_ui_element, rep.cursor_top, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION, "CURSOR_UP", bot_x, (bot_y - 40), 100, 2.0, 2.0)
-    pcall(games.add_ui_element, rep.cursor_bottom, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION, "CURSOR_DOWN", bot_x, (bot_y + 20), 100, 2.0, 2.0)
-    -- Draw the selected Navi name centered below the bot. The camera follows
-    -- the bot, so the label is placed in screen coordinates beneath its sprite.
-    draw_navi_name(player_id, rep, NAVI_OPTIONS[rep.skin_index].name)
-
-    -- The displayer uses a uniform scale factor (not separate ScaleX/ScaleY).
-    -- Measure with the same font metrics so the prompt is horizontally centered.
-    local prompt_width = TextLayout.measureLine(NAVI_CONFIRM_PROMPT, {
-        font = "THICK", scale = NAVI_CONFIRM_PROMPT_SCALE
-    })
-    local prompt_x = math.max(0, math.floor((SCREEN_WIDTH - prompt_width) / 2))
-    pcall(games.draw_text, rep.confirm_prompt_text_id, player_id, NAVI_CONFIRM_PROMPT,
-        prompt_x, NAVI_CONFIRM_PROMPT_Y, 100, "THICK", NAVI_CONFIRM_PROMPT_SCALE)
     -- The real player actor is intentionally moved off-map. Do NOT lock the
     -- camera to that actor: doing so pins the view at roughly (-1000, -1000)
     -- and makes the player activate the free-camera controller to see the bot.
@@ -490,7 +509,7 @@ local function launch_player_match(waiting, second_player)
     if #transferred ~= 2 then
         remove_instance_bots(instance.id)
         for _, player_id in ipairs(transferred) do
-            pcall(Net.transfer_player, player_id, waiting.source_area_id)
+            pcall(Net.transfer_player, player_id, waiting.source_area_id, false)
         end
         EzMapInstance.remove(instance.id)
         return false, "I couldn't transfer both players to the FootBomb field."
@@ -545,13 +564,58 @@ local function cycle_player_skin(player_id, direction)
     rep.bot_record.id = new_id
     rep.bot_id = new_id
     -- Re-draw so the x position is re-centered for names of different widths.
-    draw_navi_name(player_id, rep, option.name)
+    if rep.selector_ui_visible then
+        draw_navi_name(player_id, rep, option.name)
+    end
     local slots = instance_bots[rep.instance_id]
     if slots and slots[rep.slot] then
         slots[rep.slot].id = new_id
         slots[rep.slot].skin_index = next_index
     end
     log("Player " .. tostring(player_id) .. " selected " .. option.name)
+end
+
+local function fade_player_to_black(player_id)
+
+    local ok, err = pcall(Net.fade_player_camera, player_id, { r = 0, g = 0, b = 0, a = 255 }, 0.8)
+
+    if not ok then
+        log("Camera fade failed for " .. tostring(player_id) .. ": " .. tostring(err))
+        return false
+    end
+    return true
+end
+
+local function try_begin_match(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots or #bots < 2 then return end
+    local human_reps = {}
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            human_reps[#human_reps + 1] = { player_id = player_id, rep = rep }
+            if not rep.selection_confirmed then return end
+        end
+    end
+    if #human_reps == 0 then return end
+    if bots.match_started then return end
+    bots.match_started = true
+
+    local kicker_slot = math.random(1, 2)
+    bots[1].role = kicker_slot == 1 and "Kicker" or "Defender"
+    bots[2].role = kicker_slot == 2 and "Kicker" or "Defender"
+    for _, entry in ipairs(human_reps) do
+        local rep = entry.rep
+        rep.match_started = true
+        hide_selector_ui(entry.player_id, rep)
+        async(function()
+            await(Async.message_player(entry.player_id,
+                "FootBomb will begin shortly! You are the " .. tostring(bots[rep.slot].role) .. "."))
+            if player_representations[entry.player_id] == rep then
+                fade_player_to_black(entry.player_id)
+            end
+        end)
+    end
+    log("Assigned FootBomb roles for " .. tostring(instance_id) .. ": Player 1=" .. bots[1].role .. ", Player 2=" .. bots[2].role)
 end
 
 local function confirm_navi_selection(player_id, rep)
@@ -564,6 +628,7 @@ local function confirm_navi_selection(player_id, rep)
     -- edge that opened this flow and require release so the textbox's own
     -- confirm/dismiss input cannot also activate the selector.
     rep.confirming = true
+    hide_selector_ui(player_id, rep)
     if rep.input and rep.input_owner and rep.input:has_input_control(rep.input_owner) then
         rep.input:consume(rep.input_owner)
         rep.input:require_release({ "Up", "Down", "Confirm", "Cancel" }, rep.input_owner)
@@ -585,10 +650,13 @@ local function confirm_navi_selection(player_id, rep)
         if not representation_is_current() then return end
 
         if choice == 0 then
-            -- This is the confirmation action for now; gameplay assignment is
-            -- intentionally left for a later implementation step.
             rep.selection_confirmed = true
+            rep.confirmed_skin_index = rep.skin_index
+            rep.confirming = false
             await(Async.message_player(player_id, "You selected " .. option.name .. "!"))
+            if player_representations[player_id] == rep then
+                try_begin_match(rep.instance_id)
+            end
         end
 
         if player_representations[player_id] == rep and not rep.selection_confirmed then
@@ -599,6 +667,7 @@ local function confirm_navi_selection(player_id, rep)
                 rep.input:require_release({ "Up", "Down", "Confirm", "Cancel" }, rep.input_owner)
             end
             rep.confirming = false
+            show_selector_ui(player_id, rep)
         end
     end)
 end

@@ -215,7 +215,7 @@ end
 
 --- Transfer a player to the cloned area at an explicit position.
 --- Coordinates are required because spawn selection belongs to the caller.
-function EzMapInstance.transfer_player(instance_id, player_id, x, y, z)
+function EzMapInstance.transfer_player(instance_id, player_id, x, y, z, warp_in)
     local record = instances[instance_id]
     if not record then
         return false, "instance not found"
@@ -227,7 +227,9 @@ function EzMapInstance.transfer_player(instance_id, player_id, x, y, z)
         return false, "Net.transfer_player is unavailable"
     end
 
-    local ok, transfer_result = pcall(Net.transfer_player, player_id, instance_id, true, x, y, z)
+    local should_warp_in = warp_in or true
+
+    local ok, transfer_result = pcall(Net.transfer_player, player_id, instance_id, should_warp_in, x, y, z)
     if not ok then
         return false, "Net.transfer_player failed: " .. tostring(transfer_result)
     end
