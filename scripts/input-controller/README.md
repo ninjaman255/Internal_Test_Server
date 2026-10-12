@@ -32,6 +32,7 @@
 | 16 | [Release-Required & Swallowing](#-release-required--swallowing) |
 | 17 | [Example Usage](#-example-usage) |
 | 18 | [Notes & Internals](#-notes--internals) |
+| 19 | [Singleton Loading & Locked Input](#-singleton-loading--locked-input) |
 
 ---
 
@@ -1143,3 +1144,36 @@ InputAPI.destroy_controller(player_id)
 when a player disconnects.
 
 ---
+
+# 🔒 Singleton Loading & Locked Input
+
+## One shared controller registry
+
+Import the public API through the canonical path:
+
+```lua
+local InputAPI = require("scripts/input-controller/main")
+```
+
+`main.lua` registers the `player_join`, `player_disconnect`, `virtual_input`, and `tick` listeners and keeps the per-player controller registry. It also publishes a versioned API singleton in `_G`. If the file is evaluated again in the **same Lua global environment**, it returns that API before registering duplicate listeners. A complete server restart is recommended after replacing the module so a previously loaded API is not retained.
+
+This guard cannot merge registries across separate Lua global environments. If controller creation repeats after the singleton message, check the server's script-loading configuration and ensure consumers use the same canonical module path.
+
+## Locked input and `virtual_input`
+
+For interactive minigames that need the server's `virtual_input` stream while suppressing ordinary player movement, use the engine's input-lock lifecycle:
+
+```lua
+Net.lock_player_input(player_id)
+-- Read event.player_id and event.events in a virtual_input handler.
+-- When the interaction ends:
+Net.unlock_player_input(player_id)
+```
+
+This pattern is used by `scripts/simon-says.lua` and by the FootBomb Navi selector. FootBomb locks input when its selector representation is created and unlocks it when that representation is removed. Every system that acquires a player input lock must have cleanup paths for normal exit and disconnect; do not assume a controller ownership release also unlocks the engine input lock.
+
+The shared `InputController` and the engine lock solve different problems:
+
+- `Net.lock_player_input` controls the player's normal input/movement path and enables the expected `virtual_input`-driven minigame flow in these modules.
+- `claim_input(owner, force?)` arbitrates which server-side consumer may read the shared controller's logical action edges.
+- `release_input(owner)` releases only that consumer's ownership; it does not call `Net.unlock_player_input`.

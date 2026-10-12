@@ -1,0 +1,33 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bots/megaman.png"
+
+anim FOOTBOMB_IDLE_DEFENSE
+frame dur=11f x=48 y=119 w=17 h=28 originx=8 originy=27
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=11f x=94 y=114 w=35 h=33 originx=17 originy=32
+
+anim FOOTBOMB_READY_DEFENSE
+frame dur=11f x=71 y=118 w=17 h=29 originx=8 originy=28
+
+anim IDLE_U
+frame dur=5f x=1 y=1 w=17 h=34 originx=8 originy=31
+
+anim IDLE_UR
+frame dur=5f x=22 y=1 w=16 h=33 originx=7 originy=31
+
+anim WALK_U
+frame dur=5f x=1 y=41 w=18 h=32 originx=8 originy=31
+frame dur=5f x=24 y=42 w=17 h=31 originx=8 originy=30
+frame dur=5f x=46 y=41 w=17 h=32 originx=7 originy=31
+frame dur=5f x=66 y=41 w=18 h=32 originx=9 originy=31
+frame dur=5f x=89 y=42 w=17 h=31 originx=9 originy=30
+frame dur=5f x=111 y=41 w=17 h=32 originx=9 originy=31
+
+anim WALK_UR
+frame dur=5f x=2 y=77 w=16 h=32 originx=6 originy=31
+frame dur=5f x=25 y=78 w=20 h=31 originx=9 originy=30
+frame dur=5f x=50 y=77 w=21 h=32 originx=10 originy=31
+frame dur=5f x=77 y=77 w=20 h=32 originx=8 originy=31
+frame dur=5f x=101 y=78 w=20 h=31 originx=9 originy=30
+frame dur=5f x=126 y=77 w=19 h=32 originx=7 originy=31

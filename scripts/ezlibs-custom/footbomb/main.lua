@@ -5,6 +5,7 @@ local logger = require("scripts/ezlibs-scripts/ezlogger").get("footbomb")
 local object_registry = require("scripts/ezlibs-scripts/object_registry")
 local EzMapInstance = require("scripts/ezlibs-scripts/ezmapinstance")
 local games = require("scripts/net-games/main")
+local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
 
 local FootBomb = {}
@@ -23,18 +24,43 @@ local DEFAULT_ASSET_NAME = "male-navi-exe6_teal"
 local DEFAULT_MUG_ANIMATION = MUG_FOLDER .. "mug.animation"
 local BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
 local NAVI_OPTIONS = {
-    { name = "MegaMan", texture = BOT_ASSET_FOLDER .. "megaman.png", animation = BOT_ASSET_FOLDER .. "megaman.animation" },
-    { name = "Roll", texture = BOT_ASSET_FOLDER .. "roll.png", animation = BOT_ASSET_FOLDER .. "roll.animation" },
-    { name = "ProtoMan", texture = BOT_ASSET_FOLDER .. "protoman-bn5.png", animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation" }
+    { name = "MegaMan", texture = BOT_ASSET_FOLDER .. "megaman.png", animation = BOT_ASSET_FOLDER .. "megaman.animation", animation_state = "FOOTBOMB_IDLE_DEFENSE" },
+    -- { name = "Roll", texture = BOT_ASSET_FOLDER .. "roll.png", animation = BOT_ASSET_FOLDER .. "roll.animation" },
+    -- { name = "ProtoMan", texture = BOT_ASSET_FOLDER .. "protoman-bn5.png", animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation" },
+    {
+        name = "Prog",
+        texture = BOT_ASSET_FOLDER .. "prog.png",
+        animation = BOT_ASSET_FOLDER .. "prog.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    }
 }
 local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
 local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
-local CURSOR_TOP_TEXTURE = "/server/assets/net-games/cursors/green_cursor.png"
-local CURSOR_BOTTOM_TEXTURE = "/server/assets/net-games/cursors/orange_cursor.png"
+local CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png"
+local CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
+local CURSOR_SFX = "server/assets/net-games/sfx/cursor_move.ogg"
 local OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 }
+local NAVI_CONFIRM_PROMPT = "Press A To Confirm Navi"
+local NAVI_CONFIRM_PROMPT_SCALE = 2.0
+local NAVI_CONFIRM_PROMPT_Y = 5
+local NAVI_NAME_SCALE = 1.5
+local SCREEN_WIDTH = 240
+local SCREEN_HEIGHT = 160
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
+end
+
+-- The camera is kept centered on the selected bot, while displayer text uses
+-- virtual screen coordinates. Center the label using the measured width and
+-- place it below the bot's usual screen-centered sprite position.
+local function draw_navi_name(player_id, rep, name)
+    local width = TextLayout.measureLine(name, {
+        font = "THICK", scale = NAVI_NAME_SCALE
+    })
+    local x = math.max(0, math.floor((SCREEN_WIDTH - width) / 2))
+    pcall(games.draw_text, rep.skin_text_id, player_id, name,
+        x, ((SCREEN_HEIGHT / 2) + 4), 100, "THICK", NAVI_NAME_SCALE)
 end
 
 local function as_string(value, fallback)
@@ -160,7 +186,7 @@ local function create_match_bots(instance, spawn_points, vs_npc)
         local ok, bot_id = pcall(Net.create_bot, actor_ids[slot], {
             name = labels[slot], area_id = instance.area_id,
             texture_path = MEGAMAN_TEXTURE, animation_path = MEGAMAN_ANIMATION,
-            animation = "IDLE_DL",
+            animation = "IDLE_D",
             x = position.x, y = position.y, z = position.z,
             direction = "Down", solid = false, size = 0.2, warp_in = false,
             dont_face_player = true
@@ -188,8 +214,9 @@ local function transfer_match_players(instance, player_ids, spawn_points)
             pcall(Net.provide_asset_for_player, player_id, option.texture)
             pcall(Net.provide_asset_for_player, player_id, option.animation)
         end
-        pcall(Net.provide_asset_for_player, player_id, CURSOR_TOP_TEXTURE)
-        pcall(Net.provide_asset_for_player, player_id, CURSOR_BOTTOM_TEXTURE)
+        pcall(Net.provide_asset_for_player, player_id, CURSOR_SFX)
+        pcall(Net.provide_asset_for_player, player_id, CURSOR_TEXTURE)
+        pcall(Net.provide_asset_for_player, player_id, CURSOR_ANIMATION)
 
         local spawn = spawn_points[slot]
         local ok, result = pcall(EzMapInstance.transfer_player, instance.id, player_id,
@@ -264,6 +291,15 @@ local function remove_representation(player_id)
     if rep.cursor_top then pcall(games.remove_ui_element, rep.cursor_top, player_id) end
     if rep.cursor_bottom then pcall(games.remove_ui_element, rep.cursor_bottom, player_id) end
     if rep.skin_text_id then pcall(games.remove_text, rep.skin_text_id, player_id) end
+    if rep.confirm_prompt_text_id then pcall(games.remove_text, rep.confirm_prompt_text_id, player_id) end
+
+    -- Net.toggle_player_hud is the engine API used by Simon Says to hide and
+    -- restore the player's HUD around a minigame. Only undo the toggle when
+    -- this representation successfully applied it.
+    if rep.hud_hidden and type(Net.toggle_player_hud) == "function" then
+        pcall(Net.toggle_player_hud, player_id)
+        rep.hud_hidden = false
+    end
 
     -- Return the shared controller to the unclaimed state only if this
     -- representation still owns it. Never release a newer system's lease.
@@ -271,10 +307,6 @@ local function remove_representation(player_id)
     if input and rep.input_owner then
         pcall(input.release_input, input, rep.input_owner)
     end
-    if input and rep.input_diagnostics_token and input.diagnostics == rep.input_diagnostics_token then
-        input.diagnostics = nil
-    end
-
     if type(Net.unlock_player_camera) == "function" then pcall(Net.unlock_player_camera, player_id) end
     if type(Net.track_with_player_camera) == "function" then pcall(Net.track_with_player_camera, player_id) end
 
@@ -311,11 +343,25 @@ local function setup_player_representation(player_id, instance, bot_record)
         cursor_top = "footbomb_cursor_top_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
         cursor_bottom = "footbomb_cursor_bottom_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
         skin_text_id = "footbomb_navi_name_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        confirm_prompt_text_id = "footbomb_navi_confirm_prompt_" .. tostring(player_id):gsub("[^%w_%-]", "_"),
         skin_index = bot_record.skin_index or 1,
         input = InputAPI.get_controller(player_id) or InputAPI.create_controller(player_id),
         input_owner = "footbomb:" .. tostring(instance.id) .. ":" .. tostring(player_id)
     }
     player_representations[player_id] = rep
+
+    -- Hide the standard HUD while FootBomb's dedicated selector/game view is
+    -- active. Restore it in remove_representation during match exit/disconnect.
+    if type(Net.toggle_player_hud) == "function" then
+        local ok, err = pcall(Net.toggle_player_hud, player_id)
+        if ok then
+            rep.hud_hidden = true
+        else
+            log("Could not hide player HUD for " .. tostring(player_id) .. ": " .. tostring(err))
+        end
+    else
+        log("Net.toggle_player_hud is unavailable; standard HUD will remain visible")
+    end
 
     -- Match Simon Says' input lifecycle: lock normal player movement while
     -- FootBomb is active so the engine emits virtual_input events to the shared
@@ -333,32 +379,16 @@ local function setup_player_representation(player_id, instance, bot_record)
         log("Net.lock_player_input is unavailable; selector virtual_input may not be emitted")
     end
 
-    -- Diagnostic ownership handoff. Compare this instance with the instance
-    -- printed by InputAPI and CameraController to detect duplicate registries.
-    log("selector setup player=" .. tostring(player_id)
-        .. " area=" .. tostring(rep.area_id)
-        .. " instance=" .. tostring(rep.instance_id)
-        .. " input_instance=" .. tostring(rep.input)
-        .. " owner_before_claim=" .. tostring(rep.input and rep.input:get_input_owner())
-        .. " requested_owner=" .. tostring(rep.input_owner))
-
     -- Entering FootBomb is an explicit context handoff: take exclusive input
     -- ownership from the camera controller (or another previous UI owner).
     if rep.input then
         local claimed = rep.input:claim_input(rep.input_owner, true)
-        log("selector claim result player=" .. tostring(player_id)
-            .. " input_instance=" .. tostring(rep.input)
-            .. " claimed=" .. tostring(claimed)
-            .. " owner_after_claim=" .. tostring(rep.input:get_input_owner()))
         if claimed then
-            -- Enable targeted direction diagnostics only while this FootBomb
-            -- representation owns the shared controller.
-            rep.input_diagnostics_token = "footbomb-selector:" .. tostring(player_id)
-            rep.input.diagnostics = rep.input_diagnostics_token
+            -- Clear any edge left over from the previous UI/context, then
+            -- require every selector action (especially Confirm) to be released
+            -- before accepting a fresh press in the Navi selector.
+            rep.input:consume(rep.input_owner)
             rep.input:require_release({ "Up", "Down", "Confirm", "Cancel" }, rep.input_owner)
-            log("selector diagnostics enabled player=" .. tostring(player_id)
-                .. " controller=" .. tostring(rep.input)
-                .. " active=" .. tostring(rep.input:is_active()))
         else
             log("Could not claim input for player " .. tostring(player_id))
         end
@@ -366,10 +396,24 @@ local function setup_player_representation(player_id, instance, bot_record)
         log("No input controller available for player " .. tostring(player_id))
     end
 
-    pcall(games.add_ui_element, rep.cursor_top, player_id, CURSOR_TOP_TEXTURE, nil, nil, 112, 43, 100, 1, 1)
-    pcall(games.add_ui_element, rep.cursor_bottom, player_id, CURSOR_BOTTOM_TEXTURE, nil, nil, 112, 104, 100, 1, 1)
-    -- Draw the selected Navi name between the two visual cursor markers.
-    pcall(games.draw_text, rep.skin_text_id, player_id, NAVI_OPTIONS[rep.skin_index].name, 86, 72, 100, "THICK", 1.5)
+    local SCREEN_HEIGHT = 160
+    local bot_x = math.max(0, math.floor((SCREEN_WIDTH / 2)))
+    local bot_y = math.max(0, math.floor((SCREEN_HEIGHT / 2)))
+
+    pcall(games.add_ui_element, rep.cursor_top, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION, "CURSOR_UP", bot_x, (bot_y - 40), 100, 2.0, 2.0)
+    pcall(games.add_ui_element, rep.cursor_bottom, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION, "CURSOR_DOWN", bot_x, (bot_y + 20), 100, 2.0, 2.0)
+    -- Draw the selected Navi name centered below the bot. The camera follows
+    -- the bot, so the label is placed in screen coordinates beneath its sprite.
+    draw_navi_name(player_id, rep, NAVI_OPTIONS[rep.skin_index].name)
+
+    -- The displayer uses a uniform scale factor (not separate ScaleX/ScaleY).
+    -- Measure with the same font metrics so the prompt is horizontally centered.
+    local prompt_width = TextLayout.measureLine(NAVI_CONFIRM_PROMPT, {
+        font = "THICK", scale = NAVI_CONFIRM_PROMPT_SCALE
+    })
+    local prompt_x = math.max(0, math.floor((SCREEN_WIDTH - prompt_width) / 2))
+    pcall(games.draw_text, rep.confirm_prompt_text_id, player_id, NAVI_CONFIRM_PROMPT,
+        prompt_x, NAVI_CONFIRM_PROMPT_Y, 100, "THICK", NAVI_CONFIRM_PROMPT_SCALE)
     -- The real player actor is intentionally moved off-map. Do NOT lock the
     -- camera to that actor: doing so pins the view at roughly (-1000, -1000)
     -- and makes the player activate the free-camera controller to see the bot.
@@ -456,7 +500,7 @@ end
 
 local function cycle_player_skin(player_id, direction)
     local rep = player_representations[player_id]
-    if not rep or not rep.bot_record or rep.bot_record.fixed_skin then return end
+    if not rep or rep.confirming or rep.selection_confirmed or not rep.bot_record or rep.bot_record.fixed_skin then return end
 
     local next_index = ((rep.skin_index - 1 + direction) % #NAVI_OPTIONS) + 1
     if next_index == rep.skin_index then return end
@@ -471,7 +515,8 @@ local function cycle_player_skin(player_id, direction)
     local ok, new_id = pcall(Net.create_bot, rep.actor_id, {
         name = rep.slot == 1 and "FootBomb Player 1" or "FootBomb Player 2",
         area_id = rep.area_id, texture_path = option.texture, animation_path = option.animation,
-        animation = "IDLE_DL", x = position.x, y = position.y, z = position.z,
+        animation = option.animation_state or "IDLE_D",
+        x = position.x, y = position.y, z = position.z,
         direction = "Down", solid = false, size = 0.2, warp_in = false, dont_face_player = true
     })
 
@@ -481,7 +526,8 @@ local function cycle_player_skin(player_id, direction)
         local restore_ok, restored_id = pcall(Net.create_bot, rep.actor_id, {
             name = rep.slot == 1 and "FootBomb Player 1" or "FootBomb Player 2",
             area_id = rep.area_id, texture_path = old_option.texture, animation_path = old_option.animation,
-            animation = "IDLE_DL", x = position.x, y = position.y, z = position.z,
+            animation = old_option.animation_state or "IDLE_D",
+            x = position.x, y = position.y, z = position.z,
             direction = "Down", solid = false, size = 0.2, warp_in = false, dont_face_player = true
         })
         if restore_ok and restored_id then
@@ -495,13 +541,63 @@ local function cycle_player_skin(player_id, direction)
     rep.bot_record.skin_index = next_index
     rep.bot_record.id = new_id
     rep.bot_id = new_id
-    pcall(games.update_text, rep.skin_text_id, player_id, option.name)
+    -- Re-draw so the x position is re-centered for names of different widths.
+    draw_navi_name(player_id, rep, option.name)
     local slots = instance_bots[rep.instance_id]
     if slots and slots[rep.slot] then
         slots[rep.slot].id = new_id
         slots[rep.slot].skin_index = next_index
     end
     log("Player " .. tostring(player_id) .. " selected " .. option.name)
+end
+
+local function confirm_navi_selection(player_id, rep)
+    if not rep or rep.confirming or rep.selection_confirmed then return end
+
+    local option = NAVI_OPTIONS[rep.skin_index]
+    if not option then return end
+
+    -- Suspend selector input before opening any textbox. Consume the Confirm
+    -- edge that opened this flow and require release so the textbox's own
+    -- confirm/dismiss input cannot also activate the selector.
+    rep.confirming = true
+    if rep.input and rep.input_owner and rep.input:has_input_control(rep.input_owner) then
+        rep.input:consume(rep.input_owner)
+        rep.input:require_release({ "Up", "Down", "Confirm", "Cancel" }, rep.input_owner)
+    end
+
+    async(function()
+        local function representation_is_current()
+            return player_representations[player_id] == rep
+                and Net.get_player_area(player_id) == rep.area_id
+        end
+
+        if not representation_is_current() then return end
+
+        await(Async.message_player(player_id,
+            "You selected " .. option.name .. ". Would you like to use " .. option.name .. "?"))
+        if not representation_is_current() then return end
+
+        local choice = await(Async.quiz_player(player_id, "Yes", "No"))
+        if not representation_is_current() then return end
+
+        if choice == 0 then
+            -- This is the confirmation action for now; gameplay assignment is
+            -- intentionally left for a later implementation step.
+            rep.selection_confirmed = true
+            await(Async.message_player(player_id, "You selected " .. option.name .. "!"))
+        end
+
+        if player_representations[player_id] == rep and not rep.selection_confirmed then
+            -- The quiz may have consumed Confirm to close the textbox. Clear
+            -- any resulting edge and wait for a fresh release/press cycle.
+            if rep.input and rep.input_owner and rep.input:has_input_control(rep.input_owner) then
+                rep.input:consume(rep.input_owner)
+                rep.input:require_release({ "Up", "Down", "Confirm", "Cancel" }, rep.input_owner)
+            end
+            rep.confirming = false
+        end
+    end)
 end
 
 local function join_waiting_match(player_id, source_area_id, reference)
@@ -620,23 +716,16 @@ Net:on("tick", function(event)
     for player_id, rep in pairs(player_representations) do
         if Net.get_player_area(player_id) == rep.area_id then
             local input = rep.input or InputAPI.get_controller(player_id)
-            if input and rep.input_owner and input:has_input_control(rep.input_owner) then
-                -- Peek before consuming so diagnostics can distinguish a missing
-                -- directional edge from an edge hidden by the release gate.
-                local up_pending = input:peek_action_pressed("Up", rep.input_owner)
-                local down_pending = input:peek_action_pressed("Down", rep.input_owner)
-                if up_pending or down_pending then
-                    log("selector edge observed player=" .. tostring(player_id)
-                        .. " up=" .. tostring(up_pending)
-                        .. " down=" .. tostring(down_pending)
-                        .. " owner_matches=" .. tostring(input:get_input_owner() == rep.input_owner))
-                end
+            if input and rep.input_owner and input:has_input_control(rep.input_owner)
+                and not rep.confirming and not rep.selection_confirmed then
                 if input:is_action_pressed("Up", rep.input_owner) then
-                    log("selector consuming Up player=" .. tostring(player_id))
+                    pcall(Net.play_sound_for_player, player_id, "/server/assets/net-games/sfx/cursor_move.ogg")
                     cycle_player_skin(player_id, -1)
                 elseif input:is_action_pressed("Down", rep.input_owner) then
-                    log("selector consuming Down player=" .. tostring(player_id))
+                    pcall(Net.play_sound_for_player, player_id, "/server/assets/net-games/sfx/cursor_move.ogg")
                     cycle_player_skin(player_id, 1)
+                elseif input:is_action_pressed("Confirm", rep.input_owner) then
+                    confirm_navi_selection(player_id, rep)
                 end
             end
 

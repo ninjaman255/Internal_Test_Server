@@ -61,61 +61,10 @@ Net:on("player_disconnect", function(event)
     end
 end)
 
--- Directional-input diagnostics are enabled only while a consumer (such as
--- FootBomb's selector) sets ctrl.diagnostics. This distinguishes a missing
--- virtual_input event from an event whose payload has an unexpected shape.
-local function describe_table_keys(value, limit)
-    if type(value) ~= "table" then
-        return type(value)
-    end
-    local parts = {}
-    local count = 0
-    for key, item in pairs(value) do
-        count = count + 1
-        if #parts < limit then
-            parts[#parts + 1] = tostring(key) .. "=" .. tostring(item)
-        end
-    end
-    return "table(count=" .. tostring(count) .. "," .. table.concat(parts, ",") .. ")"
-end
-
-local function has_direction_event(events)
-    if type(events) ~= "table" then return false end
-    local direction_names = {
-        ["UI Up"] = true, ["Move Up"] = true,
-        ["UI Down"] = true, ["Move Down"] = true,
-    }
-    for key, value in pairs(events) do
-        if type(key) == "string" and direction_names[key] then return true end
-        if type(value) == "table" and type(value.name) == "string"
-            and direction_names[value.name] then return true end
-    end
-    return false
-end
-
 Net:on("virtual_input", function(event)
-    local player_id = event and event.player_id
-    local ctrl = controllers[player_id]
+    local ctrl = controllers[event.player_id]
     if ctrl then
-        if ctrl.diagnostics then
-            ctrl._input_diagnostic_events = (ctrl._input_diagnostic_events or 0) + 1
-            local count = ctrl._input_diagnostic_events
-            if count <= 20 or has_direction_event(event.events) then
-                print("[InputAPI] virtual_input received player=" .. tostring(player_id)
-                    .. " diagnostic=" .. tostring(ctrl.diagnostics)
-                    .. " event_fields=" .. describe_table_keys(event, 8)
-                    .. " events=" .. describe_table_keys(event.events, 12))
-            end
-        end
         ctrl:handle_raw_input(event.events)
-    elseif player_id ~= nil then
-        -- Only report unknown-player input when a global selector diagnostic
-        -- is enabled; do not create a controller from an input event.
-        local diagnostic_player = rawget(_G, "__footbomb_input_diagnostic_player")
-        if diagnostic_player == player_id then
-            print("[InputAPI] virtual_input has no registered controller player="
-                .. tostring(player_id) .. " event_fields=" .. describe_table_keys(event, 8))
-        end
     end
 end)
 

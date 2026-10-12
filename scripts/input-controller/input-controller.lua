@@ -406,20 +406,9 @@ function InputController:_emit_edge(kind, action, state)
     if self:_swallowing() then return end
     if kind == "pressed" then
         if self.release_required[action] then
-            if self.diagnostics and (action == "Up" or action == "Down") then
-                print("[InputController] direction edge blocked player=" .. tostring(self.player_id)
-                    .. " diagnostic=" .. tostring(self.diagnostics)
-                    .. " action=" .. tostring(action) .. " reason=release_required")
-            end
             return
         end
         self.pressed_actions[action] = true
-        if self.diagnostics and (action == "Up" or action == "Down") then
-            print("[InputController] direction edge queued player=" .. tostring(self.player_id)
-                .. " diagnostic=" .. tostring(self.diagnostics)
-                .. " action=" .. tostring(action)
-                .. " owner=" .. tostring(self.input_owner))
-        end
         self.emitter:emit("button_pressed", { player_id = self.player_id, action = action, state = state or 1, input_owner = self.input_owner })
     elseif kind == "released" then
         self.released_actions[action] = true
@@ -440,20 +429,8 @@ function InputController:handle_raw_input(events)
     local normalized = normalize_events(events)
     for _, ev in ipairs(normalized) do
         local name, state = ev.name, ev.state
-        local previous_state = self.raw_states[name]
         self.raw_states[name] = state
         self.raw_last_seen[name] = self.time
-
-        -- Optional, owner-scoped diagnostics used by FootBomb while tracing
-        -- selector input. Only log direction state changes to avoid packet spam.
-        if self.diagnostics and self.direction_raw_names[name]
-            and previous_state ~= state then
-            print("[InputController] direction raw player=" .. tostring(self.player_id)
-                .. " diagnostic=" .. tostring(self.diagnostics)
-                .. " name=" .. tostring(name)
-                .. " state=" .. tostring(state)
-                .. " previous=" .. tostring(previous_state))
-        end
 
         if state == 4 then
             self.raw_states[name] = 2
@@ -517,15 +494,6 @@ function InputController:_update_direction()
     if self.DEBUG then
         print("[ICTRL] player=" .. tostring(self.player_id) ..
               " dir " .. tostring(old_dir) .. " -> " .. tostring(new_dir))
-    end
-    if self.diagnostics then
-        print("[InputController] direction changed player=" .. tostring(self.player_id)
-            .. " diagnostic=" .. tostring(self.diagnostics)
-            .. " from=" .. tostring(old_dir) .. " to=" .. tostring(new_dir)
-            .. " pressed_up=" .. tostring(self.pressed_actions.Up == true)
-            .. " pressed_down=" .. tostring(self.pressed_actions.Down == true)
-            .. " release_up=" .. tostring(self.release_required.Up == true)
-            .. " release_down=" .. tostring(self.release_required.Down == true))
     end
 
     if old_dir then
