@@ -1,0 +1,8 @@
+animation state="Big-Bomb"
+frame duration="0.0833333" x="0" y="0" w="17" h="16" originx="8" originy="14"
+
+animation state="Preview"
+frame duration="0.0833333" x="0" y="0" w="34" h="16" originx="0" originy="0"
+
+animation state="Small-Bomb"
+frame duration="0.0833333" x="21" y="3" w="13" h="13" originx="6" originy="11"  

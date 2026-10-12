@@ -1,0 +1,11 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bombs/pokemon.png"
+
+anim Preview
+frame dur=5f x=0 y=0 w=34 h=16 originx=0 originy=0
+
+anim Big-Bomb
+frame dur=5f x=0 y=0 w=17 h=16 originx=8 originy=14
+
+anim Small-Bomb
+frame dur=5f x=21 y=3 w=13 h=13 originx=6 originy=11
