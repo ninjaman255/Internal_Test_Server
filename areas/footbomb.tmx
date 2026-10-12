@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="157">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="159">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -107,6 +107,12 @@
    <point/>
   </object>
   <object id="156" name="Goalie Spot Right" x="784" y="656">
+   <point/>
+  </object>
+  <object id="157" name="Player 1 Spawn" x="48" y="80">
+   <point/>
+  </object>
+  <object id="158" name="Player 2 Spawn" x="80" y="48">
    <point/>
   </object>
  </objectgroup>
