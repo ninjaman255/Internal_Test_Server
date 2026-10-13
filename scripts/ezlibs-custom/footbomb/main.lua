@@ -18,108 +18,34 @@ local player_representations = {}  -- player_id -> bot/cursor/camera data
 local instance_bots = {}           -- instance_id -> slot records
 local instance_spawn_points = {}   -- instance_id -> named Player 1/2 positions
 
-local DEFAULT_SOURCE_AREA = "footbomb"
+local Constants = require("scripts/ezlibs-custom/footbomb/constants")
+local AnimationStates = require("scripts/ezlibs-custom/footbomb/animation_states")
+local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
+local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
 
-local DEFAULT_ASSET_NAME = "ref-prog"
-
-local BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
-local BOMB_ASSET_FOLDER = "/server/assets/net-game-footbomb/bombs/"
-local MUG_FOLDER = BOT_ASSET_FOLDER .. "mug/"
-local DEFAULT_MUG_ANIMATION = MUG_FOLDER .. "mug.animation"
-
-
-local NAVI_OPTIONS = {
-    {
-        name = "MegaMan",
-        texture = BOT_ASSET_FOLDER .. "megaman.png",
-        animation = BOT_ASSET_FOLDER .. "megaman.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Roll",
-        texture = BOT_ASSET_FOLDER .. "roll.png",
-        animation = BOT_ASSET_FOLDER .. "roll.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Normal Navi",
-        texture = BOT_ASSET_FOLDER .. "normal-navi-green.png",
-        animation = BOT_ASSET_FOLDER .. "normal-navi-green.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "ProtoMan",
-        texture = BOT_ASSET_FOLDER .. "protoman-bn5.png",
-        animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Glyde",
-        texture = BOT_ASSET_FOLDER .. "glyde.png",
-        animation = BOT_ASSET_FOLDER .. "glyde.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "GutsMan",
-        texture = BOT_ASSET_FOLDER .. "gutsman.png",
-        animation = BOT_ASSET_FOLDER .. "gutsman.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Prog",
-        texture = BOT_ASSET_FOLDER .. "prog.png",
-        animation = BOT_ASSET_FOLDER .. "prog.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    }
-}
-
--- Ball skins used by the selection UI.
--- Gameplay does not use this selection yet.
-local BOMB_OPTIONS = {
-    {
-        name = "Classic-MM",
-        asset_name = "classic-mm"
-    },
-    {
-        name = "Default-Skin",
-        asset_name = "default-skin"
-    },
-    {
-        name = "Pokemon",
-        asset_name = "pokemon"
-    }
-}
-
-local BOMB_PREVIEW_ANIMATION = "Preview"
-
-local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
-local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
-
-local CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png"
-local CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
-local CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg"
-
-local OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 }
-
--- Both selection stages use the same confirmation prompt and rendering path.
-local CONFIRM_PROMPT = "Press A To Confirm"
-local CONFIRM_PROMPT_SCALE = 2.0
-local CONFIRM_PROMPT_Y = 5
-local NAVI_NAME_SCALE = 1.5
-
-local SCREEN_WIDTH = 240
-local SCREEN_HEIGHT = 160
-local SCREEN_CENTER = {x = 120, y = 80}
-
--- Ball selector coordinates use the same 240x160 virtual screen as the
--- existing Navi selector.
-local BOMB_CURSOR_LEFT_X = SCREEN_CENTER.x - 28
-local BOMB_CURSOR_RIGHT_X = SCREEN_CENTER.x + 34
-local BOMB_CURSOR_Y = SCREEN_CENTER.y + 12
-
-local BOMB_PREVIEW_X = SCREEN_CENTER.x - 17
-local BOMB_PREVIEW_Y = SCREEN_CENTER.y + 4
-local BOMB_SELECTOR_SCALE = 2.0
+local DEFAULT_SOURCE_AREA = Constants.DEFAULT_SOURCE_AREA
+local DEFAULT_ASSET_NAME = Constants.DEFAULT_ASSET_NAME
+local BOT_ASSET_FOLDER = Constants.BOT_ASSET_FOLDER
+local BOMB_ASSET_FOLDER = Constants.BOMB_ASSET_FOLDER
+local DEFAULT_MUG_ANIMATION = Constants.DEFAULT_MUG_ANIMATION
+local BOMB_PREVIEW_ANIMATION = AnimationStates.BOMB_PREVIEW
+local CURSOR_TEXTURE = Constants.CURSOR_TEXTURE
+local CURSOR_ANIMATION = Constants.CURSOR_ANIMATION
+local CURSOR_SFX = Constants.CURSOR_SFX
+local OFF_MAP_POSITION = Constants.OFF_MAP_POSITION
+local CONFIRM_PROMPT = Constants.CONFIRM_PROMPT
+local CONFIRM_PROMPT_SCALE = Constants.CONFIRM_PROMPT_SCALE
+local CONFIRM_PROMPT_Y = Constants.CONFIRM_PROMPT_Y
+local NAVI_NAME_SCALE = Constants.NAVI_NAME_SCALE
+local SCREEN_WIDTH = Constants.SCREEN_WIDTH
+local SCREEN_HEIGHT = Constants.SCREEN_HEIGHT
+local SCREEN_CENTER = Constants.SCREEN_CENTER
+local BOMB_CURSOR_LEFT_X = Constants.BOMB_CURSOR_LEFT_X
+local BOMB_CURSOR_RIGHT_X = Constants.BOMB_CURSOR_RIGHT_X
+local BOMB_CURSOR_Y = Constants.BOMB_CURSOR_Y
+local BOMB_PREVIEW_X = Constants.BOMB_PREVIEW_X
+local BOMB_PREVIEW_Y = Constants.BOMB_PREVIEW_Y
+local BOMB_SELECTOR_SCALE = Constants.BOMB_SELECTOR_SCALE
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
@@ -422,7 +348,7 @@ local function create_match_bots(instance, spawn_points, vs_npc)
 
             texture_path = skin.texture,
             animation_path = skin.animation,
-            animation = skin.animation_state or "IDLE_D",
+            animation = skin.animation_state or AnimationStates.IDLE_D,
 
             x = position.x,
             y = position.y,
@@ -1271,7 +1197,7 @@ local function cycle_player_skin(player_id, direction)
 
         texture_path = option.texture,
         animation_path = option.animation,
-        animation = option.animation_state or "IDLE_D",
+        animation = option.animation_state or AnimationStates.IDLE_D,
 
         x = position.x,
         y = position.y,
@@ -1302,7 +1228,7 @@ local function cycle_player_skin(player_id, direction)
 
                 texture_path = old_option.texture,
                 animation_path = old_option.animation,
-                animation = old_option.animation_state or "IDLE_D",
+                animation = old_option.animation_state or AnimationStates.IDLE_D,
 
                 x = position.x,
                 y = position.y,
