@@ -5,6 +5,7 @@ local logger = require("scripts/ezlibs-scripts/ezlogger").get("footbomb")
 local object_registry = require("scripts/ezlibs-scripts/object_registry")
 local EzMapInstance = require("scripts/ezlibs-scripts/ezmapinstance")
 local games = require("scripts/net-games/main")
+local UISafe = require("scripts/net-games/ui-safe")
 local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
 local CameraManager = require("scripts/camera/camera-manager")
@@ -18,14 +19,14 @@ local instance_bots = {}           -- instance_id -> slot records
 local instance_spawn_points = {}   -- instance_id -> named Player 1/2 positions
 
 local DEFAULT_SOURCE_AREA = "footbomb"
-local NPC_FOLDER = "/server/assets/ezlibs-assets/eznpcs/"
-local NPC_SHEET_FOLDER = NPC_FOLDER .. "sheet/"
-local MUG_FOLDER = NPC_FOLDER .. "mug/"
-local DEFAULT_ASSET_NAME = "male-navi-exe6_teal"
-local DEFAULT_MUG_ANIMATION = MUG_FOLDER .. "mug.animation"
+
+local DEFAULT_ASSET_NAME = "ref-prog"
 
 local BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
 local BOMB_ASSET_FOLDER = "/server/assets/net-game-footbomb/bombs/"
+local MUG_FOLDER = BOT_ASSET_FOLDER .. "mug/"
+local DEFAULT_MUG_ANIMATION = MUG_FOLDER .. "mug.animation"
+
 
 local NAVI_OPTIONS = {
     {
@@ -96,26 +97,28 @@ local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
 
 local CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png"
 local CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
-local CURSOR_SFX = "server/assets/net-games/sfx/cursor_move.ogg"
+local CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg"
 
 local OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 }
 
-local NAVI_CONFIRM_PROMPT = "Press A To Confirm Navi"
-local NAVI_CONFIRM_PROMPT_SCALE = 2.0
-local NAVI_CONFIRM_PROMPT_Y = 5
+-- Both selection stages use the same confirmation prompt and rendering path.
+local CONFIRM_PROMPT = "Press A To Confirm"
+local CONFIRM_PROMPT_SCALE = 2.0
+local CONFIRM_PROMPT_Y = 5
 local NAVI_NAME_SCALE = 1.5
 
 local SCREEN_WIDTH = 240
 local SCREEN_HEIGHT = 160
+local SCREEN_CENTER = {x = 120, y = 80}
 
 -- Ball selector coordinates use the same 240x160 virtual screen as the
 -- existing Navi selector.
-local BOMB_CURSOR_LEFT_X = 65
-local BOMB_CURSOR_RIGHT_X = 175
-local BOMB_CURSOR_Y = 125
+local BOMB_CURSOR_LEFT_X = SCREEN_CENTER.x - 28
+local BOMB_CURSOR_RIGHT_X = SCREEN_CENTER.x + 34
+local BOMB_CURSOR_Y = SCREEN_CENTER.y + 12
 
-local BOMB_PREVIEW_X = 120
-local BOMB_PREVIEW_Y = 125
+local BOMB_PREVIEW_X = SCREEN_CENTER.x - 17
+local BOMB_PREVIEW_Y = SCREEN_CENTER.y + 4
 local BOMB_SELECTOR_SCALE = 2.0
 
 local function log(message)
@@ -125,6 +128,33 @@ end
 -- The camera is kept centered on the selected bot, while displayer text uses
 -- virtual screen coordinates. Center the label using the measured width and
 -- place it below the bot's usual screen-centered sprite position.
+local function draw_confirm_prompt(player_id, text_id)
+    local prompt_width = TextLayout.measureLine(
+        CONFIRM_PROMPT,
+        {
+            font = "THICK",
+            scale = CONFIRM_PROMPT_SCALE
+        }
+    )
+
+    local prompt_x = math.max(
+        0,
+        math.floor((SCREEN_WIDTH - prompt_width) / 2)
+    )
+
+    pcall(
+        games.draw_text,
+        text_id,
+        player_id,
+        CONFIRM_PROMPT,
+        prompt_x,
+        CONFIRM_PROMPT_Y,
+        100,
+        "THICK",
+        CONFIRM_PROMPT_SCALE
+    )
+end
+
 local function draw_navi_name(player_id, rep, name)
     local width = TextLayout.measureLine(name, {
         font = "THICK",
@@ -199,19 +229,19 @@ local function create_ref_npc(area_id, object)
     local actor_id = "footbomb-ref-" .. tostring(area_id)
         .. "-" .. tostring(object.id)
 
-    local animation_path = NPC_SHEET_FOLDER
+    local animation_path = BOT_ASSET_FOLDER
         .. animation_name .. ".animation"
 
     local mug_animation_path =
         mug_animation_name
-        and (MUG_FOLDER .. mug_animation_name .. ".animation")
+        and (BOT_ASSET_FOLDER .. mug_animation_name .. ".animation")
         or DEFAULT_MUG_ANIMATION
 
     local bot_id = Net.create_bot(actor_id, {
         name = as_string(object.name, "FootBomb Ref"),
         area_id = area_id,
 
-        texture_path = NPC_SHEET_FOLDER .. asset_name .. ".png",
+        texture_path = BOT_ASSET_FOLDER .. asset_name .. ".png",
         animation_path = animation_path,
         animation = "IDLE_DR",
 
@@ -238,7 +268,7 @@ local function create_ref_npc(area_id, object)
         npc = {
             bot_id = bot_id,
             actor_id = actor_id,
-            mug_texture_path = MUG_FOLDER .. mugshot_name .. ".png",
+            mug_texture_path = BOT_ASSET_FOLDER .. mugshot_name .. ".png",
             mug_animation_path = mug_animation_path
         }
     }
@@ -642,9 +672,16 @@ local function hide_bomb_selector_ui(player_id, rep)
     end
 
     if rep.bomb_preview then
+        -- UISafe owns both the draw instance and its physical sprite
+        -- allocation. Erasing through it also deallocates the active skin,
+        -- preventing stale texture reuse as the player cycles skins.
+        pcall(UISafe.erase, player_id, rep.bomb_preview)
+    end
+
+    if rep.bomb_confirm_prompt_text_id then
         pcall(
-            games.remove_ui_element,
-            rep.bomb_preview,
+            games.remove_text,
+            rep.bomb_confirm_prompt_text_id,
             player_id
         )
     end
@@ -701,17 +738,9 @@ local function show_bomb_selector_ui(player_id, rep)
     local animation_path = BOMB_ASSET_FOLDER
         .. option.asset_name .. ".animation"
 
-    pcall(
-        Net.provide_asset_for_player,
-        player_id,
-        texture_path
-    )
-
-    pcall(
-        Net.provide_asset_for_player,
-        player_id,
-        animation_path
-    )
+    -- UISafe provisions the assets and creates a fresh physical allocation
+    -- whenever this logical preview changes skin. That matters because some
+    -- clients retain the original texture when an allocation ID is reused.
 
     -- Left cursor.
     pcall(
@@ -743,20 +772,33 @@ local function show_bomb_selector_ui(player_id, rep)
         BOMB_SELECTOR_SCALE
     )
 
-    -- The preview animation is centered between the two cursors.
-    pcall(
-        games.add_ui_element,
-        rep.bomb_preview,
+    -- The preview animation is centered between the two cursors. Use the
+    -- shared safe sprite system rather than games.add_ui_element here: the
+    -- selected skin swaps both texture and animation assets under one logical
+    -- preview ID, and UISafe replaces/deallocates the physical sprite safely.
+    local drawn = UISafe.draw(
         player_id,
+        rep.bomb_preview,
         texture_path,
-        animation_path,
-        BOMB_PREVIEW_ANIMATION,
-        BOMB_PREVIEW_X,
-        BOMB_PREVIEW_Y,
-        100,
-        BOMB_SELECTOR_SCALE,
-        BOMB_SELECTOR_SCALE
+        {
+            anim_path = animation_path,
+            anim_state = BOMB_PREVIEW_ANIMATION,
+            x = BOMB_PREVIEW_X,
+            y = BOMB_PREVIEW_Y,
+            z = 100,
+            sx = BOMB_SELECTOR_SCALE,
+            sy = BOMB_SELECTOR_SCALE
+        }
     )
+
+    if not drawn then
+        log("Could not draw bomb skin preview for player "
+            .. tostring(player_id) .. ": " .. option.name)
+    end
+
+    -- Use exactly the same confirmation text, styling, centering, and draw
+    -- path as the Navi selector.
+    draw_confirm_prompt(player_id, rep.bomb_confirm_prompt_text_id)
 end
 
 local function show_selector_ui(player_id, rep)
@@ -821,30 +863,7 @@ local function show_selector_ui(player_id, rep)
         NAVI_OPTIONS[rep.skin_index].name
     )
 
-    local prompt_width = TextLayout.measureLine(
-        NAVI_CONFIRM_PROMPT,
-        {
-            font = "THICK",
-            scale = NAVI_CONFIRM_PROMPT_SCALE
-        }
-    )
-
-    local prompt_x = math.max(
-        0,
-        math.floor((SCREEN_WIDTH - prompt_width) / 2)
-    )
-
-    pcall(
-        games.draw_text,
-        rep.confirm_prompt_text_id,
-        player_id,
-        NAVI_CONFIRM_PROMPT,
-        prompt_x,
-        NAVI_CONFIRM_PROMPT_Y,
-        100,
-        "THICK",
-        NAVI_CONFIRM_PROMPT_SCALE
-    )
+    draw_confirm_prompt(player_id, rep.confirm_prompt_text_id)
 
     rep.selector_ui_visible = true
 end
@@ -952,6 +971,9 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
         bomb_preview = "footbomb_bomb_preview_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+
+        bomb_confirm_prompt_text_id = "footbomb_bomb_confirm_prompt_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
         -- Selection state.
@@ -1876,7 +1898,7 @@ Net:on("tick", function(event)
                         pcall(
                             Net.play_sound_for_player,
                             player_id,
-                            "/server/assets/net-games/sfx/cursor_move.ogg"
+                            CURSOR_SFX
                         )
 
                         cycle_player_skin(player_id, -1)
@@ -1884,7 +1906,7 @@ Net:on("tick", function(event)
                         pcall(
                             Net.play_sound_for_player,
                             player_id,
-                            "/server/assets/net-games/sfx/cursor_move.ogg"
+                            CURSOR_SFX
                         )
 
                         cycle_player_skin(player_id, 1)
