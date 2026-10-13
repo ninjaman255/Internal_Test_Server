@@ -18,34 +18,107 @@ local player_representations = {}  -- player_id -> bot/cursor/camera data
 local instance_bots = {}           -- instance_id -> slot records
 local instance_spawn_points = {}   -- instance_id -> named Player 1/2 positions
 
-local Constants = require("scripts/ezlibs-custom/footbomb/constants")
-local AnimationStates = require("scripts/ezlibs-custom/footbomb/animation_states")
-local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
-local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
+local DEFAULT_SOURCE_AREA = "footbomb"
+local MUG_FOLDER = "/server/assets/net-game-footbomb/bots/"
+local DEFAULT_ASSET_NAME = "ref-prog"
+local DEFAULT_MUG_ANIMATION = MUG_FOLDER .. "mug.animation"
+local DEFAULT_MUGSHOT_NAME = "ref-prog-mug"
 
-local DEFAULT_SOURCE_AREA = Constants.DEFAULT_SOURCE_AREA
-local DEFAULT_ASSET_NAME = Constants.DEFAULT_ASSET_NAME
-local BOT_ASSET_FOLDER = Constants.BOT_ASSET_FOLDER
-local BOMB_ASSET_FOLDER = Constants.BOMB_ASSET_FOLDER
-local DEFAULT_MUG_ANIMATION = Constants.DEFAULT_MUG_ANIMATION
-local BOMB_PREVIEW_ANIMATION = AnimationStates.BOMB_PREVIEW
-local CURSOR_TEXTURE = Constants.CURSOR_TEXTURE
-local CURSOR_ANIMATION = Constants.CURSOR_ANIMATION
-local CURSOR_SFX = Constants.CURSOR_SFX
-local OFF_MAP_POSITION = Constants.OFF_MAP_POSITION
-local CONFIRM_PROMPT = Constants.CONFIRM_PROMPT
-local CONFIRM_PROMPT_SCALE = Constants.CONFIRM_PROMPT_SCALE
-local CONFIRM_PROMPT_Y = Constants.CONFIRM_PROMPT_Y
-local NAVI_NAME_SCALE = Constants.NAVI_NAME_SCALE
-local SCREEN_WIDTH = Constants.SCREEN_WIDTH
-local SCREEN_HEIGHT = Constants.SCREEN_HEIGHT
-local SCREEN_CENTER = Constants.SCREEN_CENTER
-local BOMB_CURSOR_LEFT_X = Constants.BOMB_CURSOR_LEFT_X
-local BOMB_CURSOR_RIGHT_X = Constants.BOMB_CURSOR_RIGHT_X
-local BOMB_CURSOR_Y = Constants.BOMB_CURSOR_Y
-local BOMB_PREVIEW_X = Constants.BOMB_PREVIEW_X
-local BOMB_PREVIEW_Y = Constants.BOMB_PREVIEW_Y
-local BOMB_SELECTOR_SCALE = Constants.BOMB_SELECTOR_SCALE
+local BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
+local BOMB_ASSET_FOLDER = "/server/assets/net-game-footbomb/bombs/"
+
+local NAVI_OPTIONS = {
+    {
+        name = "MegaMan",
+        texture = BOT_ASSET_FOLDER .. "megaman.png",
+        animation = BOT_ASSET_FOLDER .. "megaman.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    },
+    {
+        name = "Roll",
+        texture = BOT_ASSET_FOLDER .. "roll.png",
+        animation = BOT_ASSET_FOLDER .. "roll.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    },
+    {
+        name = "Normal Navi",
+        texture = BOT_ASSET_FOLDER .. "normal-navi-green.png",
+        animation = BOT_ASSET_FOLDER .. "normal-navi-green.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    },
+    {
+        name = "ProtoMan",
+        texture = BOT_ASSET_FOLDER .. "protoman-bn5.png",
+        animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    },
+    {
+        name = "Glyde",
+        texture = BOT_ASSET_FOLDER .. "glyde.png",
+        animation = BOT_ASSET_FOLDER .. "glyde.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    },
+    {
+        name = "GutsMan",
+        texture = BOT_ASSET_FOLDER .. "gutsman.png",
+        animation = BOT_ASSET_FOLDER .. "gutsman.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    },
+    {
+        name = "Prog",
+        texture = BOT_ASSET_FOLDER .. "prog.png",
+        animation = BOT_ASSET_FOLDER .. "prog.animation",
+        animation_state = "FOOTBOMB_IDLE_DEFENSE"
+    }
+}
+
+-- Ball skins used by the selection UI.
+-- Gameplay does not use this selection yet.
+local BOMB_OPTIONS = {
+    {
+        name = "Classic-MM",
+        asset_name = "classic-mm"
+    },
+    {
+        name = "Default-Skin",
+        asset_name = "default-skin"
+    },
+    {
+        name = "Pokemon",
+        asset_name = "pokemon"
+    }
+}
+
+local BOMB_PREVIEW_ANIMATION = "Preview"
+
+local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
+local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
+
+local CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png"
+local CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
+local CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg"
+
+local OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 }
+
+-- Both selection stages use the same confirmation prompt and rendering path.
+local CONFIRM_PROMPT = "Press A To Confirm"
+local CONFIRM_PROMPT_SCALE = 2.0
+local CONFIRM_PROMPT_Y = 5
+local NAVI_NAME_SCALE = 1.5
+
+local SCREEN_WIDTH = 240
+local SCREEN_HEIGHT = 160
+local SCREEN_CENTER = {x = 120, y = 80}
+
+-- Ball selector coordinates use the same 240x160 virtual screen as the
+-- existing Navi selector.
+local BOMB_CURSOR_LEFT_X = SCREEN_CENTER.x - 28
+local BOMB_CURSOR_RIGHT_X = SCREEN_CENTER.x + 34
+local BOMB_CURSOR_Y = SCREEN_CENTER.y + 12
+
+local BOMB_PREVIEW_X = SCREEN_CENTER.x - 17
+local BOMB_PREVIEW_Y = SCREEN_CENTER.y + 4
+local BOMB_SELECTOR_SCALE = 2.0
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
@@ -144,7 +217,7 @@ local function create_ref_npc(area_id, object)
 
     local mugshot_name = as_string(
         properties.Mugshot,
-        asset_name
+        DEFAULT_MUGSHOT_NAME
     )
 
     local mug_animation_name = as_string(
@@ -155,12 +228,13 @@ local function create_ref_npc(area_id, object)
     local actor_id = "footbomb-ref-" .. tostring(area_id)
         .. "-" .. tostring(object.id)
 
+    -- FootBomb Ref NPCs use the same dedicated asset directory as match bots.
     local animation_path = BOT_ASSET_FOLDER
         .. animation_name .. ".animation"
 
     local mug_animation_path =
         mug_animation_name
-        and (BOT_ASSET_FOLDER .. mug_animation_name .. ".animation")
+        and (MUG_FOLDER .. mug_animation_name .. ".animation")
         or DEFAULT_MUG_ANIMATION
 
     local bot_id = Net.create_bot(actor_id, {
@@ -194,7 +268,7 @@ local function create_ref_npc(area_id, object)
         npc = {
             bot_id = bot_id,
             actor_id = actor_id,
-            mug_texture_path = BOT_ASSET_FOLDER .. mugshot_name .. ".png",
+            mug_texture_path = MUG_FOLDER .. mugshot_name .. ".png",
             mug_animation_path = mug_animation_path
         }
     }
@@ -248,6 +322,12 @@ local function find_named_spawn_points(area_id)
     end
 
     local found = {}
+    local required_names = {
+        ["Player 1 Spawn"] = true,
+        ["Player 2 Spawn"] = true,
+        ["Kicker"] = true,
+        ["Defender 2"] = true
+    }
 
     for _, object_id in pairs(object_ids) do
         local got, object = pcall(
@@ -259,9 +339,7 @@ local function find_named_spawn_points(area_id)
         if got and type(object) == "table" then
             local name = object.name
 
-            if (name == "Player 1 Spawn" or name == "Player 2 Spawn")
-                and not found[name]
-            then
+            if required_names[name] and not found[name] then
                 local x, y = tonumber(object.x), tonumber(object.y)
 
                 if x and y then
@@ -275,24 +353,31 @@ local function find_named_spawn_points(area_id)
         end
     end
 
-    if not found["Player 1 Spawn"] or not found["Player 2 Spawn"] then
-        local missing = {}
+    local missing = {}
 
-        if not found["Player 1 Spawn"] then
-            missing[#missing + 1] = '"Player 1 Spawn"'
+    for _, name in ipairs({
+        "Player 1 Spawn",
+        "Player 2 Spawn",
+        "Kicker",
+        "Defender 2"
+    }) do
+        if not found[name] then
+            missing[#missing + 1] = '"' .. name .. '"'
         end
-
-        if not found["Player 2 Spawn"] then
-            missing[#missing + 1] = '"Player 2 Spawn"'
-        end
-
-        return nil, "FootBomb map is missing point object(s): "
-            .. table.concat(missing, " and ")
     end
 
+    if #missing > 0 then
+        return nil, "FootBomb map is missing point object(s): "
+            .. table.concat(missing, ", ")
+    end
+
+    -- Numeric entries are the initial instance/selector positions. Named
+    -- entries are the gameplay positions used at the start of every round.
     return {
         found["Player 1 Spawn"],
-        found["Player 2 Spawn"]
+        found["Player 2 Spawn"],
+        Kicker = found["Kicker"],
+        ["Defender 2"] = found["Defender 2"]
     }
 end
 
@@ -300,6 +385,45 @@ local function safe_remove_bot(bot_id)
     if bot_id then
         pcall(Net.remove_bot, bot_id, false)
     end
+end
+
+local function set_bot_animation_state(bot_id, animation_state)
+    -- Print before checking the API so the diagnostic remains useful even
+    -- when this server runtime does not expose Net.animate_bot.
+    print("[FOOTBOMB_ANIM_DIAG] set request bot=" .. tostring(bot_id)
+        .. " state=" .. tostring(animation_state)
+        .. " Net_type=" .. type(Net)
+        .. " animate_bot_type=" .. type(Net and Net.animate_bot)
+        .. " animate_bot_properties_type="
+        .. type(Net and Net.animate_bot_properties))
+
+    local setter = Net and Net.animate_bot
+
+    if type(setter) ~= "function" then
+        print("[FOOTBOMB_ANIM_DIAG] setter missing; no animation call made")
+        log("ANIM_DEBUG: setter unavailable bot=" .. tostring(bot_id)
+            .. " state=" .. tostring(animation_state)
+            .. " animate_bot_type=" .. type(Net and Net.animate_bot)
+            .. " animate_bot_properties_type="
+            .. type(Net and Net.animate_bot_properties))
+        return false, "bot animation setter is unavailable"
+    end
+
+    print("[FOOTBOMB_ANIM_DIAG] calling Net.animate_bot now")
+    local ok, result = pcall(setter, bot_id, animation_state, true)
+    print("[FOOTBOMB_ANIM_DIAG] animate_bot returned pcall_ok="
+        .. tostring(ok) .. " result=" .. tostring(result))
+
+    log("ANIM_DEBUG: result bot=" .. tostring(bot_id)
+        .. " state=" .. tostring(animation_state)
+        .. " pcall_ok=" .. tostring(ok)
+        .. " return=" .. tostring(result))
+
+    if not ok or result == false then
+        return false, result
+    end
+
+    return true
 end
 
 local function create_match_bots(instance, spawn_points, vs_npc)
@@ -342,13 +466,23 @@ local function create_match_bots(instance, spawn_points, vs_npc)
 
         local skin = NAVI_OPTIONS[skin_index]
 
+        print("[FOOTBOMB_ANIM_DIAG] creating match bot slot="
+            .. tostring(slot)
+            .. " navi=" .. tostring(skin.name)
+            .. " animation_path=" .. tostring(skin.animation)
+            .. " initial_state=IDLE_D")
+        log("ANIM_DEBUG: creating match bot slot=" .. tostring(slot)
+            .. " navi=" .. tostring(skin.name)
+            .. " animation_path=" .. tostring(skin.animation)
+            .. " initial_state=IDLE_D")
         local ok, bot_id = pcall(Net.create_bot, actor_ids[slot], {
             name = labels[slot],
             area_id = instance.area_id,
 
             texture_path = skin.texture,
             animation_path = skin.animation,
-            animation = skin.animation_state or AnimationStates.IDLE_D,
+            -- Keep both Navi previews/round entrants in the defensive idle.
+            animation = "IDLE_D",
 
             x = position.x,
             y = position.y,
@@ -1197,7 +1331,7 @@ local function cycle_player_skin(player_id, direction)
 
         texture_path = option.texture,
         animation_path = option.animation,
-        animation = option.animation_state or AnimationStates.IDLE_D,
+        animation = option.animation_state or "IDLE_D",
 
         x = position.x,
         y = position.y,
@@ -1228,7 +1362,7 @@ local function cycle_player_skin(player_id, direction)
 
                 texture_path = old_option.texture,
                 animation_path = old_option.animation,
-                animation = old_option.animation_state or AnimationStates.IDLE_D,
+                animation = old_option.animation_state or "IDLE_D",
 
                 x = position.x,
                 y = position.y,
@@ -1314,12 +1448,128 @@ local function fade_player_to_black(player_id)
     )
 
     if not ok then
-        log("Camera fade failed for "
+        log("Camera fade-to-black failed for "
             .. tostring(player_id) .. ": " .. tostring(err))
         return false
     end
 
     return true
+end
+
+local function fade_player_in(player_id)
+    local ok, err = pcall(
+        Net.fade_player_camera,
+        player_id,
+        { r = 0, g = 0, b = 0, a = 0 },
+        0.8
+    )
+
+    if not ok then
+        log("Camera fade-in failed for "
+            .. tostring(player_id) .. ": " .. tostring(err))
+        return false
+    end
+
+    return true
+end
+
+-- This positioning helper is deliberately independent from Navi and bomb
+-- skin selection. The same helper can be called again when a new round starts.
+local function position_bots_for_round(instance_id)
+    local bots = instance_bots[instance_id]
+    local points = instance_spawn_points[instance_id]
+
+    if not bots or #bots < 2 or not points then
+        log("Cannot position FootBomb round bots; match data is missing for "
+            .. tostring(instance_id))
+        return false
+    end
+
+    local all_ok = true
+
+    -- First move both bots. Do not change pose/facing until all movement
+    -- calls have completed, so the kicker setup is applied after positioning.
+    for _, bot in ipairs(bots) do
+        local is_kicker = bot.role == "Kicker"
+        local target = is_kicker and points.Kicker or points["Defender 2"]
+
+        if not target then
+            log("Missing round position for role " .. tostring(bot.role))
+            all_ok = false
+        else
+            local move_ok, move_result = pcall(
+                Net.move_bot,
+                bot.id,
+                target.x,
+                target.y,
+                target.z or 0
+            )
+
+            if not move_ok or move_result == false then
+                log("Could not move FootBomb bot " .. tostring(bot.id)
+                    .. " to role position " .. tostring(bot.role)
+                    .. ": " .. tostring(move_result))
+                all_ok = false
+            else
+                bot.position = {
+                    x = target.x,
+                    y = target.y,
+                    z = target.z or 0
+                }
+            end
+        end
+    end
+
+    return all_ok
+end
+
+-- Apply the kicker's pose only after the round-position moves have been sent.
+-- OpenNetBattle direction values use spaces ("Up Right"), not underscores.
+local function set_kicker_pose_for_round(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots then
+        return false
+    end
+
+    local kicker
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then
+            kicker = bot
+            break
+        end
+    end
+
+    if not kicker then
+        log("Cannot set FootBomb kicker pose; no Kicker bot for "
+            .. tostring(instance_id))
+        return false
+    end
+
+    log("ANIM_DEBUG: setting kicker direction bot=" .. tostring(kicker.id)
+        .. " direction=Up Right")
+    local direction_ok, direction_result = pcall(
+        Net.set_bot_direction, kicker.id, tostring("Up Right")
+    )
+    log("ANIM_DEBUG: direction result bot=" .. tostring(kicker.id)
+        .. " pcall_ok=" .. tostring(direction_ok)
+        .. " return=" .. tostring(direction_result))
+    if not direction_ok or direction_result == false then
+        log("Could not set kicker direction for FootBomb bot "
+            .. tostring(kicker.id) .. " to Up Right: "
+            .. tostring(direction_result))
+    end
+
+    local animation_ok, animation_result =
+        set_bot_animation_state(kicker.id, "IDLE_UR")
+    if not animation_ok then
+        log("Could not set kicker animation for FootBomb bot "
+            .. tostring(kicker.id) .. " to IDLE_UR: "
+            .. tostring(animation_result))
+    end
+
+    return 
+    -- direction_ok and direction_result ~= false and 
+        animation_ok
 end
 
 ---------------------------------------------------------------------------
@@ -1365,20 +1615,65 @@ local function try_begin_match(instance_id)
 
     for _, entry in ipairs(human_reps) do
         local rep = entry.rep
-
         rep.match_started = true
-
         hide_selector_ui(entry.player_id, rep)
+    end
+
+    -- Each human can acknowledge their role message independently. Only after
+    -- all participating cameras have started fading to black do we reposition
+    -- both bots and reveal the field. In VS NPC mode the server-owned opponent
+    -- follows the same role/position path.
+    local fade_ready_count = 0
+    local transition_started = false
+
+    for _, entry in ipairs(human_reps) do
+        local player_id = entry.player_id
+        local rep = entry.rep
 
         async(function()
             await(Async.message_player(
-                entry.player_id,
+                player_id,
                 "FootBomb will begin shortly! You are the "
                     .. tostring(bots[rep.slot].role) .. "."
             ))
 
-            if player_representations[entry.player_id] == rep then
-                fade_player_to_black(entry.player_id)
+            if player_representations[player_id] == rep then
+                fade_player_to_black(player_id)
+            end
+
+            fade_ready_count = fade_ready_count + 1
+
+            if fade_ready_count == #human_reps and not transition_started then
+                transition_started = true
+                
+                await(Async.sleep(0.9))
+
+                local positioned = position_bots_for_round(instance_id)
+                if not positioned then
+                    log("Initial FootBomb round positioning failed for "
+                        .. tostring(instance_id))
+                end
+
+                -- Give the server/client one tick to process bot movement,
+                -- then set only the kicker's facing and animation before reveal.
+                await(Async.sleep(0.1))
+                local kicker_pose_set = set_kicker_pose_for_round(instance_id)
+                if not kicker_pose_set then
+                    log("Initial FootBomb kicker pose setup failed for "
+                        .. tostring(instance_id))
+                end
+
+                await(Async.sleep(0.1))
+
+                for _, participant in ipairs(human_reps) do
+                    local player_id = participant.player_id
+                    local rep = participant.rep
+
+                    if player_representations[player_id] == rep then
+                        fade_player_in(player_id)
+
+                    end
+                end
             end
         end)
     end

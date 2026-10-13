@@ -1,19 +1,11 @@
-# FootBomb module refactor
+# FootBomb round-start animation update
 
-Deploy this folder as `scripts/ezlibs-custom/footbomb/`. The existing loader should continue requiring `scripts/ezlibs-custom/footbomb/main`.
+Updated `main.lua` to apply role-specific round positioning and animations:
 
-## Modules
+- Round bots are moved to the named `Kicker` or `Defender 2` point.
+- Both bots are initially set to `IDLE_UR` when positioned.
+- A human assigned the `Defender` role has their camera faded in, then an independent one-second async delay runs before their bot switches to `FOOTBOMB_READY_DEFENSE`.
+- The delay is asynchronous and does not block the other participant or match flow.
+- Ref NPC mugshot defaults use `/server/assets/net-game-footbomb/bots/` and `ref-prog-mug`, matching the supplied updated version.
 
-- `main.lua` — NPC registration/interaction, match creation, transfer and cleanup, selection UI, player representation, input and camera update.
-- `constants.lua` — shared asset paths, UI text, coordinates, scales, and defaults.
-- `animation_states.lua` — canonical animation state names: `IDLE_D`, `FOOTBOMB_IDLE_DEFENSE`, `FOOTBOMB_READY_DEFENSE`, `FOOTBOMB_JUMP_RIGHT`, and `Preview`.
-- `navi_options.lua` — seven Navi entries and their sprite/animation paths and initial animation state.
-- `bomb_options.lua` — ball skin options used by the preview selector.
-
-## Navi roster
-
-MegaMan, Roll, Normal Navi, ProtoMan, Glyde, GutsMan, and Prog are listed in the asset pack. All entries currently start at `FOOTBOMB_IDLE_DEFENSE`; gameplay-specific states are available from `animation_states.lua` for later transitions.
-
-## Notes
-
-The original match logic is retained as much as possible. The refactor separates static configuration and selection rosters from behavior. The ball skin selector remains UI-only, and the gameplay loop/scoring flow is not implemented in the supplied source. Test the deployed scripts in the server runtime before production use.
+The animation change uses `Net.set_bot_animation_state` when available, falling back to `Net.set_bot_animation`. Please confirm which setter your server runtime exposes and test in-game; this package has not been tested on a live server.

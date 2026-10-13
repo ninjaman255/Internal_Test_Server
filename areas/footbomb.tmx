@@ -91,22 +91,22 @@
     <property name="Warp In" type="bool" value="true"/>
    </properties>
   </object>
-  <object id="151" name="Goalie Spot Left" x="752" y="688">
+  <object id="151" name="Defender 1" x="768" y="688">
    <point/>
   </object>
-  <object id="152" name="Ball" x="832" y="736">
+  <object id="152" name="Ball" x="808" y="696">
    <point/>
   </object>
-  <object id="153" name="Kicker" x="848" y="784">
+  <object id="153" name="Kicker" x="824" y="744">
    <point/>
   </object>
-  <object id="154" name="Move Forward" x="848" y="752">
+  <object id="154" name="Move Forward" x="824" y="712">
    <point/>
   </object>
-  <object id="155" name="Goalie Spot Center" x="768" y="672">
+  <object id="155" name="Defender 2" x="784" y="672">
    <point/>
   </object>
-  <object id="156" name="Goalie Spot Right" x="784" y="656">
+  <object id="156" name="Defender 3" x="800" y="656">
    <point/>
   </object>
   <object id="157" name="Player 1 Spawn" x="48" y="80">

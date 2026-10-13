@@ -1,0 +1,71 @@
+animation state="NIL"
+frame duration="0.066" x="1" y="1" w="1" h="1" originx="12" originy="12" flipx="0" flipy="0"
+
+animation state="BALL_ICON"
+frame duration="0.066" x="1" y="52" w="15" h="19" originx="-3" originy="13" flipx="0" flipy="0"
+
+animation state="WIN_ICON"
+frame duration="0.066" x="1" y="72" w="15" h="19" originx="-3" originy="13" flipx="0" flipy="0"
+
+animation state="LOOSE_ICON"
+frame duration="0.066" x="17" y="72" w="15" h="19" originx="-3" originy="13" flipx="0" flipy="0"
+
+animation state="YELLOW_CARD_ICON"
+frame duration="0.066" x="17" y="52" w="15" h="19" originx="-3" originy="13" flipx="0" flipy="0"
+
+animation state="RED_CARD_ICON"
+frame duration="0.066" x="33" y="52" w="15" h="19" originx="-3" originy="13" flipx="0" flipy="0"
+
+animation state="0_W"
+frame duration="0.066" x="0" y="4" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="1_W"
+frame duration="0.066" x="9" y="4" w="6" h="10" originx="2" originy="9" flipx="0" flipy="0"
+
+animation state="2_W"
+frame duration="0.066" x="16" y="4" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="3_W"
+frame duration="0.066" x="25" y="4" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="4_W"
+frame duration="0.066" x="34" y="4" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="5_W"
+frame duration="0.066" x="43" y="4" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="0_O"
+frame duration="0.066" x="0" y="21" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="1_O"
+frame duration="0.066" x="9" y="21" w="6" h="10" originx="2" originy="9" flipx="0" flipy="0"
+
+animation state="2_O"
+frame duration="0.066" x="16" y="21" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="3_O"
+frame duration="0.066" x="25" y="21" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="4_O"
+frame duration="0.066" x="34" y="21" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="5_O"
+frame duration="0.066" x="43" y="21" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="0_G"
+frame duration="0.066" x="0" y="38" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="1_G"
+frame duration="0.066" x="9" y="38" w="6" h="10" originx="2" originy="9" flipx="0" flipy="0"
+
+animation state="2_G"
+frame duration="0.066" x="16" y="38" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="3_G"
+frame duration="0.066" x="25" y="38" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="4_G"
+frame duration="0.066" x="34" y="38" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
+
+animation state="5_G"
+frame duration="0.066" x="43" y="38" w="6" h="10" originx="3" originy="9" flipx="0" flipy="0"
