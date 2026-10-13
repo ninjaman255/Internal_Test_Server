@@ -1,0 +1,17 @@
+!frame_rate 60
+!image_path "board-icons_compressed.png"
+
+anim BALL_ICON
+frame dur=4f x=0 y=0 w=15 h=19 originx=-3 originy=13
+
+anim WIN_ICON
+frame dur=4f x=15 y=0 w=15 h=19 originx=-3 originy=13
+
+anim LOOSE_ICON
+frame dur=4f x=30 y=0 w=15 h=19 originx=-3 originy=13
+
+anim YELLOW_CARD_ICON
+frame dur=4f x=45 y=0 w=15 h=19 originx=-3 originy=13
+
+anim RED_CARD_ICON
+frame dur=4f x=0 y=19 w=15 h=19 originx=-3 originy=13
