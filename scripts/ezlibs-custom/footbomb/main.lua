@@ -388,36 +388,14 @@ local function safe_remove_bot(bot_id)
 end
 
 local function set_bot_animation_state(bot_id, animation_state)
-    -- Print before checking the API so the diagnostic remains useful even
-    -- when this server runtime does not expose Net.animate_bot.
-    print("[FOOTBOMB_ANIM_DIAG] set request bot=" .. tostring(bot_id)
-        .. " state=" .. tostring(animation_state)
-        .. " Net_type=" .. type(Net)
-        .. " animate_bot_type=" .. type(Net and Net.animate_bot)
-        .. " animate_bot_properties_type="
-        .. type(Net and Net.animate_bot_properties))
-
-    local setter = Net and Net.animate_bot
+    -- Support the animation setter exposed by the server runtime.
+    local setter = Net.animate_bot
 
     if type(setter) ~= "function" then
-        print("[FOOTBOMB_ANIM_DIAG] setter missing; no animation call made")
-        log("ANIM_DEBUG: setter unavailable bot=" .. tostring(bot_id)
-            .. " state=" .. tostring(animation_state)
-            .. " animate_bot_type=" .. type(Net and Net.animate_bot)
-            .. " animate_bot_properties_type="
-            .. type(Net and Net.animate_bot_properties))
         return false, "bot animation setter is unavailable"
     end
 
-    print("[FOOTBOMB_ANIM_DIAG] calling Net.animate_bot now")
     local ok, result = pcall(setter, bot_id, animation_state, true)
-    print("[FOOTBOMB_ANIM_DIAG] animate_bot returned pcall_ok="
-        .. tostring(ok) .. " result=" .. tostring(result))
-
-    log("ANIM_DEBUG: result bot=" .. tostring(bot_id)
-        .. " state=" .. tostring(animation_state)
-        .. " pcall_ok=" .. tostring(ok)
-        .. " return=" .. tostring(result))
 
     if not ok or result == false then
         return false, result
@@ -466,15 +444,6 @@ local function create_match_bots(instance, spawn_points, vs_npc)
 
         local skin = NAVI_OPTIONS[skin_index]
 
-        print("[FOOTBOMB_ANIM_DIAG] creating match bot slot="
-            .. tostring(slot)
-            .. " navi=" .. tostring(skin.name)
-            .. " animation_path=" .. tostring(skin.animation)
-            .. " initial_state=IDLE_D")
-        log("ANIM_DEBUG: creating match bot slot=" .. tostring(slot)
-            .. " navi=" .. tostring(skin.name)
-            .. " animation_path=" .. tostring(skin.animation)
-            .. " initial_state=IDLE_D")
         local ok, bot_id = pcall(Net.create_bot, actor_ids[slot], {
             name = labels[slot],
             area_id = instance.area_id,
@@ -517,7 +486,9 @@ local function create_match_bots(instance, spawn_points, vs_npc)
 
             skin_index = skin_index,
             fixed_skin = vs_npc and slot == 2,
-            navi_name = skin.name
+            navi_name = skin.name,
+            texture_path = skin.texture,
+            animation_path = skin.animation
         }
     end
 
@@ -1545,31 +1516,110 @@ local function set_kicker_pose_for_round(instance_id)
         return false
     end
 
-    log("ANIM_DEBUG: setting kicker direction bot=" .. tostring(kicker.id)
-        .. " direction=Up Right")
+    -- Confirm the bot is still registered before changing its pose.
+    local is_bot_ok, is_bot_result = pcall(Net.is_bot, kicker.id)
+    local area_ok, area_result = pcall(Net.get_bot_area, kicker.id)
+    local position_ok, position_result = pcall(Net.get_bot_position, kicker.id)
+    local direction_before_ok, direction_before =
+        pcall(Net.get_bot_direction, kicker.id)
+    log("ANIM_FLOW: kicker preflight bot=" .. tostring(kicker.id)
+        .. " is_bot_ok=" .. tostring(is_bot_ok)
+        .. " is_bot=" .. tostring(is_bot_result)
+        .. " area_ok=" .. tostring(area_ok)
+        .. " area=" .. tostring(area_result)
+        .. " position_ok=" .. tostring(position_ok)
+        .. " position=" .. tostring(position_result)
+        .. " direction_ok=" .. tostring(direction_before_ok)
+        .. " direction=" .. tostring(direction_before))
+
+    -- Re-apply the same avatar assets before requesting the state. This is a
+    -- targeted test for clients that have not bound the bot's animation file
+    -- yet; it does not change the selected Navi skin.
+    if kicker.texture_path and kicker.animation_path
+        and type(Net.set_bot_avatar) == "function" then
+        log("ANIM_FLOW: refreshing kicker avatar assets bot="
+            .. tostring(kicker.id)
+            .. " animation_path=" .. tostring(kicker.animation_path))
+        local avatar_ok, avatar_result = pcall(
+            Net.set_bot_avatar,
+            kicker.id,
+            kicker.texture_path,
+            kicker.animation_path
+        )
+        log("ANIM_FLOW: kicker avatar refresh returned bot="
+            .. tostring(kicker.id)
+            .. " pcall_ok=" .. tostring(avatar_ok)
+            .. " return=" .. tostring(avatar_result))
+    end
+
+    log("ANIM_FLOW: applying kicker direction bot="
+        .. tostring(kicker.id) .. " direction=Up Right")
     local direction_ok, direction_result = pcall(
-        Net.set_bot_direction, kicker.id, tostring("Up Right")
+        Net.set_bot_direction, kicker.id, "Up Right"
     )
-    log("ANIM_DEBUG: direction result bot=" .. tostring(kicker.id)
-        .. " pcall_ok=" .. tostring(direction_ok)
+    log("ANIM_FLOW: kicker direction call returned bot="
+        .. tostring(kicker.id) .. " pcall_ok=" .. tostring(direction_ok)
         .. " return=" .. tostring(direction_result))
+
+    local direction_after_ok, direction_after =
+        pcall(Net.get_bot_direction, kicker.id)
+    log("ANIM_FLOW: kicker direction readback bot=" .. tostring(kicker.id)
+        .. " read_ok=" .. tostring(direction_after_ok)
+        .. " direction=" .. tostring(direction_after))
+
+    log("ANIM_FLOW: applying kicker animation bot="
+        .. tostring(kicker.id) .. " state=IDLE_UR via Net.animate_bot")
+    local animation_ok, animation_result =
+        set_bot_animation_state(kicker.id, "IDLE_UR")
+    log("ANIM_FLOW: kicker animation call returned bot="
+        .. tostring(kicker.id) .. " success=" .. tostring(animation_ok)
+        .. " detail=" .. tostring(animation_result))
+
+    -- The direct animation API returns nil on success, so it cannot confirm
+    -- that the renderer accepted the state. Try the documented keyframe API
+    -- as a fallback path, and log its outcome for diagnosis.
+    local property_setter = Net.animate_bot_properties
+    local property_ok, property_result = false, "setter unavailable"
+    if type(property_setter) == "function" then
+        log("ANIM_FLOW: fallback animation properties bot="
+            .. tostring(kicker.id) .. " state=IDLE_UR direction=Up Right")
+        property_ok, property_result = pcall(
+            property_setter,
+            kicker.id,
+            {
+                {
+                    properties = {
+                        { property = "Animation", value = "IDLE_UR" },
+                        { property = "Direction", value = "Up Right" }
+                    },
+                    duration = 0.05
+                }
+            }
+        )
+    end
+    log("ANIM_FLOW: fallback animation properties returned bot="
+        .. tostring(kicker.id) .. " pcall_ok=" .. tostring(property_ok)
+        .. " return=" .. tostring(property_result))
+
+    local final_direction_ok, final_direction =
+        pcall(Net.get_bot_direction, kicker.id)
+    log("ANIM_FLOW: final kicker direction readback bot="
+        .. tostring(kicker.id) .. " read_ok=" .. tostring(final_direction_ok)
+        .. " direction=" .. tostring(final_direction))
+
     if not direction_ok or direction_result == false then
         log("Could not set kicker direction for FootBomb bot "
             .. tostring(kicker.id) .. " to Up Right: "
             .. tostring(direction_result))
     end
-
-    local animation_ok, animation_result =
-        set_bot_animation_state(kicker.id, "IDLE_UR")
     if not animation_ok then
         log("Could not set kicker animation for FootBomb bot "
             .. tostring(kicker.id) .. " to IDLE_UR: "
             .. tostring(animation_result))
     end
 
-    return 
-    -- direction_ok and direction_result ~= false and 
-        animation_ok
+    return direction_ok and direction_result ~= false
+        and (animation_ok or property_ok)
 end
 
 ---------------------------------------------------------------------------
@@ -1631,11 +1681,22 @@ local function try_begin_match(instance_id)
         local rep = entry.rep
 
         async(function()
+            log("MATCH_FLOW: opening role message player="
+                .. tostring(player_id) .. " role="
+                .. tostring(bots[rep.slot].role))
             await(Async.message_player(
                 player_id,
                 "FootBomb will begin shortly! You are the "
                     .. tostring(bots[rep.slot].role) .. "."
             ))
+            log("MATCH_FLOW: role message await returned player="
+                .. tostring(player_id))
+
+            -- Ensure the role textbox has had time to disappear before fading
+            -- the camera and changing the bots' poses.
+            await(Async.sleep(0.25))
+            log("MATCH_FLOW: role textbox settle wait complete player="
+                .. tostring(player_id))
 
             if player_representations[player_id] == rep then
                 fade_player_to_black(player_id)
@@ -1645,25 +1706,58 @@ local function try_begin_match(instance_id)
 
             if fade_ready_count == #human_reps and not transition_started then
                 transition_started = true
-                
+
                 await(Async.sleep(0.9))
 
+                log("ROUND_SETUP: moving both bots to their assigned positions instance="
+                    .. tostring(instance_id))
                 local positioned = position_bots_for_round(instance_id)
+                log("ROUND_SETUP: bot positioning calls complete instance="
+                    .. tostring(instance_id) .. " success=" .. tostring(positioned))
                 if not positioned then
                     log("Initial FootBomb round positioning failed for "
                         .. tostring(instance_id))
                 end
 
-                -- Give the server/client one tick to process bot movement,
-                -- then set only the kicker's facing and animation before reveal.
-                await(Async.sleep(0.1))
+                -- Allow movement to settle before changing the kicker's pose.
+                await(Async.sleep(0.35))
+                log("ROUND_SETUP: applying kicker direction/animation instance="
+                    .. tostring(instance_id))
                 local kicker_pose_set = set_kicker_pose_for_round(instance_id)
+                log("ROUND_SETUP: kicker pose calls complete instance="
+                    .. tostring(instance_id) .. " success=" .. tostring(kicker_pose_set))
                 if not kicker_pose_set then
                     log("Initial FootBomb kicker pose setup failed for "
                         .. tostring(instance_id))
                 end
 
-                await(Async.sleep(0.1))
+                -- Keep the camera black briefly so the pose can take effect
+                -- before the field is revealed.
+                await(Async.sleep(0.35))
+
+                -- Re-issue the animation after the client has had a little
+                -- time to receive the avatar/state updates while still black.
+                local kicker = nil
+                for _, bot in ipairs(instance_bots[instance_id] or {}) do
+                    if bot.role == "Kicker" then
+                        kicker = bot
+                        break
+                    end
+                end
+                if kicker then
+                    log("ROUND_SETUP: reapplying kicker animation before fade-in bot="
+                        .. tostring(kicker.id) .. " state=IDLE_UR")
+                    local retry_ok, retry_result = pcall(
+                        Net.animate_bot, kicker.id, "IDLE_UR", true
+                    )
+                    log("ROUND_SETUP: kicker animation retry returned bot="
+                        .. tostring(kicker.id)
+                        .. " pcall_ok=" .. tostring(retry_ok)
+                        .. " return=" .. tostring(retry_result))
+                end
+
+                log("ROUND_SETUP: fading cameras in instance="
+                    .. tostring(instance_id))
 
                 for _, participant in ipairs(human_reps) do
                     local player_id = participant.player_id
@@ -1775,27 +1869,50 @@ local function confirm_navi_selection(player_id, rep)
             return
         end
 
+        log("CONFIRM_FLOW: opening Yes/No quiz player="
+            .. tostring(player_id))
         local choice = await(Async.quiz_player(
             player_id,
             "Yes",
             "No"
         ))
+        log("CONFIRM_FLOW: Yes/No quiz await returned player="
+            .. tostring(player_id) .. " choice=" .. tostring(choice))
 
         if not representation_is_current() then
+            log("CONFIRM_FLOW: representation changed after quiz player="
+                .. tostring(player_id))
             return
         end
+
+        -- Async.quiz_player should resolve after the choice is made, but allow
+        -- the textbox/UI transition to settle before opening the next message.
+        await(Async.sleep(0.25))
 
         if choice == 0 then
             rep.selection_confirmed = true
             rep.confirmed_skin_index = rep.skin_index
             rep.confirming = false
 
+            log("CONFIRM_FLOW: opening final selection message player="
+                .. tostring(player_id))
             await(Async.message_player(
                 player_id,
                 "You selected " .. option.name .. "!"
             ))
+            log("CONFIRM_FLOW: final selection message await returned player="
+                .. tostring(player_id))
+
+            -- Treat the await as the textbox dismissal signal, then give the
+            -- client one short settling interval before match-start dialogue
+            -- and bot animation/position changes begin.
+            await(Async.sleep(0.25))
+            log("CONFIRM_FLOW: textbox settle wait complete player="
+                .. tostring(player_id))
 
             if player_representations[player_id] == rep then
+                log("CONFIRM_FLOW: entering try_begin_match player="
+                    .. tostring(player_id))
                 try_begin_match(rep.instance_id)
             end
         end
