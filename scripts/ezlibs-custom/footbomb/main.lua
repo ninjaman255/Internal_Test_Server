@@ -89,6 +89,10 @@ local BOMB_OPTIONS = {
     {
         name = "Pokemon",
         asset_name = "pokemon"
+    },
+    {
+        name = "Bakugan", 
+        asset_name = "bakugan-ball"
     }
 }
 
