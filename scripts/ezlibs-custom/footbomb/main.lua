@@ -2244,18 +2244,6 @@ local function try_begin_match(instance_id)
                         .. tostring(instance_id))
                 end
 
-                -- Give the Defender's idle animation time to be visible before
-                -- transitioning into the ready stance, while cameras are black.
-                await(Async.sleep(0.8))
-                log("ROUND_SETUP: switching defender to ready animation instance="
-                    .. tostring(instance_id))
-                local defender_ready_set = set_defender_animation_for_round(
-                    instance_id, "FOOTBOMB_READY_DEFENSE", "ready"
-                )
-                log("ROUND_SETUP: defender ready animation call complete instance="
-                    .. tostring(instance_id) .. " success="
-                    .. tostring(defender_ready_set))
-
                 -- Keep the camera black briefly so the final poses can take
                 -- effect before the field is revealed.
                 await(Async.sleep(0.35))
