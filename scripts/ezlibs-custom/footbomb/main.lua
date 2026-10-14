@@ -18,6 +18,9 @@ local player_representations = {}  -- player_id -> bot/cursor/camera data
 local instance_bots = {}           -- instance_id -> slot records
 local instance_spawn_points = {}   -- instance_id -> named Player 1/2 positions
 
+-- NPC direction choices rotate deterministically across rounds.
+local npc_direction_sequence_index = 0
+
 local DEFAULT_SOURCE_AREA = "footbomb"
 local MUG_FOLDER = "/server/assets/net-game-footbomb/bots/"
 local DEFAULT_ASSET_NAME = "ref-prog"
@@ -1027,6 +1030,9 @@ local function setup_player_representation(player_id, instance, bot_record)
         confirming = false,
         match_started = false,
         selector_ui_visible = false,
+        direction_selection_active = false,
+        direction_selection_confirmed = false,
+        selected_direction = nil,
 
         input = InputAPI.get_controller(player_id)
             or InputAPI.create_controller(player_id),
@@ -1869,8 +1875,253 @@ local function set_kicker_pose_for_round(instance_id)
 end
 
 ---------------------------------------------------------------------------
--- Match confirmation
+-- Round direction selection
 ---------------------------------------------------------------------------
+
+local DIRECTION_CHOICES = { "Left", "Up", "Right" }
+local DIRECTION_INPUT_SETTLE_SECONDS = 0.30
+
+local function direction_selection_prompt(rep)
+    return "Choose a direction for your " .. tostring(
+        (rep.bot_record and rep.bot_record.role) or "turn"
+    ) .. ": Left, Up, or Right. Press Confirm when ready. Current: "
+        .. tostring(rep.selected_direction or "Up") .. "."
+end
+
+local function finish_direction_selection_if_ready(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots or bots.directions_resolved then
+        return
+    end
+
+    local humans = {}
+    local human_slots = {}
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            humans[#humans + 1] = { player_id = player_id, rep = rep }
+            human_slots[rep.slot] = true
+            if not rep.direction_selection_confirmed then
+                return
+            end
+        end
+    end
+    if #humans == 0 then
+        return
+    end
+
+    -- NPCs do not receive player input. Their choice is deterministic but
+    -- rotates Left -> Up -> Right across NPC turns, avoiding a fixed answer.
+    for slot, bot in ipairs(bots) do
+        if not human_slots[slot] then
+            npc_direction_sequence_index = (npc_direction_sequence_index % #DIRECTION_CHOICES) + 1
+            bot.direction_choice = DIRECTION_CHOICES[npc_direction_sequence_index]
+            log("DIRECTION_FLOW: server chose NPC direction instance="
+                .. tostring(instance_id) .. " slot=" .. tostring(slot)
+                .. " role=" .. tostring(bot.role)
+                .. " direction=" .. tostring(bot.direction_choice)
+                .. " sequence_index=" .. tostring(npc_direction_sequence_index))
+        end
+    end
+
+    bots.directions_resolved = true
+    for _, entry in ipairs(humans) do
+        local rep = entry.rep
+        rep.direction_selection_active = false
+        local bot = bots[rep.slot]
+        if bot then
+            bot.direction_choice = rep.selected_direction or "Up"
+        end
+        log("DIRECTION_FLOW: confirmed human direction instance="
+            .. tostring(instance_id) .. " player=" .. tostring(entry.player_id)
+            .. " role=" .. tostring(bot and bot.role)
+            .. " direction=" .. tostring(rep.selected_direction))
+    end
+
+    log("DIRECTION_FLOW: all directions resolved instance=" .. tostring(instance_id))
+end
+
+local function start_direction_selection(instance_id, human_reps)
+    local bots = instance_bots[instance_id]
+    if not bots then
+        return
+    end
+
+    bots.directions_resolved = false
+    for _, entry in ipairs(human_reps) do
+        local player_id, rep = entry.player_id, entry.rep
+        -- Enable input only after the role-specific prompt has closed.
+        rep.direction_selection_active = false
+        rep.direction_selection_confirmed = false
+        -- No direction is preselected; require a fresh directional press.
+        rep.selected_direction = nil
+        rep.confirming = false
+
+        if rep.input and rep.input_owner
+            and rep.input:has_input_control(rep.input_owner) then
+            rep.input:consume(rep.input_owner)
+            rep.input:require_release(
+                { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                rep.input_owner
+            )
+        end
+
+        async(function()
+            if player_representations[player_id] ~= rep then
+                return
+            end
+            await(Async.message_player(
+                player_id,
+                "Your role is " .. tostring(bots[rep.slot].role)
+                    .. ". Choose Left, Up, or Right for your "
+                    .. (bots[rep.slot].role == "Kicker" and "kick direction" or "defense direction")
+                    .. ". Press Confirm to select."
+            ))
+            -- Keep all direction input disabled until the textbox is closed
+            -- and the same settling buffer used by Navi selection has elapsed.
+            await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+            if player_representations[player_id] == rep then
+                if rep.input and rep.input_owner
+                    and rep.input:has_input_control(rep.input_owner) then
+                    rep.input:consume(rep.input_owner)
+                    rep.input:require_release(
+                        { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                        rep.input_owner
+                    )
+                end
+                rep.direction_selection_active = true
+                rep.direction_prompt_shown = true
+                log("DIRECTION_FLOW: selection prompt ready player="
+                    .. tostring(player_id) .. " role=" .. tostring(bots[rep.slot].role)
+                    .. " selected=none")
+            end
+        end)
+    end
+
+    log("DIRECTION_FLOW: started direction selection instance=" .. tostring(instance_id)
+        .. " human_count=" .. tostring(#human_reps))
+end
+
+local function confirm_direction_selection(player_id, rep)
+    if not rep or rep.confirming or not rep.direction_selection_active
+        or rep.direction_selection_confirmed then
+        return
+    end
+
+    rep.confirming = true
+    local selected = rep.selected_direction
+    if selected ~= "Left" and selected ~= "Up" and selected ~= "Right" then
+        rep.confirming = false
+        log("DIRECTION_FLOW: ignored Confirm before direction selected player="
+            .. tostring(player_id))
+        if rep.input and rep.input_owner
+            and rep.input:has_input_control(rep.input_owner) then
+            rep.input:consume(rep.input_owner)
+            rep.input:require_release(
+                { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                rep.input_owner
+            )
+        end
+        return
+    end
+    local bot = instance_bots[rep.instance_id] and instance_bots[rep.instance_id][rep.slot]
+    local role = bot and bot.role or "player"
+
+    if rep.input and rep.input_owner
+        and rep.input:has_input_control(rep.input_owner) then
+        rep.input:consume(rep.input_owner)
+        rep.input:require_release(
+            { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+            rep.input_owner
+        )
+    end
+
+    async(function()
+        if player_representations[player_id] ~= rep then
+            return
+        end
+
+        -- Disable direction input for the entire message/quiz sequence.
+        rep.direction_selection_active = false
+        await(Async.message_player(
+            player_id,
+            "You chose " .. string.upper(selected) .. " for your "
+                .. (role == "Kicker" and "kick direction" or "defense direction")
+                .. ". Would you like to confirm this selection?"
+        ))
+        if player_representations[player_id] ~= rep then
+            return
+        end
+        await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+        if player_representations[player_id] ~= rep then
+            return
+        end
+
+        local choice = await(Async.quiz_player(player_id, "Yes", "No"))
+        log("DIRECTION_FLOW: confirmation answer player=" .. tostring(player_id)
+            .. " direction=" .. tostring(selected) .. " choice=" .. tostring(choice))
+        if player_representations[player_id] ~= rep then
+            return
+        end
+
+        -- Let the quiz close cleanly before showing the result/retry message.
+        await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+        if player_representations[player_id] ~= rep then
+            return
+        end
+        if rep.input and rep.input_owner
+            and rep.input:has_input_control(rep.input_owner) then
+            rep.input:consume(rep.input_owner)
+            rep.input:require_release(
+                { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                rep.input_owner
+            )
+        end
+        if choice == 0 then
+            rep.direction_selection_confirmed = true
+            rep.direction_selection_active = false
+            await(Async.message_player(
+                player_id,
+                "Confirmed " .. string.upper(selected) .. ". Waiting for the other player..."
+            ))
+            await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+            if player_representations[player_id] == rep then
+                finish_direction_selection_if_ready(rep.instance_id)
+            end
+        else
+            rep.direction_selection_active = false
+            rep.direction_prompt_shown = false
+            if rep.input and rep.input_owner
+                and rep.input:has_input_control(rep.input_owner) then
+                rep.input:consume(rep.input_owner)
+                rep.input:require_release(
+                    { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                    rep.input_owner
+                )
+            end
+            await(Async.message_player(
+                player_id,
+                "Selection not confirmed. Choose Left, Up, or Right, then press Confirm."
+            ))
+            await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+            if player_representations[player_id] == rep
+                and not rep.direction_selection_confirmed then
+                if rep.input and rep.input_owner
+                    and rep.input:has_input_control(rep.input_owner) then
+                    rep.input:consume(rep.input_owner)
+                    rep.input:require_release(
+                        { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                        rep.input_owner
+                    )
+                end
+                rep.direction_selection_active = true
+            end
+        end
+
+        if player_representations[player_id] == rep then
+            rep.confirming = false
+        end
+    end)
+end
 
 local function try_begin_match(instance_id)
     local bots = instance_bots[instance_id]
@@ -2055,6 +2306,11 @@ local function try_begin_match(instance_id)
                 -- immediately after the fade-in and cause a visible jump.
                 log("CAMERA_FLOW: keeping Camera Focus locked after fade-in instance="
                     .. tostring(instance_id))
+
+                -- Once the field is revealed, collect each human's role-based
+                -- direction choice. NPC directions are assigned server-side
+                -- after every human has confirmed.
+                start_direction_selection(instance_id, human_reps)
             end
         end)
     end
@@ -2502,6 +2758,40 @@ Net:on("tick", function(event)
             local input = rep.input or InputAPI.get_controller(player_id)
 
             if input
+                and rep.input_owner
+                and input:has_input_control(rep.input_owner)
+                and rep.direction_selection_active
+                and not rep.confirming
+                and not rep.direction_selection_confirmed
+            then
+                local chosen_direction = nil
+                if input:is_action_pressed("Left", rep.input_owner) then
+                    chosen_direction = "Left"
+                elseif input:is_action_pressed("Up", rep.input_owner) then
+                    chosen_direction = "Up"
+                elseif input:is_action_pressed("Right", rep.input_owner) then
+                    chosen_direction = "Right"
+                elseif input:is_action_pressed("Confirm", rep.input_owner) then
+                    input:consume(rep.input_owner)
+                    input:require_release(
+                        { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                        rep.input_owner
+                    )
+                    confirm_direction_selection(player_id, rep)
+                end
+
+                if chosen_direction then
+                    rep.selected_direction = chosen_direction
+                    pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
+                    log("DIRECTION_FLOW: player changed direction player="
+                        .. tostring(player_id) .. " direction=" .. chosen_direction)
+                    input:consume(rep.input_owner)
+                    input:require_release(
+                        { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+                        rep.input_owner
+                    )
+                end
+            elseif input
                 and rep.input_owner
                 and input:has_input_control(rep.input_owner)
                 and not rep.confirming
