@@ -81,9 +81,9 @@ end
 -- Keep the target mapping shared by the live round resolver and the startup
 -- diagnostic below so the printed test verifies the same mapping used in-game.
 local RESULT_TARGET_BY_DIRECTION = {
-    Left = "Defender 1",
-    Up = "Defender 2",
-    Right = "Defender 3",
+    Left = "Bomb 1",
+    Up = "Bomb 2",
+    Right = "Bomb 3",
 }
 
 -- Diagnostic-only test: print all nine Kicker/Defender direction combinations
@@ -326,6 +326,9 @@ local function find_named_spawn_points(area_id)
         ["Defender 2"] = true,
         ["Defender 3"] = true,
         ["Bomb"] = true,
+        ["Bomb 1"] = true,
+        ["Bomb 2"] = true,
+        ["Bomb 3"] = true,
         ["Camera Focus"] = true
     }
 
@@ -364,6 +367,9 @@ local function find_named_spawn_points(area_id)
         "Defender 2",
         "Defender 3",
         "Bomb",
+        "Bomb 1",
+        "Bomb 2",
+        "Bomb 3",
         "Camera Focus"
     }) do
         if not found[name] then
@@ -387,6 +393,9 @@ local function find_named_spawn_points(area_id)
         ["Defender 2"] = found["Defender 2"],
         ["Defender 3"] = found["Defender 3"],
         Bomb = found["Bomb"],
+        ["Bomb 1"] = found["Bomb 1"],
+        ["Bomb 2"] = found["Bomb 2"],
+        ["Bomb 3"] = found["Bomb 3"],
         CameraFocus = found["Camera Focus"]
     }
 end
@@ -1950,7 +1959,7 @@ local function update_scoreboard(instance_id)
 end
 
 
-local function move_bot_smoothly(bot, target, speed, phase, animation_state)
+local function move_bot_smoothly(bot, target, speed, phase, animation_state, duration_override)
     if not bot or not bot.id or not target then
         log("RESULT_FLOW: cannot move bot; missing bot/target phase=" .. tostring(phase))
         return false
@@ -1983,7 +1992,7 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state)
     local dx, dy, dz = tx - sx, ty - sy, tz - sz
     local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
     local move_speed = math.max(1, tonumber(speed) or Config.RESULT_KICKER_WALK_U_SPEED or 150)
-    local duration = math.max(0.12, distance / move_speed)
+    local duration = math.max(0.12, tonumber(duration_override) or (distance / move_speed))
 
     -- Keep the current position as a zero-duration starting keyframe, then let
     -- the engine interpolate X/Y/Z over the duration of the second keyframe.
@@ -2112,7 +2121,8 @@ local function resolve_round_winner(instance_id)
         return
     end
     if not points or not points.MoveForward or not points.Bomb
-        or not points["Defender 1"] or not points["Defender 2"] or not points["Defender 3"] then
+        or not points["Defender 1"] or not points["Defender 2"] or not points["Defender 3"]
+        or not points["Bomb 1"] or not points["Bomb 2"] or not points["Bomb 3"] then
         log("RESULT_FLOW: cannot animate result; required Tiled points missing instance="
             .. tostring(instance_id))
         return
@@ -2140,45 +2150,6 @@ local function resolve_round_winner(instance_id)
         .. " bomb_target=" .. tostring(target_name))
 
     async(function()
-        -- The Defender reacts only after both direction choices are locked.
-        -- Left/Right interpolate from the center lane to their matching Tiled
-        -- point while playing the directional jump; Up holds the center lane.
-        local defender_direction = defender.direction_choice
-        if defender_direction == "Left" then
-            local defender_pose_ok = set_result_animation(
-                defender, AnimationStates.FOOTBOMB_JUMP_LEFT, nil,
-                "defender-jump-left"
-            )
-            if defender_pose_ok then
-                move_bot_smoothly(
-                    defender, points["Defender 1"],
-                    Config.RESULT_DEFENDER_JUMP_SPEED or Config.RESULT_BOMB_MOVE_SPEED,
-                    "defender-to-left", AnimationStates.FOOTBOMB_JUMP_LEFT
-                )
-            end
-        elseif defender_direction == "Right" then
-            local defender_pose_ok = set_result_animation(
-                defender, AnimationStates.FOOTBOMB_JUMP_RIGHT, nil,
-                "defender-jump-right"
-            )
-            if defender_pose_ok then
-                move_bot_smoothly(
-                    defender, points["Defender 3"],
-                    Config.RESULT_DEFENDER_JUMP_SPEED or Config.RESULT_BOMB_MOVE_SPEED,
-                    "defender-to-right", AnimationStates.FOOTBOMB_JUMP_RIGHT
-                )
-            end
-        elseif defender_direction == "Up" then
-            set_result_animation(
-                defender, AnimationStates.FOOTBOMB_READY_DEFENSE, nil,
-                "defender-hold-center"
-            )
-            -- The Defender starts at Defender 2, so Up requires no movement.
-        else
-            log("RESULT_FLOW: invalid defender direction; skipping defender movement instance="
-                .. tostring(instance_id) .. " direction=" .. tostring(defender_direction))
-        end
-
         local kicker_ok = set_result_animation(
             kicker, AnimationStates.WALK_UR, "Up Right", "kicker-to-move-forward"
         )
@@ -2202,15 +2173,95 @@ local function resolve_round_winner(instance_id)
         end
 
         if kicker_ok then
-            log("RESULT_FLOW: kicker reached bomb; sending bomb to " .. tostring(target_name)
-                .. " instance=" .. tostring(instance_id))
-            local bomb_ok = move_bot_smoothly(
-                bots.bomb_bot, bomb_target, Config.RESULT_BOMB_MOVE_SPEED,
-                "bomb-to-" .. tostring(target_name)
-            )
-            if not bomb_ok then
-                log("RESULT_FLOW: bomb movement failed; point not awarded instance="
-                    .. tostring(instance_id))
+            -- Launch the bomb and Defender response together. For Left/Right,
+            -- the Defender's configured speed (60) determines the shared travel
+            -- duration; the bomb uses that exact duration so both arrive together.
+            local defender_target_name = ({
+                Left = "Defender 1",
+                Up = "Defender 2",
+                Right = "Defender 3",
+            })[defender.direction_choice]
+            local defender_target = points[defender_target_name]
+            local defender_animation = defender.direction_choice == "Left"
+                and AnimationStates.FOOTBOMB_JUMP_LEFT
+                or (defender.direction_choice == "Right"
+                    and AnimationStates.FOOTBOMB_JUMP_RIGHT
+                    or AnimationStates.FOOTBOMB_READY_DEFENSE)
+            local defender_direction = defender.direction_choice == "Left" and "Left"
+                or (defender.direction_choice == "Right" and "Right" or "Up")
+
+            if not defender_target then
+                log("RESULT_FLOW: defender target missing name="
+                    .. tostring(defender_target_name) .. " instance=" .. tostring(instance_id))
+                bots.result_animation_active = false
+                return
+            end
+
+            local shared_duration
+            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                local start = defender.position
+                if not start and type(Net.get_bot_position) == "function" then
+                    local pos_ok, pos = pcall(Net.get_bot_position, defender.id)
+                    if pos_ok and type(pos) == "table" then start = pos end
+                end
+                if not start then
+                    log("RESULT_FLOW: defender start position unavailable instance="
+                        .. tostring(instance_id))
+                    bots.result_animation_active = false
+                    return
+                end
+                local dx = (tonumber(defender_target.x) or 0) - (tonumber(start.x) or 0)
+                local dy = (tonumber(defender_target.y) or 0) - (tonumber(start.y) or 0)
+                local dz = (tonumber(defender_target.z) or 0) - (tonumber(start.z) or 0)
+                local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+                shared_duration = math.max(0.12, distance / math.max(1,
+                    tonumber(Config.RESULT_DEFENDER_JUMP_SPEED) or 60))
+            end
+
+            log("RESULT_FLOW: launching bomb and defender response together instance="
+                .. tostring(instance_id) .. " bomb_target=" .. tostring(target_name)
+                .. " defender_target=" .. tostring(defender_target_name)
+                .. " shared_duration=" .. tostring(shared_duration or "bomb-only"))
+
+            -- Apply the pose/direction at launch; the interpolated keyframes also
+            -- carry the jump animation throughout the Defender's movement.
+            set_result_animation(defender, defender_animation, defender_direction,
+                "defender-response-launch")
+
+            local bomb_done, bomb_ok = false, false
+            local defender_done, defender_ok = false, false
+            async(function()
+                bomb_ok = move_bot_smoothly(
+                    bots.bomb_bot, bomb_target, Config.RESULT_BOMB_MOVE_SPEED,
+                    "bomb-to-" .. tostring(target_name), nil, shared_duration
+                )
+                bomb_done = true
+            end)
+            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                async(function()
+                    defender_ok = move_bot_smoothly(
+                        defender, defender_target,
+                        Config.RESULT_DEFENDER_JUMP_SPEED or 60,
+                        "defender-to-" .. tostring(defender_target_name),
+                        defender_animation, shared_duration
+                    )
+                    defender_done = true
+                end)
+            else
+                -- Up is a stationary defense pose; it has no travel to synchronize.
+                defender.position = {
+                    x = defender_target.x, y = defender_target.y, z = defender_target.z
+                }
+                defender_done, defender_ok = true, true
+            end
+
+            while not bomb_done or not defender_done do
+                await(Async.sleep(0.02))
+            end
+            if not bomb_ok or not defender_ok then
+                log("RESULT_FLOW: synchronized bomb/defender movement failed; point not awarded instance="
+                    .. tostring(instance_id) .. " bomb_ok=" .. tostring(bomb_ok)
+                    .. " defender_ok=" .. tostring(defender_ok))
                 bots.result_animation_active = false
                 return
             end
