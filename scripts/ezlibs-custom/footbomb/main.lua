@@ -78,6 +78,47 @@ local function log(message)
     logger:info("[footbomb] " .. tostring(message))
 end
 
+-- Keep the target mapping shared by the live round resolver and the startup
+-- diagnostic below so the printed test verifies the same mapping used in-game.
+local RESULT_TARGET_BY_DIRECTION = {
+    Left = "Defender 1",
+    Up = "Defender 2",
+    Right = "Defender 3",
+}
+
+-- Diagnostic-only test: print all nine Kicker/Defender direction combinations
+-- when the FootBomb module loads. This does not move bots, alter a match, or
+-- award points. Remove/disable this call after verifying the logs if desired.
+local function run_direction_mapping_test()
+    local directions = { "Left", "Up", "Right" }
+    local instance_id = "direction-mapping-test"
+
+    log("RESULT_FLOW: starting direction mapping test instance=" .. instance_id)
+
+    for _, kicker_direction in ipairs(directions) do
+        for _, defender_direction in ipairs(directions) do
+            local target_name = RESULT_TARGET_BY_DIRECTION[kicker_direction]
+            local winner = (kicker_direction == defender_direction)
+                and "Defender" or "Kicker"
+
+            log("RESULT_FLOW: starting result animation instance=" .. instance_id
+                .. " kicker_direction=" .. kicker_direction
+                .. " defender_direction=" .. defender_direction
+                .. " predicted_winner=" .. winner
+                .. " bomb_target=" .. tostring(target_name))
+
+            log("SCORE_FLOW: direction mapping test kicker_direction=" .. kicker_direction
+                .. " defender_direction=" .. defender_direction
+                .. " winner=" .. winner
+                .. " bomb_target=" .. tostring(target_name))
+        end
+    end
+
+    log("RESULT_FLOW: direction mapping test complete instance=" .. instance_id)
+end
+
+run_direction_mapping_test()
+
 -- The camera is kept centered on the selected bot, while displayer text uses
 -- virtual screen coordinates. Center the label using the measured width and
 -- place it below the bot's usual screen-centered sprite position.
@@ -280,7 +321,10 @@ local function find_named_spawn_points(area_id)
         ["Player 1 Spawn"] = true,
         ["Player 2 Spawn"] = true,
         ["Kicker"] = true,
+        ["Move Forward"] = true,
+        ["Defender 1"] = true,
         ["Defender 2"] = true,
+        ["Defender 3"] = true,
         ["Bomb"] = true,
         ["Camera Focus"] = true
     }
@@ -315,7 +359,10 @@ local function find_named_spawn_points(area_id)
         "Player 1 Spawn",
         "Player 2 Spawn",
         "Kicker",
+        "Move Forward",
+        "Defender 1",
         "Defender 2",
+        "Defender 3",
         "Bomb",
         "Camera Focus"
     }) do
@@ -335,7 +382,10 @@ local function find_named_spawn_points(area_id)
         found["Player 1 Spawn"],
         found["Player 2 Spawn"],
         Kicker = found["Kicker"],
+        MoveForward = found["Move Forward"],
+        ["Defender 1"] = found["Defender 1"],
         ["Defender 2"] = found["Defender 2"],
+        ["Defender 3"] = found["Defender 3"],
         Bomb = found["Bomb"],
         CameraFocus = found["Camera Focus"]
     }
@@ -1899,39 +1949,128 @@ local function update_scoreboard(instance_id)
     end
 end
 
-local function resolve_round_winner(instance_id)
+
+local function move_bot_smoothly(bot, target, speed, phase, animation_state)
+    if not bot or not bot.id or not target then
+        log("RESULT_FLOW: cannot move bot; missing bot/target phase=" .. tostring(phase))
+        return false
+    end
+    if type(Net.animate_bot_properties) ~= "function" then
+        log("RESULT_FLOW: Net.animate_bot_properties unavailable; refusing instant movement phase="
+            .. tostring(phase))
+        return false
+    end
+
+    local start = bot.position
+    if not start and type(Net.get_bot_position) == "function" then
+        local position_ok, position = pcall(Net.get_bot_position, bot.id)
+        if position_ok and type(position) == "table" then
+            start = {
+                x = tonumber(position.x) or 0,
+                y = tonumber(position.y) or 0,
+                z = tonumber(position.z) or 0
+            }
+        end
+    end
+    if not start then
+        log("RESULT_FLOW: cannot move bot; start position unavailable bot="
+            .. tostring(bot.id) .. " phase=" .. tostring(phase))
+        return false
+    end
+
+    local sx, sy, sz = tonumber(start.x) or 0, tonumber(start.y) or 0, tonumber(start.z) or 0
+    local tx, ty, tz = tonumber(target.x) or sx, tonumber(target.y) or sy, tonumber(target.z) or sz
+    local dx, dy, dz = tx - sx, ty - sy, tz - sz
+    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+    local move_speed = math.max(1, tonumber(speed) or Config.RESULT_KICKER_WALK_U_SPEED or 150)
+    local duration = math.max(0.12, distance / move_speed)
+
+    -- Keep the current position as a zero-duration starting keyframe, then let
+    -- the engine interpolate X/Y/Z over the duration of the second keyframe.
+    -- This follows the Net.animate_bot_properties patterns used by ezlibs.
+    local start_properties = {
+        { property = "X", value = sx },
+        { property = "Y", value = sy },
+        { property = "Z", value = sz }
+    }
+    local target_properties = {
+        { property = "X", ease = "InOut", value = tx },
+        { property = "Y", ease = "InOut", value = ty },
+        { property = "Z", ease = "InOut", value = tz }
+    }
+    if animation_state then
+        start_properties[#start_properties + 1] = {
+            property = "Animation", value = animation_state
+        }
+        target_properties[#target_properties + 1] = {
+            property = "Animation", value = animation_state
+        }
+    end
+
+    local keyframes = {
+        { properties = start_properties, duration = 0 },
+        { properties = target_properties, duration = duration }
+    }
+
+    log("RESULT_FLOW: interpolated movement started bot=" .. tostring(bot.id)
+        .. " phase=" .. tostring(phase)
+        .. " distance=" .. tostring(distance)
+        .. " duration=" .. tostring(duration)
+        .. " animation=" .. tostring(animation_state or "unchanged"))
+
+    local animation_ok, animation_result = pcall(
+        Net.animate_bot_properties, bot.id, keyframes
+    )
+    if not animation_ok or animation_result == false then
+        log("RESULT_FLOW: interpolated movement failed bot=" .. tostring(bot.id)
+            .. " phase=" .. tostring(phase)
+            .. " error=" .. tostring(animation_result))
+        return false
+    end
+
+    -- The animation runs on the server. Wait for its full duration before
+    -- starting the next phase or awarding the point.
+    await(Async.sleep(duration + 0.05))
+    bot.position = { x = tx, y = ty, z = tz }
+
+    log("RESULT_FLOW: interpolated movement complete bot=" .. tostring(bot.id)
+        .. " phase=" .. tostring(phase) .. " x=" .. tostring(tx)
+        .. " y=" .. tostring(ty) .. " z=" .. tostring(tz))
+    return true
+end
+
+local function set_result_animation(bot, animation_state, direction, phase)
+    if not bot then return false end
+    if bot.texture_path and bot.animation_path
+        and type(Net.set_bot_avatar) == "function" then
+        pcall(Net.set_bot_avatar, bot.id, bot.texture_path, bot.animation_path)
+    end
+    if direction and type(Net.set_bot_direction) == "function" then
+        local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
+        if not direction_ok or direction_result == false then
+            log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
+                .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction))
+        end
+    end
+    local animation_ok, animation_result = set_bot_animation_state(bot.id, animation_state)
+    log("RESULT_FLOW: animation bot=" .. tostring(bot.id)
+        .. " phase=" .. tostring(phase) .. " state=" .. tostring(animation_state)
+        .. " success=" .. tostring(animation_ok)
+        .. " detail=" .. tostring(animation_result))
+    return animation_ok
+end
+
+local function award_round_point(instance_id, kicker, defender, winner)
     local bots = instance_bots[instance_id]
     if not bots or bots.round_winner then return end
-
-    local kicker, defender
-    for _, bot in ipairs(bots) do
-        if bot.role == "Kicker" then kicker = bot end
-        if bot.role == "Defender" then defender = bot end
-    end
-    if not kicker or not defender then
-        log("SCORE_FLOW: cannot resolve round; Kicker or Defender missing instance="
-            .. tostring(instance_id))
-        return
-    end
-    if not kicker.direction_choice or not defender.direction_choice then
-        log("SCORE_FLOW: cannot resolve round; direction missing instance="
-            .. tostring(instance_id))
-        return
-    end
-
-    local winner
-    if kicker.direction_choice == defender.direction_choice then
-        winner = defender
-    else
-        winner = kicker
-    end
     if winner.slot == 1 then
         bots.player_one_score = (bots.player_one_score or 0) + 1
     else
         bots.player_two_score = (bots.player_two_score or 0) + 1
     end
     bots.round_winner = winner.role
-    log("SCORE_FLOW: round resolved instance=" .. tostring(instance_id)
+    log("SCORE_FLOW: round point awarded after result animation instance="
+        .. tostring(instance_id)
         .. " kicker_direction=" .. tostring(kicker.direction_choice)
         .. " defender_direction=" .. tostring(defender.direction_choice)
         .. " winner=" .. tostring(winner.role)
@@ -1939,7 +2078,6 @@ local function resolve_round_winner(instance_id)
         .. " player_one_score=" .. tostring(bots.player_one_score)
         .. " player_two_score=" .. tostring(bots.player_two_score))
     update_scoreboard(instance_id)
-
     for player_id, rep in pairs(player_representations) do
         if rep.instance_id == instance_id then
             async(function()
@@ -1951,6 +2089,100 @@ local function resolve_round_winner(instance_id)
             end)
         end
     end
+end
+
+local function resolve_round_winner(instance_id)
+    local bots = instance_bots[instance_id]
+    local points = instance_spawn_points[instance_id]
+    if not bots or bots.round_winner or bots.result_animation_active then return end
+
+    local kicker, defender
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then kicker = bot end
+        if bot.role == "Defender" then defender = bot end
+    end
+    if not kicker or not defender then
+        log("RESULT_FLOW: cannot animate result; Kicker or Defender missing instance="
+            .. tostring(instance_id))
+        return
+    end
+    if not kicker.direction_choice or not defender.direction_choice then
+        log("RESULT_FLOW: cannot animate result; direction missing instance="
+            .. tostring(instance_id))
+        return
+    end
+    if not points or not points.MoveForward or not points.Bomb
+        or not points["Defender 1"] or not points["Defender 2"] or not points["Defender 3"] then
+        log("RESULT_FLOW: cannot animate result; required Tiled points missing instance="
+            .. tostring(instance_id))
+        return
+    end
+    if not bots.bomb_bot or not bots.bomb_bot.id then
+        log("RESULT_FLOW: cannot animate result; bomb bot missing instance="
+            .. tostring(instance_id))
+        return
+    end
+
+    local winner = kicker.direction_choice == defender.direction_choice and defender or kicker
+    local target_name = RESULT_TARGET_BY_DIRECTION[kicker.direction_choice]
+    local bomb_target = target_name and points[target_name]
+    if not bomb_target then
+        log("RESULT_FLOW: invalid kicker direction/target instance="
+            .. tostring(instance_id) .. " direction=" .. tostring(kicker.direction_choice))
+        return
+    end
+
+    bots.result_animation_active = true
+    log("RESULT_FLOW: starting result animation instance=" .. tostring(instance_id)
+        .. " kicker_direction=" .. tostring(kicker.direction_choice)
+        .. " defender_direction=" .. tostring(defender.direction_choice)
+        .. " predicted_winner=" .. tostring(winner.role)
+        .. " bomb_target=" .. tostring(target_name))
+
+    async(function()
+        local kicker_ok = set_result_animation(
+            kicker, AnimationStates.WALK_UR, "Up Right", "kicker-to-move-forward"
+        )
+        if kicker_ok then
+            kicker_ok = move_bot_smoothly(
+                kicker, points.MoveForward, Config.RESULT_KICKER_WALK_UR_SPEED,
+                "kicker-to-move-forward", AnimationStates.WALK_UR
+            )
+        end
+        if kicker_ok then
+            kicker_ok = set_result_animation(
+                kicker, AnimationStates.WALK_U, "Up", "kicker-to-bomb"
+            )
+        end
+        local bomb_position = bots.bomb_bot.position or points.Bomb
+        if kicker_ok then
+            kicker_ok = move_bot_smoothly(
+                kicker, bomb_position, Config.RESULT_KICKER_WALK_U_SPEED, "kicker-to-bomb",
+                AnimationStates.WALK_U
+            )
+        end
+
+        if kicker_ok then
+            log("RESULT_FLOW: kicker reached bomb; sending bomb to " .. tostring(target_name)
+                .. " instance=" .. tostring(instance_id))
+            local bomb_ok = move_bot_smoothly(
+                bots.bomb_bot, bomb_target, Config.RESULT_BOMB_MOVE_SPEED,
+                "bomb-to-" .. tostring(target_name)
+            )
+            if not bomb_ok then
+                log("RESULT_FLOW: bomb movement failed; point not awarded instance="
+                    .. tostring(instance_id))
+                bots.result_animation_active = false
+                return
+            end
+            set_result_animation(kicker, AnimationStates.IDLE_U, "Up", "kicker-after-kick")
+            award_round_point(instance_id, kicker, defender, winner)
+        else
+            log("RESULT_FLOW: kicker movement failed; point not awarded instance="
+                .. tostring(instance_id))
+        end
+        bots.result_animation_active = false
+    end)
 end
 
 local function finish_direction_selection_if_ready(instance_id)
