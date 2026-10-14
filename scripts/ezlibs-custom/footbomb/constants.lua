@@ -24,11 +24,11 @@ C.SCREEN_CENTER = { x = 120, y = 80 }
 C.SCOREBOARD_TEXTURE = "/server/assets/net-game-footbomb/ui/score-board.png"
 C.SCOREBOARD_ANIMATION = "/server/assets/net-game-footbomb/ui/score-board.animation"
 C.SCOREBOARD_X = C.SCREEN_CENTER.x - 34
-C.SCOREBOARD_Y = 8
+C.SCOREBOARD_Y = C.SCREEN_CENTER.y - 14
 C.SCOREBOARD_SCALE = 2.0
 C.SCORE_PLAYER_ONE_X = 108
 C.SCORE_PLAYER_TWO_X = 128
-C.SCORE_TEXT_Y = 18
+C.SCORE_TEXT_Y = C.SCREEN_CENTER.y - 4
 C.SCORE_TEXT_SCALE = 1.5
 C.BOMB_PREVIEW_ANIMATION = "Preview"
 C.DIRECTION_CHOICES = { "Left", "Up", "Right" }
