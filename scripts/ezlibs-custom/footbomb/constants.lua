@@ -39,6 +39,7 @@ C.RESULT_MOVE_STEP_SECONDS = 0.05
 C.RESULT_KICKER_WALK_UR_SPEED = 80 -- Kicker walking diagonally to Move Forward.
 C.RESULT_KICKER_WALK_U_SPEED = 80  -- Kicker walking upward from Move Forward to the bomb.
 C.RESULT_BOMB_MOVE_SPEED = 120      -- Bomb traveling from the Kicker to the chosen Defender point.
+C.RESULT_DEFENDER_JUMP_SPEED = 60  -- Defender movement from the center lane to Left/Right.
 C.BOMB_SELECTOR_SCALE = 2.0
 C.BOMB_CURSOR_LEFT_X = C.SCREEN_CENTER.x - 28
 C.BOMB_CURSOR_RIGHT_X = C.SCREEN_CENTER.x + 34

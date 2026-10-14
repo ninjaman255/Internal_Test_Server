@@ -40,3 +40,14 @@ Movement uses repeated `Net.move_bot` calls to interpolate between points. The b
 ### Interpolated result movement
 
 The result phase uses `Net.animate_bot_properties()` keyframes to interpolate bot X/Y/Z over a duration derived from distance and the configured movement speed. It does not fall back to repeated `Net.move_bot()` calls, so missing animation-property support fails safely rather than teleporting bots. The Kicker movement keyframes preserve `WALK_UR` and `WALK_U`; the bomb keeps its current animation while moving toward the selected Defender point.
+
+
+### Defender direction response
+
+After both direction selections are confirmed, the Defender responds before the Kicker's result sequence begins:
+
+- `Left`: interpolate to `Defender 1` with `FOOTBOMB_JUMP_LEFT`.
+- `Up`: remain at `Defender 2` and use `FOOTBOMB_READY_DEFENSE`.
+- `Right`: interpolate to `Defender 3` with `FOOTBOMB_JUMP_RIGHT`.
+
+The movement speed is controlled by `RESULT_DEFENDER_JUMP_SPEED` in `constants.lua`.

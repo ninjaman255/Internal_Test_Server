@@ -2140,6 +2140,45 @@ local function resolve_round_winner(instance_id)
         .. " bomb_target=" .. tostring(target_name))
 
     async(function()
+        -- The Defender reacts only after both direction choices are locked.
+        -- Left/Right interpolate from the center lane to their matching Tiled
+        -- point while playing the directional jump; Up holds the center lane.
+        local defender_direction = defender.direction_choice
+        if defender_direction == "Left" then
+            local defender_pose_ok = set_result_animation(
+                defender, AnimationStates.FOOTBOMB_JUMP_LEFT, nil,
+                "defender-jump-left"
+            )
+            if defender_pose_ok then
+                move_bot_smoothly(
+                    defender, points["Defender 1"],
+                    Config.RESULT_DEFENDER_JUMP_SPEED or Config.RESULT_BOMB_MOVE_SPEED,
+                    "defender-to-left", AnimationStates.FOOTBOMB_JUMP_LEFT
+                )
+            end
+        elseif defender_direction == "Right" then
+            local defender_pose_ok = set_result_animation(
+                defender, AnimationStates.FOOTBOMB_JUMP_RIGHT, nil,
+                "defender-jump-right"
+            )
+            if defender_pose_ok then
+                move_bot_smoothly(
+                    defender, points["Defender 3"],
+                    Config.RESULT_DEFENDER_JUMP_SPEED or Config.RESULT_BOMB_MOVE_SPEED,
+                    "defender-to-right", AnimationStates.FOOTBOMB_JUMP_RIGHT
+                )
+            end
+        elseif defender_direction == "Up" then
+            set_result_animation(
+                defender, AnimationStates.FOOTBOMB_READY_DEFENSE, nil,
+                "defender-hold-center"
+            )
+            -- The Defender starts at Defender 2, so Up requires no movement.
+        else
+            log("RESULT_FLOW: invalid defender direction; skipping defender movement instance="
+                .. tostring(instance_id) .. " direction=" .. tostring(defender_direction))
+        end
+
         local kicker_ok = set_result_animation(
             kicker, AnimationStates.WALK_UR, "Up Right", "kicker-to-move-forward"
         )
