@@ -2265,6 +2265,68 @@ local function resolve_round_winner(instance_id)
                 bots.result_animation_active = false
                 return
             end
+            -- animate_bot_properties drives the interpolation, but its Animation
+            -- property does not reliably persist after the keyframes finish. Reapply
+            -- the Defender's intended pose through the Net.animate_bot wrapper only
+            -- after both the bomb and Defender have arrived at their destinations.
+            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                local arrival_animation_ok = set_result_animation(
+                    defender,
+                    defender_animation,
+                    defender_direction,
+                    "defender-arrival-animation-override"
+                )
+                log("RESULT_FLOW: defender arrival animation override bot="
+                    .. tostring(defender.id)
+                    .. " state=" .. tostring(defender_animation)
+                    .. " success=" .. tostring(arrival_animation_ok))
+
+                -- Some server/client animation controllers re-apply the bot's
+                -- directional idle shortly after a property interpolation ends.
+                -- The jump is already started with looping enabled above; reassert
+                -- it briefly after arrival to win any late completion/idle update.
+                -- This is intentionally after the synchronized movement and does
+                -- not alter either travel duration or the scoring decision.
+                async(function()
+                    for _, delay in ipairs({ 0.15, 0.35, 0.75, 1.25 }) do
+                        await(Async.sleep(delay))
+                        local current_bots = instance_bots[instance_id]
+                        local same_defender = false
+                        for _, current_bot in ipairs(current_bots or {}) do
+                            if current_bot.id == defender.id
+                                and current_bot.role == "Defender" then
+                                same_defender = true
+                                break
+                            end
+                        end
+                        if not same_defender then
+                            log("ANIM_FLOW: stopping defender animation reassertion; bot no longer belongs to match instance="
+                                .. tostring(instance_id) .. " bot=" .. tostring(defender.id))
+                            return
+                        end
+
+                        local retry_ok = set_result_animation(
+                            defender,
+                            defender_animation,
+                            defender_direction,
+                            "defender-loop-reassert-" .. tostring(delay)
+                        )
+                        log("ANIM_FLOW: defender jump animation reasserted bot="
+                            .. tostring(defender.id)
+                            .. " state=" .. tostring(defender_animation)
+                            .. " delay=" .. tostring(delay)
+                            .. " success=" .. tostring(retry_ok))
+                    end
+                end)
+            else
+                set_result_animation(
+                    defender,
+                    AnimationStates.FOOTBOMB_READY_DEFENSE,
+                    defender_direction,
+                    "defender-arrival-ready-defense-override"
+                )
+            end
+
             set_result_animation(kicker, AnimationStates.IDLE_U, "Up", "kicker-after-kick")
             award_round_point(instance_id, kicker, defender, winner)
         else

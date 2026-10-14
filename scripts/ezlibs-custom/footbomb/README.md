@@ -44,3 +44,8 @@ The result phase uses `Net.animate_bot_properties()` keyframes to interpolate bo
 ## Synchronized Defender response
 
 - Defender jump speed is configured with `RESULT_DEFENDER_JUMP_SPEED` in `constants.lua` (default `60`). For Left/Right, the bomb and Defender use the same movement duration so they arrive together. The Defender uses `FOOTBOMB_JUMP_LEFT` or `FOOTBOMB_JUMP_RIGHT`; Up stays at `Defender 2` with `FOOTBOMB_READY_DEFENSE`.
+
+
+### Defender arrival animation override
+
+After synchronized bomb/Defender movement completes, FootBomb explicitly reapplies the Defender's intended animation through the `Net.animate_bot()` wrapper (`set_result_animation`). This is necessary because the `Animation` property in `Net.animate_bot_properties()` keyframes may revert to an idle state after interpolation ends. Left/Right reapply the matching jump animation; Up reapplies `FOOTBOMB_READY_DEFENSE`.
