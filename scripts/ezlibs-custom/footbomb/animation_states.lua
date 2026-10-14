@@ -3,6 +3,7 @@
 -- files and this list together when the game adds or renames a state.
 return {
     IDLE_D = "IDLE_D",
+    IDLE_DR = "IDLE_DR",
     IDLE_UR = "IDLE_UR",
     IDLE_U = "IDLE_U",
     WALK_U = "WALK_U",
@@ -10,5 +11,7 @@ return {
     FOOTBOMB_IDLE_DEFENSE = "FOOTBOMB_IDLE_DEFENSE",
     FOOTBOMB_READY_DEFENSE = "FOOTBOMB_READY_DEFENSE",
     FOOTBOMB_JUMP_RIGHT = "FOOTBOMB_JUMP_RIGHT",
+    FOOTBOMB_JUMP_LEFT = "FOOTBOMB_JUMP_LEFT",
     BOMB_PREVIEW = "Preview",
+    SMALL_BOMB = "Small-Bomb",
 }

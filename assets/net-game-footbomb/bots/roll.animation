@@ -4,6 +4,9 @@ frame duration="0.0833333" x="7" y="116" w="19" h="33" originx="9" originy="32"
 animation state="FOOTBOMB_JUMP_RIGHT"
 frame duration="0.0833333" x="51" y="110" w="32" h="39" originx="16" originy="38"
 
+animation state="FOOTBOMB_JUMP_LEFT"
+frame duration="0.0833333" x="51" y="110" w="32" h="39" originx="16" originy="38" flipx="1"
+
 animation state="FOOTBOMB_READY_DEFENSE"
 frame duration="0.0833333" x="30" y="115" w="19" h="34" originx="9" originy="33"
 

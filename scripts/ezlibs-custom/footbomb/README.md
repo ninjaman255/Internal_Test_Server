@@ -1,11 +1,23 @@
-# FootBomb round-start animation update
+# FootBomb scripts — configuration refactor
 
-Updated `main.lua` to apply role-specific round positioning and animations:
+`main.lua` now imports the shared configuration and roster modules instead of duplicating their values:
 
-- Round bots are moved to the named `Kicker` or `Defender 2` point.
-- Both bots are initially set to `IDLE_UR` when positioned.
-- A human assigned the `Defender` role has their camera faded in, then an independent one-second async delay runs before their bot switches to `FOOTBOMB_READY_DEFENSE`.
-- The delay is asynchronous and does not block the other participant or match flow.
-- Ref NPC mugshot defaults use `/server/assets/net-game-footbomb/bots/` and `ref-prog-mug`, matching the supplied updated version.
+- `constants.lua`: source area, asset folders/default Ref assets, cursor assets, off-map position, selector layout, prompt styling, bomb-selector coordinates, direction choices, scoreboard asset/layout, and input-settle delay.
+- `navi_options.lua`: selectable Navi names, texture/animation paths, and default animation state.
+- `bomb_options.lua`: selectable bomb/ball skins.
+- `animation_states.lua`: shared animation-state names, including the bomb preview and small-bomb states.
 
-The animation change uses `Net.set_bot_animation_state` when available, falling back to `Net.set_bot_animation`. Please confirm which setter your server runtime exposes and test in-game; this package has not been tested on a live server.
+The main script also rejects a missing direction rather than silently treating it as `Up`; the prompt displays `none` until the player makes a selection. Existing direction-selection input clearing and release gating are preserved.
+
+The script bundle has not been tested on a live OpenNetBattle server. Please test it in-game after replacing the existing FootBomb script files.
+
+
+## Round scoring and scoreboard
+
+After both participants confirm their directions, the round is resolved once:
+
+- Matching Kicker and Defender directions award the point to the Defender.
+- Different directions award the point to the Kicker.
+- The point is credited to the winner's player slot (Player 1 or Player 2), not their role.
+
+The scoreboard is drawn near the top center for each human participant. Player 1's score is drawn to the left of the board image and Player 2's score to the right. The board image is expected at `/server/assets/net-game-footbomb/ui/score-board.png`, with a corresponding `score-board.animation` file for `games.add_ui_element`.

@@ -1,0 +1,5 @@
+!frame_rate 60
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/ui/score-board.png"
+
+anim DEFAULT
+frame dur=5f x=0 y=0 w=68 h=28 originx=0 originy=0

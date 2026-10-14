@@ -10,6 +10,13 @@ local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
 local CameraManager = require("scripts/camera/camera-manager")
 
+-- Shared configuration/rosters live in dedicated modules so tuning and asset
+-- changes do not need edits in the match lifecycle code.
+local Config = require("scripts/ezlibs-custom/footbomb/constants")
+local AnimationStates = require("scripts/ezlibs-custom/footbomb/animation_states")
+local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
+local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
+
 local FootBomb = {}
 local npc_refs = {}                 -- area_id -> actor_id -> reference
 local pending_interactions = {}    -- player_id -> true
@@ -21,111 +28,51 @@ local instance_spawn_points = {}   -- instance_id -> named Player 1/2 positions
 -- NPC direction choices rotate deterministically across rounds.
 local npc_direction_sequence_index = 0
 
-local DEFAULT_SOURCE_AREA = "footbomb"
-local MUG_FOLDER = "/server/assets/net-game-footbomb/bots/"
-local DEFAULT_ASSET_NAME = "ref-prog"
-local DEFAULT_MUG_ANIMATION = MUG_FOLDER .. "mug.animation"
-local DEFAULT_MUGSHOT_NAME = "ref-prog-mug"
+local DEFAULT_SOURCE_AREA = Config.DEFAULT_SOURCE_AREA
+local MUG_FOLDER = Config.MUG_FOLDER
+local DEFAULT_ASSET_NAME = Config.DEFAULT_ASSET_NAME
+local DEFAULT_MUG_ANIMATION = Config.DEFAULT_MUG_ANIMATION
+local DEFAULT_MUGSHOT_NAME = Config.DEFAULT_MUGSHOT_NAME
 
-local BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
-local BOMB_ASSET_FOLDER = "/server/assets/net-game-footbomb/bombs/"
+local BOT_ASSET_FOLDER = Config.BOT_ASSET_FOLDER
+local BOMB_ASSET_FOLDER = Config.BOMB_ASSET_FOLDER
 
-local NAVI_OPTIONS = {
-    {
-        name = "MegaMan",
-        texture = BOT_ASSET_FOLDER .. "megaman.png",
-        animation = BOT_ASSET_FOLDER .. "megaman.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Roll",
-        texture = BOT_ASSET_FOLDER .. "roll.png",
-        animation = BOT_ASSET_FOLDER .. "roll.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Normal Navi",
-        texture = BOT_ASSET_FOLDER .. "normal-navi-green.png",
-        animation = BOT_ASSET_FOLDER .. "normal-navi-green.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "ProtoMan",
-        texture = BOT_ASSET_FOLDER .. "protoman-bn5.png",
-        animation = BOT_ASSET_FOLDER .. "protoman-bn5.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Glyde",
-        texture = BOT_ASSET_FOLDER .. "glyde.png",
-        animation = BOT_ASSET_FOLDER .. "glyde.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "GutsMan",
-        texture = BOT_ASSET_FOLDER .. "gutsman.png",
-        animation = BOT_ASSET_FOLDER .. "gutsman.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    },
-    {
-        name = "Prog",
-        texture = BOT_ASSET_FOLDER .. "prog.png",
-        animation = BOT_ASSET_FOLDER .. "prog.animation",
-        animation_state = "FOOTBOMB_IDLE_DEFENSE"
-    }
-}
-
--- Ball skins used by the selection UI.
--- Gameplay does not use this selection yet.
-local BOMB_OPTIONS = {
-    {
-        name = "Classic-MM",
-        asset_name = "classic-mm"
-    },
-    {
-        name = "Default-Skin",
-        asset_name = "default-skin"
-    },
-    {
-        name = "Pokemon",
-        asset_name = "pokemon"
-    },
-    {
-        name = "Bakugan", 
-        asset_name = "bakugan-ball"
-    }
-}
-
-local BOMB_PREVIEW_ANIMATION = "Preview"
+local BOMB_PREVIEW_ANIMATION = AnimationStates.BOMB_PREVIEW
 
 local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
 local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
 
-local CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png"
-local CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
-local CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg"
+local CURSOR_TEXTURE = Config.CURSOR_TEXTURE
+local CURSOR_ANIMATION = Config.CURSOR_ANIMATION
+local CURSOR_SFX = Config.CURSOR_SFX
 
-local OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 }
+local OFF_MAP_POSITION = Config.OFF_MAP_POSITION
 
 -- Both selection stages use the same confirmation prompt and rendering path.
-local CONFIRM_PROMPT = "Press A To Confirm"
-local CONFIRM_PROMPT_SCALE = 2.0
-local CONFIRM_PROMPT_Y = 5
-local NAVI_NAME_SCALE = 1.5
+local CONFIRM_PROMPT = Config.CONFIRM_PROMPT
+local CONFIRM_PROMPT_SCALE = Config.CONFIRM_PROMPT_SCALE
+local CONFIRM_PROMPT_Y = Config.CONFIRM_PROMPT_Y
+local NAVI_NAME_SCALE = Config.NAVI_NAME_SCALE
 
-local SCREEN_WIDTH = 240
-local SCREEN_HEIGHT = 160
-local SCREEN_CENTER = {x = 120, y = 80}
+local SCREEN_WIDTH = Config.SCREEN_WIDTH
+local SCREEN_HEIGHT = Config.SCREEN_HEIGHT
+local SCREEN_CENTER = Config.SCREEN_CENTER
+local SCOREBOARD_TEXTURE = Config.SCOREBOARD_TEXTURE
+local SCOREBOARD_ANIMATION = Config.SCOREBOARD_ANIMATION
+local SCOREBOARD_X = Config.SCOREBOARD_X
+local SCOREBOARD_Y = Config.SCOREBOARD_Y
+local SCOREBOARD_SCALE = Config.SCOREBOARD_SCALE
+local SCORE_PLAYER_ONE_X = Config.SCORE_PLAYER_ONE_X
+local SCORE_PLAYER_TWO_X = Config.SCORE_PLAYER_TWO_X
+local SCORE_TEXT_Y = Config.SCORE_TEXT_Y
+local SCORE_TEXT_SCALE = Config.SCORE_TEXT_SCALE
 
--- Ball selector coordinates use the same 240x160 virtual screen as the
--- existing Navi selector.
-local BOMB_CURSOR_LEFT_X = SCREEN_CENTER.x - 28
-local BOMB_CURSOR_RIGHT_X = SCREEN_CENTER.x + 34
-local BOMB_CURSOR_Y = SCREEN_CENTER.y + 12
-
-local BOMB_PREVIEW_X = SCREEN_CENTER.x - 17
-local BOMB_PREVIEW_Y = SCREEN_CENTER.y + 4
-local BOMB_SELECTOR_SCALE = 2.0
+local BOMB_CURSOR_LEFT_X = Config.BOMB_CURSOR_LEFT_X
+local BOMB_CURSOR_RIGHT_X = Config.BOMB_CURSOR_RIGHT_X
+local BOMB_CURSOR_Y = Config.BOMB_CURSOR_Y
+local BOMB_PREVIEW_X = Config.BOMB_PREVIEW_X
+local BOMB_PREVIEW_Y = Config.BOMB_PREVIEW_Y
+local BOMB_SELECTOR_SCALE = Config.BOMB_SELECTOR_SCALE
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
@@ -250,7 +197,7 @@ local function create_ref_npc(area_id, object)
 
         texture_path = BOT_ASSET_FOLDER .. asset_name .. ".png",
         animation_path = animation_path,
-        animation = "IDLE_DR",
+        animation = AnimationStates.IDLE_DR,
 
         x = as_number(object.x, 0),
         y = as_number(object.y, 0),
@@ -464,7 +411,7 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             texture_path = skin.texture,
             animation_path = skin.animation,
             -- Keep both Navi previews/round entrants in the defensive idle.
-            animation = "IDLE_D",
+            animation = AnimationStates.IDLE_D,
 
             x = position.x,
             y = position.y,
@@ -926,6 +873,15 @@ local function remove_representation(player_id)
     if not rep then return end
 
     hide_selector_ui(player_id, rep)
+    if rep.scoreboard_ui_id then
+        pcall(games.remove_ui_element, rep.scoreboard_ui_id, player_id)
+    end
+    if rep.score_player_one_text_id then
+        pcall(games.remove_text, rep.score_player_one_text_id, player_id)
+    end
+    if rep.score_player_two_text_id then
+        pcall(games.remove_text, rep.score_player_two_text_id, player_id)
+    end
 
     -- Net.toggle_player_hud is the engine API used by Simon Says to hide and
     -- restore the player's HUD around a minigame. Only undo the toggle when
@@ -1023,6 +979,13 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
         bomb_confirm_prompt_text_id = "footbomb_bomb_confirm_prompt_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+
+        scoreboard_ui_id = "footbomb_scoreboard_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        score_player_one_text_id = "footbomb_score_p1_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        score_player_two_text_id = "footbomb_score_p2_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
         -- Selection state.
@@ -1323,7 +1286,7 @@ local function cycle_player_skin(player_id, direction)
 
         texture_path = option.texture,
         animation_path = option.animation,
-        animation = option.animation_state or "IDLE_D",
+        animation = option.animation_state or AnimationStates.IDLE_D,
 
         x = position.x,
         y = position.y,
@@ -1354,7 +1317,7 @@ local function cycle_player_skin(player_id, direction)
 
                 texture_path = old_option.texture,
                 animation_path = old_option.animation,
-                animation = old_option.animation_state or "IDLE_D",
+                animation = old_option.animation_state or AnimationStates.IDLE_D,
 
                 x = position.x,
                 y = position.y,
@@ -1640,7 +1603,7 @@ local function spawn_bomb_bot_for_round(instance_id, human_reps)
         area_id = kicker.area_id,
         texture_path = texture_path,
         animation_path = animation_path,
-        animation = "Small-Bomb",
+        animation = AnimationStates.SMALL_BOMB,
         x = point.x,
         y = point.y,
         z = point.z or 0,
@@ -1679,7 +1642,7 @@ local function spawn_bomb_bot_for_round(instance_id, human_reps)
     end
 
     local animation_ok, animation_result = pcall(
-        Net.animate_bot, bomb_id, "Small-Bomb", true
+        Net.animate_bot, bomb_id, AnimationStates.SMALL_BOMB, true
     )
     log("BOMB_FLOW: Small-Bomb animation request returned bot="
         .. tostring(bomb_id) .. " pcall_ok=" .. tostring(animation_ok)
@@ -1826,7 +1789,7 @@ local function set_kicker_pose_for_round(instance_id)
     log("ANIM_FLOW: applying kicker animation bot="
         .. tostring(kicker.id) .. " state=IDLE_UR via Net.animate_bot")
     local animation_ok, animation_result =
-        set_bot_animation_state(kicker.id, "IDLE_UR")
+        set_bot_animation_state(kicker.id, AnimationStates.IDLE_UR)
     log("ANIM_FLOW: kicker animation call returned bot="
         .. tostring(kicker.id) .. " success=" .. tostring(animation_ok)
         .. " detail=" .. tostring(animation_result))
@@ -1845,7 +1808,7 @@ local function set_kicker_pose_for_round(instance_id)
             {
                 {
                     properties = {
-                        { property = "Animation", value = "IDLE_UR" },
+                        { property = "Animation", value = AnimationStates.IDLE_UR },
                         { property = "Direction", value = "Up Right" }
                     },
                     duration = 0.05
@@ -1882,14 +1845,112 @@ end
 -- Round direction selection
 ---------------------------------------------------------------------------
 
-local DIRECTION_CHOICES = { "Left", "Up", "Right" }
-local DIRECTION_INPUT_SETTLE_SECONDS = 0.30
+local DIRECTION_CHOICES = Config.DIRECTION_CHOICES
+local DIRECTION_INPUT_SETTLE_SECONDS = Config.DIRECTION_INPUT_SETTLE_SECONDS
 
 local function direction_selection_prompt(rep)
     return "Choose a direction for your " .. tostring(
         (rep.bot_record and rep.bot_record.role) or "turn"
     ) .. ": Left, Up, or Right. Press Confirm when ready. Current: "
-        .. tostring(rep.selected_direction or "Up") .. "."
+        .. tostring(rep.selected_direction or "none") .. "."
+end
+
+local function draw_scoreboard_for_player(player_id, rep, bots)
+    if not rep or not bots or player_representations[player_id] ~= rep then
+        return
+    end
+
+    pcall(Net.provide_asset_for_player, player_id, SCOREBOARD_TEXTURE)
+    pcall(Net.provide_asset_for_player, player_id, SCOREBOARD_ANIMATION)
+
+    local ok, err = pcall(
+        games.add_ui_element,
+        rep.scoreboard_ui_id,
+        player_id,
+        SCOREBOARD_TEXTURE,
+        SCOREBOARD_ANIMATION,
+        "DEFAULT",
+        SCOREBOARD_X,
+        SCOREBOARD_Y,
+        100,
+        SCOREBOARD_SCALE,
+        SCOREBOARD_SCALE
+    )
+    if not ok then
+        log("SCORE_FLOW: scoreboard image draw failed player="
+            .. tostring(player_id) .. " error=" .. tostring(err))
+    end
+
+    pcall(games.draw_text, rep.score_player_one_text_id, player_id,
+        tostring(bots.player_one_score or 0), SCORE_PLAYER_ONE_X,
+        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE)
+    pcall(games.draw_text, rep.score_player_two_text_id, player_id,
+        tostring(bots.player_two_score or 0), SCORE_PLAYER_TWO_X,
+        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE)
+end
+
+local function update_scoreboard(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots then return end
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            draw_scoreboard_for_player(player_id, rep, bots)
+        end
+    end
+end
+
+local function resolve_round_winner(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots or bots.round_winner then return end
+
+    local kicker, defender
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then kicker = bot end
+        if bot.role == "Defender" then defender = bot end
+    end
+    if not kicker or not defender then
+        log("SCORE_FLOW: cannot resolve round; Kicker or Defender missing instance="
+            .. tostring(instance_id))
+        return
+    end
+    if not kicker.direction_choice or not defender.direction_choice then
+        log("SCORE_FLOW: cannot resolve round; direction missing instance="
+            .. tostring(instance_id))
+        return
+    end
+
+    local winner
+    if kicker.direction_choice == defender.direction_choice then
+        winner = defender
+    else
+        winner = kicker
+    end
+    if winner.slot == 1 then
+        bots.player_one_score = (bots.player_one_score or 0) + 1
+    else
+        bots.player_two_score = (bots.player_two_score or 0) + 1
+    end
+    bots.round_winner = winner.role
+    log("SCORE_FLOW: round resolved instance=" .. tostring(instance_id)
+        .. " kicker_direction=" .. tostring(kicker.direction_choice)
+        .. " defender_direction=" .. tostring(defender.direction_choice)
+        .. " winner=" .. tostring(winner.role)
+        .. " winner_slot=" .. tostring(winner.slot)
+        .. " player_one_score=" .. tostring(bots.player_one_score)
+        .. " player_two_score=" .. tostring(bots.player_two_score))
+    update_scoreboard(instance_id)
+
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            async(function()
+                if player_representations[player_id] ~= rep then return end
+                await(Async.message_player(player_id,
+                    winner.role .. " wins the round! Player 1: "
+                    .. tostring(bots.player_one_score) .. " - Player 2: "
+                    .. tostring(bots.player_two_score)))
+            end)
+        end
+    end
 end
 
 local function finish_direction_selection_if_ready(instance_id)
@@ -1933,7 +1994,15 @@ local function finish_direction_selection_if_ready(instance_id)
         rep.direction_selection_active = false
         local bot = bots[rep.slot]
         if bot then
-            bot.direction_choice = rep.selected_direction or "Up"
+            -- Never invent a direction if confirmation was somehow reached
+            -- without a valid human selection.
+            if rep.selected_direction == "Left" or rep.selected_direction == "Up"
+                or rep.selected_direction == "Right" then
+                bot.direction_choice = rep.selected_direction
+            else
+                log("DIRECTION_FLOW: refusing invalid/missing human direction instance="
+                    .. tostring(instance_id) .. " player=" .. tostring(entry.player_id))
+            end
         end
         log("DIRECTION_FLOW: confirmed human direction instance="
             .. tostring(instance_id) .. " player=" .. tostring(entry.player_id)
@@ -1942,6 +2011,7 @@ local function finish_direction_selection_if_ready(instance_id)
     end
 
     log("DIRECTION_FLOW: all directions resolved instance=" .. tostring(instance_id))
+    resolve_round_winner(instance_id)
 end
 
 local function start_direction_selection(instance_id, human_reps)
@@ -2163,6 +2233,9 @@ local function try_begin_match(instance_id)
 
     bots[1].role = kicker_slot == 1 and "Kicker" or "Defender"
     bots[2].role = kicker_slot == 2 and "Kicker" or "Defender"
+    bots.player_one_score = bots.player_one_score or 0
+    bots.player_two_score = bots.player_two_score or 0
+    bots.round_winner = nil
 
     for _, entry in ipairs(human_reps) do
         local rep = entry.rep
@@ -2232,7 +2305,7 @@ local function try_begin_match(instance_id)
                 log("ROUND_SETUP: applying defender idle animation instance="
                     .. tostring(instance_id))
                 local defender_idle_set = set_defender_animation_for_round(
-                    instance_id, "FOOTBOMB_IDLE_DEFENSE", "idle"
+                    instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE, "idle"
                 )
                 log("ROUND_SETUP: defender idle animation call complete instance="
                     .. tostring(instance_id) .. " success="
@@ -2247,6 +2320,18 @@ local function try_begin_match(instance_id)
                     log("Initial FootBomb kicker pose setup failed for "
                         .. tostring(instance_id))
                 end
+
+                -- Give the Defender's idle animation time to be visible before
+                -- transitioning into the ready stance, while cameras are black.
+                await(Async.sleep(0.8))
+                log("ROUND_SETUP: switching defender to ready animation instance="
+                    .. tostring(instance_id))
+                local defender_ready_set = set_defender_animation_for_round(
+                    instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE, "ready"
+                )
+                log("ROUND_SETUP: defender ready animation call complete instance="
+                    .. tostring(instance_id) .. " success="
+                    .. tostring(defender_ready_set))
 
                 -- Keep the camera black briefly so the final poses can take
                 -- effect before the field is revealed.
@@ -2265,7 +2350,7 @@ local function try_begin_match(instance_id)
                     log("ROUND_SETUP: reapplying kicker animation before fade-in bot="
                         .. tostring(kicker.id) .. " state=IDLE_UR")
                     local retry_ok, retry_result = pcall(
-                        Net.animate_bot, kicker.id, "IDLE_UR", true
+                        Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true
                     )
                     log("ROUND_SETUP: kicker animation retry returned bot="
                         .. tostring(kicker.id)
@@ -2298,6 +2383,7 @@ local function try_begin_match(instance_id)
                 -- immediately after the fade-in and cause a visible jump.
                 log("CAMERA_FLOW: keeping Camera Focus locked after fade-in instance="
                     .. tostring(instance_id))
+                update_scoreboard(instance_id)
 
                 -- Once the field is revealed, collect each human's role-based
                 -- direction choice. NPC directions are assigned server-side
