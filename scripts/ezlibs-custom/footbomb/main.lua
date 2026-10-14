@@ -1349,14 +1349,33 @@ local function cycle_player_skin(player_id, direction)
 
         if restore_ok and restored_id then
             rep.bot_record.id = restored_id
+            rep.bot_record.skin_index = rep.skin_index
+            rep.bot_record.navi_name = old_option.name
+            rep.bot_record.texture_path = old_option.texture
+            rep.bot_record.animation_path = old_option.animation
             rep.bot_id = restored_id
+
+            local slots = instance_bots[rep.instance_id]
+            if slots and slots[rep.slot] then
+                slots[rep.slot].id = restored_id
+                slots[rep.slot].skin_index = rep.skin_index
+                slots[rep.slot].navi_name = old_option.name
+                slots[rep.slot].texture_path = old_option.texture
+                slots[rep.slot].animation_path = old_option.animation
+            end
         end
 
         return
     end
 
+    -- Keep the bot record's complete skin identity in sync with the newly
+    -- created bot. Round-start avatar refreshes use these paths; leaving the
+    -- old paths here can silently replace a selected Navi with MegaMan.
     rep.skin_index = next_index
     rep.bot_record.skin_index = next_index
+    rep.bot_record.navi_name = option.name
+    rep.bot_record.texture_path = option.texture
+    rep.bot_record.animation_path = option.animation
     rep.bot_record.id = new_id
     rep.bot_id = new_id
 
@@ -1370,10 +1389,16 @@ local function cycle_player_skin(player_id, direction)
     if slots and slots[rep.slot] then
         slots[rep.slot].id = new_id
         slots[rep.slot].skin_index = next_index
+        slots[rep.slot].navi_name = option.name
+        slots[rep.slot].texture_path = option.texture
+        slots[rep.slot].animation_path = option.animation
     end
 
     log("Player " .. tostring(player_id)
-        .. " selected " .. option.name)
+        .. " selected " .. option.name
+        .. " skin_index=" .. tostring(next_index)
+        .. " texture_path=" .. tostring(option.texture)
+        .. " animation_path=" .. tostring(option.animation))
 end
 
 local function cycle_bomb_skin(player_id, direction)
@@ -1492,6 +1517,68 @@ local function position_bots_for_round(instance_id)
     end
 
     return all_ok
+end
+
+-- Apply a custom defensive animation state after the bot has reached its
+-- round position. Refreshing the avatar assets first is important for clients
+-- that have not bound the bot's animation file yet.
+local function set_defender_animation_for_round(instance_id, animation_state, phase)
+    local bots = instance_bots[instance_id]
+    if not bots then
+        return false
+    end
+
+    local defender
+    for _, bot in ipairs(bots) do
+        if bot.role == "Defender" then
+            defender = bot
+            break
+        end
+    end
+
+    if not defender then
+        log("ANIM_FLOW: cannot set defender animation; no Defender bot for "
+            .. tostring(instance_id) .. " phase=" .. tostring(phase))
+        return false
+    end
+
+    log("ANIM_FLOW: applying defender animation bot=" .. tostring(defender.id)
+        .. " phase=" .. tostring(phase)
+        .. " state=" .. tostring(animation_state)
+        .. " navi=" .. tostring(defender.navi_name))
+
+    if defender.texture_path and defender.animation_path
+        and type(Net.set_bot_avatar) == "function" then
+        local avatar_ok, avatar_result = pcall(
+            Net.set_bot_avatar,
+            defender.id,
+            defender.texture_path,
+            defender.animation_path
+        )
+        log("ANIM_FLOW: defender avatar refresh returned bot="
+            .. tostring(defender.id) .. " phase=" .. tostring(phase)
+            .. " pcall_ok=" .. tostring(avatar_ok)
+            .. " return=" .. tostring(avatar_result))
+    end
+
+    local animation_ok, animation_result = pcall(
+        Net.animate_bot, defender.id, animation_state, true
+    )
+    log("ANIM_FLOW: defender animation call returned bot="
+        .. tostring(defender.id) .. " phase=" .. tostring(phase)
+        .. " state=" .. tostring(animation_state)
+        .. " pcall_ok=" .. tostring(animation_ok)
+        .. " return=" .. tostring(animation_result))
+
+    if not animation_ok or animation_result == false then
+        log("Could not set FootBomb defender animation bot="
+            .. tostring(defender.id) .. " phase=" .. tostring(phase)
+            .. " state=" .. tostring(animation_state) .. ": "
+            .. tostring(animation_result))
+        return false
+    end
+
+    return true
 end
 
 -- Apply the kicker's pose only after the round-position moves have been sent.
@@ -1721,6 +1808,18 @@ local function try_begin_match(instance_id)
 
                 -- Allow movement to settle before changing the kicker's pose.
                 await(Async.sleep(0.35))
+
+                -- The Defender has a two-stage defensive pose: settle into the
+                -- idle state first, then switch to the ready state after a pause.
+                log("ROUND_SETUP: applying defender idle animation instance="
+                    .. tostring(instance_id))
+                local defender_idle_set = set_defender_animation_for_round(
+                    instance_id, "FOOTBOMB_IDLE_DEFENSE", "idle"
+                )
+                log("ROUND_SETUP: defender idle animation call complete instance="
+                    .. tostring(instance_id) .. " success="
+                    .. tostring(defender_idle_set))
+
                 log("ROUND_SETUP: applying kicker direction/animation instance="
                     .. tostring(instance_id))
                 local kicker_pose_set = set_kicker_pose_for_round(instance_id)
@@ -1731,8 +1830,20 @@ local function try_begin_match(instance_id)
                         .. tostring(instance_id))
                 end
 
-                -- Keep the camera black briefly so the pose can take effect
-                -- before the field is revealed.
+                -- Give the Defender's idle animation time to be visible before
+                -- transitioning into the ready stance, while cameras are black.
+                await(Async.sleep(0.8))
+                log("ROUND_SETUP: switching defender to ready animation instance="
+                    .. tostring(instance_id))
+                local defender_ready_set = set_defender_animation_for_round(
+                    instance_id, "FOOTBOMB_READY_DEFENSE", "ready"
+                )
+                log("ROUND_SETUP: defender ready animation call complete instance="
+                    .. tostring(instance_id) .. " success="
+                    .. tostring(defender_ready_set))
+
+                -- Keep the camera black briefly so the final poses can take
+                -- effect before the field is revealed.
                 await(Async.sleep(0.35))
 
                 -- Re-issue the animation after the client has had a little
