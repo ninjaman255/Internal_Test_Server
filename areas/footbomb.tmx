@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="159">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="160">
  <properties>
   <property name="Background Animation" value="/server/assets/backgrounds/bomb.animation"/>
   <property name="Background Texture" value="/server/assets/backgrounds/bomb.png"/>
@@ -94,13 +94,13 @@
   <object id="151" name="Defender 1" x="736" y="720">
    <point/>
   </object>
-  <object id="152" name="Ball" x="808" y="696">
+  <object id="152" name="Bomb" x="808" y="696">
    <point/>
   </object>
-  <object id="153" name="Kicker" x="824" y="744">
+  <object id="153" name="Kicker" x="816" y="736">
    <point/>
   </object>
-  <object id="154" name="Move Forward" x="824" y="712">
+  <object id="154" name="Move Forward" x="816" y="704">
    <point/>
   </object>
   <object id="155" name="Defender 2" x="784" y="672">
@@ -113,6 +113,9 @@
    <point/>
   </object>
   <object id="158" name="Player 2 Spawn" x="80" y="48">
+   <point/>
+  </object>
+  <object id="159" name="Camera Focus" x="808" y="696">
    <point/>
   </object>
  </objectgroup>

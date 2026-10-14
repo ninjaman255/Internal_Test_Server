@@ -326,7 +326,9 @@ local function find_named_spawn_points(area_id)
         ["Player 1 Spawn"] = true,
         ["Player 2 Spawn"] = true,
         ["Kicker"] = true,
-        ["Defender 2"] = true
+        ["Defender 2"] = true,
+        ["Bomb"] = true,
+        ["Camera Focus"] = true
     }
 
     for _, object_id in pairs(object_ids) do
@@ -359,7 +361,9 @@ local function find_named_spawn_points(area_id)
         "Player 1 Spawn",
         "Player 2 Spawn",
         "Kicker",
-        "Defender 2"
+        "Defender 2",
+        "Bomb",
+        "Camera Focus"
     }) do
         if not found[name] then
             missing[#missing + 1] = '"' .. name .. '"'
@@ -377,7 +381,9 @@ local function find_named_spawn_points(area_id)
         found["Player 1 Spawn"],
         found["Player 2 Spawn"],
         Kicker = found["Kicker"],
-        ["Defender 2"] = found["Defender 2"]
+        ["Defender 2"] = found["Defender 2"],
+        Bomb = found["Bomb"],
+        CameraFocus = found["Camera Focus"]
     }
 end
 
@@ -476,6 +482,7 @@ local function create_match_bots(instance, spawn_points, vs_npc)
         created[#created + 1] = {
             id = bot_id,
             actor_id = actor_ids[slot],
+            area_id = instance.area_id,
             slot = slot,
 
             position = {
@@ -565,8 +572,12 @@ local function transfer_match_players(instance, player_ids, spawn_points)
 end
 
 local function remove_instance_bots(instance_id)
-    for _, bot in ipairs(instance_bots[instance_id] or {}) do
+    local bots = instance_bots[instance_id] or {}
+    for _, bot in ipairs(bots) do
         safe_remove_bot(bot.id)
+    end
+    if bots.bomb_bot then
+        safe_remove_bot(bots.bomb_bot.id)
     end
 
     instance_bots[instance_id] = nil
@@ -1469,6 +1480,44 @@ local function fade_player_in(player_id)
     return true
 end
 
+-- Place a participant's camera at the map's named intro framing point.
+-- This is a one-time camera placement for the reveal; the normal Navi camera
+-- follow loop resumes afterward.
+local function focus_player_camera_for_round(player_id, instance_id)
+    local points = instance_spawn_points[instance_id]
+    local focus = points and points.CameraFocus
+
+    if not focus then
+        log("CAMERA_FLOW: missing Camera Focus point for instance="
+            .. tostring(instance_id))
+        return false
+    end
+
+    if type(Net.move_player_camera) ~= "function" then
+        log("CAMERA_FLOW: Net.move_player_camera unavailable for player="
+            .. tostring(player_id))
+        return false
+    end
+
+    local ok, result = pcall(
+        Net.move_player_camera,
+        player_id,
+        focus.x,
+        focus.y,
+        focus.z or 0,
+        0
+    )
+
+    log("CAMERA_FLOW: positioned player camera at Camera Focus player="
+        .. tostring(player_id) .. " instance=" .. tostring(instance_id)
+        .. " x=" .. tostring(focus.x) .. " y=" .. tostring(focus.y)
+        .. " z=" .. tostring(focus.z or 0)
+        .. " pcall_ok=" .. tostring(ok)
+        .. " return=" .. tostring(result))
+
+    return ok and result ~= false
+end
+
 -- This positioning helper is deliberately independent from Navi and bomb
 -- skin selection. The same helper can be called again when a new round starts.
 local function position_bots_for_round(instance_id)
@@ -1517,6 +1566,116 @@ local function position_bots_for_round(instance_id)
     end
 
     return all_ok
+end
+
+-- Spawn the ball as a non-solid bot at the Tiled point object named "Bomb".
+-- The Kicker's confirmed ball selection determines which bomb assets are used.
+local function spawn_bomb_bot_for_round(instance_id, human_reps)
+    local bots = instance_bots[instance_id]
+    local points = instance_spawn_points[instance_id]
+    if not bots or not points or not points.Bomb then
+        log("BOMB_FLOW: cannot spawn bomb; match data or Tiled Bomb point is missing for "
+            .. tostring(instance_id))
+        return false
+    end
+
+    local kicker
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then
+            kicker = bot
+            break
+        end
+    end
+    if not kicker then
+        log("BOMB_FLOW: cannot spawn bomb; no Kicker role for " .. tostring(instance_id))
+        return false
+    end
+
+    -- Default to the first skin when the Kicker is an NPC. For a human Kicker,
+    -- use that player's confirmed bomb selector choice.
+    local bomb_skin_index = 1
+    for _, entry in ipairs(human_reps or {}) do
+        local rep = entry.rep
+        if rep and rep.slot == kicker.slot then
+            bomb_skin_index = tonumber(rep.bomb_skin_index) or 1
+            break
+        end
+    end
+    if bomb_skin_index < 1 or bomb_skin_index > #BOMB_OPTIONS then
+        bomb_skin_index = 1
+    end
+
+    local option = BOMB_OPTIONS[bomb_skin_index] or BOMB_OPTIONS[1]
+    local texture_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".png"
+    local animation_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".animation"
+    local actor_id = "footbomb-match-"
+        .. tostring(instance_id):gsub("[^%w_%-]", "_") .. "-bomb"
+
+    if bots.bomb_bot then
+        safe_remove_bot(bots.bomb_bot.id)
+        bots.bomb_bot = nil
+    end
+
+    local point = points.Bomb
+    log("BOMB_FLOW: spawning bomb instance=" .. tostring(instance_id)
+        .. " kicker_slot=" .. tostring(kicker.slot)
+        .. " skin=" .. tostring(option.name)
+        .. " texture_path=" .. tostring(texture_path)
+        .. " animation_path=" .. tostring(animation_path)
+        .. " position={x=" .. tostring(point.x)
+        .. ",y=" .. tostring(point.y) .. ",z=" .. tostring(point.z or 0) .. "}")
+
+    local create_ok, bomb_id = pcall(Net.create_bot, actor_id, {
+        name = "FootBomb Bomb",
+        area_id = kicker.area_id,
+        texture_path = texture_path,
+        animation_path = animation_path,
+        animation = "Small-Bomb",
+        x = point.x,
+        y = point.y,
+        z = point.z or 0,
+        direction = "Down",
+        solid = false,
+        size = 0.2,
+        warp_in = false,
+        dont_face_player = true
+    })
+
+    if not create_ok or not bomb_id then
+        log("BOMB_FLOW: bomb bot creation failed instance="
+            .. tostring(instance_id) .. " pcall_ok=" .. tostring(create_ok)
+            .. " result=" .. tostring(bomb_id))
+        return false
+    end
+
+    bots.bomb_bot = {
+        id = bomb_id,
+        actor_id = actor_id,
+        area_id = kicker.area_id,
+        skin_index = bomb_skin_index,
+        skin_name = option.name,
+        texture_path = texture_path,
+        animation_path = animation_path,
+        position = { x = point.x, y = point.y, z = point.z or 0 }
+    }
+
+    if type(Net.set_bot_avatar) == "function" then
+        local avatar_ok, avatar_result = pcall(
+            Net.set_bot_avatar, bomb_id, texture_path, animation_path
+        )
+        log("BOMB_FLOW: avatar refresh returned bot=" .. tostring(bomb_id)
+            .. " pcall_ok=" .. tostring(avatar_ok)
+            .. " return=" .. tostring(avatar_result))
+    end
+
+    local animation_ok, animation_result = pcall(
+        Net.animate_bot, bomb_id, "Small-Bomb", true
+    )
+    log("BOMB_FLOW: Small-Bomb animation request returned bot="
+        .. tostring(bomb_id) .. " pcall_ok=" .. tostring(animation_ok)
+        .. " return=" .. tostring(animation_result))
+
+    return animation_ok and animation_result ~= false
 end
 
 -- Apply a custom defensive animation state after the bot has reached its
@@ -1806,6 +1965,10 @@ local function try_begin_match(instance_id)
                         .. tostring(instance_id))
                 end
 
+                local bomb_spawned = spawn_bomb_bot_for_round(instance_id, human_reps)
+                log("ROUND_SETUP: bomb bot spawn complete instance="
+                    .. tostring(instance_id) .. " success=" .. tostring(bomb_spawned))
+
                 -- Allow movement to settle before changing the kicker's pose.
                 await(Async.sleep(0.35))
 
@@ -1875,10 +2038,23 @@ local function try_begin_match(instance_id)
                     local rep = participant.rep
 
                     if player_representations[player_id] == rep then
-                        fade_player_in(player_id)
+                        -- Temporarily suspend the normal Navi-follow update so
+                        -- it cannot overwrite Camera Focus while the reveal is
+                        -- happening.
+                        rep.camera_focus_active = true
 
+                        -- Center each human player's camera on the Tiled
+                        -- "Camera Focus" point before revealing the round.
+                        focus_player_camera_for_round(player_id, instance_id)
+                        fade_player_in(player_id)
                     end
                 end
+
+                -- Keep the camera locked to Camera Focus after the reveal.
+                -- The normal Navi-follow loop must not reclaim the camera
+                -- immediately after the fade-in and cause a visible jump.
+                log("CAMERA_FLOW: keeping Camera Focus locked after fade-in instance="
+                    .. tostring(instance_id))
             end
         end)
     end
@@ -2365,8 +2541,10 @@ Net:on("tick", function(event)
                 end
             end
 
-            -- Keep the camera centered on the current Navi bot.
-            if type(Net.get_bot_position) == "function"
+            -- Keep the camera centered on the current Navi bot, except
+            -- while the round intro temporarily owns the camera framing.
+            if not rep.camera_focus_active
+                and type(Net.get_bot_position) == "function"
                 and type(Net.move_player_camera) == "function"
             then
                 local ok, pos = pcall(
