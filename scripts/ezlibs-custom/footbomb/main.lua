@@ -2037,9 +2037,11 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         return false
     end
 
-    -- The animation runs on the server. Wait for its full duration before
-    -- starting the next phase or awarding the point.
-    await(Async.sleep(duration + 0.05))
+    -- The animation runs on the server. Resume at the exact interpolation
+    -- duration so the arrival animation override can run immediately, without
+    -- leaving a small post-interpolation gap where the client may show a
+    -- missing/default animation asset.
+    await(Async.sleep(duration))
     bot.position = { x = tx, y = ty, z = tz }
 
     log("RESULT_FLOW: interpolated movement complete bot=" .. tostring(bot.id)
