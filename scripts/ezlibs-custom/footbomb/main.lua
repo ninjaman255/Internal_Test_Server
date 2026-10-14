@@ -518,48 +518,65 @@ local function create_match_bots(instance, spawn_points, vs_npc)
     return created
 end
 
+local function provide_match_assets(player_id)
+    local provided = 0
+    local failed = 0
+
+    local function provide(path)
+        if type(path) ~= "string" or path == "" then
+            failed = failed + 1
+            log("Skipping invalid match asset path for " .. tostring(player_id))
+            return
+        end
+
+        local ok, result = pcall(
+            Net.provide_asset_for_player,
+            player_id,
+            path
+        )
+
+        if ok and result ~= false then
+            provided = provided + 1
+        else
+            failed = failed + 1
+            log("Could not provide match asset to " .. tostring(player_id)
+                .. " path=" .. path .. " error=" .. tostring(result))
+        end
+    end
+
+    -- Every selectable bot skin must be ready, not just the currently
+    -- equipped skin: the client may see either bot and later skin changes.
+    for _, option in ipairs(NAVI_OPTIONS) do
+        provide(option.texture)
+        provide(option.animation)
+    end
+
+    -- Bombs use paired texture/animation files, including the skins shown by
+    -- the selector and the bomb used during the result sequence.
+    for _, option in ipairs(BOMB_OPTIONS) do
+        provide(BOMB_ASSET_FOLDER .. option.asset_name .. ".png")
+        provide(BOMB_ASSET_FOLDER .. option.asset_name .. ".animation")
+    end
+
+    -- Include the cursor assets used by the instance selection UI.
+    provide(CURSOR_SFX)
+    provide(CURSOR_TEXTURE)
+    provide(CURSOR_ANIMATION)
+
+    log("Match assets provided for " .. tostring(player_id)
+        .. ": success=" .. tostring(provided)
+        .. " failed=" .. tostring(failed))
+
+    return failed == 0
+end
+
 local function transfer_match_players(instance, player_ids, spawn_points)
     local transferred = {}
 
     for slot, player_id in ipairs(player_ids) do
-        for _, option in ipairs(NAVI_OPTIONS) do
-            pcall(
-                Net.provide_asset_for_player,
-                player_id,
-                option.texture
-            )
-
-            pcall(
-                Net.provide_asset_for_player,
-                player_id,
-                option.animation
-            )
-        end
-
-        pcall(Net.provide_asset_for_player, player_id, CURSOR_SFX)
-        pcall(Net.provide_asset_for_player, player_id, CURSOR_TEXTURE)
-        pcall(Net.provide_asset_for_player, player_id, CURSOR_ANIMATION)
-
-        -- Make the bomb preview assets available to the player.
-        for _, option in ipairs(BOMB_OPTIONS) do
-            local texture_path = BOMB_ASSET_FOLDER
-                .. option.asset_name .. ".png"
-
-            local animation_path = BOMB_ASSET_FOLDER
-                .. option.asset_name .. ".animation"
-
-            pcall(
-                Net.provide_asset_for_player,
-                player_id,
-                texture_path
-            )
-
-            pcall(
-                Net.provide_asset_for_player,
-                player_id,
-                animation_path
-            )
-        end
+        -- Prime the client cache before transferring so the instance's bots
+        -- have their assets ready as soon as they appear.
+        provide_match_assets(player_id)
 
         local spawn = spawn_points[slot]
 
@@ -575,6 +592,11 @@ local function transfer_match_players(instance, player_ids, spawn_points)
 
         if ok and result ~= false then
             transferred[#transferred + 1] = player_id
+
+            -- Re-provide after transfer as well. Some runtimes scope asset
+            -- delivery to the player's current area/instance, and the bots
+            -- already exist by the time the client enters the match.
+            provide_match_assets(player_id)
         else
             log("Transfer failed for " .. tostring(player_id)
                 .. ": " .. tostring(result))
@@ -1900,6 +1922,88 @@ local function set_kicker_pose_for_round(instance_id)
         and (animation_ok or property_ok)
 end
 
+-- Briefly request every Navi animation while the cameras are black. This
+-- primes each selected avatar's animation assets before players can see the
+-- bots, avoiding first-use "missing asset" flashes during gameplay.
+local function prime_round_bot_animations(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots then
+        log("ROUND_SETUP: cannot prime animations; bots missing instance="
+            .. tostring(instance_id))
+        return false
+    end
+
+    local kicker, defender
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then
+            kicker = bot
+        elseif bot.role == "Defender" then
+            defender = bot
+        end
+    end
+
+    if not kicker or not defender then
+        log("ROUND_SETUP: cannot prime animations; role bot missing instance="
+            .. tostring(instance_id)
+            .. " kicker=" .. tostring(kicker ~= nil)
+            .. " defender=" .. tostring(defender ~= nil))
+        return false
+    end
+
+    -- Keep this explicit and deterministic. Bomb-only states are excluded
+    -- because these two bots use Navi animation files, not bomb animation files.
+    local states = {
+        AnimationStates.IDLE_D,
+        AnimationStates.IDLE_DR,
+        AnimationStates.IDLE_UR,
+        AnimationStates.IDLE_U,
+        AnimationStates.WALK_U,
+        AnimationStates.WALK_UR,
+        AnimationStates.FOOTBOMB_IDLE_DEFENSE,
+        AnimationStates.FOOTBOMB_READY_DEFENSE,
+        AnimationStates.FOOTBOMB_JUMP_RIGHT,
+        AnimationStates.FOOTBOMB_JUMP_LEFT,
+    }
+
+    log("ROUND_SETUP: priming Navi animation states while cameras are black"
+        .. " instance=" .. tostring(instance_id)
+        .. " state_count=" .. tostring(#states))
+
+    local failed = 0
+    for _, state in ipairs(states) do
+        for _, bot in ipairs({ kicker, defender }) do
+            local ok, result = pcall(Net.animate_bot, bot.id, state, true)
+            if not ok or result == false then
+                failed = failed + 1
+                log("ROUND_SETUP: animation prime failed bot="
+                    .. tostring(bot.id) .. " state=" .. tostring(state)
+                    .. " pcall_ok=" .. tostring(ok)
+                    .. " return=" .. tostring(result))
+            end
+        end
+        -- 100 ms per state: fast enough to keep the intro snappy, while
+        -- giving the client a brief opportunity to initialize each state.
+        await(Async.sleep(0.1))
+    end
+
+    -- Restore the actual starting poses after the warm-up sequence.
+    local defender_ok = set_defender_animation_for_round(
+        instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE,
+        "post-animation-prime-ready")
+    local kicker_ok, kicker_result = pcall(
+        Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true)
+
+    log("ROUND_SETUP: animation priming complete instance="
+        .. tostring(instance_id)
+        .. " failures=" .. tostring(failed)
+        .. " defender_ready=" .. tostring(defender_ok)
+        .. " kicker_idle_pcall_ok=" .. tostring(kicker_ok)
+        .. " kicker_idle_return=" .. tostring(kicker_result))
+
+    return failed == 0 and defender_ok and kicker_ok
+        and kicker_result ~= false
+end
+
 ---------------------------------------------------------------------------
 -- Round direction selection
 ---------------------------------------------------------------------------
@@ -2020,6 +2124,24 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         { properties = start_properties, duration = 0 },
         { properties = target_properties, duration = duration }
     }
+
+    -- Set the intended animation through Net.animate_bot before starting the
+    -- property interpolation. The Animation property on keyframes can be
+    -- transient or arrive out of order on clients, so prime the bot's state
+    -- first and still include it in both keyframes as a secondary safeguard.
+    if animation_state then
+        local pre_animation_ok, pre_animation_result =
+            set_bot_animation_state(bot.id, animation_state)
+        log("RESULT_FLOW: pre-movement animation bot=" .. tostring(bot.id)
+            .. " phase=" .. tostring(phase)
+            .. " state=" .. tostring(animation_state)
+            .. " success=" .. tostring(pre_animation_ok)
+            .. " detail=" .. tostring(pre_animation_result))
+        if not pre_animation_ok then
+            log("RESULT_FLOW: pre-movement animation failed; continuing with property animation bot="
+                .. tostring(bot.id) .. " phase=" .. tostring(phase))
+        end
+    end
 
     log("RESULT_FLOW: interpolated movement started bot=" .. tostring(bot.id)
         .. " phase=" .. tostring(phase)
@@ -2719,9 +2841,17 @@ local function try_begin_match(instance_id)
                     .. tostring(instance_id) .. " success="
                     .. tostring(defender_ready_set))
 
-                -- Keep the camera black briefly so the final poses can take
-                -- effect before the field is revealed.
-                await(Async.sleep(0.35))
+                -- Prime every animation on both Navi bots while the cameras
+                -- are still black. The helper restores each bot's starting
+                -- pose before the reveal.
+                local animations_primed = prime_round_bot_animations(instance_id)
+                log("ROUND_SETUP: bot animation priming returned instance="
+                    .. tostring(instance_id) .. " success="
+                    .. tostring(animations_primed))
+
+                -- Allow the restored starting poses to reach clients before
+                -- fading the cameras in.
+                await(Async.sleep(0.15))
 
                 -- Re-issue the animation after the client has had a little
                 -- time to receive the avatar/state updates while still black.
