@@ -6,6 +6,7 @@ local object_registry = require("scripts/ezlibs-scripts/object_registry")
 local EzMapInstance = require("scripts/ezlibs-scripts/ezmapinstance")
 local games = require("scripts/net-games/main")
 local UISafe = require("scripts/net-games/ui-safe")
+local EzExplosions = require("scripts/ezlibs-scripts/ezexplosions")
 local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
 local CameraManager = require("scripts/camera/camera-manager")
@@ -74,6 +75,11 @@ local BOMB_CURSOR_Y = Config.BOMB_CURSOR_Y
 local BOMB_PREVIEW_X = Config.BOMB_PREVIEW_X
 local BOMB_PREVIEW_Y = Config.BOMB_PREVIEW_Y
 local BOMB_SELECTOR_SCALE = Config.BOMB_SELECTOR_SCALE
+local DIRECTION_CURSOR_X = Config.DIRECTION_CURSOR_X
+local DIRECTION_CURSOR_Y = Config.DIRECTION_CURSOR_Y
+local DIRECTION_CURSOR_SCALE = Config.DIRECTION_CURSOR_SCALE
+local DIRECTION_CURSOR_BOB_OFFSET = Config.DIRECTION_CURSOR_BOB_OFFSET
+local DIRECTION_CURSOR_BOB_TICKS = Config.DIRECTION_CURSOR_BOB_TICKS
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
@@ -812,6 +818,104 @@ local function hide_bomb_selector_ui(player_id, rep)
     end
 end
 
+local DIRECTION_CURSOR_DIRECTIONS = { "Left", "Up", "Right" }
+
+local function direction_cursor_id(rep, direction)
+    if direction == "Left" then return rep.direction_cursor_left end
+    if direction == "Up" then return rep.direction_cursor_up end
+    if direction == "Right" then return rep.direction_cursor_right end
+    return nil
+end
+
+local function draw_direction_cursor(player_id, rep, direction, y)
+    local cursor_id = direction_cursor_id(rep, direction)
+    local x_index = direction == "Left" and 1
+        or (direction == "Up" and 2 or 3)
+    if not cursor_id then return end
+
+    -- Recreate only this cursor so its position can be bobbed without relying
+    -- on a UI-update API that is not exposed by the games interface.
+    pcall(games.remove_ui_element, cursor_id, player_id)
+    pcall(
+        games.add_ui_element,
+        cursor_id,
+        player_id,
+        CURSOR_TEXTURE,
+        CURSOR_ANIMATION,
+        "CURSOR_UP",
+        DIRECTION_CURSOR_X[x_index],
+        y,
+        100,
+        DIRECTION_CURSOR_SCALE,
+        DIRECTION_CURSOR_SCALE
+    )
+
+    -- Colorize the direction-choice cursors a vivid orange.
+    -- color_mode = 1 enables sprite colorization; RGBA uses 0-255 values.
+    pcall(
+        games.update_ui_element,
+        cursor_id,
+        player_id,
+        {
+            a = 255,
+            r = 255,
+            g = 140,
+            b = 0,
+            color_mode = 1
+        }
+    )
+end
+
+local function show_direction_selector_ui(player_id, rep)
+    if not rep or player_representations[player_id] ~= rep then return end
+    rep.direction_cursor_bob_tick = 0
+    rep.direction_cursor_bob_offset = 0
+    for _, direction in ipairs(DIRECTION_CURSOR_DIRECTIONS) do
+        draw_direction_cursor(player_id, rep, direction, DIRECTION_CURSOR_Y)
+    end
+    rep.direction_cursor_ui_visible = true
+end
+
+local function hide_direction_selector_ui(player_id, rep)
+    rep = rep or player_representations[player_id]
+    if not rep then return end
+    for _, direction in ipairs(DIRECTION_CURSOR_DIRECTIONS) do
+        local cursor_id = direction_cursor_id(rep, direction)
+        if cursor_id then
+            pcall(games.remove_ui_element, cursor_id, player_id)
+        end
+    end
+    rep.direction_cursor_ui_visible = false
+    rep.direction_cursor_bob_tick = 0
+    rep.direction_cursor_bob_offset = 0
+end
+
+local function update_direction_selector_bob(player_id, rep)
+    if not rep.direction_cursor_ui_visible or not rep.direction_selection_active
+        or rep.confirming or rep.direction_selection_confirmed then
+        return
+    end
+
+    local selected = rep.selected_direction
+    if selected ~= "Left" and selected ~= "Up" and selected ~= "Right" then
+        return
+    end
+
+    rep.direction_cursor_bob_tick = (rep.direction_cursor_bob_tick or 0) + 1
+    if rep.direction_cursor_bob_tick < DIRECTION_CURSOR_BOB_TICKS then
+        return
+    end
+    rep.direction_cursor_bob_tick = 0
+    rep.direction_cursor_bob_offset = (rep.direction_cursor_bob_offset or 0) == 0
+        and -DIRECTION_CURSOR_BOB_OFFSET or 0
+    draw_direction_cursor(
+        player_id,
+        rep,
+        selected,
+        DIRECTION_CURSOR_Y + rep.direction_cursor_bob_offset
+    )
+end
+
 local function hide_selector_ui(player_id, rep)
     rep = rep or player_representations[player_id]
     if not rep then return end
@@ -833,6 +937,7 @@ local function hide_selector_ui(player_id, rep)
     end
 
     hide_bomb_selector_ui(player_id, rep)
+    hide_direction_selector_ui(player_id, rep)
 
     rep.selector_ui_visible = false
 end
@@ -1091,6 +1196,14 @@ local function setup_player_representation(player_id, instance, bot_record)
         cursor_bottom = "footbomb_cursor_bottom_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
+        -- Three direction-choice cursors shown during each round's choice.
+        direction_cursor_left = "footbomb_direction_cursor_left_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        direction_cursor_up = "footbomb_direction_cursor_up_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        direction_cursor_right = "footbomb_direction_cursor_right_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+
         skin_text_id = "footbomb_navi_name_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
@@ -1129,6 +1242,9 @@ local function setup_player_representation(player_id, instance, bot_record)
         direction_selection_active = false,
         direction_selection_confirmed = false,
         selected_direction = nil,
+        direction_cursor_ui_visible = false,
+        direction_cursor_bob_tick = 0,
+        direction_cursor_bob_offset = 0,
 
         input = InputAPI.get_controller(player_id)
             or InputAPI.create_controller(player_id),
@@ -1558,6 +1674,23 @@ local function fade_player_to_black(player_id)
 
     if not ok then
         log("Camera fade-to-black failed for "
+            .. tostring(player_id) .. ": " .. tostring(err))
+        return false
+    end
+
+    return true
+end
+
+local function fade_player_to_white(player_id)
+    local ok, err = pcall(
+        Net.fade_player_camera,
+        player_id,
+        { r = 255, g = 255, b = 255, a = 255 },
+        0.8
+    )
+
+    if not ok then
+        log("Camera fade-to-white failed for "
             .. tostring(player_id) .. ": " .. tostring(err))
         return false
     end
@@ -2661,23 +2794,45 @@ local function resolve_round_winner(instance_id)
             set_result_animation(kicker, AnimationStates.IDLE_U, "Up", "kicker-after-kick")
             award_round_point(instance_id, kicker, defender, winner)
 
-            -- Keep the result visible for a beat after the ball and Defender
-            -- arrive, then hide the transition before updating the score or
-            -- changing roles/positions.
+            -- Keep the result visible a little longer before transitioning.
+            -- A Kicker goal retains the explosion burst, but skips the sprite
+            -- wash and uses a white camera fade for the transition instead.
             log("ROUND_FLOW: result hold started instance=" .. tostring(instance_id)
-                .. " seconds=1.0")
-            await(Async.sleep(1.0))
+                .. " seconds=1.5")
+            await(Async.sleep(1.5))
+
+            if winner.role == "Kicker" then
+                local bomb_bot = bots.bomb_bot
+                if bomb_bot and bomb_bot.id then
+                    local bomb_area_id = bomb_bot.area_id or kicker.area_id
+                    local explosion_ok, explosion_result = pcall(
+                        EzExplosions.explode, bomb_bot.id, bomb_area_id, 2
+                    )
+                    log("GOAL_FX: explosion burst requested instance=" .. tostring(instance_id)
+                        .. " bomb=" .. tostring(bomb_bot.id)
+                        .. " area=" .. tostring(bomb_area_id)
+                        .. " max_explosions_per_bot=2 success=" .. tostring(explosion_ok)
+                        .. " detail=" .. tostring(explosion_result))
+                else
+                    log("GOAL_FX: skipping explosion burst; bomb bot unavailable instance="
+                        .. tostring(instance_id))
+                end
+            end
 
             local humans = {}
             for player_id, rep in pairs(player_representations) do
                 if rep.instance_id == instance_id then
                     humans[#humans + 1] = { player_id = player_id, rep = rep }
                     if player_representations[player_id] == rep then
-                        fade_player_to_black(player_id)
+                        if winner.role == "Kicker" then
+                            fade_player_to_white(player_id)
+                        else
+                            fade_player_to_black(player_id)
+                        end
                     end
                 end
             end
-            log("ROUND_FLOW: result fade-to-black started instance="
+            log("ROUND_FLOW: result camera fade started instance="
                 .. tostring(instance_id) .. " participant_count=" .. tostring(#humans))
             await(Async.sleep(0.85))
 
@@ -2747,6 +2902,7 @@ local function finish_direction_selection_if_ready(instance_id)
     for _, entry in ipairs(humans) do
         local rep = entry.rep
         rep.direction_selection_active = false
+        hide_direction_selector_ui(entry.player_id, rep)
         local bot = bots[rep.slot]
         if bot then
             -- Never invent a direction if confirmation was somehow reached
@@ -2819,6 +2975,7 @@ local function start_direction_selection(instance_id, human_reps)
                 end
                 rep.direction_selection_active = true
                 rep.direction_prompt_shown = true
+                show_direction_selector_ui(player_id, rep)
                 log("DIRECTION_FLOW: selection prompt ready player="
                     .. tostring(player_id) .. " role=" .. tostring(bots[rep.slot].role)
                     .. " selected=none")
@@ -2970,6 +3127,7 @@ local function confirm_direction_selection(player_id, rep)
         end
         return
     end
+    hide_direction_selector_ui(player_id, rep)
     local bot = instance_bots[rep.instance_id] and instance_bots[rep.instance_id][rep.slot]
     local role = bot and bot.role or "player"
 
@@ -3061,6 +3219,7 @@ local function confirm_direction_selection(player_id, rep)
                     )
                 end
                 rep.direction_selection_active = true
+                show_direction_selector_ui(player_id, rep)
             end
         end
 
@@ -3716,6 +3875,7 @@ end
 Net:on("tick", function(event)
     for player_id, rep in pairs(player_representations) do
         if Net.get_player_area(player_id) == rep.area_id then
+            update_direction_selector_bob(player_id, rep)
             local input = rep.input or InputAPI.get_controller(player_id)
 
             if input
@@ -3742,7 +3902,13 @@ Net:on("tick", function(event)
                 end
 
                 if chosen_direction then
+                    local previous_direction = rep.selected_direction
                     rep.selected_direction = chosen_direction
+                    if rep.direction_cursor_ui_visible and previous_direction ~= chosen_direction then
+                        rep.direction_cursor_bob_tick = 0
+                        rep.direction_cursor_bob_offset = 0
+                        show_direction_selector_ui(player_id, rep)
+                    end
                     pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
                     log("DIRECTION_FLOW: player changed direction player="
                         .. tostring(player_id) .. " direction=" .. chosen_direction)

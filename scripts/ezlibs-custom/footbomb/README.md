@@ -20,6 +20,8 @@ After both participants confirm their directions, the round is resolved once:
 - Different directions award the point to the Kicker.
 - The point is credited to the winner's player slot (Player 1 or Player 2), not their role.
 
+During each round’s direction choice, both Kicker and Defender see three evenly spaced cursors slightly above screen center. All use the `CURSOR_UP` animation at scale 2.0; the currently selected direction bobs vertically.
+
 The scoreboard is drawn near the top center for each human participant. Player 1's score is drawn to the left of the board image and Player 2's score to the right. The board image is expected at `/server/assets/net-game-footbomb/ui/score-board.png`, with a corresponding `score-board.animation` file for `games.add_ui_element`.
 
 
@@ -55,4 +57,4 @@ After synchronized bomb/Defender movement completes, FootBomb explicitly reappli
 
 The Ref-Prog NPC supports the custom property `Points to Win`. It defaults to `10` when the property is missing or invalid; set it to a positive whole number to change the target for matches launched from that NPC.
 
-After the target is reached, the player behind gets one round to tie or take the lead. If they tie, the match continues. If they take the lead, the former leader gets the same one-round chance. The match ends when the player given that chance finishes the round still behind. The final score remains on the scoreboard over the black intermission for about three seconds, then the players are transferred back to the non-instanced area where they spoke to Ref-Prog and the match instance is cleaned up.
+After the target is reached, the player behind gets one round to tie or take the lead. If they tie, the match continues. If they take the lead, the former leader gets the same one-round chance. The match ends when the player given that chance finishes the round still behind. After each result, the game holds the scene for 1.5 seconds before transitioning. A Kicker goal triggers the ezexplosions burst and fades the camera to white; a Defender point uses the normal black camera fade. The final score remains on the scoreboard for about three seconds, then the players are transferred back to the non-instanced area where they spoke to Ref-Prog and the match instance is cleaned up.
