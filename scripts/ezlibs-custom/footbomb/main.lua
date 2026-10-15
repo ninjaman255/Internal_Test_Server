@@ -18,17 +18,18 @@ local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
 local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
 
 local FootBomb = {}
-local npc_refs = {}                 -- area_id -> actor_id -> reference
-local pending_interactions = {}    -- player_id -> true
-local waiting_matches = {}         -- source area -> waiting VS Player match
-local player_representations = {}  -- player_id -> bot/cursor/camera data
-local instance_bots = {}           -- instance_id -> slot records
-local instance_spawn_points = {}   -- instance_id -> named Player 1/2 positions
+local npc_refs = {}               -- area_id -> actor_id -> reference
+local pending_interactions = {}   -- player_id -> true
+local waiting_matches = {}        -- source area -> waiting VS Player match
+local player_representations = {} -- player_id -> bot/cursor/camera data
+local instance_bots = {}          -- instance_id -> slot records
+local instance_spawn_points = {}  -- instance_id -> named Player 1/2 positions
 
 -- NPC direction choices rotate deterministically across rounds.
 local npc_direction_sequence_index = 0
 
 local DEFAULT_SOURCE_AREA = Config.DEFAULT_SOURCE_AREA
+local DEFAULT_POINTS_TO_WIN = Config.DEFAULT_POINTS_TO_WIN or 10
 local MUG_FOLDER = Config.MUG_FOLDER
 local DEFAULT_ASSET_NAME = Config.DEFAULT_ASSET_NAME
 local DEFAULT_MUG_ANIMATION = Config.DEFAULT_MUG_ANIMATION
@@ -644,6 +645,14 @@ local function make_instance(player_id, source_area_id, object, mode)
         .. tostring(player_id):gsub("[^%w_%-]", "_")
         .. "_" .. tostring(os.time())
 
+    local configured_points = math.floor(as_number(
+        props["Points to Win"],
+        DEFAULT_POINTS_TO_WIN
+    ))
+    if configured_points < 1 then
+        configured_points = DEFAULT_POINTS_TO_WIN
+    end
+
     local instance, err = EzMapInstance.create(
         as_string(props["Instance Map"], DEFAULT_SOURCE_AREA),
         instance_id,
@@ -655,6 +664,8 @@ local function make_instance(player_id, source_area_id, object, mode)
             metadata = {
                 game = "footbomb",
                 mode = mode,
+                return_area_id = source_area_id,
+                points_to_win = configured_points,
 
                 party = {
                     host_id = player_id,
@@ -683,6 +694,43 @@ local function make_instance(player_id, source_area_id, object, mode)
         EzMapInstance.remove(instance.id)
         return nil, bot_error
     end
+
+    -- Keep match rules and the non-instanced return map with the round state.
+    -- Returning without explicit coordinates can place players at the map's
+    -- default/void location, so remember a safe tile in front of the Ref-Prog.
+    bots.points_to_win = configured_points
+    bots.return_area_id = source_area_id
+
+    local ref_x = tonumber(object.x)
+    local ref_y = tonumber(object.y)
+    local ref_z = as_number(object.z, 0)
+    local ref_direction = as_string(props.Direction, "Down")
+    if ref_x and ref_y then
+        local return_x, return_z = ref_x, ref_z
+        if ref_direction == "Up" then
+            return_z = ref_z - 1
+        elseif ref_direction == "Down" then
+            return_z = ref_z + 1
+        elseif ref_direction == "Left" then
+            return_x = ref_x - 1
+        elseif ref_direction == "Right" then
+            return_x = ref_x + 1
+        end
+        bots.return_position = { x = return_x + 1, y = ref_y + 1, z = return_z }
+        bots.return_npc_position = { x = ref_x, y = ref_y, z = ref_z }
+        bots.return_npc_direction = ref_direction
+    else
+        log("MATCH_FLOW: Ref-Prog return position unavailable; object coordinates missing area="
+            .. tostring(source_area_id) .. " object=" .. tostring(object.id))
+    end
+
+    bots.match_point_active = false
+    bots.match_point_challenger_slot = nil
+    bots.match_complete = false
+
+    log("MATCH_RULES: configured points_to_win=" .. tostring(configured_points)
+        .. " return_area_id=" .. tostring(source_area_id)
+        .. " instance=" .. tostring(instance.id))
 
     return instance, spawn_points
 end
@@ -1226,7 +1274,7 @@ local function launch_npc_match(player_id, source_area_id, object, npc)
         await(Async.message_player(
             player_id,
             "I couldn't open the FootBomb field right now: "
-                .. tostring(spawn_or_error)
+            .. tostring(spawn_or_error)
         ))
 
         log("NPC match setup failed: " .. tostring(spawn_or_error))
@@ -2013,8 +2061,8 @@ local DIRECTION_INPUT_SETTLE_SECONDS = Config.DIRECTION_INPUT_SETTLE_SECONDS
 
 local function direction_selection_prompt(rep)
     return "Choose a direction for your " .. tostring(
-        (rep.bot_record and rep.bot_record.role) or "turn"
-    ) .. ": Left, Up, or Right. Press Confirm when ready. Current: "
+            (rep.bot_record and rep.bot_record.role) or "turn"
+        ) .. ": Left, Up, or Right. Press Confirm when ready. Current: "
         .. tostring(rep.selected_direction or "none") .. "."
 end
 
@@ -2143,7 +2191,7 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
     end
 
     local keyframes = {
-        { properties = start_properties, duration = 0 },
+        { properties = start_properties,  duration = 0 },
         { properties = target_properties, duration = duration }
     }
 
@@ -2217,7 +2265,7 @@ end
 
 local function award_round_point(instance_id, kicker, defender, winner)
     local bots = instance_bots[instance_id]
-    if not bots or bots.round_winner then return end
+    if not bots or bots.round_winner or bots.match_complete then return end
     if winner.slot == 1 then
         bots.player_one_score = (bots.player_one_score or 0) + 1
     else
@@ -2232,6 +2280,150 @@ local function award_round_point(instance_id, kicker, defender, winner)
         .. " winner_slot=" .. tostring(winner.slot)
         .. " player_one_score=" .. tostring(bots.player_one_score)
         .. " player_two_score=" .. tostring(bots.player_two_score))
+end
+
+-- Evaluate the match only after a round's point has been recorded. Once the
+-- target is reached, the trailing player gets the next round to tie or pass.
+-- A tie resets the challenger; the next player to fall behind gets that chance.
+local function evaluate_match_point(bots, instance_id)
+    local score_one = bots.player_one_score or 0
+    local score_two = bots.player_two_score or 0
+    local target = bots.points_to_win or DEFAULT_POINTS_TO_WIN
+
+    if score_one == score_two then
+        if bots.match_point_active then
+            bots.match_point_challenger_slot = nil
+            log("MATCH_FLOW: scores tied at match point; continue instance="
+                .. tostring(instance_id) .. " score=" .. tostring(score_one))
+        end
+        return false
+    end
+
+    local leader_slot = score_one > score_two and 1 or 2
+    local trailing_slot = leader_slot == 1 and 2 or 1
+    local leader_score = math.max(score_one, score_two)
+    local trailing_score = math.min(score_one, score_two)
+
+    if not bots.match_point_active then
+        if leader_score >= target then
+            bots.match_point_active = true
+            bots.match_point_challenger_slot = trailing_slot
+            log("MATCH_FLOW: target reached; trailing player gets final chance instance="
+                .. tostring(instance_id)
+                .. " target=" .. tostring(target)
+                .. " leader_slot=" .. tostring(leader_slot)
+                .. " challenger_slot=" .. tostring(trailing_slot)
+                .. " score=" .. tostring(score_one) .. "-" .. tostring(score_two))
+        end
+        return false
+    end
+
+    local challenger_slot = bots.match_point_challenger_slot
+    if not challenger_slot then
+        -- The previous round ended tied. The player who is now behind gets
+        -- the next final chance, so do not end the match on this score change.
+        bots.match_point_challenger_slot = trailing_slot
+        log("MATCH_FLOW: tie broken; trailing player gets final chance instance="
+            .. tostring(instance_id) .. " challenger_slot=" .. tostring(trailing_slot)
+            .. " score=" .. tostring(score_one) .. "-" .. tostring(score_two))
+        return false
+    end
+
+    local challenger_score = challenger_slot == 1 and score_one or score_two
+    local other_score = challenger_slot == 1 and score_two or score_one
+
+    if challenger_score > other_score then
+        -- The challenger took the lead. Give the former leader the same
+        -- one-round opportunity to tie or take the lead back.
+        bots.match_point_challenger_slot = challenger_slot == 1 and 2 or 1
+        log("MATCH_FLOW: challenger took the lead; final chance switches sides instance="
+            .. tostring(instance_id)
+            .. " next_challenger_slot=" .. tostring(bots.match_point_challenger_slot)
+            .. " score=" .. tostring(score_one) .. "-" .. tostring(score_two))
+        return false
+    end
+
+    bots.match_complete = true
+    bots.final_winner_slot = leader_slot
+    log("MATCH_FLOW: match complete instance=" .. tostring(instance_id)
+        .. " winner_slot=" .. tostring(leader_slot)
+        .. " final_score=" .. tostring(score_one) .. "-" .. tostring(score_two)
+        .. " target=" .. tostring(target))
+    return true
+end
+
+local function complete_match_and_return(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots or bots.returning_players then return end
+    bots.returning_players = true
+
+    local return_area_id = bots.return_area_id or DEFAULT_SOURCE_AREA
+    local return_position = bots.return_position
+    local players = {}
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            players[#players + 1] = player_id
+        end
+    end
+
+    log("MATCH_FLOW: final score display started instance=" .. tostring(instance_id)
+        .. " score=" .. tostring(bots.player_one_score or 0) .. "-"
+        .. tostring(bots.player_two_score or 0) .. " seconds=3")
+    await(Async.sleep(3.0))
+
+    -- Release minigame UI/input/camera ownership before leaving the instance.
+    for _, player_id in ipairs(players) do
+        remove_representation(player_id)
+    end
+
+    for _, player_id in ipairs(players) do
+        if type(Net.transfer_player) == "function" then
+            local ok, result
+            if return_position then
+                ok, result = pcall(
+                    Net.transfer_player,
+                    player_id,
+                    return_area_id,
+                    false,
+                    return_position.x,
+                    return_position.y,
+                    return_position.z
+                )
+            else
+                -- Keep the legacy fallback for malformed Ref-Prog objects, but
+                -- normal matches always transfer to the saved front-of-NPC tile.
+                ok, result = pcall(
+                    Net.transfer_player,
+                    player_id,
+                    return_area_id,
+                    false
+                )
+            end
+            log("MATCH_FLOW: returning player=" .. tostring(player_id)
+                .. " area=" .. tostring(return_area_id)
+                ..
+                " position=" ..
+                tostring(return_position and (return_position.x .. "," .. return_position.y .. "," .. return_position.z) or
+                    "default")
+                .. " success=" .. tostring(ok and result ~= false)
+                .. " detail=" .. tostring(result))
+        else
+            log("MATCH_FLOW: Net.transfer_player unavailable for player="
+                .. tostring(player_id))
+        end
+    end
+
+    -- Transfer events normally unregister players and clean up the instance;
+    -- these calls also cover runtimes that do not emit the transfer callback.
+    -- If the transfer callback already cleaned it up, do not remove it twice.
+    if instance_bots[instance_id] then
+        remove_instance_bots(instance_id)
+        local removed, remove_error = EzMapInstance.remove(instance_id)
+        if not removed then
+            log("MATCH_FLOW: instance cleanup returned false instance="
+                .. tostring(instance_id) .. " detail=" .. tostring(remove_error))
+        end
+    end
 end
 
 -- Assigned below the direction-selection helpers so the next-round transition
@@ -2438,7 +2630,8 @@ local function resolve_round_winner(instance_id)
                             end
                         end
                         if not same_defender then
-                            log("ANIM_FLOW: stopping defender animation reassertion; bot no longer belongs to match instance="
+                            log(
+                                "ANIM_FLOW: stopping defender animation reassertion; bot no longer belongs to match instance="
                                 .. tostring(instance_id) .. " bot=" .. tostring(defender.id))
                             return
                         end
@@ -2497,7 +2690,11 @@ local function resolve_round_winner(instance_id)
                 .. " player_two_score=" .. tostring(bots.player_two_score or 0))
 
             bots.result_animation_active = false
-            if begin_next_round then
+            if evaluate_match_point(bots, instance_id) then
+                -- Keep the final score on-screen against the black transition
+                -- for three seconds, then return everyone to the source map.
+                complete_match_and_return(instance_id)
+            elseif begin_next_round then
                 begin_next_round(instance_id)
             else
                 log("ROUND_FLOW: next-round handler unavailable instance="
@@ -2604,9 +2801,9 @@ local function start_direction_selection(instance_id, human_reps)
             await(Async.message_player(
                 player_id,
                 "Your role is " .. tostring(bots[rep.slot].role)
-                    .. ". Choose Left, Up, or Right for your "
-                    .. (bots[rep.slot].role == "Kicker" and "kick direction" or "defense direction")
-                    .. ". Press Confirm to select."
+                .. ". Choose Left, Up, or Right for your "
+                .. (bots[rep.slot].role == "Kicker" and "kick direction" or "defense direction")
+                .. ". Press Confirm to select."
             ))
             -- Keep all direction input disabled until the textbox is closed
             -- and the same settling buffer used by Navi selection has elapsed.
@@ -2795,8 +2992,8 @@ local function confirm_direction_selection(player_id, rep)
         await(Async.message_player(
             player_id,
             "You chose " .. string.upper(selected) .. " for your "
-                .. (role == "Kicker" and "kick direction" or "defense direction")
-                .. ". Would you like to confirm this selection?"
+            .. (role == "Kicker" and "kick direction" or "defense direction")
+            .. ". Would you like to confirm this selection?"
         ))
         if player_representations[player_id] ~= rep then
             return
@@ -2937,7 +3134,7 @@ local function try_begin_match(instance_id)
             await(Async.message_player(
                 player_id,
                 "FootBomb will begin shortly! You are the "
-                    .. tostring(bots[rep.slot].role) .. "."
+                .. tostring(bots[rep.slot].role) .. "."
             ))
             log("MATCH_FLOW: role message await returned player="
                 .. tostring(player_id))
@@ -3169,7 +3366,7 @@ local function confirm_navi_selection(player_id, rep)
         await(Async.message_player(
             player_id,
             "You selected " .. option.name
-                .. ". Would you like to use " .. option.name .. "?"
+            .. ". Would you like to use " .. option.name .. "?"
         ))
 
         if not representation_is_current() then

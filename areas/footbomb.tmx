@@ -78,6 +78,7 @@
     <property name="Intro Message" value="Hey! Want to play a round of FootBomb?"/>
     <property name="Mug Animation Name" value="mug"/>
     <property name="Mugshot" value="ref-prog-mug"/>
+    <property name="Points to Win" type="int" value="1"/>
     <property name="Question" value="Would you like to join a FootBomb party and enter the field?"/>
     <property name="Started Message" value="All right! I'll get your party onto the field."/>
    </properties>

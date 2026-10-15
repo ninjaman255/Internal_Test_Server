@@ -49,3 +49,10 @@ The result phase uses `Net.animate_bot_properties()` keyframes to interpolate bo
 ### Defender arrival animation override
 
 After synchronized bomb/Defender movement completes, FootBomb explicitly reapplies the Defender's intended animation through the `Net.animate_bot()` wrapper (`set_result_animation`). This is necessary because the `Animation` property in `Net.animate_bot_properties()` keyframes may revert to an idle state after interpolation ends. Left/Right reapply the matching jump animation; Up reapplies `FOOTBOMB_READY_DEFENSE`.
+
+
+## Configurable match length and match point
+
+The Ref-Prog NPC supports the custom property `Points to Win`. It defaults to `10` when the property is missing or invalid; set it to a positive whole number to change the target for matches launched from that NPC.
+
+After the target is reached, the player behind gets one round to tie or take the lead. If they tie, the match continues. If they take the lead, the former leader gets the same one-round chance. The match ends when the player given that chance finishes the round still behind. The final score remains on the scoreboard over the black intermission for about three seconds, then the players are transferred back to the non-instanced area where they spoke to Ref-Prog and the match instance is cleaned up.

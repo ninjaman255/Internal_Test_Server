@@ -4,6 +4,7 @@
 local C = {}
 
 C.DEFAULT_SOURCE_AREA = "footbomb"
+C.DEFAULT_POINTS_TO_WIN = 10
 C.DEFAULT_ASSET_NAME = "ref-prog"
 C.BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
 C.MUG_FOLDER = C.BOT_ASSET_FOLDER
