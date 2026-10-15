@@ -2062,6 +2062,28 @@ local function update_scoreboard(instance_id)
     end
 end
 
+-- The scoreboard is an intermission display: show it while the cameras are
+-- black between rounds, then remove it before revealing active gameplay.
+local function hide_scoreboard_for_player(player_id, rep)
+    if not rep then return end
+    if rep.scoreboard_ui_id then
+        pcall(games.remove_ui_element, rep.scoreboard_ui_id, player_id)
+    end
+    if rep.score_player_one_text_id then
+        pcall(games.remove_text, rep.score_player_one_text_id, player_id)
+    end
+    if rep.score_player_two_text_id then
+        pcall(games.remove_text, rep.score_player_two_text_id, player_id)
+    end
+end
+
+local function hide_scoreboard_for_instance(instance_id)
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            hide_scoreboard_for_player(player_id, rep)
+        end
+    end
+end
 
 local function move_bot_smoothly(bot, target, speed, phase, animation_state, duration_override)
     if not bot or not bot.id or not target then
@@ -2202,7 +2224,7 @@ local function award_round_point(instance_id, kicker, defender, winner)
         bots.player_two_score = (bots.player_two_score or 0) + 1
     end
     bots.round_winner = winner.role
-    log("SCORE_FLOW: round point awarded after result animation instance="
+    log("SCORE_FLOW: round point recorded; scoreboard waits for black transition instance="
         .. tostring(instance_id)
         .. " kicker_direction=" .. tostring(kicker.direction_choice)
         .. " defender_direction=" .. tostring(defender.direction_choice)
@@ -2210,19 +2232,11 @@ local function award_round_point(instance_id, kicker, defender, winner)
         .. " winner_slot=" .. tostring(winner.slot)
         .. " player_one_score=" .. tostring(bots.player_one_score)
         .. " player_two_score=" .. tostring(bots.player_two_score))
-    update_scoreboard(instance_id)
-    for player_id, rep in pairs(player_representations) do
-        if rep.instance_id == instance_id then
-            async(function()
-                if player_representations[player_id] ~= rep then return end
-                await(Async.message_player(player_id,
-                    winner.role .. " wins the round! Player 1: "
-                    .. tostring(bots.player_one_score) .. " - Player 2: "
-                    .. tostring(bots.player_two_score)))
-            end)
-        end
-    end
 end
+
+-- Assigned below the direction-selection helpers so the next-round transition
+-- can reuse the same prompt flow without duplicating its implementation.
+local begin_next_round
 
 local function resolve_round_winner(instance_id)
     local bots = instance_bots[instance_id]
@@ -2453,11 +2467,47 @@ local function resolve_round_winner(instance_id)
 
             set_result_animation(kicker, AnimationStates.IDLE_U, "Up", "kicker-after-kick")
             award_round_point(instance_id, kicker, defender, winner)
+
+            -- Keep the result visible for a beat after the ball and Defender
+            -- arrive, then hide the transition before updating the score or
+            -- changing roles/positions.
+            log("ROUND_FLOW: result hold started instance=" .. tostring(instance_id)
+                .. " seconds=1.0")
+            await(Async.sleep(1.0))
+
+            local humans = {}
+            for player_id, rep in pairs(player_representations) do
+                if rep.instance_id == instance_id then
+                    humans[#humans + 1] = { player_id = player_id, rep = rep }
+                    if player_representations[player_id] == rep then
+                        fade_player_to_black(player_id)
+                    end
+                end
+            end
+            log("ROUND_FLOW: result fade-to-black started instance="
+                .. tostring(instance_id) .. " participant_count=" .. tostring(#humans))
+            await(Async.sleep(0.85))
+
+            -- The scoreboard is already on the HUD; refresh its values only
+            -- after the field has been hidden, before preparing the next round.
+            update_scoreboard(instance_id)
+            log("SCORE_FLOW: scoreboard updated during black transition instance="
+                .. tostring(instance_id)
+                .. " player_one_score=" .. tostring(bots.player_one_score or 0)
+                .. " player_two_score=" .. tostring(bots.player_two_score or 0))
+
+            bots.result_animation_active = false
+            if begin_next_round then
+                begin_next_round(instance_id)
+            else
+                log("ROUND_FLOW: next-round handler unavailable instance="
+                    .. tostring(instance_id))
+            end
         else
             log("RESULT_FLOW: kicker movement failed; point not awarded instance="
                 .. tostring(instance_id))
+            bots.result_animation_active = false
         end
-        bots.result_animation_active = false
     end)
 end
 
@@ -2581,6 +2631,124 @@ local function start_direction_selection(instance_id, human_reps)
 
     log("DIRECTION_FLOW: started direction selection instance=" .. tostring(instance_id)
         .. " human_count=" .. tostring(#human_reps))
+end
+
+begin_next_round = function(instance_id)
+    local bots = instance_bots[instance_id]
+    if not bots or bots.round_transition_active then
+        log("ROUND_FLOW: refusing duplicate next-round setup instance="
+            .. tostring(instance_id))
+        return
+    end
+
+    local humans = {}
+    for player_id, rep in pairs(player_representations) do
+        if rep.instance_id == instance_id then
+            humans[#humans + 1] = { player_id = player_id, rep = rep }
+        end
+    end
+    if #humans == 0 then
+        log("ROUND_FLOW: no participants remain; next round cancelled instance="
+            .. tostring(instance_id))
+        return
+    end
+
+    bots.round_transition_active = true
+    bots.round_number = (tonumber(bots.round_number) or 1) + 1
+
+    -- Swap roles by bot/slot so each player alternates between Kicker and
+    -- Defender. Clear all per-round choices before the next prompt opens.
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then
+            bot.role = "Defender"
+        else
+            bot.role = "Kicker"
+        end
+        bot.direction_choice = nil
+    end
+    bots.round_winner = nil
+    bots.directions_resolved = false
+
+    for _, entry in ipairs(humans) do
+        local rep = entry.rep
+        rep.direction_selection_active = false
+        rep.direction_selection_confirmed = false
+        rep.direction_prompt_shown = false
+        rep.selected_direction = nil
+        rep.confirming = false
+    end
+
+    log("ROUND_FLOW: preparing next round instance=" .. tostring(instance_id)
+        .. " round=" .. tostring(bots.round_number)
+        .. " player_one_role=" .. tostring(bots[1] and bots[1].role)
+        .. " player_two_role=" .. tostring(bots[2] and bots[2].role))
+
+    local positioned = position_bots_for_round(instance_id)
+    log("ROUND_SETUP: next-round bot positioning instance="
+        .. tostring(instance_id) .. " success=" .. tostring(positioned))
+
+    local bomb_spawned = spawn_bomb_bot_for_round(instance_id, humans)
+    log("ROUND_SETUP: next-round bomb spawn instance="
+        .. tostring(instance_id) .. " success=" .. tostring(bomb_spawned))
+
+    -- Give position changes a short settle window before applying the poses.
+    await(Async.sleep(0.25))
+    local defender_idle_set = set_defender_animation_for_round(
+        instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE, "next-round-idle")
+    local kicker_pose_set, kicker_pose_result = pcall(
+        set_kicker_pose_for_round, instance_id)
+    log("ROUND_SETUP: next-round initial poses instance=" .. tostring(instance_id)
+        .. " defender_idle=" .. tostring(defender_idle_set)
+        .. " kicker_pcall_ok=" .. tostring(kicker_pose_set)
+        .. " kicker_result=" .. tostring(kicker_pose_result))
+
+    await(Async.sleep(0.8))
+    local defender_ready_set = set_defender_animation_for_round(
+        instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE, "next-round-ready")
+    log("ROUND_SETUP: next-round defender ready instance="
+        .. tostring(instance_id) .. " success=" .. tostring(defender_ready_set))
+
+    local animations_primed = prime_round_bot_animations(instance_id)
+    log("ROUND_SETUP: next-round animation priming instance="
+        .. tostring(instance_id) .. " success=" .. tostring(animations_primed))
+    await(Async.sleep(0.15))
+
+    local kicker
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" then
+            kicker = bot
+            break
+        end
+    end
+    if kicker then
+        local retry_ok, retry_result = pcall(
+            Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true)
+        log("ROUND_SETUP: next-round kicker idle reassert bot="
+            .. tostring(kicker.id) .. " pcall_ok=" .. tostring(retry_ok)
+            .. " return=" .. tostring(retry_result))
+    end
+
+    -- The score has been visible during the black intermission. Remove it
+    -- before revealing the next active round so it does not cover gameplay.
+    hide_scoreboard_for_instance(instance_id)
+
+    -- Reveal only after both bots are ready. Camera focus remains on the same
+    -- field framing used for the opening round.
+    for _, entry in ipairs(humans) do
+        local player_id, rep = entry.player_id, entry.rep
+        if player_representations[player_id] == rep then
+            rep.camera_focus_active = true
+            focus_player_camera_for_round(player_id, instance_id)
+            fade_player_in(player_id)
+        end
+    end
+    log("ROUND_FLOW: next-round fade-in started instance=" .. tostring(instance_id))
+    await(Async.sleep(0.85))
+
+    bots.round_transition_active = false
+    start_direction_selection(instance_id, humans)
+    log("ROUND_FLOW: next round ready for direction selection instance="
+        .. tostring(instance_id) .. " round=" .. tostring(bots.round_number))
 end
 
 local function confirm_direction_selection(player_id, rep)
@@ -2899,7 +3067,9 @@ local function try_begin_match(instance_id)
                 -- immediately after the fade-in and cause a visible jump.
                 log("CAMERA_FLOW: keeping Camera Focus locked after fade-in instance="
                     .. tostring(instance_id))
-                update_scoreboard(instance_id)
+                -- The scoreboard is reserved for the black intermission after
+                -- the first result; keep the active field clear during gameplay.
+                hide_scoreboard_for_instance(instance_id)
 
                 -- Once the field is revealed, collect each human's role-based
                 -- direction choice. NPC directions are assigned server-side
