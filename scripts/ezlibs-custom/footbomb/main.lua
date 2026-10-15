@@ -68,6 +68,10 @@ local SCORE_PLAYER_ONE_X = Config.SCORE_PLAYER_ONE_X
 local SCORE_PLAYER_TWO_X = Config.SCORE_PLAYER_TWO_X
 local SCORE_TEXT_Y = Config.SCORE_TEXT_Y
 local SCORE_TEXT_SCALE = Config.SCORE_TEXT_SCALE
+local SCORE_PLAYER_ONE_MUG_X = Config.SCORE_PLAYER_ONE_MUG_X
+local SCORE_PLAYER_TWO_MUG_X = Config.SCORE_PLAYER_TWO_MUG_X
+local SCORE_MUG_Y = Config.SCORE_MUG_Y
+local SCORE_MUG_SCALE = Config.SCORE_MUG_SCALE
 
 local BOMB_CURSOR_LEFT_X = Config.BOMB_CURSOR_LEFT_X
 local BOMB_CURSOR_RIGHT_X = Config.BOMB_CURSOR_RIGHT_X
@@ -515,7 +519,9 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             fixed_skin = vs_npc and slot == 2,
             navi_name = skin.name,
             texture_path = skin.texture,
-            animation_path = skin.animation
+            animation_path = skin.animation,
+            mug_texture_path = skin.texture:gsub("%.png$", "-mug.png"),
+            mug_animation_path = DEFAULT_MUG_ANIMATION
         }
     end
 
@@ -1110,6 +1116,12 @@ local function remove_representation(player_id)
     if rep.scoreboard_ui_id then
         pcall(games.remove_ui_element, rep.scoreboard_ui_id, player_id)
     end
+    if rep.score_player_one_mug_ui_id then
+        pcall(games.remove_ui_element, rep.score_player_one_mug_ui_id, player_id)
+    end
+    if rep.score_player_two_mug_ui_id then
+        pcall(games.remove_ui_element, rep.score_player_two_mug_ui_id, player_id)
+    end
     if rep.score_player_one_text_id then
         pcall(games.remove_text, rep.score_player_one_text_id, player_id)
     end
@@ -1224,6 +1236,10 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
         scoreboard_ui_id = "footbomb_scoreboard_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        score_player_one_mug_ui_id = "footbomb_scoreboard_mug_p1_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        score_player_two_mug_ui_id = "footbomb_scoreboard_mug_p2_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_text_id = "footbomb_score_p1_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
@@ -1591,6 +1607,8 @@ local function cycle_player_skin(player_id, direction)
                 slots[rep.slot].navi_name = old_option.name
                 slots[rep.slot].texture_path = old_option.texture
                 slots[rep.slot].animation_path = old_option.animation
+                slots[rep.slot].mug_texture_path = old_option.texture:gsub("%.png$", "-mug.png")
+                slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
             end
         end
 
@@ -1605,6 +1623,8 @@ local function cycle_player_skin(player_id, direction)
     rep.bot_record.navi_name = option.name
     rep.bot_record.texture_path = option.texture
     rep.bot_record.animation_path = option.animation
+    rep.bot_record.mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
+    rep.bot_record.mug_animation_path = DEFAULT_MUG_ANIMATION
     rep.bot_record.id = new_id
     rep.bot_id = new_id
 
@@ -1621,6 +1641,8 @@ local function cycle_player_skin(player_id, direction)
         slots[rep.slot].navi_name = option.name
         slots[rep.slot].texture_path = option.texture
         slots[rep.slot].animation_path = option.animation
+        slots[rep.slot].mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
+        slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
     end
 
     log("Player " .. tostring(player_id)
@@ -2199,6 +2221,39 @@ local function direction_selection_prompt(rep)
         .. tostring(rep.selected_direction or "none") .. "."
 end
 
+local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
+    if not bot or not bot.mug_texture_path or not bot.mug_animation_path or not ui_id then
+        return
+    end
+
+    -- Use the dedicated mugshot atlas and mug animation, not the full-size
+    -- Navi sprite used by the in-world bot.
+    pcall(games.remove_ui_element, ui_id, player_id)
+    pcall(Net.provide_asset_for_player, player_id, bot.mug_texture_path)
+    pcall(Net.provide_asset_for_player, player_id, bot.mug_animation_path)
+
+    local ok, err = pcall(
+        games.add_ui_element,
+        ui_id,
+        player_id,
+        bot.mug_texture_path,
+        bot.mug_animation_path,
+        "IDLE",
+        x,
+        SCORE_MUG_Y,
+        102,
+        SCORE_MUG_SCALE,
+        SCORE_MUG_SCALE
+    )
+
+    if not ok then
+        log("SCORE_FLOW: scoreboard mug draw failed player="
+            .. tostring(player_id) .. " slot=" .. tostring(bot.slot)
+            .. " mug_texture=" .. tostring(bot.mug_texture_path)
+            .. " error=" .. tostring(err))
+    end
+end
+
 local function draw_scoreboard_for_player(player_id, rep, bots)
     if not rep or not bots or player_representations[player_id] ~= rep then
         return
@@ -2225,6 +2280,17 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
             .. tostring(player_id) .. " error=" .. tostring(err))
     end
 
+    -- Keep the mug portraits tied to score slots rather than changing sides
+    -- when the lead changes: Player 1 stays left and Player 2 stays right.
+    draw_scoreboard_mug(
+        player_id, rep, bots[1], rep.score_player_one_mug_ui_id,
+        SCORE_PLAYER_ONE_MUG_X
+    )
+    draw_scoreboard_mug(
+        player_id, rep, bots[2], rep.score_player_two_mug_ui_id,
+        SCORE_PLAYER_TWO_MUG_X
+    )
+
     pcall(games.draw_text, rep.score_player_one_text_id, player_id,
         tostring(bots.player_one_score or 0), SCORE_PLAYER_ONE_X,
         SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE)
@@ -2249,6 +2315,12 @@ local function hide_scoreboard_for_player(player_id, rep)
     if not rep then return end
     if rep.scoreboard_ui_id then
         pcall(games.remove_ui_element, rep.scoreboard_ui_id, player_id)
+    end
+    if rep.score_player_one_mug_ui_id then
+        pcall(games.remove_ui_element, rep.score_player_one_mug_ui_id, player_id)
+    end
+    if rep.score_player_two_mug_ui_id then
+        pcall(games.remove_ui_element, rep.score_player_two_mug_ui_id, player_id)
     end
     if rep.score_player_one_text_id then
         pcall(games.remove_text, rep.score_player_one_text_id, player_id)

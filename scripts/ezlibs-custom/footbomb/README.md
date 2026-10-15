@@ -58,3 +58,8 @@ After synchronized bomb/Defender movement completes, FootBomb explicitly reappli
 The Ref-Prog NPC supports the custom property `Points to Win`. It defaults to `10` when the property is missing or invalid; set it to a positive whole number to change the target for matches launched from that NPC.
 
 After the target is reached, the player behind gets one round to tie or take the lead. If they tie, the match continues. If they take the lead, the former leader gets the same one-round chance. The match ends when the player given that chance finishes the round still behind. After each result, the game holds the scene for 1.5 seconds before transitioning. A Kicker goal triggers the ezexplosions burst and fades the camera to white; a Defender point uses the normal black camera fade. The final score remains on the scoreboard for about three seconds, then the players are transferred back to the non-instanced area where they spoke to Ref-Prog and the match instance is cleaned up.
+
+
+### Scoreboard mug portraits
+
+During the scoreboard intermission, Player 1's selected Navi portrait is shown on the left and Player 2's selected Navi portrait is shown on the right. Portraits use the dedicated `-mug.png` assets and shared `mug.animation`, rather than the full-size in-world bot sprites. They stay matched to the chosen Navi even when the score lead changes, and both portrait UI elements are removed with the scoreboard. Position and size can be tuned with `SCORE_PLAYER_ONE_MUG_X`, `SCORE_PLAYER_TWO_MUG_X`, `SCORE_MUG_Y`, and `SCORE_MUG_SCALE` in `constants.lua`.
