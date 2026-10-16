@@ -36,52 +36,6 @@ local DEFAULT_ASSET_NAME = Config.DEFAULT_ASSET_NAME
 local DEFAULT_MUG_ANIMATION = Config.DEFAULT_MUG_ANIMATION
 local DEFAULT_MUGSHOT_NAME = Config.DEFAULT_MUGSHOT_NAME
 
--- Use avatar_utils' bot cache so every selectable Navi's sheet and mugshot
--- paths are registered once and reused consistently throughout match setup.
-local AvatarUtils = require("scripts/ezlibs-scripts/avatar_utils/main")
-
-local function register_navi_avatar(option)
-    local mug_texture = option.texture:gsub("%.png$", "-mug.png")
-    local entry = AvatarUtils.register_bot_avatar(
-        option.name,
-        option.texture,
-        option.animation,
-        mug_texture,
-        DEFAULT_MUG_ANIMATION
-    )
-    return entry
-end
-
-local function get_navi_avatar(option)
-    if not option then return nil end
-    local cached = AvatarUtils.get_bot_avatar_paths(option.name)
-    if cached and cached.sheet and cached.mug then
-        return cached
-    end
-    -- Defensive fallback if registration failed during module initialization.
-    return {
-        sheet = { texture = option.texture, animation = option.animation },
-        mug = {
-            texture = option.texture:gsub("%.png$", "-mug.png"),
-            animation = DEFAULT_MUG_ANIMATION
-        }
-    }
-end
-
-for _, option in ipairs(NAVI_OPTIONS) do
-    local ok, result = pcall(register_navi_avatar, option)
-    if not ok then
-        log("AVATAR_CACHE: failed to register Navi " .. tostring(option.name)
-            .. ": " .. tostring(result))
-    else
-        log("AVATAR_CACHE: registered Navi " .. tostring(option.name)
-            .. " sheet=" .. tostring(result.sheet.texture)
-            .. " animation=" .. tostring(result.sheet.animation)
-            .. " mug=" .. tostring(result.mug.texture)
-            .. " mug_animation=" .. tostring(result.mug.animation))
-    end
-end
-
 local BOT_ASSET_FOLDER = Config.BOT_ASSET_FOLDER
 local BOMB_ASSET_FOLDER = Config.BOMB_ASSET_FOLDER
 
@@ -539,15 +493,17 @@ local function create_match_bots(instance, spawn_points, vs_npc)
     local created = {}
 
     for _, option in ipairs(NAVI_OPTIONS) do
-        local avatar = get_navi_avatar(option)
-        for _, path in ipairs({
-            avatar.sheet.texture,
-            avatar.sheet.animation,
-            avatar.mug.texture,
-            avatar.mug.animation
-        }) do
-            pcall(Net.provide_asset_for_player, instance.host_id, path)
-        end
+        pcall(
+            Net.provide_asset_for_player,
+            instance.host_id,
+            option.texture
+        )
+
+        pcall(
+            Net.provide_asset_for_player,
+            instance.host_id,
+            option.animation
+        )
     end
 
     for slot = 1, 2 do
@@ -559,14 +515,13 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             or 1
 
         local skin = NAVI_OPTIONS[skin_index]
-        local avatar = get_navi_avatar(skin)
 
         local ok, bot_id = pcall(Net.create_bot, actor_ids[slot], {
             name = labels[slot],
             area_id = instance.area_id,
 
-            texture_path = avatar.sheet.texture,
-            animation_path = avatar.sheet.animation,
+            texture_path = skin.texture,
+            animation_path = skin.animation,
             -- Keep both Navi previews/round entrants in the defensive idle.
             animation = AnimationStates.IDLE_D,
 
@@ -605,10 +560,10 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             skin_index = skin_index,
             fixed_skin = vs_npc and slot == 2,
             navi_name = skin.name,
-            texture_path = avatar.sheet.texture,
-            animation_path = avatar.sheet.animation,
-            mug_texture_path = avatar.mug.texture,
-            mug_animation_path = avatar.mug.animation
+            texture_path = skin.texture,
+            animation_path = skin.animation,
+            mug_texture_path = skin.texture:gsub("%.png$", "-mug.png"),
+            mug_animation_path = DEFAULT_MUG_ANIMATION
         }
     end
 
@@ -647,11 +602,8 @@ local function provide_match_assets(player_id)
     -- Every selectable bot skin must be ready, not just the currently
     -- equipped skin: the client may see either bot and later skin changes.
     for _, option in ipairs(NAVI_OPTIONS) do
-        local avatar = get_navi_avatar(option)
-        provide(avatar.sheet.texture)
-        provide(avatar.sheet.animation)
-        provide(avatar.mug.texture)
-        provide(avatar.mug.animation)
+        provide(option.texture)
+        provide(option.animation)
     end
 
     -- Bombs use paired texture/animation files, including the skins shown by
@@ -683,19 +635,6 @@ local function transfer_match_players(instance, player_ids, spawn_points)
 
         local spawn = spawn_points[slot]
 
-        -- Hide the source area instantly before warping so the player never
-        -- sees the transition between the source map and the match instance.
-        local black_ok, black_err = pcall(
-            Net.fade_player_camera,
-            player_id,
-            { r = 0, g = 0, b = 0, a = 255 },
-            0
-        )
-        if not black_ok then
-            log("CAMERA_FLOW: instant black before transfer failed for "
-                .. tostring(player_id) .. ": " .. tostring(black_err))
-        end
-
         local ok, result = pcall(
             EzMapInstance.transfer_player,
             instance.id,
@@ -714,13 +653,6 @@ local function transfer_match_players(instance, player_ids, spawn_points)
             -- already exist by the time the client enters the match.
             provide_match_assets(player_id)
         else
-            -- The transfer did not happen, so restore the source-area view.
-            pcall(
-                Net.fade_player_camera,
-                player_id,
-                { r = 0, g = 0, b = 0, a = 0 },
-                0.25
-            )
             log("Transfer failed for " .. tostring(player_id)
                 .. ": " .. tostring(result))
         end
@@ -1348,23 +1280,15 @@ local function setup_player_representation(player_id, instance, bot_record)
         bomb_confirm_prompt_text_id = "footbomb_bomb_confirm_prompt_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
-        -- Include the match instance in scoreboard element IDs. Reusing the
-        -- same UI IDs across instances can let client-side UI/asset state from
-        -- a previous game bleed into the next game's mugshot slots.
         scoreboard_ui_id = "footbomb_scoreboard_"
-            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_mug_ui_id = "footbomb_scoreboard_mug_p1_"
-            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_mug_ui_id = "footbomb_scoreboard_mug_p2_"
-            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_text_id = "footbomb_score_p1_"
-            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_text_id = "footbomb_score_p2_"
-            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         role_text_id = "footbomb_role_text_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
@@ -1653,14 +1577,11 @@ local function cycle_player_skin(player_id, direction)
     end
 
     local option = NAVI_OPTIONS[next_index]
-    local avatar = get_navi_avatar(option)
     local position = rep.bot_record.position
     local old_id = rep.bot_record.id
 
-    pcall(Net.provide_asset_for_player, player_id, avatar.sheet.texture)
-    pcall(Net.provide_asset_for_player, player_id, avatar.sheet.animation)
-    pcall(Net.provide_asset_for_player, player_id, avatar.mug.texture)
-    pcall(Net.provide_asset_for_player, player_id, avatar.mug.animation)
+    pcall(Net.provide_asset_for_player, player_id, option.texture)
+    pcall(Net.provide_asset_for_player, player_id, option.animation)
 
     safe_remove_bot(old_id)
 
@@ -1671,8 +1592,8 @@ local function cycle_player_skin(player_id, direction)
 
         area_id = rep.area_id,
 
-        texture_path = avatar.sheet.texture,
-        animation_path = avatar.sheet.animation,
+        texture_path = option.texture,
+        animation_path = option.animation,
         animation = option.animation_state or AnimationStates.IDLE_D,
 
         x = position.x,
@@ -1691,7 +1612,6 @@ local function cycle_player_skin(player_id, direction)
             .. tostring(player_id) .. ": " .. tostring(new_id))
 
         local old_option = NAVI_OPTIONS[rep.skin_index]
-        local old_avatar = get_navi_avatar(old_option)
 
         local restore_ok, restored_id = pcall(
             Net.create_bot,
@@ -1703,8 +1623,8 @@ local function cycle_player_skin(player_id, direction)
 
                 area_id = rep.area_id,
 
-                texture_path = old_avatar.sheet.texture,
-                animation_path = old_avatar.sheet.animation,
+                texture_path = old_option.texture,
+                animation_path = old_option.animation,
                 animation = old_option.animation_state or AnimationStates.IDLE_D,
 
                 x = position.x,
@@ -1723,8 +1643,8 @@ local function cycle_player_skin(player_id, direction)
             rep.bot_record.id = restored_id
             rep.bot_record.skin_index = rep.skin_index
             rep.bot_record.navi_name = old_option.name
-            rep.bot_record.texture_path = old_avatar.sheet.texture
-            rep.bot_record.animation_path = old_avatar.sheet.animation
+            rep.bot_record.texture_path = old_option.texture
+            rep.bot_record.animation_path = old_option.animation
             rep.bot_id = restored_id
 
             local slots = instance_bots[rep.instance_id]
@@ -1732,10 +1652,10 @@ local function cycle_player_skin(player_id, direction)
                 slots[rep.slot].id = restored_id
                 slots[rep.slot].skin_index = rep.skin_index
                 slots[rep.slot].navi_name = old_option.name
-                slots[rep.slot].texture_path = old_avatar.sheet.texture
-                slots[rep.slot].animation_path = old_avatar.sheet.animation
-                slots[rep.slot].mug_texture_path = old_avatar.mug.texture
-                slots[rep.slot].mug_animation_path = old_avatar.mug.animation
+                slots[rep.slot].texture_path = old_option.texture
+                slots[rep.slot].animation_path = old_option.animation
+                slots[rep.slot].mug_texture_path = old_option.texture:gsub("%.png$", "-mug.png")
+                slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
             end
         end
 
@@ -1748,10 +1668,10 @@ local function cycle_player_skin(player_id, direction)
     rep.skin_index = next_index
     rep.bot_record.skin_index = next_index
     rep.bot_record.navi_name = option.name
-    rep.bot_record.texture_path = avatar.sheet.texture
-    rep.bot_record.animation_path = avatar.sheet.animation
-    rep.bot_record.mug_texture_path = avatar.mug.texture
-    rep.bot_record.mug_animation_path = avatar.mug.animation
+    rep.bot_record.texture_path = option.texture
+    rep.bot_record.animation_path = option.animation
+    rep.bot_record.mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
+    rep.bot_record.mug_animation_path = DEFAULT_MUG_ANIMATION
     rep.bot_record.id = new_id
     rep.bot_id = new_id
 
@@ -1766,17 +1686,17 @@ local function cycle_player_skin(player_id, direction)
         slots[rep.slot].id = new_id
         slots[rep.slot].skin_index = next_index
         slots[rep.slot].navi_name = option.name
-        slots[rep.slot].texture_path = avatar.sheet.texture
-        slots[rep.slot].animation_path = avatar.sheet.animation
-        slots[rep.slot].mug_texture_path = avatar.mug.texture
-        slots[rep.slot].mug_animation_path = avatar.mug.animation
+        slots[rep.slot].texture_path = option.texture
+        slots[rep.slot].animation_path = option.animation
+        slots[rep.slot].mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
+        slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
     end
 
     log("Player " .. tostring(player_id)
         .. " selected " .. option.name
         .. " skin_index=" .. tostring(next_index)
-        .. " texture_path=" .. tostring(avatar.sheet.texture)
-        .. " animation_path=" .. tostring(avatar.sheet.animation))
+        .. " texture_path=" .. tostring(option.texture)
+        .. " animation_path=" .. tostring(option.animation))
 end
 
 local function cycle_bomb_skin(player_id, direction)
@@ -1847,12 +1767,12 @@ local function fade_player_to_white(player_id)
     return true
 end
 
-local function fade_player_in(player_id, duration)
+local function fade_player_in(player_id)
     local ok, err = pcall(
         Net.fade_player_camera,
         player_id,
         { r = 0, g = 0, b = 0, a = 0 },
-        duration or 0.8
+        0.8
     )
 
     if not ok then
@@ -2350,18 +2270,9 @@ local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
 
     -- Use the dedicated mugshot atlas and mug animation, not the full-size
     -- Navi sprite used by the in-world bot.
-    -- Remove the previous element before provisioning and drawing the exact
-    -- current bot's mugshot assets. UI IDs are instance-scoped as an extra
-    -- guard against a client retaining a prior game's portrait binding.
     pcall(games.remove_ui_element, ui_id, player_id)
     pcall(Net.provide_asset_for_player, player_id, bot.mug_texture_path)
     pcall(Net.provide_asset_for_player, player_id, bot.mug_animation_path)
-
-    log("SCORE_FLOW: drawing current bot mugshot player="
-        .. tostring(player_id) .. " slot=" .. tostring(bot.slot)
-        .. " navi=" .. tostring(bot.navi_name)
-        .. " texture=" .. tostring(bot.mug_texture_path)
-        .. " animation=" .. tostring(bot.mug_animation_path))
 
     local ok, err = pcall(
         games.add_ui_element,
@@ -2939,26 +2850,23 @@ local function resolve_round_winner(instance_id)
             -- the Defender's intended pose through the Net.animate_bot wrapper only
             -- after both the bomb and Defender have arrived at their destinations.
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
-                -- The directional jump plays during travel. Once the Defender
-                -- reaches the destination, switch to its matching end pose and
-                -- keep reasserting that pose so it remains visible until fade-out.
-                local defender_arrival_animation = defender.direction_choice == "Left"
-                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
-                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
                 local arrival_animation_ok = set_result_animation(
                     defender,
-                    defender_arrival_animation,
+                    defender_animation,
                     defender_direction,
-                    "defender-arrival-end-animation"
+                    "defender-arrival-animation-override"
                 )
-                log("RESULT_FLOW: defender arrival end animation bot="
+                log("RESULT_FLOW: defender arrival animation override bot="
                     .. tostring(defender.id)
-                    .. " state=" .. tostring(defender_arrival_animation)
+                    .. " state=" .. tostring(defender_animation)
                     .. " success=" .. tostring(arrival_animation_ok))
 
-                -- Some animation controllers re-apply directional idle after a
-                -- property interpolation ends. Reassert the end pose, not the
-                -- travel jump, while the result remains visible before fade-out.
+                -- Some server/client animation controllers re-apply the bot's
+                -- directional idle shortly after a property interpolation ends.
+                -- The jump is already started with looping enabled above; reassert
+                -- it briefly after arrival to win any late completion/idle update.
+                -- This is intentionally after the synchronized movement and does
+                -- not alter either travel duration or the scoring decision.
                 async(function()
                     for _, delay in ipairs({ 0.15, 0.35, 0.75, 1.25 }) do
                         await(Async.sleep(delay))
@@ -2973,20 +2881,20 @@ local function resolve_round_winner(instance_id)
                         end
                         if not same_defender then
                             log(
-                                "ANIM_FLOW: stopping defender end-pose reassertion; bot no longer belongs to match instance="
+                                "ANIM_FLOW: stopping defender animation reassertion; bot no longer belongs to match instance="
                                 .. tostring(instance_id) .. " bot=" .. tostring(defender.id))
                             return
                         end
 
                         local retry_ok = set_result_animation(
                             defender,
-                            defender_arrival_animation,
+                            defender_animation,
                             defender_direction,
-                            "defender-end-pose-reassert-" .. tostring(delay)
+                            "defender-loop-reassert-" .. tostring(delay)
                         )
-                        log("ANIM_FLOW: defender end pose reasserted bot="
+                        log("ANIM_FLOW: defender jump animation reasserted bot="
                             .. tostring(defender.id)
-                            .. " state=" .. tostring(defender_arrival_animation)
+                            .. " state=" .. tostring(defender_animation)
                             .. " delay=" .. tostring(delay)
                             .. " success=" .. tostring(retry_ok))
                     end
@@ -3356,11 +3264,6 @@ local function confirm_direction_selection(player_id, rep)
             return
         end
 
-        -- The bottom-center role label competes visually with textboxes.
-        -- Keep it hidden for the complete message/quiz flow, then restore it
-        -- once the textbox is dismissed and direction selection resumes.
-        hide_role_text(player_id, rep)
-
         -- Disable direction input for the entire message/quiz sequence.
         rep.direction_selection_active = false
         await(Async.message_player(
@@ -3434,11 +3337,6 @@ local function confirm_direction_selection(player_id, rep)
                 end
                 rep.direction_selection_active = true
                 show_direction_selector_ui(player_id, rep)
-                local current_bots = instance_bots[rep.instance_id]
-                local current_role_bot = current_bots and current_bots[rep.slot]
-                if current_role_bot then
-                    draw_role_text(player_id, rep, current_role_bot.role)
-                end
             end
         end
 
@@ -3604,10 +3502,6 @@ local function try_begin_match(instance_id)
                         .. " return=" .. tostring(retry_result))
                 end
 
-                -- Keep the screen black a little longer after the players,
-                -- camera focus, and opening animation have settled.
-                await(Async.sleep(1.0))
-
                 log("ROUND_SETUP: fading cameras in instance="
                     .. tostring(instance_id))
 
@@ -3624,8 +3518,7 @@ local function try_begin_match(instance_id)
                         -- Center each human player's camera on the Tiled
                         -- "Camera Focus" point before revealing the round.
                         focus_player_camera_for_round(player_id, instance_id)
-                        -- Give the initial warp a slower, one-second reveal.
-                        fade_player_in(player_id, 1.0)
+                        fade_player_in(player_id)
                     end
                 end
 
@@ -4075,81 +3968,16 @@ function FootBomb.handle_player_disconnect(player_id)
     remove_representation(player_id)
 
     local record = EzMapInstance.get_for_player(player_id)
-    if not record then return end
 
-    local instance_id = record.id
-    local metadata = record.metadata or {}
-    local bots = instance_bots[instance_id]
-    local remaining_players = {}
+    if record then
+        EzMapInstance.unregister_player(record.id, player_id)
 
-    -- In PvP, the opponent should not be left stranded in the private match
-    -- instance when this player disconnects. Snapshot the other members before
-    -- unregistering the disconnecting player, since unregister mutates the list.
-    if metadata.game == "footbomb" and metadata.mode == "player" then
-        for _, other_player_id in ipairs(record.player_ids or {}) do
-            if other_player_id ~= player_id then
-                remaining_players[#remaining_players + 1] = other_player_id
-            end
-        end
-    end
-
-    EzMapInstance.unregister_player(instance_id, player_id)
-
-    if metadata.party then
-        metadata.party.members = record.player_ids
-    end
-
-    for _, other_player_id in ipairs(remaining_players) do
-        remove_representation(other_player_id)
-
-        local return_area_id = (bots and bots.return_area_id)
-            or metadata.return_area_id
-            or DEFAULT_SOURCE_AREA
-        local return_position = bots and bots.return_position
-        local transferred = false
-        local transfer_detail = "Net.transfer_player unavailable"
-
-        if type(Net.transfer_player) == "function" then
-            local ok, result
-            if return_position then
-                ok, result = pcall(
-                    Net.transfer_player,
-                    other_player_id,
-                    return_area_id,
-                    false,
-                    return_position.x,
-                    return_position.y,
-                    return_position.z
-                )
-                transferred = ok and result ~= false
-                transfer_detail = tostring(result)
-            end
-
-            -- If the saved Ref-Prog return tile is unavailable or the
-            -- positioned transfer fails, fall back to the area's default spawn.
-            if not transferred then
-                ok, result = pcall(
-                    Net.transfer_player,
-                    other_player_id,
-                    return_area_id,
-                    false
-                )
-                transferred = ok and result ~= false
-                transfer_detail = tostring(result)
-            end
+        if record.metadata and record.metadata.party then
+            record.metadata.party.members = record.player_ids
         end
 
-        log("MATCH_FLOW: opponent disconnected; returning remaining player="
-            .. tostring(other_player_id)
-            .. " instance=" .. tostring(instance_id)
-            .. " area=" .. tostring(return_area_id)
-            .. " position=" .. tostring(return_position and
-                (return_position.x .. "," .. return_position.y .. "," .. return_position.z) or "default")
-            .. " success=" .. tostring(transferred)
-            .. " detail=" .. transfer_detail)
+        cleanup_empty_instance(record)
     end
-
-    cleanup_empty_instance(record)
 end
 
 ---------------------------------------------------------------------------
