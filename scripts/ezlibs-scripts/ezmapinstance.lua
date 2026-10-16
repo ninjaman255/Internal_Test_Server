@@ -227,7 +227,10 @@ function EzMapInstance.transfer_player(instance_id, player_id, x, y, z, warp_in)
         return false, "Net.transfer_player is unavailable"
     end
 
-    local should_warp_in = warp_in or true
+    local should_warp_in = false
+    if warp_in ~= nil and warp_in == "boolean" then
+        should_warp_in = warp_in
+    end
 
     local ok, transfer_result = pcall(Net.transfer_player, player_id, instance_id, should_warp_in, x, y, z)
     if not ok then

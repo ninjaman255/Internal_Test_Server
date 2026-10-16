@@ -36,6 +36,52 @@ local DEFAULT_ASSET_NAME = Config.DEFAULT_ASSET_NAME
 local DEFAULT_MUG_ANIMATION = Config.DEFAULT_MUG_ANIMATION
 local DEFAULT_MUGSHOT_NAME = Config.DEFAULT_MUGSHOT_NAME
 
+-- Use avatar_utils' bot cache so every selectable Navi's sheet and mugshot
+-- paths are registered once and reused consistently throughout match setup.
+local AvatarUtils = require("scripts/ezlibs-scripts/avatar_utils/main")
+
+local function register_navi_avatar(option)
+    local mug_texture = option.texture:gsub("%.png$", "-mug.png")
+    local entry = AvatarUtils.register_bot_avatar(
+        option.name,
+        option.texture,
+        option.animation,
+        mug_texture,
+        DEFAULT_MUG_ANIMATION
+    )
+    return entry
+end
+
+local function get_navi_avatar(option)
+    if not option then return nil end
+    local cached = AvatarUtils.get_bot_avatar_paths(option.name)
+    if cached and cached.sheet and cached.mug then
+        return cached
+    end
+    -- Defensive fallback if registration failed during module initialization.
+    return {
+        sheet = { texture = option.texture, animation = option.animation },
+        mug = {
+            texture = option.texture:gsub("%.png$", "-mug.png"),
+            animation = DEFAULT_MUG_ANIMATION
+        }
+    }
+end
+
+for _, option in ipairs(NAVI_OPTIONS) do
+    local ok, result = pcall(register_navi_avatar, option)
+    if not ok then
+        log("AVATAR_CACHE: failed to register Navi " .. tostring(option.name)
+            .. ": " .. tostring(result))
+    else
+        log("AVATAR_CACHE: registered Navi " .. tostring(option.name)
+            .. " sheet=" .. tostring(result.sheet.texture)
+            .. " animation=" .. tostring(result.sheet.animation)
+            .. " mug=" .. tostring(result.mug.texture)
+            .. " mug_animation=" .. tostring(result.mug.animation))
+    end
+end
+
 local BOT_ASSET_FOLDER = Config.BOT_ASSET_FOLDER
 local BOMB_ASSET_FOLDER = Config.BOMB_ASSET_FOLDER
 
@@ -493,17 +539,15 @@ local function create_match_bots(instance, spawn_points, vs_npc)
     local created = {}
 
     for _, option in ipairs(NAVI_OPTIONS) do
-        pcall(
-            Net.provide_asset_for_player,
-            instance.host_id,
-            option.texture
-        )
-
-        pcall(
-            Net.provide_asset_for_player,
-            instance.host_id,
-            option.animation
-        )
+        local avatar = get_navi_avatar(option)
+        for _, path in ipairs({
+            avatar.sheet.texture,
+            avatar.sheet.animation,
+            avatar.mug.texture,
+            avatar.mug.animation
+        }) do
+            pcall(Net.provide_asset_for_player, instance.host_id, path)
+        end
     end
 
     for slot = 1, 2 do
@@ -515,13 +559,14 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             or 1
 
         local skin = NAVI_OPTIONS[skin_index]
+        local avatar = get_navi_avatar(skin)
 
         local ok, bot_id = pcall(Net.create_bot, actor_ids[slot], {
             name = labels[slot],
             area_id = instance.area_id,
 
-            texture_path = skin.texture,
-            animation_path = skin.animation,
+            texture_path = avatar.sheet.texture,
+            animation_path = avatar.sheet.animation,
             -- Keep both Navi previews/round entrants in the defensive idle.
             animation = AnimationStates.IDLE_D,
 
@@ -560,10 +605,10 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             skin_index = skin_index,
             fixed_skin = vs_npc and slot == 2,
             navi_name = skin.name,
-            texture_path = skin.texture,
-            animation_path = skin.animation,
-            mug_texture_path = skin.texture:gsub("%.png$", "-mug.png"),
-            mug_animation_path = DEFAULT_MUG_ANIMATION
+            texture_path = avatar.sheet.texture,
+            animation_path = avatar.sheet.animation,
+            mug_texture_path = avatar.mug.texture,
+            mug_animation_path = avatar.mug.animation
         }
     end
 
@@ -602,8 +647,11 @@ local function provide_match_assets(player_id)
     -- Every selectable bot skin must be ready, not just the currently
     -- equipped skin: the client may see either bot and later skin changes.
     for _, option in ipairs(NAVI_OPTIONS) do
-        provide(option.texture)
-        provide(option.animation)
+        local avatar = get_navi_avatar(option)
+        provide(avatar.sheet.texture)
+        provide(avatar.sheet.animation)
+        provide(avatar.mug.texture)
+        provide(avatar.mug.animation)
     end
 
     -- Bombs use paired texture/animation files, including the skins shown by
@@ -1605,11 +1653,14 @@ local function cycle_player_skin(player_id, direction)
     end
 
     local option = NAVI_OPTIONS[next_index]
+    local avatar = get_navi_avatar(option)
     local position = rep.bot_record.position
     local old_id = rep.bot_record.id
 
-    pcall(Net.provide_asset_for_player, player_id, option.texture)
-    pcall(Net.provide_asset_for_player, player_id, option.animation)
+    pcall(Net.provide_asset_for_player, player_id, avatar.sheet.texture)
+    pcall(Net.provide_asset_for_player, player_id, avatar.sheet.animation)
+    pcall(Net.provide_asset_for_player, player_id, avatar.mug.texture)
+    pcall(Net.provide_asset_for_player, player_id, avatar.mug.animation)
 
     safe_remove_bot(old_id)
 
@@ -1620,8 +1671,8 @@ local function cycle_player_skin(player_id, direction)
 
         area_id = rep.area_id,
 
-        texture_path = option.texture,
-        animation_path = option.animation,
+        texture_path = avatar.sheet.texture,
+        animation_path = avatar.sheet.animation,
         animation = option.animation_state or AnimationStates.IDLE_D,
 
         x = position.x,
@@ -1640,6 +1691,7 @@ local function cycle_player_skin(player_id, direction)
             .. tostring(player_id) .. ": " .. tostring(new_id))
 
         local old_option = NAVI_OPTIONS[rep.skin_index]
+        local old_avatar = get_navi_avatar(old_option)
 
         local restore_ok, restored_id = pcall(
             Net.create_bot,
@@ -1651,8 +1703,8 @@ local function cycle_player_skin(player_id, direction)
 
                 area_id = rep.area_id,
 
-                texture_path = old_option.texture,
-                animation_path = old_option.animation,
+                texture_path = old_avatar.sheet.texture,
+                animation_path = old_avatar.sheet.animation,
                 animation = old_option.animation_state or AnimationStates.IDLE_D,
 
                 x = position.x,
@@ -1671,8 +1723,8 @@ local function cycle_player_skin(player_id, direction)
             rep.bot_record.id = restored_id
             rep.bot_record.skin_index = rep.skin_index
             rep.bot_record.navi_name = old_option.name
-            rep.bot_record.texture_path = old_option.texture
-            rep.bot_record.animation_path = old_option.animation
+            rep.bot_record.texture_path = old_avatar.sheet.texture
+            rep.bot_record.animation_path = old_avatar.sheet.animation
             rep.bot_id = restored_id
 
             local slots = instance_bots[rep.instance_id]
@@ -1680,10 +1732,10 @@ local function cycle_player_skin(player_id, direction)
                 slots[rep.slot].id = restored_id
                 slots[rep.slot].skin_index = rep.skin_index
                 slots[rep.slot].navi_name = old_option.name
-                slots[rep.slot].texture_path = old_option.texture
-                slots[rep.slot].animation_path = old_option.animation
-                slots[rep.slot].mug_texture_path = old_option.texture:gsub("%.png$", "-mug.png")
-                slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
+                slots[rep.slot].texture_path = old_avatar.sheet.texture
+                slots[rep.slot].animation_path = old_avatar.sheet.animation
+                slots[rep.slot].mug_texture_path = old_avatar.mug.texture
+                slots[rep.slot].mug_animation_path = old_avatar.mug.animation
             end
         end
 
@@ -1696,10 +1748,10 @@ local function cycle_player_skin(player_id, direction)
     rep.skin_index = next_index
     rep.bot_record.skin_index = next_index
     rep.bot_record.navi_name = option.name
-    rep.bot_record.texture_path = option.texture
-    rep.bot_record.animation_path = option.animation
-    rep.bot_record.mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
-    rep.bot_record.mug_animation_path = DEFAULT_MUG_ANIMATION
+    rep.bot_record.texture_path = avatar.sheet.texture
+    rep.bot_record.animation_path = avatar.sheet.animation
+    rep.bot_record.mug_texture_path = avatar.mug.texture
+    rep.bot_record.mug_animation_path = avatar.mug.animation
     rep.bot_record.id = new_id
     rep.bot_id = new_id
 
@@ -1714,17 +1766,17 @@ local function cycle_player_skin(player_id, direction)
         slots[rep.slot].id = new_id
         slots[rep.slot].skin_index = next_index
         slots[rep.slot].navi_name = option.name
-        slots[rep.slot].texture_path = option.texture
-        slots[rep.slot].animation_path = option.animation
-        slots[rep.slot].mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
-        slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
+        slots[rep.slot].texture_path = avatar.sheet.texture
+        slots[rep.slot].animation_path = avatar.sheet.animation
+        slots[rep.slot].mug_texture_path = avatar.mug.texture
+        slots[rep.slot].mug_animation_path = avatar.mug.animation
     end
 
     log("Player " .. tostring(player_id)
         .. " selected " .. option.name
         .. " skin_index=" .. tostring(next_index)
-        .. " texture_path=" .. tostring(option.texture)
-        .. " animation_path=" .. tostring(option.animation))
+        .. " texture_path=" .. tostring(avatar.sheet.texture)
+        .. " animation_path=" .. tostring(avatar.sheet.animation))
 end
 
 local function cycle_bomb_skin(player_id, direction)
@@ -4023,16 +4075,81 @@ function FootBomb.handle_player_disconnect(player_id)
     remove_representation(player_id)
 
     local record = EzMapInstance.get_for_player(player_id)
+    if not record then return end
 
-    if record then
-        EzMapInstance.unregister_player(record.id, player_id)
+    local instance_id = record.id
+    local metadata = record.metadata or {}
+    local bots = instance_bots[instance_id]
+    local remaining_players = {}
 
-        if record.metadata and record.metadata.party then
-            record.metadata.party.members = record.player_ids
+    -- In PvP, the opponent should not be left stranded in the private match
+    -- instance when this player disconnects. Snapshot the other members before
+    -- unregistering the disconnecting player, since unregister mutates the list.
+    if metadata.game == "footbomb" and metadata.mode == "player" then
+        for _, other_player_id in ipairs(record.player_ids or {}) do
+            if other_player_id ~= player_id then
+                remaining_players[#remaining_players + 1] = other_player_id
+            end
+        end
+    end
+
+    EzMapInstance.unregister_player(instance_id, player_id)
+
+    if metadata.party then
+        metadata.party.members = record.player_ids
+    end
+
+    for _, other_player_id in ipairs(remaining_players) do
+        remove_representation(other_player_id)
+
+        local return_area_id = (bots and bots.return_area_id)
+            or metadata.return_area_id
+            or DEFAULT_SOURCE_AREA
+        local return_position = bots and bots.return_position
+        local transferred = false
+        local transfer_detail = "Net.transfer_player unavailable"
+
+        if type(Net.transfer_player) == "function" then
+            local ok, result
+            if return_position then
+                ok, result = pcall(
+                    Net.transfer_player,
+                    other_player_id,
+                    return_area_id,
+                    false,
+                    return_position.x,
+                    return_position.y,
+                    return_position.z
+                )
+                transferred = ok and result ~= false
+                transfer_detail = tostring(result)
+            end
+
+            -- If the saved Ref-Prog return tile is unavailable or the
+            -- positioned transfer fails, fall back to the area's default spawn.
+            if not transferred then
+                ok, result = pcall(
+                    Net.transfer_player,
+                    other_player_id,
+                    return_area_id,
+                    false
+                )
+                transferred = ok and result ~= false
+                transfer_detail = tostring(result)
+            end
         end
 
-        cleanup_empty_instance(record)
+        log("MATCH_FLOW: opponent disconnected; returning remaining player="
+            .. tostring(other_player_id)
+            .. " instance=" .. tostring(instance_id)
+            .. " area=" .. tostring(return_area_id)
+            .. " position=" .. tostring(return_position and
+                (return_position.x .. "," .. return_position.y .. "," .. return_position.z) or "default")
+            .. " success=" .. tostring(transferred)
+            .. " detail=" .. transfer_detail)
     end
+
+    cleanup_empty_instance(record)
 end
 
 ---------------------------------------------------------------------------

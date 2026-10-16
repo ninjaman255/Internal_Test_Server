@@ -1,5 +1,5 @@
-# FootBomb textbox role-label visibility update
+# FootBomb PvP disconnect return
 
-The bottom-center Kicker/Defense role label is removed before the direction confirmation message/quiz sequence. If the player declines and returns to direction selection, the label is redrawn after the textbox is dismissed and the direction UI is restored. If the player confirms, the label remains hidden through the waiting message; normal match-start HUD setup restores it when active gameplay is revealed.
+When a player disconnects during a player-vs-player FootBomb match, the disconnect handler now snapshots the remaining participant before unregistering the disconnected player, removes the remaining participant's FootBomb representation, and transfers them to the original non-instanced area. It uses the saved return tile in front of the Ref-Prog when available, with a default-area-spawn fallback if the positioned transfer fails. NPC matches and non-FootBomb instances are not changed.
 
-Based on the latest `footbomb-mugshot-fresh.zip` source.
+This is a source change only; in-game disconnect behavior has not been tested.
