@@ -1,11 +1,25 @@
 animation state="FOOTBOMB_IDLE_DEFENSE"
 frame duration="0.0833333" x="5" y="85" w="21" h="35" originx="10" originy="34"
 
-animation state="FOOTBOMB_JUMP_RIGHT"
-frame duration="0.0833333" x="70" y="84" w="36" h="36" originx="19" originy="35"
-
 animation state="FOOTBOMB_JUMP_LEFT"
-frame duration="0.0833333" x="70" y="84" w="36" h="36" originx="19" originy="35", flipx="1"
+frame duration="0.0833333" x="59" y="84" w="36" h="36" originx="19" originy="35" flipx="1"
+frame duration="0.0833333" x="96" y="84" w="36" h="36" originx="19" originy="35" flipx="1"
+frame duration="0.0833333" x="133" y="84" w="36" h="36" originx="19" originy="35" flipx="1"
+frame duration="0.0833333" x="170" y="84" w="36" h="36" originx="19" originy="35" flipx="1"
+frame duration="0.0833333" x="207" y="84" w="36" h="36" originx="19" originy="35" flipx="1"
+
+animation state="FOOTBOMB_JUMP_LEFT_END"
+frame duration="0.0833333" x="207" y="84" w="36" h="36" originx="19" originy="35" flipx="1"
+
+animation state="FOOTBOMB_JUMP_RIGHT"
+frame duration="0.0833333" x="59" y="84" w="36" h="36" originx="19" originy="35"
+frame duration="0.0833333" x="96" y="84" w="36" h="36" originx="19" originy="35"
+frame duration="0.0833333" x="133" y="84" w="36" h="36" originx="19" originy="35"
+frame duration="0.0833333" x="170" y="84" w="36" h="36" originx="19" originy="35"
+frame duration="0.0833333" x="207" y="84" w="36" h="36" originx="19" originy="35"
+
+animation state="FOOTBOMB_JUMP_RIGHT_END"
+frame duration="0.0833333" x="207" y="84" w="36" h="36" originx="19" originy="35"
 
 animation state="FOOTBOMB_READY_DEFENSE"
 frame duration="0.0833333" x="33" y="85" w="21" h="35" originx="10" originy="34"

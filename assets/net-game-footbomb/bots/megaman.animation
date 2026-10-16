@@ -1,14 +1,31 @@
 animation state="FOOTBOMB_IDLE_DEFENSE"
 frame duration="0.183333" x="48" y="119" w="17" h="28" originx="8" originy="27"
 
-animation state="FOOTBOMB_JUMP_RIGHT"
-frame duration="0.183333" x="94" y="114" w="35" h="33" originx="17" originy="32"
-
 animation state="FOOTBOMB_JUMP_LEFT"
 frame duration="0.183333" x="94" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+frame duration="0.183333" x="130" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+frame duration="0.183333" x="166" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+frame duration="0.183333" x="202" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+frame duration="0.183333" x="238" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+
+animation state="FOOTBOMB_JUMP_LEFT_END"
+frame duration="0.183333" x="238" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+
+animation state="FOOTBOMB_JUMP_RIGHT"
+frame duration="0.183333" x="94" y="114" w="35" h="33" originx="17" originy="32"
+frame duration="0.183333" x="130" y="114" w="35" h="33" originx="17" originy="32"
+frame duration="0.183333" x="166" y="114" w="35" h="33" originx="17" originy="32"
+frame duration="0.183333" x="202" y="114" w="35" h="33" originx="17" originy="32"
+frame duration="0.183333" x="238" y="114" w="35" h="33" originx="17" originy="32"
+
+animation state="FOOTBOMB_JUMP_RIGHT_END"
+frame duration="0.183333" x="238" y="114" w="35" h="33" originx="17" originy="32"
 
 animation state="FOOTBOMB_READY_DEFENSE"
 frame duration="0.183333" x="71" y="118" w="17" h="29" originx="8" originy="28"
+
+animation state="IDLE_D"
+frame duration="0.183333" x="48" y="119" w="17" h="28" originx="8" originy="27"
 
 animation state="IDLE_U"
 frame duration="0.0833333" x="1" y="1" w="17" h="34" originx="8" originy="31"
@@ -31,6 +48,3 @@ frame duration="0.0833333" x="50" y="77" w="21" h="32" originx="10" originy="31"
 frame duration="0.0833333" x="77" y="77" w="20" h="32" originx="8" originy="31"
 frame duration="0.0833333" x="101" y="78" w="20" h="31" originx="9" originy="30"
 frame duration="0.0833333" x="126" y="77" w="19" h="32" originx="7" originy="31"  
-
-animation state="IDLE_D"
-frame duration="0.183333" x="48" y="119" w="17" h="28" originx="8" originy="27"

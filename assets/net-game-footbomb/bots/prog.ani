@@ -1,27 +1,41 @@
 !frame_rate 60
-!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bots/prog.png"
+!image_path "C:/Users/ddson/Downloads/bots/prog.png"
+
+anim FOOTBOMB_IDLE_DEFENSE
+frame dur=11f x=2 y=84 w=16 h=31 originx=8 originy=30
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=11f x=36 y=76 w=29 h=39 originx=12 originy=38
+frame dur=11f x=67 y=76 w=29 h=39 originx=12 originy=38
+frame dur=11f x=98 y=76 w=29 h=39 originx=12 originy=38
+frame dur=11f x=129 y=76 w=29 h=39 originx=12 originy=38
+frame dur=11f x=160 y=76 w=29 h=39 originx=12 originy=38
+
+anim FOOTBOMB_JUMP_LEFT
+frame dur=11f x=36 y=76 w=29 h=39 originx=12 originy=38 flipx=1
+frame dur=11f x=67 y=76 w=29 h=39 originx=12 originy=38 flipx=1
+frame dur=11f x=98 y=76 w=29 h=39 originx=12 originy=38 flipx=1
+frame dur=11f x=129 y=76 w=29 h=39 originx=12 originy=38 flipx=1
+frame dur=11f x=160 y=76 w=29 h=39 originx=12 originy=38 flipx=1
+
+anim FOOTBOMB_READY_DEFENSE
+frame dur=11f x=19 y=84 w=16 h=31 originx=8 originy=30
 
 anim IDLE_U
 frame dur=5f x=3 y=2 w=14 h=34 originx=7 originy=33
+
+anim IDLE_UR
+frame dur=5f x=3 y=38 w=14 h=35 originx=7 originy=34
 
 anim WALK_U
 frame dur=5f x=3 y=2 w=14 h=34 originx=7 originy=33
 frame dur=5f x=18 y=2 w=14 h=34 originx=7 originy=33
 frame dur=5f x=33 y=2 w=14 h=34 originx=7 originy=33
 
-anim IDLE_UR
-frame dur=5f x=3 y=38 w=14 h=35 originx=7 originy=34
-
 anim WALK_UR
 frame dur=5f x=3 y=38 w=14 h=35 originx=7 originy=34
 frame dur=5f x=18 y=38 w=14 h=35 originx=7 originy=34
 frame dur=5f x=33 y=38 w=14 h=35 originx=7 originy=34
 
-anim FOOTBOMB_IDLE_DEFENSE
-frame dur=10f x=2 y=84 w=16 h=31 originx=8 originy=30
-
-anim FOOTBOMB_READY_DEFENSE
-frame dur=10f x=19 y=84 w=16 h=31 originx=8 originy=30
-
-anim FOOTBOMB_JUMP_RIGHT
-frame dur=10f x=36 y=76 w=29 h=39 originx=12 originy=38
+anim IDLE_D
+frame dur=11f x=2 y=84 w=16 h=31 originx=8 originy=30

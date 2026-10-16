@@ -2213,6 +2213,8 @@ local function prime_round_bot_animations(instance_id)
         AnimationStates.FOOTBOMB_READY_DEFENSE,
         AnimationStates.FOOTBOMB_JUMP_RIGHT,
         AnimationStates.FOOTBOMB_JUMP_LEFT,
+        AnimationStates.FOOTBOMB_JUMP_RIGHT_END,
+        AnimationStates.FOOTBOMB_JUMP_LEFT_END,
     }
 
     log("ROUND_SETUP: priming Navi animation states while cameras are black"
@@ -2233,7 +2235,7 @@ local function prime_round_bot_animations(instance_id)
         end
         -- 100 ms per state: fast enough to keep the intro snappy, while
         -- giving the client a brief opportunity to initialize each state.
-        await(Async.sleep(0.1))
+        await(Async.sleep(0.2))
     end
 
     -- Restore the actual starting poses after the warm-up sequence.
@@ -2260,13 +2262,6 @@ end
 
 local DIRECTION_CHOICES = Config.DIRECTION_CHOICES
 local DIRECTION_INPUT_SETTLE_SECONDS = Config.DIRECTION_INPUT_SETTLE_SECONDS
-
-local function direction_selection_prompt(rep)
-    return "Choose a direction for your " .. tostring(
-            (rep.bot_record and rep.bot_record.role) or "turn"
-        ) .. ": Left, Up, or Right. Press Confirm when ready. Current: "
-        .. tostring(rep.selected_direction or "none") .. "."
-end
 
 local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
     if not bot or not bot.mug_texture_path or not bot.mug_animation_path or not ui_id then
