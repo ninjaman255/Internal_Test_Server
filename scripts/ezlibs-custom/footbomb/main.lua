@@ -635,6 +635,19 @@ local function transfer_match_players(instance, player_ids, spawn_points)
 
         local spawn = spawn_points[slot]
 
+        -- Hide the source area instantly before warping so the player never
+        -- sees the transition between the source map and the match instance.
+        local black_ok, black_err = pcall(
+            Net.fade_player_camera,
+            player_id,
+            { r = 0, g = 0, b = 0, a = 255 },
+            0
+        )
+        if not black_ok then
+            log("CAMERA_FLOW: instant black before transfer failed for "
+                .. tostring(player_id) .. ": " .. tostring(black_err))
+        end
+
         local ok, result = pcall(
             EzMapInstance.transfer_player,
             instance.id,
@@ -653,6 +666,13 @@ local function transfer_match_players(instance, player_ids, spawn_points)
             -- already exist by the time the client enters the match.
             provide_match_assets(player_id)
         else
+            -- The transfer did not happen, so restore the source-area view.
+            pcall(
+                Net.fade_player_camera,
+                player_id,
+                { r = 0, g = 0, b = 0, a = 0 },
+                0.25
+            )
             log("Transfer failed for " .. tostring(player_id)
                 .. ": " .. tostring(result))
         end
@@ -1280,15 +1300,23 @@ local function setup_player_representation(player_id, instance, bot_record)
         bomb_confirm_prompt_text_id = "footbomb_bomb_confirm_prompt_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
+        -- Include the match instance in scoreboard element IDs. Reusing the
+        -- same UI IDs across instances can let client-side UI/asset state from
+        -- a previous game bleed into the next game's mugshot slots.
         scoreboard_ui_id = "footbomb_scoreboard_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_mug_ui_id = "footbomb_scoreboard_mug_p1_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_mug_ui_id = "footbomb_scoreboard_mug_p2_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_text_id = "footbomb_score_p1_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_text_id = "footbomb_score_p2_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         role_text_id = "footbomb_role_text_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
@@ -1767,12 +1795,12 @@ local function fade_player_to_white(player_id)
     return true
 end
 
-local function fade_player_in(player_id)
+local function fade_player_in(player_id, duration)
     local ok, err = pcall(
         Net.fade_player_camera,
         player_id,
         { r = 0, g = 0, b = 0, a = 0 },
-        0.8
+        duration or 0.8
     )
 
     if not ok then
@@ -2270,9 +2298,18 @@ local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
 
     -- Use the dedicated mugshot atlas and mug animation, not the full-size
     -- Navi sprite used by the in-world bot.
+    -- Remove the previous element before provisioning and drawing the exact
+    -- current bot's mugshot assets. UI IDs are instance-scoped as an extra
+    -- guard against a client retaining a prior game's portrait binding.
     pcall(games.remove_ui_element, ui_id, player_id)
     pcall(Net.provide_asset_for_player, player_id, bot.mug_texture_path)
     pcall(Net.provide_asset_for_player, player_id, bot.mug_animation_path)
+
+    log("SCORE_FLOW: drawing current bot mugshot player="
+        .. tostring(player_id) .. " slot=" .. tostring(bot.slot)
+        .. " navi=" .. tostring(bot.navi_name)
+        .. " texture=" .. tostring(bot.mug_texture_path)
+        .. " animation=" .. tostring(bot.mug_animation_path))
 
     local ok, err = pcall(
         games.add_ui_element,
@@ -2850,23 +2887,26 @@ local function resolve_round_winner(instance_id)
             -- the Defender's intended pose through the Net.animate_bot wrapper only
             -- after both the bomb and Defender have arrived at their destinations.
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                -- The directional jump plays during travel. Once the Defender
+                -- reaches the destination, switch to its matching end pose and
+                -- keep reasserting that pose so it remains visible until fade-out.
+                local defender_arrival_animation = defender.direction_choice == "Left"
+                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
                 local arrival_animation_ok = set_result_animation(
                     defender,
-                    defender_animation,
+                    defender_arrival_animation,
                     defender_direction,
-                    "defender-arrival-animation-override"
+                    "defender-arrival-end-animation"
                 )
-                log("RESULT_FLOW: defender arrival animation override bot="
+                log("RESULT_FLOW: defender arrival end animation bot="
                     .. tostring(defender.id)
-                    .. " state=" .. tostring(defender_animation)
+                    .. " state=" .. tostring(defender_arrival_animation)
                     .. " success=" .. tostring(arrival_animation_ok))
 
-                -- Some server/client animation controllers re-apply the bot's
-                -- directional idle shortly after a property interpolation ends.
-                -- The jump is already started with looping enabled above; reassert
-                -- it briefly after arrival to win any late completion/idle update.
-                -- This is intentionally after the synchronized movement and does
-                -- not alter either travel duration or the scoring decision.
+                -- Some animation controllers re-apply directional idle after a
+                -- property interpolation ends. Reassert the end pose, not the
+                -- travel jump, while the result remains visible before fade-out.
                 async(function()
                     for _, delay in ipairs({ 0.15, 0.35, 0.75, 1.25 }) do
                         await(Async.sleep(delay))
@@ -2881,20 +2921,20 @@ local function resolve_round_winner(instance_id)
                         end
                         if not same_defender then
                             log(
-                                "ANIM_FLOW: stopping defender animation reassertion; bot no longer belongs to match instance="
+                                "ANIM_FLOW: stopping defender end-pose reassertion; bot no longer belongs to match instance="
                                 .. tostring(instance_id) .. " bot=" .. tostring(defender.id))
                             return
                         end
 
                         local retry_ok = set_result_animation(
                             defender,
-                            defender_animation,
+                            defender_arrival_animation,
                             defender_direction,
-                            "defender-loop-reassert-" .. tostring(delay)
+                            "defender-end-pose-reassert-" .. tostring(delay)
                         )
-                        log("ANIM_FLOW: defender jump animation reasserted bot="
+                        log("ANIM_FLOW: defender end pose reasserted bot="
                             .. tostring(defender.id)
-                            .. " state=" .. tostring(defender_animation)
+                            .. " state=" .. tostring(defender_arrival_animation)
                             .. " delay=" .. tostring(delay)
                             .. " success=" .. tostring(retry_ok))
                     end
@@ -3502,6 +3542,10 @@ local function try_begin_match(instance_id)
                         .. " return=" .. tostring(retry_result))
                 end
 
+                -- Keep the screen black a little longer after the players,
+                -- camera focus, and opening animation have settled.
+                await(Async.sleep(1.0))
+
                 log("ROUND_SETUP: fading cameras in instance="
                     .. tostring(instance_id))
 
@@ -3518,7 +3562,8 @@ local function try_begin_match(instance_id)
                         -- Center each human player's camera on the Tiled
                         -- "Camera Focus" point before revealing the round.
                         focus_player_camera_for_round(player_id, instance_id)
-                        fade_player_in(player_id)
+                        -- Give the initial warp a slower, one-second reveal.
+                        fade_player_in(player_id, 1.0)
                     end
                 end
 
