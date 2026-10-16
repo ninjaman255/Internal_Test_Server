@@ -13,3 +13,5 @@
 - [ezlibs Scripts](ezlibs-scripts.md) — shared server scripts and infrastructure
 - [Net Games Tournament](net-games-tourney.md) — tournament management and UI
 - [Net Games](net-games.md) — game, UI, dialogue, and NPC systems
+- [Scripts Tree Reference](scripts-tree.md) — directory-by-directory inventory of scripts/ and nested folders
+- [Assets and File Paths](assets-and-file-paths.md) — asset roots, literal paths referenced by Lua, and path maintenance guidance
