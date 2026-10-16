@@ -27,8 +27,8 @@ C.SCOREBOARD_ANIMATION = "/server/assets/net-game-footbomb/ui/score-board.animat
 C.SCOREBOARD_X = C.SCREEN_CENTER.x - 68
 C.SCOREBOARD_Y = C.SCREEN_CENTER.y - 28
 C.SCOREBOARD_SCALE = 4.0
-C.SCORE_PLAYER_ONE_X = 90
-C.SCORE_PLAYER_TWO_X = 130
+C.SCORE_PLAYER_ONE_X = 94
+C.SCORE_PLAYER_TWO_X = 132
 C.SCORE_TEXT_Y = C.SCREEN_CENTER.y - 8
 C.SCORE_TEXT_SCALE = 4.0
 -- Character mug portraits sit on the matching score side.

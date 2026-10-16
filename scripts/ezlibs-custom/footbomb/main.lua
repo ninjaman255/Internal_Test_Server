@@ -68,6 +68,8 @@ local SCORE_PLAYER_ONE_X = Config.SCORE_PLAYER_ONE_X
 local SCORE_PLAYER_TWO_X = Config.SCORE_PLAYER_TWO_X
 local SCORE_TEXT_Y = Config.SCORE_TEXT_Y
 local SCORE_TEXT_SCALE = Config.SCORE_TEXT_SCALE
+local ROLE_TEXT_Y = Config.ROLE_TEXT_Y or (SCREEN_HEIGHT - 18)
+local ROLE_TEXT_SCALE = Config.ROLE_TEXT_SCALE or 2.0
 local SCORE_PLAYER_ONE_MUG_X = Config.SCORE_PLAYER_ONE_MUG_X
 local SCORE_PLAYER_TWO_MUG_X = Config.SCORE_PLAYER_TWO_MUG_X
 local SCORE_MUG_Y = Config.SCORE_MUG_Y
@@ -158,6 +160,46 @@ local function draw_confirm_prompt(player_id, text_id)
         "THICK",
         CONFIRM_PROMPT_SCALE
     )
+end
+
+local function hide_role_text(player_id, rep)
+    if not rep or not rep.role_text_id then
+        return
+    end
+    pcall(games.remove_text, rep.role_text_id, player_id)
+end
+
+local function draw_role_text(player_id, rep, role)
+    if not rep or not role or player_representations[player_id] ~= rep then
+        return false
+    end
+
+    local label = tostring(role)
+    local width = TextLayout.measureLine(label, {
+        font = "THICK",
+        scale = ROLE_TEXT_SCALE
+    })
+    local x = math.max(0, math.floor((SCREEN_WIDTH - width) / 2))
+
+    local ok, err = pcall(
+        games.draw_text,
+        rep.role_text_id,
+        player_id,
+        label,
+        x,
+        ROLE_TEXT_Y,
+        101,
+        "THICK",
+        ROLE_TEXT_SCALE
+    )
+    if not ok then
+        log("ROLE_FLOW: role text draw failed player="
+            .. tostring(player_id) .. " role=" .. label
+            .. " error=" .. tostring(err))
+        return false
+    end
+
+    return true
 end
 
 local function draw_navi_name(player_id, rep, name)
@@ -1128,6 +1170,9 @@ local function remove_representation(player_id)
     if rep.score_player_two_text_id then
         pcall(games.remove_text, rep.score_player_two_text_id, player_id)
     end
+    if rep.role_text_id then
+        pcall(games.remove_text, rep.role_text_id, player_id)
+    end
 
     -- Net.toggle_player_hud is the engine API used by Simon Says to hide and
     -- restore the player's HUD around a minigame. Only undo the toggle when
@@ -1244,6 +1289,8 @@ local function setup_player_representation(player_id, instance, bot_record)
         score_player_one_text_id = "footbomb_score_p1_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_text_id = "footbomb_score_p2_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        role_text_id = "footbomb_role_text_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
         -- Selection state.
@@ -2259,6 +2306,9 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
         return
     end
 
+    -- Role labels are gameplay HUD, not part of the scoreboard intermission.
+    hide_role_text(player_id, rep)
+
     pcall(Net.provide_asset_for_player, player_id, SCOREBOARD_TEXTURE)
     pcall(Net.provide_asset_for_player, player_id, SCOREBOARD_ANIMATION)
 
@@ -2878,7 +2928,7 @@ local function resolve_round_winner(instance_id)
                 if bomb_bot and bomb_bot.id then
                     local bomb_area_id = bomb_bot.area_id or kicker.area_id
                     local explosion_ok, explosion_result = pcall(
-                        EzExplosions.explode, bomb_bot.id, bomb_area_id, 2
+                        EzExplosions.explode, bomb_bot.id, bomb_area_id, 5
                     )
                     log("GOAL_FX: explosion burst requested instance=" .. tostring(instance_id)
                         .. " bomb=" .. tostring(bomb_bot.id)
@@ -3026,15 +3076,8 @@ local function start_direction_selection(instance_id, human_reps)
             if player_representations[player_id] ~= rep then
                 return
             end
-            await(Async.message_player(
-                player_id,
-                "Your role is " .. tostring(bots[rep.slot].role)
-                .. ". Choose Left, Up, or Right for your "
-                .. (bots[rep.slot].role == "Kicker" and "kick direction" or "defense direction")
-                .. ". Press Confirm to select."
-            ))
-            -- Keep all direction input disabled until the textbox is closed
-            -- and the same settling buffer used by Navi selection has elapsed.
+            -- Direction choices are clear from the three on-screen cursors;
+            -- avoid an extra role/instruction textbox before selection.
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
             if player_representations[player_id] == rep then
                 if rep.input and rep.input_owner
@@ -3158,6 +3201,15 @@ begin_next_round = function(instance_id)
     -- before revealing the next active round so it does not cover gameplay.
     hide_scoreboard_for_instance(instance_id)
 
+    -- Restore each player's current role label only after the scoreboard is
+    -- gone, so role text never overlaps the intermission score display.
+    for _, entry in ipairs(humans) do
+        local role_bot = bots[entry.rep.slot]
+        if role_bot and player_representations[entry.player_id] == entry.rep then
+            draw_role_text(entry.player_id, entry.rep, role_bot.role)
+        end
+    end
+
     -- Reveal only after both bots are ready. Camera focus remains on the same
     -- field framing used for the opening round.
     for _, entry in ipairs(humans) do
@@ -3275,10 +3327,8 @@ local function confirm_direction_selection(player_id, rep)
                     rep.input_owner
                 )
             end
-            await(Async.message_player(
-                player_id,
-                "Selection not confirmed. Choose Left, Up, or Right, then press Confirm."
-            ))
+            -- No retry instruction textbox; return directly to the direction
+            -- cursors after the confirmation question is dismissed.
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
             if player_representations[player_id] == rep
                 and not rep.direction_selection_confirmed then
@@ -3347,10 +3397,10 @@ local function try_begin_match(instance_id)
         hide_selector_ui(entry.player_id, rep)
     end
 
-    -- Each human can acknowledge their role message independently. Only after
-    -- all participating cameras have started fading to black do we reposition
-    -- both bots and reveal the field. In VS NPC mode the server-owned opponent
-    -- follows the same role/position path.
+    -- Transition each participant without a role announcement textbox. Only
+    -- after all participating cameras have started fading to black do we
+    -- reposition both bots and reveal the field. In VS NPC mode the server-owned
+    -- opponent follows the same role/position path.
     local fade_ready_count = 0
     local transition_started = false
 
@@ -3359,22 +3409,9 @@ local function try_begin_match(instance_id)
         local rep = entry.rep
 
         async(function()
-            log("MATCH_FLOW: opening role message player="
-                .. tostring(player_id) .. " role="
-                .. tostring(bots[rep.slot].role))
-            await(Async.message_player(
-                player_id,
-                "FootBomb will begin shortly! You are the "
-                .. tostring(bots[rep.slot].role) .. "."
-            ))
-            log("MATCH_FLOW: role message await returned player="
-                .. tostring(player_id))
-
-            -- Ensure the role textbox has had time to disappear before fading
-            -- the camera and changing the bots' poses.
+            -- No role announcement textbox: the role is shown in the HUD once
+            -- gameplay is revealed. Keep a brief settle delay before transition.
             await(Async.sleep(0.25))
-            log("MATCH_FLOW: role textbox settle wait complete player="
-                .. tostring(player_id))
 
             if player_representations[player_id] == rep then
                 fade_player_to_black(player_id)
@@ -3498,6 +3535,17 @@ local function try_begin_match(instance_id)
                 -- The scoreboard is reserved for the black intermission after
                 -- the first result; keep the active field clear during gameplay.
                 hide_scoreboard_for_instance(instance_id)
+
+                -- Show the current role only during active gameplay, never on
+                -- top of the scoreboard/intermission display.
+                for _, participant in ipairs(human_reps) do
+                    local player_id, rep = participant.player_id, participant.rep
+                    local role_bot = instance_bots[instance_id]
+                        and instance_bots[instance_id][rep.slot]
+                    if player_representations[player_id] == rep and role_bot then
+                        draw_role_text(player_id, rep, role_bot.role)
+                    end
+                end
 
                 -- Once the field is revealed, collect each human's role-based
                 -- direction choice. NPC directions are assigned server-side

@@ -24,6 +24,8 @@ During each round’s direction choice, both Kicker and Defender see three evenl
 
 The scoreboard is drawn near the top center for each human participant. Player 1's score is drawn to the left of the board image and Player 2's score to the right. The board image is expected at `/server/assets/net-game-footbomb/ui/score-board.png`, with a corresponding `score-board.animation` file for `games.add_ui_element`.
 
+Each participant also sees their current role (`Kicker` or `Defender`) as centered text near the bottom of the screen. The role label is shown each round, updated as soon as roles swap for the next round, and removed when the player representation is cleaned up. Its vertical position and scale are configurable with `ROLE_TEXT_Y` and `ROLE_TEXT_SCALE` in `constants.lua`.
+
 
 ## Result animation phase
 
@@ -60,6 +62,12 @@ The Ref-Prog NPC supports the custom property `Points to Win`. It defaults to `1
 After the target is reached, the player behind gets one round to tie or take the lead. If they tie, the match continues. If they take the lead, the former leader gets the same one-round chance. The match ends when the player given that chance finishes the round still behind. After each result, the game holds the scene for 1.5 seconds before transitioning. A Kicker goal triggers the ezexplosions burst and fades the camera to white; a Defender point uses the normal black camera fade. The final score remains on the scoreboard for about three seconds, then the players are transferred back to the non-instanced area where they spoke to Ref-Prog and the match instance is cleaned up.
 
 
-### Scoreboard mug portraits
+Configuration note: The latest user-provided `constants.lua` mugshot positions and scale are preserved. The lower-center role label settings (`ROLE_TEXT_Y` and `ROLE_TEXT_SCALE`) are also included.
 
-During the scoreboard intermission, Player 1's selected Navi portrait is shown on the left and Player 2's selected Navi portrait is shown on the right. Portraits use the dedicated `-mug.png` assets and shared `mug.animation`, rather than the full-size in-world bot sprites. They stay matched to the chosen Navi even when the score lead changes, and both portrait UI elements are removed with the scoreboard. Position and size can be tuned with `SCORE_PLAYER_ONE_MUG_X`, `SCORE_PLAYER_TWO_MUG_X`, `SCORE_MUG_Y`, and `SCORE_MUG_SCALE` in `constants.lua`.
+
+## Role HUD and direction-selection prompts
+
+- The role label is shown only during active gameplay and is hidden while the scoreboard is displayed.
+- Role announcement and direction-instruction textboxes are omitted; the three direction cursors provide the selection UI.
+- The direction confirmation message and Yes/No question remain. Declining confirmation returns directly to the cursors.
+- The supplied `constants.lua` is preserved, including the current mugshot placement and scale. The role-label Y/scale use safe defaults in `main.lua` if they are not configured.
