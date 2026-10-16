@@ -1,5 +1,5 @@
-# FootBomb mugshot freshness fix
+# FootBomb textbox role-label visibility update
 
-This update scopes scoreboard UI element IDs to both the match instance and player, avoiding reuse of mugshot UI bindings across games. Before drawing a scoreboard portrait, the code removes the existing element, re-provides the exact current bot's mugshot texture and animation, and logs the selected Navi and asset paths for diagnosis.
+The bottom-center Kicker/Defense role label is removed before the direction confirmation message/quiz sequence. If the player declines and returns to direction selection, the label is redrawn after the textbox is dismissed and the direction UI is restored. If the player confirms, the label remains hidden through the waiting message; normal match-start HUD setup restores it when active gameplay is revealed.
 
-The change preserves the current roster and selected-skin mapping. Runtime behavior still needs in-game verification.
+Based on the latest `footbomb-mugshot-fresh.zip` source.

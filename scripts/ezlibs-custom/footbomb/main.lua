@@ -3304,6 +3304,11 @@ local function confirm_direction_selection(player_id, rep)
             return
         end
 
+        -- The bottom-center role label competes visually with textboxes.
+        -- Keep it hidden for the complete message/quiz flow, then restore it
+        -- once the textbox is dismissed and direction selection resumes.
+        hide_role_text(player_id, rep)
+
         -- Disable direction input for the entire message/quiz sequence.
         rep.direction_selection_active = false
         await(Async.message_player(
@@ -3377,6 +3382,11 @@ local function confirm_direction_selection(player_id, rep)
                 end
                 rep.direction_selection_active = true
                 show_direction_selector_ui(player_id, rep)
+                local current_bots = instance_bots[rep.instance_id]
+                local current_role_bot = current_bots and current_bots[rep.slot]
+                if current_role_bot then
+                    draw_role_text(player_id, rep, current_role_bot.role)
+                end
             end
         end
 
