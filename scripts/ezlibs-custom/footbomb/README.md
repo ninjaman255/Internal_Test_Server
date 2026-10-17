@@ -1,86 +1,23 @@
-# FootBomb scripts — state and configuration refactor
+# FootBomb animation parser versioning
 
-`main.lua` is the FootBomb entry point and match behavior coordinator. The refactor follows the grouped-configuration and dedicated-state-module approach used by `net-game-tourney`:
+## Animation format versions
 
-- `state.lua`: centralized mutable registries for NPC references, pending interactions, waiting matches, player representations, instance bot/spawn data, and the rotating NPC direction index. `main.lua` owns the behavior; the state module owns these shared mutable tables.
-- `constants.lua`: configuration grouped by responsibility under `DEFAULTS`, `ASSETS`, `UI`, `INPUT`, `DIRECTIONS`, and `GAMEPLAY`.
-- `navi_options.lua`: selectable Navi names, texture/animation paths, and default animation state.
-- `bomb_options.lua`: selectable bomb/ball skins.
-- `animation_states.lua`: shared animation-state names, including the bomb preview and small-bomb states.
+- **v2.0 (active FootBomb format):** `.animation` files using `animation state="STATE"` and `frame duration="0.0833333"`. FootBomb continues to select these paths from `navi_options.lua`.
+- **v2.5 (alternate format):** `.ani` files using `!frame_rate 60`, `!image_path "..."`, `anim STATE`, and frame durations such as `dur=5f`. The parser converts frame counts to seconds using the declared frame rate.
+- `boom.load(path)` detects the format from the file contents and returns `animation.version` and `animation.format_version` as `"2.0"` or `"2.5"`. Unknown/non-v2.0 syntax is handled as v2.5 and returns a diagnostic error if it cannot be parsed.
 
-Keep new tunable values in the appropriate `constants.lua` namespace and new module-level mutable registries in `state.lua`, rather than adding more global state to `main.lua`.
+The public API remains compatible: `get_state`, `get_frame`, `get_point`, `duration`/`get_duration`, `refresh`, and `update`. Animation points are optional and are retained when present.
 
-The main script also rejects a missing direction rather than silently treating it as `Up`; the prompt displays `none` until the player makes a selection. Existing direction-selection input clearing and release gating are preserved.
+## Startup diagnostics
 
-The script bundle has not been tested on a live OpenNetBattle server. Please test it in-game after replacing the existing FootBomb script files.
+FootBomb's `animation_diagnostics.lua` checks each active `.animation` file and its matching `.ani` counterpart (when configured by the same basename). Logs begin with `ANIM_DIAGNOSTICS:` and include detected version, image path, states, frame counts, total state durations, each frame's rectangle/origin/flip flags and duration, any labeled points, and whether the configured initial state exists. This is read-only diagnostics and does not change live bot animations. Missing or malformed assets are logged without intentionally stopping FootBomb startup.
 
+## Install
 
-## Round scoring and scoreboard
+Copy the package paths into the server project, preserving directory structure:
 
-After both participants confirm their directions, the round is resolved once:
+- `scripts/boom/main.lua`
+- `scripts/ezlibs-custom/footbomb/*.lua`
+- `scripts/ezlibs-custom/footbomb/README.md`
 
-- Matching Kicker and Defender directions award the point to the Defender.
-- Different directions award the point to the Kicker.
-- The point is credited to the winner's player slot (Player 1 or Player 2), not their role.
-
-During each round’s direction choice, both Kicker and Defender see three evenly spaced cursors slightly above screen center. All use the `CURSOR_UP` animation at scale 2.0; the currently selected direction bobs vertically.
-
-The scoreboard is drawn near the top center for each human participant. Player 1's score is drawn to the left of the board image and Player 2's score to the right. The board image is expected at `/server/assets/net-game-footbomb/ui/score-board.png`, with a corresponding `score-board.animation` file for `games.add_ui_element`.
-
-Each participant also sees their current role (`Kicker` or `Defender`) as centered text near the bottom of the screen. The role label is shown each round, updated as soon as roles swap for the next round, and removed when the player representation is cleaned up. Its vertical position and scale are configurable with `UI.ROLE_TEXT_Y` and `UI.ROLE_TEXT_SCALE` in `constants.lua`.
-
-
-## Result animation phase
-
-The result phase begins only after both participants have confirmed their directions. The point is held until the animation completes:
-
-1. The Kicker uses `WALK_UR` while moving to the Tiled point object named `Move Forward`.
-2. The Kicker switches to `WALK_U` and moves to the Bomb point/bomb bot.
-3. The bomb bot moves to `Bomb 1`, `Bomb 2`, or `Bomb 3` according to the Kicker's selected direction (`Left`, `Up`, or `Right`). Defender movement points remain `Defender 1`, `Defender 2`, and `Defender 3`.
-4. Once the bomb reaches its target, the precomputed round winner receives a point and the scoreboard updates.
-
-The map must include point objects named exactly `Move Forward`, `Defender 1`, `Defender 2`, `Defender 3`, `Bomb 1`, `Bomb 2`, and `Bomb 3`, in addition to the existing required points (including `Bomb`, the bomb spawn point). Movement speeds and update interval are configured in `constants.lua` as `GAMEPLAY.RESULT_KICKER_WALK_UR_SPEED`, `GAMEPLAY.RESULT_KICKER_WALK_U_SPEED`, `GAMEPLAY.RESULT_BOMB_MOVE_SPEED`, and `GAMEPLAY.RESULT_MOVE_STEP_SECONDS`.
-
-Movement uses repeated `Net.move_bot` calls to interpolate between points. The bundle has not been tested on a live server; confirm the movement timing and animation names in-game.
-
-
-### Interpolated result movement
-
-The result phase uses `Net.animate_bot_properties()` keyframes to interpolate bot X/Y/Z over a duration derived from distance and the configured movement speed. It does not fall back to repeated `Net.move_bot()` calls, so missing animation-property support fails safely rather than teleporting bots. The Kicker movement keyframes preserve `WALK_UR` and `WALK_U`; the bomb keeps its current animation while moving toward the selected Defender point.
-
-## Synchronized Defender response
-
-- Defender jump speed is configured with `GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED` in `constants.lua` (default `5`). For Left/Right, the bomb and Defender use the same movement duration so they arrive together. The Defender starts `FOOTBOMB_JUMP_LEFT` or `FOOTBOMB_JUMP_RIGHT` as a non-looping animation; position keyframes do not set `Animation`, so they cannot restart the jump. At arrival, FootBomb switches to the matching `FOOTBOMB_JUMP_LEFT_END` or `FOOTBOMB_JUMP_RIGHT_END` pose and holds it. Up stays at `Defender 2` with `FOOTBOMB_READY_DEFENSE`.
-
-
-### Defender arrival animation override
-
-After synchronized bomb/Defender movement completes, FootBomb explicitly applies the appropriate end pose through `Net.animate_bot()`. The jump is requested with looping disabled and is not included in movement keyframes. Left/Right then switch to their corresponding `*_END` state, intended to hold the landing pose; Up reapplies `FOOTBOMB_READY_DEFENSE`. The end-state assets should be single-frame/static poses for a clean hold. Because the Navi animation asset files are external to this script bundle, verify the jump clip duration against the movement duration in-game if you notice the end pose cutting off the jump early.
-
-
-## Configurable match length and match point
-
-The Ref-Prog NPC supports the custom property `Points to Win`. It defaults to `10` when the property is missing or invalid; set it to a positive whole number to change the target for matches launched from that NPC.
-
-After the target is reached, the player behind gets one round to tie or take the lead. If they tie, the match continues. If they take the lead, the former leader gets the same one-round chance. The match ends when the player given that chance finishes the round still behind. After each result, the game holds the scene for 1.5 seconds before transitioning. A Kicker goal triggers the ezexplosions burst and fades the camera to white; a Defender point uses the normal black camera fade. The final score remains on the scoreboard for about three seconds, then the players are transferred back to the non-instanced area where they spoke to Ref-Prog and the match instance is cleaned up.
-
-
-Configuration note: The latest user-provided `constants.lua` mugshot positions and scale are preserved. The lower-center role label settings (`ROLE_TEXT_Y` and `ROLE_TEXT_SCALE`) are also included.
-
-
-## Role HUD and direction-selection prompts
-
-- The role label is shown only during active gameplay and is hidden while the scoreboard is displayed.
-- Role announcement and direction-instruction textboxes are omitted; the three direction cursors provide the selection UI.
-- The direction confirmation message and Yes/No question remain. Declining confirmation returns directly to the cursors.
-- The supplied `constants.lua` is preserved, including the current mugshot placement and scale. The role-label Y/scale are configured in the `UI` namespace in `constants.lua`.
-
-
-### Role text and dialogue
-
-The in-match Kicker/Defender role label is temporarily hidden whenever FootBomb opens a player message or quiz textbox. The label is restored after the awaited textbox closes, provided the current match representation still exists and the role label has not intentionally been hidden (for example, during the scoreboard intermission).
-
-
-### Selector camera transition
-
-When a player enters FootBomb, the camera fades to black before the bomb-skin or Navi selector is displayed. FootBomb then moves the camera to the selected bot, draws the appropriate selector UI while the screen is black, and fades back in after the transition settles. If the player's representation is removed during that delay, the pending fade-in does not run.
+Keep the Navi assets in the server project at `assets/net-game-footbomb/bots/` (the game APIs may identify these assets as `/server/assets/net-game-footbomb/bots/`). The `.ani` companions are inspected for compatibility but are not switched into gameplay automatically.

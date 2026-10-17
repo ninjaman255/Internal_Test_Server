@@ -90,6 +90,15 @@ local function log(message)
     logger:info("[footbomb] " .. tostring(message))
 end
 
+-- Read-only animation format diagnostics. The active FootBomb roster uses v2.0
+-- .animation files; matching .ani files are inspected as v2.5 compatibility
+-- candidates. Failures are logged but never prevent FootBomb from loading.
+local AnimationDiagnostics = require("scripts/ezlibs-custom/footbomb/animation_diagnostics")
+local diagnostics_ok, diagnostics_error = pcall(AnimationDiagnostics.run, NAVI_OPTIONS, log)
+if not diagnostics_ok then
+    log("ANIM_DIAGNOSTICS: unexpected diagnostic failure: " .. tostring(diagnostics_error))
+end
+
 -- Keep the target mapping shared by the live round resolver and the startup
 -- diagnostic below so the printed test verifies the same mapping used in-game.
 local RESULT_TARGET_BY_DIRECTION = {

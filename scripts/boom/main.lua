@@ -1,320 +1,251 @@
---[[
-    @author TheMaverickProgrammer
-    @github https://github.com/TheMaverickProgrammer/boomsheetslua
-    @module boom
-    @date 1/23/2021
-    @description Lua parser and playback helpers for boomsheet *.animation files.
-
-    Safe access examples:
-        local anim, err = boom.load(path)
-        local state, err = anim:get_state("ATTACK_PUNCH")
-        local duration, err = anim:get_duration("ATTACK_PUNCH")
-        local frame, err = anim:get_frame("ATTACK_PUNCH", 1)
-        local point, err = anim:get_point("ATTACK_PUNCH", 1, "Muzzle")
-
-    Missing values are reported with a [boom] message and return nil plus an
-    error string. Points are optional; frames without points are valid.
---]]
-
+--[[@module boom
+Safe parser/helpers for boomsheet animation formats 2.0 and 2.5.
+Version 2.0: `animation state="NAME"`, `frame duration="0.1"`.
+Version 2.5: `!frame_rate 60`, `!image_path "..."`, `anim NAME`, `frame dur=6f`.
+The public animation object API remains compatible: get_state/get_frame/get_point/get_duration,
+refresh/update/duration, states, imagePath, currFrame, elapsed.
+]]
 local boom = {}
 
 local function warn(message)
     local full_message = "[boom] " .. tostring(message)
-    if type(print) == "function" then
-        print(full_message)
-    end
+    if type(print) == "function" then print(full_message) end
     return nil, full_message
 end
 
-local function cleanstr(str)
-    if type(str) ~= "string" then
-        return str
+local function cleanstr(value)
+    if type(value) ~= "string" then return value end
+    if value:sub(1, 1) == '"' and value:sub(-1) == '"' then
+        value = value:sub(2, -2)
     end
-    return (str:gsub('"', ''))
+    return value
 end
 
-local function parse_attributes(tokens, first_index, convert_numbers)
+-- Parse key=value attributes while preserving quoted values containing spaces.
+local function parse_attributes(line, convert_numbers, frame_rate)
     local result = {}
-    for i = first_index, #tokens do
-        local token = tokens[i]
-        local equals = token:find("=", 1, true)
-        if equals then
-            local key = cleanstr(token:sub(1, equals - 1))
-            local raw_value = cleanstr(token:sub(equals + 1))
-            local value = raw_value
-            if convert_numbers then
-                local number = tonumber(raw_value)
-                if number ~= nil then
-                    value = number
+    local index = 1
+    while index <= #line do
+        local s, e, key = line:find('([%w_]+)%s*=%s*', index)
+        if not s then break end
+        local value_start = e + 1
+        local value, finish
+        if line:sub(value_start, value_start) == '"' then
+            local close = line:find('"', value_start + 1, true)
+            if close then value, finish = line:sub(value_start + 1, close - 1), close
+            else value, finish = line:sub(value_start + 1), #line end
+        else
+            local stop = line:find('%s', value_start)
+            if stop then value, finish = line:sub(value_start, stop - 1), stop - 1
+            else value, finish = line:sub(value_start), #line end
+        end
+        if key and value ~= nil then
+            local number = tonumber(value)
+            if convert_numbers and number ~= nil then
+                result[key] = number
+            elseif convert_numbers and key == "dur" then
+                local frames = value:match('^([%+%-]?[%d%.]+)f$')
+                if frames then
+                    local n = tonumber(frames)
+                    if n and frame_rate and frame_rate > 0 then result.duration = n / frame_rate end
                 end
-            end
-            if key ~= "" then
+            else
                 result[key] = value
             end
         end
+        index = math.max(finish + 1, e + 1)
     end
+    if result.dur ~= nil and result.duration == nil then
+        local frames = tostring(result.dur):match('^([%+%-]?[%d%.]+)f$')
+        if frames then
+            local n = tonumber(frames)
+            if n and frame_rate and frame_rate > 0 then result.duration = n / frame_rate end
+        elseif tonumber(result.dur) then
+            result.duration = tonumber(result.dur)
+        end
+    end
+    result.dur = nil
     return result
 end
 
 local function valid_state(animation, state_name, operation)
-    if type(animation) ~= "table" then
-        return warn((operation or "Access") .. " failed: animation object is missing or invalid")
-    end
-    if type(state_name) ~= "string" or state_name == "" then
-        return warn((operation or "Access") .. " failed: state name must be a non-empty string")
-    end
-
+    if type(animation) ~= "table" then return warn((operation or "Access") .. " failed: animation object is missing or invalid") end
+    if type(state_name) ~= "string" or state_name == "" then return warn((operation or "Access") .. " failed: state name must be a non-empty string") end
     local state = animation.states and animation.states[state_name]
-    if type(state) ~= "table" then
-        return warn((operation or "Access") .. " failed: animation state '" .. state_name .. "' does not exist")
-    end
-    if type(state.framelist) ~= "table" then
-        return warn((operation or "Access") .. " failed: animation state '" .. state_name .. "' has no valid frame list")
-    end
-    if #state.framelist == 0 then
-        return warn((operation or "Access") .. " failed: animation state '" .. state_name .. "' has no frames")
-    end
+    if type(state) ~= "table" then return warn((operation or "Access") .. " failed: animation state '" .. state_name .. "' does not exist") end
+    if type(state.framelist) ~= "table" then return warn((operation or "Access") .. " failed: animation state '" .. state_name .. "' has no valid frame list") end
+    if #state.framelist == 0 then return warn((operation or "Access") .. " failed: animation state '" .. state_name .. "' has no frames") end
     return state
 end
 
-local function make_animation()
-    local animation = {
-        states = {},
-        elapsed = 0,
-        imagePath = "",
-        currFrame = {}
-    }
-
-    -- Return a state or nil and a useful diagnostic.
-    function animation.get_state(self, state_name)
-        if type(self) ~= "table" then
-            return warn("get_state failed: animation object is missing or invalid")
-        end
-        if type(state_name) ~= "string" or state_name == "" then
-            return warn("get_state failed: state name must be a non-empty string")
-        end
-        local state = self.states and self.states[state_name]
-        if type(state) ~= "table" then
-            return warn("get_state failed: animation state '" .. state_name .. "' does not exist")
-        end
+local function make_animation(version)
+    local animation = {states = {}, elapsed = 0, imagePath = "", currFrame = {}, version = version, format_version = version, frame_rate = 60}
+    function animation.get_state(self, name)
+        if type(self) ~= "table" or type(name) ~= "string" or name == "" then return warn("get_state failed: invalid animation or state name") end
+        local state = self.states and self.states[name]
+        if type(state) ~= "table" then return warn("get_state failed: animation state '" .. name .. "' does not exist") end
         return state
     end
-
-    -- Return the frame at a 1-based index or nil and a useful diagnostic.
-    function animation.get_frame(self, state_name, frame_index)
-        local state, err = valid_state(self, state_name, "get_frame")
-        if not state then
-            return nil, err
+    function animation.get_frame(self, name, frame_index)
+        local state, err = valid_state(self, name, "get_frame")
+        if not state then return nil, err end
+        if type(frame_index) ~= "number" or frame_index ~= math.floor(frame_index) or frame_index < 1 or frame_index > #state.framelist then
+            return warn("get_frame failed: invalid frame " .. tostring(frame_index) .. " for state '" .. name .. "' (valid range: 1-" .. #state.framelist .. ")")
         end
-        if type(frame_index) ~= "number" or frame_index ~= math.floor(frame_index) then
-            return warn("get_frame failed: frame index for state '" .. state_name .. "' must be an integer")
-        end
-        if frame_index < 1 or frame_index > #state.framelist then
-            return warn("get_frame failed: frame " .. tostring(frame_index) .. " does not exist in state '" .. state_name .. "' (valid range: 1-" .. tostring(#state.framelist) .. ")")
-        end
-        local frame = state.framelist[frame_index]
-        if type(frame) ~= "table" then
-            return warn("get_frame failed: frame " .. tostring(frame_index) .. " in state '" .. state_name .. "' is invalid")
-        end
-        return frame
+        return state.framelist[frame_index]
     end
-
-    -- Return a point from a frame. Points are optional on all frames.
-    function animation.get_point(self, state_name, frame_index, point_label)
-        local frame, err = self:get_frame(state_name, frame_index)
-        if not frame then
-            return nil, err
-        end
-        if type(point_label) ~= "string" or point_label == "" then
-            return warn("get_point failed: point label must be a non-empty string")
-        end
-        if type(frame.points) ~= "table" then
-            return warn("get_point failed: frame " .. tostring(frame_index) .. " in state '" .. state_name .. "' has no points (requested '" .. point_label .. "')")
-        end
-        local point = frame.points[point_label]
-        if type(point) ~= "table" then
-            return warn("get_point failed: point '" .. point_label .. "' does not exist on frame " .. tostring(frame_index) .. " of state '" .. state_name .. "'")
-        end
+    function animation.get_point(self, name, frame_index, label)
+        local frame, err = self:get_frame(name, frame_index)
+        if not frame then return nil, err end
+        if type(label) ~= "string" or label == "" then return warn("get_point failed: point label must be a non-empty string") end
+        local point = frame.points and frame.points[label]
+        if type(point) ~= "table" then return warn("get_point failed: point '" .. label .. "' does not exist on frame " .. tostring(frame_index) .. " of state '" .. name .. "'") end
         return point
     end
-
-    -- Return the total duration of a state, or nil if the state is invalid.
-    function animation.duration(self, state_name)
-        local state, err = valid_state(self, state_name, "duration")
-        if not state then
-            return nil, err
-        end
-
+    function animation.duration(self, name)
+        local state, err = valid_state(self, name, "duration")
+        if not state then return nil, err end
         local total = 0
-        for index, frame in ipairs(state.framelist) do
-            if type(frame) ~= "table" then
-                return warn("duration failed: frame " .. tostring(index) .. " in state '" .. state_name .. "' is invalid")
-            end
-            if type(frame.duration) ~= "number" or frame.duration < 0 then
-                return warn("duration failed: frame " .. tostring(index) .. " in state '" .. state_name .. "' has a missing or invalid duration")
-            end
+        for i, frame in ipairs(state.framelist) do
+            if type(frame.duration) ~= "number" or frame.duration < 0 then return warn("duration failed: frame " .. i .. " in state '" .. name .. "' has a missing or invalid duration") end
             total = total + frame.duration
         end
         return total
     end
-
-    -- Alias with an explicit getter name.
-    function animation.get_duration(self, state_name)
-        return self:duration(state_name)
-    end
-
-    -- Reset playback and apply the first frame.
-    function animation.refresh(self, state_name)
-        local state, err = valid_state(self, state_name, "refresh")
-        if not state then
-            return nil, err
-        end
+    function animation.get_duration(self, name) return self:duration(name) end
+    function animation.refresh(self, name)
+        local state, err = valid_state(self, name, "refresh")
+        if not state then return nil, err end
         self.elapsed = 0
-        return self:update(state_name, 0)
+        return self:update(name, 0)
     end
-
-    -- Advance playback by seconds. Invalid states/times safely return nil.
-    function animation.update(self, state_name, seconds)
-        local state, err = valid_state(self, state_name, "update")
-        if not state then
-            return nil, err
-        end
-        if type(seconds) ~= "number" or seconds ~= seconds or seconds < 0 or seconds == math.huge then
-            return warn("update failed: elapsed seconds must be a finite, non-negative number")
-        end
-
-        local duration, duration_err = self:duration(state_name)
-        if duration == nil then
-            return nil, duration_err
-        end
-
-        if type(self.elapsed) ~= "number" or self.elapsed < 0 or self.elapsed ~= self.elapsed then
-            self.elapsed = 0
-        end
+    function animation.update(self, name, seconds)
+        local state, err = valid_state(self, name, "update")
+        if not state then return nil, err end
+        if type(seconds) ~= "number" or seconds ~= seconds or seconds < 0 or seconds == math.huge then return warn("update failed: elapsed seconds must be finite and non-negative") end
+        local duration, duration_err = self:duration(name)
+        if duration == nil then return nil, duration_err end
+        if type(self.elapsed) ~= "number" or self.elapsed < 0 or self.elapsed ~= self.elapsed then self.elapsed = 0 end
         self.elapsed = self.elapsed + seconds
-
-        if duration <= 0 then
-            self.elapsed = 0
-        elseif state.loop then
-            self.elapsed = self.elapsed % duration
-        elseif self.elapsed > duration then
-            self.elapsed = duration
-        end
-
-        local elapsed = self.elapsed
-        local selected_frame = state.framelist[#state.framelist]
+        if duration <= 0 then self.elapsed = 0 elseif state.loop then self.elapsed = self.elapsed % duration elseif self.elapsed > duration then self.elapsed = duration end
+        local elapsed, selected = self.elapsed, state.framelist[#state.framelist]
         for _, frame in ipairs(state.framelist) do
-            local frame_duration = frame.duration
-            if elapsed < frame_duration then
-                selected_frame = frame
-                break
-            end
-            elapsed = elapsed - frame_duration
+            if elapsed < frame.duration then selected = frame; break end
+            elapsed = elapsed - frame.duration
         end
-
-        if type(selected_frame) ~= "table" then
-            return warn("update failed: no valid frame found for state '" .. state_name .. "'")
-        end
-
-        -- Keep currFrame table identity for callers that retain this reference,
-        -- but clear old keys so values don't leak from the previously selected frame.
-        for key in pairs(self.currFrame) do
-            self.currFrame[key] = nil
-        end
-        for key, value in pairs(selected_frame) do
-            self.currFrame[key] = value
-        end
+        for key in pairs(self.currFrame) do self.currFrame[key] = nil end
+        for key, value in pairs(selected) do self.currFrame[key] = value end
         return self.currFrame
     end
-
     return animation
 end
 
--- Load and parse an animation file. Returns animation, or nil and an error.
-function boom.load(path)
-    if type(path) ~= "string" or path == "" then
-        return warn("load failed: path must be a non-empty string")
+local function read_lines(path)
+    local file, err = io.open(path, "rb")
+    -- Net asset APIs use /server/assets/... identifiers, while Lua's filesystem
+    -- is rooted at the server project and exposes the same files as assets/...
+    -- Try the project-relative equivalent before reporting a missing file.
+    if not file and type(path) == "string" then
+        local relative = path:gsub("^/server/", "")
+        if relative ~= path then
+            file, err = io.open(relative, "rb")
+        end
     end
-
-    local file, open_error = io.open(path, "rb")
-    if not file then
-        return warn("load failed: could not open '" .. path .. "': " .. tostring(open_error))
-    end
+    if not file then return nil, err end
+    local lines = {}
+    for line in file:lines() do lines[#lines + 1] = line end
     file:close()
+    return lines
+end
 
-    local animation = make_animation()
-    local curr_state_name = nil
-    local last_frame = nil
-    local line_number = 0
-
-    local ok, parse_error = pcall(function()
-        for line in io.lines(path) do
-            line_number = line_number + 1
-            local tokens = {}
-            for token in line:gmatch("([^%s]+)%s*") do
-                table.insert(tokens, token)
-            end
-
-            local key = tokens[1]
-            if not key or key:sub(1, 1) == "#" then
-                -- Blank lines and full-line comments are ignored.
-            elseif key:sub(1, 9) == "imagePath" then
-                animation.imagePath = cleanstr(key:sub(11))
+local function parse_v20(lines, path)
+    local animation, current, last_frame = make_animation("2.0"), nil, nil
+    for line_no, line in ipairs(lines) do
+        local trimmed = line:match('^%s*(.-)%s*$')
+        if trimmed ~= "" and trimmed:sub(1, 1) ~= "#" then
+            local key = trimmed:match('^(%S+)')
+            if key == "imagePath" then
+                animation.imagePath = cleanstr(trimmed:match('^imagePath%s*=%s*(.-)%s*$') or trimmed:sub(11))
             elseif key == "animation" then
-                local attrs = parse_attributes(tokens, 2, false)
-                local state_name = attrs.name or attrs.state
-                if not state_name then
-                    -- Support the original animation=name form.
-                    local raw = tokens[2]
-                    if raw then
-                        local equals = raw:find("=", 1, true)
-                        if equals then
-                            state_name = cleanstr(raw:sub(equals + 1))
-                        end
-                    end
-                end
-                if type(state_name) ~= "string" or state_name == "" then
-                    error("line " .. tostring(line_number) .. ": malformed animation declaration (expected animation=name)")
-                end
-                curr_state_name = state_name
-                animation.states[curr_state_name] = {framelist = {}, loop = false}
+                local attrs = parse_attributes(trimmed, false, animation.frame_rate)
+                -- Empty state names are valid in some existing font atlases
+                -- (for example, the glyph used for a space character).
+                current = attrs.name
+                if current == nil then current = attrs.state end
+                if current == nil then return nil, "line " .. line_no .. ": malformed v2.0 animation declaration" end
+                animation.states[current] = {framelist = {}, loop = false}
                 last_frame = nil
             elseif key == "frame" then
-                if not curr_state_name or not animation.states[curr_state_name] then
-                    error("line " .. tostring(line_number) .. ": frame declared before an animation state")
-                end
-                local frame = parse_attributes(tokens, 2, true)
-                if type(frame.duration) ~= "number" or frame.duration < 0 then
-                    error("line " .. tostring(line_number) .. ": frame has a missing or invalid duration")
-                end
-                table.insert(animation.states[curr_state_name].framelist, frame)
+                if not current then return nil, "line " .. line_no .. ": frame before animation state" end
+                local frame = parse_attributes(trimmed, true, animation.frame_rate)
+                if type(frame.duration) ~= "number" or frame.duration < 0 then return nil, "line " .. line_no .. ": frame duration missing/invalid" end
+                animation.states[current].framelist[#animation.states[current].framelist + 1] = frame
                 last_frame = frame
-            elseif key == "point" then
-                if not last_frame then
-                    -- A point without a preceding frame is ignored safely.
-                else
-                    local point = parse_attributes(tokens, 2, true)
+            elseif key == "point" and last_frame then
+                local point = parse_attributes(trimmed, true, animation.frame_rate)
+                local label = point.label
+                point.label = nil
+                if label and label ~= "" then last_frame.points = last_frame.points or {}; last_frame.points[tostring(label)] = point end
+            end
+        end
+    end
+    if not next(animation.states) then return nil, "no v2.0 animation states found in '" .. path .. "'" end
+    return animation
+end
+
+local function parse_v25(lines, path)
+    local animation, current, last_frame = make_animation("2.5"), nil, nil
+    for line_no, line in ipairs(lines) do
+        local trimmed = line:match('^%s*(.-)%s*$')
+        if trimmed ~= "" and trimmed:sub(1, 1) ~= "#" then
+            local directive, rest = trimmed:match('^!(%S+)%s*(.-)%s*$')
+            if directive == "frame_rate" then
+                local rate = tonumber(rest)
+                if not rate or rate <= 0 then return nil, "line " .. line_no .. ": invalid !frame_rate" end
+                animation.frame_rate = rate
+            elseif directive == "image_path" then
+                animation.imagePath = cleanstr(rest)
+            else
+                local key, tail = trimmed:match('^(%S+)%s*(.-)%s*$')
+                if key == "anim" then
+                    current = tail:match('^([^%s]+)')
+                    if not current or current == "" then return nil, "line " .. line_no .. ": missing v2.5 animation name" end
+                    animation.states[current] = {framelist = {}, loop = false}
+                    last_frame = nil
+                elseif key == "frame" then
+                    if not current then return nil, "line " .. line_no .. ": frame before anim declaration" end
+                    local frame = parse_attributes(tail, true, animation.frame_rate)
+                    if type(frame.duration) ~= "number" or frame.duration < 0 then return nil, "line " .. line_no .. ": invalid/missing frame dur (expected dur=11f or dur=0.1)" end
+                    animation.states[current].framelist[#animation.states[current].framelist + 1] = frame
+                    last_frame = frame
+                elseif key == "point" and last_frame then
+                    local point = parse_attributes(tail, true, animation.frame_rate)
                     local label = point.label
-                    if label ~= nil and tostring(label) ~= "" then
-                        point.label = nil
-                        last_frame.points = last_frame.points or {}
-                        last_frame.points[tostring(label)] = point
-                    else
-                        -- Ignore malformed unlabeled point lines without aborting load.
-                    end
+                    point.label = nil
+                    if label and label ~= "" then last_frame.points = last_frame.points or {}; last_frame.points[tostring(label)] = point end
+                elseif key == "loop" and current then
+                    animation.states[current].loop = tail ~= "false" and tail ~= "0"
                 end
             end
         end
-    end)
-
-    if not ok then
-        return warn("load failed for '" .. path .. "' at line " .. tostring(line_number) .. ": " .. tostring(parse_error))
     end
+    if not next(animation.states) then return nil, "no v2.5 animation states found in '" .. path .. "'" end
+    return animation
+end
 
-    if next(animation.states) == nil then
-        return warn("load failed for '" .. path .. "': no animation states were found")
+function boom.load(path)
+    if type(path) ~= "string" or path == "" then return warn("load failed: path must be a non-empty string") end
+    local lines, open_error = read_lines(path)
+    if not lines then return warn("load failed: could not open '" .. path .. "': " .. tostring(open_error)) end
+    local version = "2.5"
+    for _, line in ipairs(lines) do
+        if line:match('^%s*animation%s+state%s*=') or line:match('^%s*animation%s+name%s*=') then version = "2.0"; break end
+        if line:match('^%s*anim%s+') or line:match('^%s*!frame_rate') or line:match('^%s*!image_path') then version = "2.5"; break end
     end
-
+    local animation, err
+    if version == "2.0" then animation, err = parse_v20(lines, path) else animation, err = parse_v25(lines, path) end
+    if not animation then return warn("load failed for '" .. path .. "' (detected v" .. version .. "): " .. tostring(err)) end
+    animation.source_path = path
     return animation
 end
 

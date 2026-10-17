@@ -1,25 +1,44 @@
 !frame_rate 60
-!image_path "C:/Users/aaron/Desktop/bots/protoman.png"
+!image_path "C:/Users/aaron/Documents/Code/Internal_Test_Server/assets/net-game-footbomb/bots/protoman.png"
 
 anim FOOTBOMB_IDLE_DEFENSE
 frame dur=11f x=3 y=140 w=22 h=39 originx=12 originy=35
 
-anim FOOTBOMB_JUMP_RIGHT
-frame dur=11f x=70 y=138 w=41 h=38 originx=19 originy=37
-frame dur=11f x=112 y=138 w=41 h=38 originx=19 originy=37
-frame dur=11f x=154 y=138 w=41 h=38 originx=19 originy=37
-frame dur=11f x=196 y=138 w=41 h=38 originx=19 originy=37
-frame dur=11f x=238 y=138 w=41 h=38 originx=19 originy=37
-
 anim FOOTBOMB_JUMP_LEFT
 frame dur=11f x=70 y=138 w=41 h=38 originx=19 originy=37 flipx=1
+point Ball x=31 y=10
 frame dur=11f x=112 y=138 w=41 h=38 originx=19 originy=37 flipx=1
+point Ball x=31 y=13
 frame dur=11f x=154 y=138 w=41 h=38 originx=19 originy=37 flipx=1
+point Ball x=31 y=16
 frame dur=11f x=196 y=138 w=41 h=38 originx=19 originy=37 flipx=1
+point Ball x=31 y=18
 frame dur=11f x=238 y=138 w=41 h=38 originx=19 originy=37 flipx=1
+point Ball x=31 y=21
+
+anim FOOTBOMB_JUMP_LEFT_END
+frame dur=11f x=238 y=138 w=41 h=38 originx=19 originy=37 flipx=1
+point Ball x=21 y=8
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=11f x=70 y=138 w=41 h=38 originx=19 originy=37
+point Ball x=31 y=10
+frame dur=11f x=112 y=138 w=41 h=38 originx=19 originy=37
+point Ball x=31 y=13
+frame dur=11f x=154 y=138 w=41 h=38 originx=19 originy=37
+point Ball x=31 y=16
+frame dur=11f x=196 y=138 w=41 h=38 originx=19 originy=37
+point Ball x=31 y=18
+frame dur=11f x=238 y=138 w=41 h=38 originx=19 originy=37
+point Ball x=31 y=21
+
+anim FOOTBOMB_JUMP_RIGHT_END
+frame dur=11f x=238 y=138 w=41 h=38 originx=19 originy=37
+point Ball x=21 y=8
 
 anim FOOTBOMB_READY_DEFENSE
 frame dur=11f x=37 y=139 w=22 h=37 originx=11 originy=36
+point Ball x=11 y=21
 
 anim IDLE_D
 frame dur=11f x=3 y=140 w=22 h=39 originx=12 originy=35
