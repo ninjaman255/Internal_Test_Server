@@ -19,73 +19,72 @@ local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
 local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
 
 local FootBomb = {}
-local npc_refs = {}               -- area_id -> actor_id -> reference
-local pending_interactions = {}   -- player_id -> true
-local waiting_matches = {}        -- source area -> waiting VS Player match
-local player_representations = {} -- player_id -> bot/cursor/camera data
-local instance_bots = {}          -- instance_id -> slot records
-local instance_spawn_points = {}  -- instance_id -> named Player 1/2 positions
+local State = require("scripts/ezlibs-custom/footbomb/state")
 
--- NPC direction choices rotate deterministically across rounds.
-local npc_direction_sequence_index = 0
+local Defaults = Config.DEFAULTS
+local Assets = Config.ASSETS
+local UI = Config.UI
+local Input = Config.INPUT
+local Gameplay = Config.GAMEPLAY
+local Directions = Config.DIRECTIONS
 
-local DEFAULT_SOURCE_AREA = Config.DEFAULT_SOURCE_AREA
-local DEFAULT_POINTS_TO_WIN = Config.DEFAULT_POINTS_TO_WIN or 10
-local MUG_FOLDER = Config.MUG_FOLDER
-local DEFAULT_ASSET_NAME = Config.DEFAULT_ASSET_NAME
-local DEFAULT_MUG_ANIMATION = Config.DEFAULT_MUG_ANIMATION
-local DEFAULT_MUGSHOT_NAME = Config.DEFAULT_MUGSHOT_NAME
+local DEFAULT_SOURCE_AREA = Defaults.SOURCE_AREA
+local DEFAULT_POINTS_TO_WIN = Defaults.POINTS_TO_WIN
+local MUG_FOLDER = Assets.MUG_FOLDER
+local DEFAULT_ASSET_NAME = Defaults.ASSET_NAME
+local DEFAULT_MUG_ANIMATION = Assets.DEFAULT_MUG_ANIMATION
+local DEFAULT_MUGSHOT_NAME = Defaults.MUGSHOT_NAME
 
-local BOT_ASSET_FOLDER = Config.BOT_ASSET_FOLDER
-local BOMB_ASSET_FOLDER = Config.BOMB_ASSET_FOLDER
+local BOT_ASSET_FOLDER = Assets.BOT_FOLDER
+local BOMB_ASSET_FOLDER = Assets.BOMB_FOLDER
 
 local BOMB_PREVIEW_ANIMATION = AnimationStates.BOMB_PREVIEW
 
 local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
 local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
 
-local CURSOR_TEXTURE = Config.CURSOR_TEXTURE
-local CURSOR_ANIMATION = Config.CURSOR_ANIMATION
-local CURSOR_SFX = Config.CURSOR_SFX
+local CURSOR_TEXTURE = Assets.CURSOR_TEXTURE
+local CURSOR_ANIMATION = Assets.CURSOR_ANIMATION
+local CURSOR_SFX = Assets.CURSOR_SFX
 
-local OFF_MAP_POSITION = Config.OFF_MAP_POSITION
+local OFF_MAP_POSITION = UI.OFF_MAP_POSITION
 
 -- Both selection stages use the same confirmation prompt and rendering path.
-local CONFIRM_PROMPT = Config.CONFIRM_PROMPT
-local CONFIRM_PROMPT_SCALE = Config.CONFIRM_PROMPT_SCALE
-local CONFIRM_PROMPT_Y = Config.CONFIRM_PROMPT_Y
-local NAVI_NAME_SCALE = Config.NAVI_NAME_SCALE
+local CONFIRM_PROMPT = UI.CONFIRM_PROMPT
+local CONFIRM_PROMPT_SCALE = UI.CONFIRM_PROMPT_SCALE
+local CONFIRM_PROMPT_Y = UI.CONFIRM_PROMPT_Y
+local NAVI_NAME_SCALE = UI.NAVI_NAME_SCALE
 
-local SCREEN_WIDTH = Config.SCREEN_WIDTH
-local SCREEN_HEIGHT = Config.SCREEN_HEIGHT
-local SCREEN_CENTER = Config.SCREEN_CENTER
-local SCOREBOARD_TEXTURE = Config.SCOREBOARD_TEXTURE
-local SCOREBOARD_ANIMATION = Config.SCOREBOARD_ANIMATION
-local SCOREBOARD_X = Config.SCOREBOARD_X
-local SCOREBOARD_Y = Config.SCOREBOARD_Y
-local SCOREBOARD_SCALE = Config.SCOREBOARD_SCALE
-local SCORE_PLAYER_ONE_X = Config.SCORE_PLAYER_ONE_X
-local SCORE_PLAYER_TWO_X = Config.SCORE_PLAYER_TWO_X
-local SCORE_TEXT_Y = Config.SCORE_TEXT_Y
-local SCORE_TEXT_SCALE = Config.SCORE_TEXT_SCALE
-local ROLE_TEXT_Y = Config.ROLE_TEXT_Y or (SCREEN_HEIGHT - 18)
-local ROLE_TEXT_SCALE = Config.ROLE_TEXT_SCALE or 2.0
-local SCORE_PLAYER_ONE_MUG_X = Config.SCORE_PLAYER_ONE_MUG_X
-local SCORE_PLAYER_TWO_MUG_X = Config.SCORE_PLAYER_TWO_MUG_X
-local SCORE_MUG_Y = Config.SCORE_MUG_Y
-local SCORE_MUG_SCALE = Config.SCORE_MUG_SCALE
+local SCREEN_WIDTH = UI.SCREEN_WIDTH
+local SCREEN_HEIGHT = UI.SCREEN_HEIGHT
+local SCREEN_CENTER = UI.SCREEN_CENTER
+local SCOREBOARD_TEXTURE = Assets.SCOREBOARD_TEXTURE
+local SCOREBOARD_ANIMATION = Assets.SCOREBOARD_ANIMATION
+local SCOREBOARD_X = UI.SCOREBOARD_X
+local SCOREBOARD_Y = UI.SCOREBOARD_Y
+local SCOREBOARD_SCALE = UI.SCOREBOARD_SCALE
+local SCORE_PLAYER_ONE_X = UI.SCORE_PLAYER_ONE_X
+local SCORE_PLAYER_TWO_X = UI.SCORE_PLAYER_TWO_X
+local SCORE_TEXT_Y = UI.SCORE_TEXT_Y
+local SCORE_TEXT_SCALE = UI.SCORE_TEXT_SCALE
+local ROLE_TEXT_Y = UI.ROLE_TEXT_Y
+local ROLE_TEXT_SCALE = UI.ROLE_TEXT_SCALE
+local SCORE_PLAYER_ONE_MUG_X = UI.SCORE_PLAYER_ONE_MUG_X
+local SCORE_PLAYER_TWO_MUG_X = UI.SCORE_PLAYER_TWO_MUG_X
+local SCORE_MUG_Y = UI.SCORE_MUG_Y
+local SCORE_MUG_SCALE = UI.SCORE_MUG_SCALE
 
-local BOMB_CURSOR_LEFT_X = Config.BOMB_CURSOR_LEFT_X
-local BOMB_CURSOR_RIGHT_X = Config.BOMB_CURSOR_RIGHT_X
-local BOMB_CURSOR_Y = Config.BOMB_CURSOR_Y
-local BOMB_PREVIEW_X = Config.BOMB_PREVIEW_X
-local BOMB_PREVIEW_Y = Config.BOMB_PREVIEW_Y
-local BOMB_SELECTOR_SCALE = Config.BOMB_SELECTOR_SCALE
-local DIRECTION_CURSOR_X = Config.DIRECTION_CURSOR_X
-local DIRECTION_CURSOR_Y = Config.DIRECTION_CURSOR_Y
-local DIRECTION_CURSOR_SCALE = Config.DIRECTION_CURSOR_SCALE
-local DIRECTION_CURSOR_BOB_OFFSET = Config.DIRECTION_CURSOR_BOB_OFFSET
-local DIRECTION_CURSOR_BOB_TICKS = Config.DIRECTION_CURSOR_BOB_TICKS
+local BOMB_CURSOR_LEFT_X = UI.BOMB_CURSOR_LEFT_X
+local BOMB_CURSOR_RIGHT_X = UI.BOMB_CURSOR_RIGHT_X
+local BOMB_CURSOR_Y = UI.BOMB_CURSOR_Y
+local BOMB_PREVIEW_X = UI.BOMB_PREVIEW_X
+local BOMB_PREVIEW_Y = UI.BOMB_PREVIEW_Y
+local BOMB_SELECTOR_SCALE = UI.BOMB_SELECTOR_SCALE
+local DIRECTION_CURSOR_X = UI.DIRECTION_CURSOR_X
+local DIRECTION_CURSOR_Y = UI.DIRECTION_CURSOR_Y
+local DIRECTION_CURSOR_SCALE = UI.DIRECTION_CURSOR_SCALE
+local DIRECTION_CURSOR_BOB_OFFSET = UI.DIRECTION_CURSOR_BOB_OFFSET
+local DIRECTION_CURSOR_BOB_TICKS = UI.DIRECTION_CURSOR_BOB_TICKS
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
@@ -170,7 +169,7 @@ local function hide_role_text(player_id, rep)
 end
 
 local function draw_role_text(player_id, rep, role)
-    if not rep or not role or player_representations[player_id] ~= rep then
+    if not rep or not role or State.player_representations[player_id] ~= rep then
         return false
     end
 
@@ -242,8 +241,8 @@ local function as_number(value, fallback)
 end
 
 local function ensure_area_refs(area_id)
-    npc_refs[area_id] = npc_refs[area_id] or {}
-    return npc_refs[area_id]
+    State.npc_refs[area_id] = State.npc_refs[area_id] or {}
+    return State.npc_refs[area_id]
 end
 
 local function create_ref_npc(area_id, object)
@@ -567,8 +566,8 @@ local function create_match_bots(instance, spawn_points, vs_npc)
         }
     end
 
-    instance_bots[instance.id] = created
-    instance_spawn_points[instance.id] = spawn_points
+    State.instance_bots[instance.id] = created
+    State.instance_spawn_points[instance.id] = spawn_points
 
     return created
 end
@@ -662,7 +661,7 @@ local function transfer_match_players(instance, player_ids, spawn_points)
 end
 
 local function remove_instance_bots(instance_id)
-    local bots = instance_bots[instance_id] or {}
+    local bots = State.instance_bots[instance_id] or {}
     for _, bot in ipairs(bots) do
         safe_remove_bot(bot.id)
     end
@@ -670,8 +669,8 @@ local function remove_instance_bots(instance_id)
         safe_remove_bot(bots.bomb_bot.id)
     end
 
-    instance_bots[instance_id] = nil
-    instance_spawn_points[instance_id] = nil
+    State.instance_bots[instance_id] = nil
+    State.instance_spawn_points[instance_id] = nil
 end
 
 local function cleanup_empty_instance(instance)
@@ -831,7 +830,7 @@ end
 ---------------------------------------------------------------------------
 
 local function hide_bomb_selector_ui(player_id, rep)
-    rep = rep or player_representations[player_id]
+    rep = rep or State.player_representations[player_id]
     if not rep then return end
 
     if rep.cursor_left then
@@ -915,7 +914,7 @@ local function draw_direction_cursor(player_id, rep, direction, y)
 end
 
 local function show_direction_selector_ui(player_id, rep)
-    if not rep or player_representations[player_id] ~= rep then return end
+    if not rep or State.player_representations[player_id] ~= rep then return end
     rep.direction_cursor_bob_tick = 0
     rep.direction_cursor_bob_offset = 0
     for _, direction in ipairs(DIRECTION_CURSOR_DIRECTIONS) do
@@ -925,7 +924,7 @@ local function show_direction_selector_ui(player_id, rep)
 end
 
 local function hide_direction_selector_ui(player_id, rep)
-    rep = rep or player_representations[player_id]
+    rep = rep or State.player_representations[player_id]
     if not rep then return end
     for _, direction in ipairs(DIRECTION_CURSOR_DIRECTIONS) do
         local cursor_id = direction_cursor_id(rep, direction)
@@ -965,7 +964,7 @@ local function update_direction_selector_bob(player_id, rep)
 end
 
 local function hide_selector_ui(player_id, rep)
-    rep = rep or player_representations[player_id]
+    rep = rep or State.player_representations[player_id]
     if not rep then return end
 
     if rep.cursor_top then
@@ -991,7 +990,7 @@ local function hide_selector_ui(player_id, rep)
 end
 
 local function show_bomb_selector_ui(player_id, rep)
-    if not rep or player_representations[player_id] ~= rep then
+    if not rep or State.player_representations[player_id] ~= rep then
         return
     end
 
@@ -1080,7 +1079,7 @@ local function show_bomb_selector_ui(player_id, rep)
 end
 
 local function show_selector_ui(player_id, rep)
-    if not rep or player_representations[player_id] ~= rep then
+    if not rep or State.player_representations[player_id] ~= rep then
         return
     end
 
@@ -1151,7 +1150,7 @@ end
 ---------------------------------------------------------------------------
 
 local function remove_representation(player_id)
-    local rep = player_representations[player_id]
+    local rep = State.player_representations[player_id]
     if not rep then return end
 
     hide_selector_ui(player_id, rep)
@@ -1211,7 +1210,7 @@ local function remove_representation(player_id)
         end
     end
 
-    player_representations[player_id] = nil
+    State.player_representations[player_id] = nil
 end
 
 local function setup_player_representation(player_id, instance, bot_record)
@@ -1222,7 +1221,7 @@ local function setup_player_representation(player_id, instance, bot_record)
         return
     end
 
-    local existing = player_representations[player_id]
+    local existing = State.player_representations[player_id]
 
     if existing
         and existing.instance_id == instance.id
@@ -1318,7 +1317,7 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id)
     }
 
-    player_representations[player_id] = rep
+    State.player_representations[player_id] = rep
 
     -- Hide the standard HUD while FootBomb's dedicated selector/game view is
     -- active. Restore it in remove_representation during match exit/disconnect.
@@ -1484,7 +1483,7 @@ local function launch_npc_match(player_id, source_area_id, object, npc)
     setup_player_representation(
         player_id,
         instance,
-        instance_bots[instance.id][1]
+        State.instance_bots[instance.id][1]
     )
 
     log("Started private VS NPC match " .. tostring(instance.id))
@@ -1546,7 +1545,7 @@ local function launch_player_match(waiting, second_player)
     setup_representations_for_match(
         instance,
         { first_player, second_player },
-        instance_bots[instance.id]
+        State.instance_bots[instance.id]
     )
 
     log("Started VS Player match " .. tostring(instance.id))
@@ -1558,7 +1557,7 @@ end
 ---------------------------------------------------------------------------
 
 local function cycle_player_skin(player_id, direction)
-    local rep = player_representations[player_id]
+    local rep = State.player_representations[player_id]
 
     if not rep
         or rep.confirming
@@ -1647,7 +1646,7 @@ local function cycle_player_skin(player_id, direction)
             rep.bot_record.animation_path = old_option.animation
             rep.bot_id = restored_id
 
-            local slots = instance_bots[rep.instance_id]
+            local slots = State.instance_bots[rep.instance_id]
             if slots and slots[rep.slot] then
                 slots[rep.slot].id = restored_id
                 slots[rep.slot].skin_index = rep.skin_index
@@ -1680,7 +1679,7 @@ local function cycle_player_skin(player_id, direction)
         draw_navi_name(player_id, rep, option.name)
     end
 
-    local slots = instance_bots[rep.instance_id]
+    local slots = State.instance_bots[rep.instance_id]
 
     if slots and slots[rep.slot] then
         slots[rep.slot].id = new_id
@@ -1700,7 +1699,7 @@ local function cycle_player_skin(player_id, direction)
 end
 
 local function cycle_bomb_skin(player_id, direction)
-    local rep = player_representations[player_id]
+    local rep = State.player_representations[player_id]
 
     if not rep
         or rep.confirming
@@ -1788,7 +1787,7 @@ end
 -- This is a one-time camera placement for the reveal; the normal Navi camera
 -- follow loop resumes afterward.
 local function focus_player_camera_for_round(player_id, instance_id)
-    local points = instance_spawn_points[instance_id]
+    local points = State.instance_spawn_points[instance_id]
     local focus = points and points.CameraFocus
 
     if not focus then
@@ -1825,8 +1824,8 @@ end
 -- This positioning helper is deliberately independent from Navi and bomb
 -- skin selection. The same helper can be called again when a new round starts.
 local function position_bots_for_round(instance_id)
-    local bots = instance_bots[instance_id]
-    local points = instance_spawn_points[instance_id]
+    local bots = State.instance_bots[instance_id]
+    local points = State.instance_spawn_points[instance_id]
 
     if not bots or #bots < 2 or not points then
         log("Cannot position FootBomb round bots; match data is missing for "
@@ -1875,8 +1874,8 @@ end
 -- Spawn the ball as a non-solid bot at the Tiled point object named "Bomb".
 -- The Kicker's confirmed ball selection determines which bomb assets are used.
 local function spawn_bomb_bot_for_round(instance_id, human_reps)
-    local bots = instance_bots[instance_id]
-    local points = instance_spawn_points[instance_id]
+    local bots = State.instance_bots[instance_id]
+    local points = State.instance_spawn_points[instance_id]
     if not bots or not points or not points.Bomb then
         log("BOMB_FLOW: cannot spawn bomb; match data or Tiled Bomb point is missing for "
             .. tostring(instance_id))
@@ -1986,7 +1985,7 @@ end
 -- round position. Refreshing the avatar assets first is important for clients
 -- that have not bound the bot's animation file yet.
 local function set_defender_animation_for_round(instance_id, animation_state, phase)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots then
         return false
     end
@@ -2047,7 +2046,7 @@ end
 -- Apply the kicker's pose only after the round-position moves have been sent.
 -- OpenNetBattle direction values use spaces ("Up Right"), not underscores.
 local function set_kicker_pose_for_round(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots then
         return false
     end
@@ -2176,7 +2175,7 @@ end
 -- primes each selected avatar's animation assets before players can see the
 -- bots, avoiding first-use "missing asset" flashes during gameplay.
 local function prime_round_bot_animations(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots then
         log("ROUND_SETUP: cannot prime animations; bots missing instance="
             .. tostring(instance_id))
@@ -2260,8 +2259,8 @@ end
 -- Round direction selection
 ---------------------------------------------------------------------------
 
-local DIRECTION_CHOICES = Config.DIRECTION_CHOICES
-local DIRECTION_INPUT_SETTLE_SECONDS = Config.DIRECTION_INPUT_SETTLE_SECONDS
+local DIRECTION_CHOICES = Directions.CHOICES
+local DIRECTION_INPUT_SETTLE_SECONDS = Input.DIRECTION_SETTLE_SECONDS
 
 local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
     if not bot or not bot.mug_texture_path or not bot.mug_animation_path or not ui_id then
@@ -2297,7 +2296,7 @@ local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
 end
 
 local function draw_scoreboard_for_player(player_id, rep, bots)
-    if not rep or not bots or player_representations[player_id] ~= rep then
+    if not rep or not bots or State.player_representations[player_id] ~= rep then
         return
     end
 
@@ -2345,9 +2344,9 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
 end
 
 local function update_scoreboard(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots then return end
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if rep.instance_id == instance_id then
             draw_scoreboard_for_player(player_id, rep, bots)
         end
@@ -2376,7 +2375,7 @@ local function hide_scoreboard_for_player(player_id, rep)
 end
 
 local function hide_scoreboard_for_instance(instance_id)
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if rep.instance_id == instance_id then
             hide_scoreboard_for_player(player_id, rep)
         end
@@ -2415,7 +2414,7 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
     local tx, ty, tz = tonumber(target.x) or sx, tonumber(target.y) or sy, tonumber(target.z) or sz
     local dx, dy, dz = tx - sx, ty - sy, tz - sz
     local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-    local move_speed = math.max(1, tonumber(speed) or Config.RESULT_KICKER_WALK_U_SPEED or 150)
+    local move_speed = math.max(1, tonumber(speed) or Gameplay.RESULT_KICKER_WALK_U_SPEED or 150)
     local duration = math.max(0.12, tonumber(duration_override) or (distance / move_speed))
 
     -- Keep the current position as a zero-duration starting keyframe, then let
@@ -2514,7 +2513,7 @@ local function set_result_animation(bot, animation_state, direction, phase)
 end
 
 local function award_round_point(instance_id, kicker, defender, winner)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots or bots.round_winner or bots.match_complete then return end
     if winner.slot == 1 then
         bots.player_one_score = (bots.player_one_score or 0) + 1
@@ -2603,14 +2602,14 @@ local function evaluate_match_point(bots, instance_id)
 end
 
 local function complete_match_and_return(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots or bots.returning_players then return end
     bots.returning_players = true
 
     local return_area_id = bots.return_area_id or DEFAULT_SOURCE_AREA
     local return_position = bots.return_position
     local players = {}
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if rep.instance_id == instance_id then
             players[#players + 1] = player_id
         end
@@ -2666,7 +2665,7 @@ local function complete_match_and_return(instance_id)
     -- Transfer events normally unregister players and clean up the instance;
     -- these calls also cover runtimes that do not emit the transfer callback.
     -- If the transfer callback already cleaned it up, do not remove it twice.
-    if instance_bots[instance_id] then
+    if State.instance_bots[instance_id] then
         remove_instance_bots(instance_id)
         local removed, remove_error = EzMapInstance.remove(instance_id)
         if not removed then
@@ -2681,8 +2680,8 @@ end
 local begin_next_round
 
 local function resolve_round_winner(instance_id)
-    local bots = instance_bots[instance_id]
-    local points = instance_spawn_points[instance_id]
+    local bots = State.instance_bots[instance_id]
+    local points = State.instance_spawn_points[instance_id]
     if not bots or bots.round_winner or bots.result_animation_active then return end
 
     local kicker, defender
@@ -2735,7 +2734,7 @@ local function resolve_round_winner(instance_id)
         )
         if kicker_ok then
             kicker_ok = move_bot_smoothly(
-                kicker, points.MoveForward, Config.RESULT_KICKER_WALK_UR_SPEED,
+                kicker, points.MoveForward, Gameplay.RESULT_KICKER_WALK_UR_SPEED,
                 "kicker-to-move-forward", AnimationStates.WALK_UR
             )
         end
@@ -2747,7 +2746,7 @@ local function resolve_round_winner(instance_id)
         local bomb_position = bots.bomb_bot.position or points.Bomb
         if kicker_ok then
             kicker_ok = move_bot_smoothly(
-                kicker, bomb_position, Config.RESULT_KICKER_WALK_U_SPEED, "kicker-to-bomb",
+                kicker, bomb_position, Gameplay.RESULT_KICKER_WALK_U_SPEED, "kicker-to-bomb",
                 AnimationStates.WALK_U
             )
         end
@@ -2795,7 +2794,7 @@ local function resolve_round_winner(instance_id)
                 local dz = (tonumber(defender_target.z) or 0) - (tonumber(start.z) or 0)
                 local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
                 shared_duration = math.max(0.12, distance / math.max(1,
-                    tonumber(Config.RESULT_DEFENDER_JUMP_SPEED) or 60))
+                    tonumber(Gameplay.RESULT_DEFENDER_JUMP_SPEED) or 60))
             end
 
             log("RESULT_FLOW: launching bomb and defender response together instance="
@@ -2812,7 +2811,7 @@ local function resolve_round_winner(instance_id)
             local defender_done, defender_ok = false, false
             async(function()
                 bomb_ok = move_bot_smoothly(
-                    bots.bomb_bot, bomb_target, Config.RESULT_BOMB_MOVE_SPEED,
+                    bots.bomb_bot, bomb_target, Gameplay.RESULT_BOMB_MOVE_SPEED,
                     "bomb-to-" .. tostring(target_name), nil, shared_duration
                 )
                 bomb_done = true
@@ -2821,7 +2820,7 @@ local function resolve_round_winner(instance_id)
                 async(function()
                     defender_ok = move_bot_smoothly(
                         defender, defender_target,
-                        Config.RESULT_DEFENDER_JUMP_SPEED or 60,
+                        Gameplay.RESULT_DEFENDER_JUMP_SPEED or 60,
                         "defender-to-" .. tostring(defender_target_name),
                         defender_animation, shared_duration
                     )
@@ -2870,7 +2869,7 @@ local function resolve_round_winner(instance_id)
                 async(function()
                     for _, delay in ipairs({ 0.15, 0.35, 0.75, 1.25 }) do
                         await(Async.sleep(delay))
-                        local current_bots = instance_bots[instance_id]
+                        local current_bots = State.instance_bots[instance_id]
                         local same_defender = false
                         for _, current_bot in ipairs(current_bots or {}) do
                             if current_bot.id == defender.id
@@ -2937,10 +2936,10 @@ local function resolve_round_winner(instance_id)
             end
 
             local humans = {}
-            for player_id, rep in pairs(player_representations) do
+            for player_id, rep in pairs(State.player_representations) do
                 if rep.instance_id == instance_id then
                     humans[#humans + 1] = { player_id = player_id, rep = rep }
-                    if player_representations[player_id] == rep then
+                    if State.player_representations[player_id] == rep then
                         if winner.role == "Kicker" then
                             fade_player_to_white(player_id)
                         else
@@ -2981,14 +2980,14 @@ local function resolve_round_winner(instance_id)
 end
 
 local function finish_direction_selection_if_ready(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots or bots.directions_resolved then
         return
     end
 
     local humans = {}
     local human_slots = {}
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if rep.instance_id == instance_id then
             humans[#humans + 1] = { player_id = player_id, rep = rep }
             human_slots[rep.slot] = true
@@ -3005,13 +3004,13 @@ local function finish_direction_selection_if_ready(instance_id)
     -- rotates Left -> Up -> Right across NPC turns, avoiding a fixed answer.
     for slot, bot in ipairs(bots) do
         if not human_slots[slot] then
-            npc_direction_sequence_index = (npc_direction_sequence_index % #DIRECTION_CHOICES) + 1
-            bot.direction_choice = DIRECTION_CHOICES[npc_direction_sequence_index]
+            State.npc_direction_sequence_index = (State.npc_direction_sequence_index % #DIRECTION_CHOICES) + 1
+            bot.direction_choice = DIRECTION_CHOICES[State.npc_direction_sequence_index]
             log("DIRECTION_FLOW: server chose NPC direction instance="
                 .. tostring(instance_id) .. " slot=" .. tostring(slot)
                 .. " role=" .. tostring(bot.role)
                 .. " direction=" .. tostring(bot.direction_choice)
-                .. " sequence_index=" .. tostring(npc_direction_sequence_index))
+                .. " sequence_index=" .. tostring(State.npc_direction_sequence_index))
         end
     end
 
@@ -3043,7 +3042,7 @@ local function finish_direction_selection_if_ready(instance_id)
 end
 
 local function start_direction_selection(instance_id, human_reps)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots then
         return
     end
@@ -3068,13 +3067,13 @@ local function start_direction_selection(instance_id, human_reps)
         end
 
         async(function()
-            if player_representations[player_id] ~= rep then
+            if State.player_representations[player_id] ~= rep then
                 return
             end
             -- Direction choices are clear from the three on-screen cursors;
             -- avoid an extra role/instruction textbox before selection.
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
-            if player_representations[player_id] == rep then
+            if State.player_representations[player_id] == rep then
                 if rep.input and rep.input_owner
                     and rep.input:has_input_control(rep.input_owner) then
                     rep.input:consume(rep.input_owner)
@@ -3098,7 +3097,7 @@ local function start_direction_selection(instance_id, human_reps)
 end
 
 begin_next_round = function(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
     if not bots or bots.round_transition_active then
         log("ROUND_FLOW: refusing duplicate next-round setup instance="
             .. tostring(instance_id))
@@ -3106,7 +3105,7 @@ begin_next_round = function(instance_id)
     end
 
     local humans = {}
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if rep.instance_id == instance_id then
             humans[#humans + 1] = { player_id = player_id, rep = rep }
         end
@@ -3200,7 +3199,7 @@ begin_next_round = function(instance_id)
     -- gone, so role text never overlaps the intermission score display.
     for _, entry in ipairs(humans) do
         local role_bot = bots[entry.rep.slot]
-        if role_bot and player_representations[entry.player_id] == entry.rep then
+        if role_bot and State.player_representations[entry.player_id] == entry.rep then
             draw_role_text(entry.player_id, entry.rep, role_bot.role)
         end
     end
@@ -3209,7 +3208,7 @@ begin_next_round = function(instance_id)
     -- field framing used for the opening round.
     for _, entry in ipairs(humans) do
         local player_id, rep = entry.player_id, entry.rep
-        if player_representations[player_id] == rep then
+        if State.player_representations[player_id] == rep then
             rep.camera_focus_active = true
             focus_player_camera_for_round(player_id, instance_id)
             fade_player_in(player_id)
@@ -3247,7 +3246,7 @@ local function confirm_direction_selection(player_id, rep)
         return
     end
     hide_direction_selector_ui(player_id, rep)
-    local bot = instance_bots[rep.instance_id] and instance_bots[rep.instance_id][rep.slot]
+    local bot = State.instance_bots[rep.instance_id] and State.instance_bots[rep.instance_id][rep.slot]
     local role = bot and bot.role or "player"
 
     if rep.input and rep.input_owner
@@ -3260,7 +3259,7 @@ local function confirm_direction_selection(player_id, rep)
     end
 
     async(function()
-        if player_representations[player_id] ~= rep then
+        if State.player_representations[player_id] ~= rep then
             return
         end
 
@@ -3272,24 +3271,24 @@ local function confirm_direction_selection(player_id, rep)
             .. (role == "Kicker" and "kick direction" or "defense direction")
             .. ". Would you like to confirm this selection?"
         ))
-        if player_representations[player_id] ~= rep then
+        if State.player_representations[player_id] ~= rep then
             return
         end
         await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
-        if player_representations[player_id] ~= rep then
+        if State.player_representations[player_id] ~= rep then
             return
         end
 
         local choice = await(Async.quiz_player(player_id, "Yes", "No"))
         log("DIRECTION_FLOW: confirmation answer player=" .. tostring(player_id)
             .. " direction=" .. tostring(selected) .. " choice=" .. tostring(choice))
-        if player_representations[player_id] ~= rep then
+        if State.player_representations[player_id] ~= rep then
             return
         end
 
         -- Let the quiz close cleanly before showing the result/retry message.
         await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
-        if player_representations[player_id] ~= rep then
+        if State.player_representations[player_id] ~= rep then
             return
         end
         if rep.input and rep.input_owner
@@ -3308,7 +3307,7 @@ local function confirm_direction_selection(player_id, rep)
                 "Confirmed " .. string.upper(selected) .. ". Waiting for the other player..."
             ))
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
-            if player_representations[player_id] == rep then
+            if State.player_representations[player_id] == rep then
                 finish_direction_selection_if_ready(rep.instance_id)
             end
         else
@@ -3325,7 +3324,7 @@ local function confirm_direction_selection(player_id, rep)
             -- No retry instruction textbox; return directly to the direction
             -- cursors after the confirmation question is dismissed.
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
-            if player_representations[player_id] == rep
+            if State.player_representations[player_id] == rep
                 and not rep.direction_selection_confirmed then
                 if rep.input and rep.input_owner
                     and rep.input:has_input_control(rep.input_owner) then
@@ -3340,14 +3339,14 @@ local function confirm_direction_selection(player_id, rep)
             end
         end
 
-        if player_representations[player_id] == rep then
+        if State.player_representations[player_id] == rep then
             rep.confirming = false
         end
     end)
 end
 
 local function try_begin_match(instance_id)
-    local bots = instance_bots[instance_id]
+    local bots = State.instance_bots[instance_id]
 
     if not bots or #bots < 2 then
         return
@@ -3355,7 +3354,7 @@ local function try_begin_match(instance_id)
 
     local human_reps = {}
 
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if rep.instance_id == instance_id then
             human_reps[#human_reps + 1] = {
                 player_id = player_id,
@@ -3408,7 +3407,7 @@ local function try_begin_match(instance_id)
             -- gameplay is revealed. Keep a brief settle delay before transition.
             await(Async.sleep(0.25))
 
-            if player_representations[player_id] == rep then
+            if State.player_representations[player_id] == rep then
                 fade_player_to_black(player_id)
             end
 
@@ -3484,7 +3483,7 @@ local function try_begin_match(instance_id)
                 -- Re-issue the animation after the client has had a little
                 -- time to receive the avatar/state updates while still black.
                 local kicker = nil
-                for _, bot in ipairs(instance_bots[instance_id] or {}) do
+                for _, bot in ipairs(State.instance_bots[instance_id] or {}) do
                     if bot.role == "Kicker" then
                         kicker = bot
                         break
@@ -3509,7 +3508,7 @@ local function try_begin_match(instance_id)
                     local player_id = participant.player_id
                     local rep = participant.rep
 
-                    if player_representations[player_id] == rep then
+                    if State.player_representations[player_id] == rep then
                         -- Temporarily suspend the normal Navi-follow update so
                         -- it cannot overwrite Camera Focus while the reveal is
                         -- happening.
@@ -3535,9 +3534,9 @@ local function try_begin_match(instance_id)
                 -- top of the scoreboard/intermission display.
                 for _, participant in ipairs(human_reps) do
                     local player_id, rep = participant.player_id, participant.rep
-                    local role_bot = instance_bots[instance_id]
-                        and instance_bots[instance_id][rep.slot]
-                    if player_representations[player_id] == rep and role_bot then
+                    local role_bot = State.instance_bots[instance_id]
+                        and State.instance_bots[instance_id][rep.slot]
+                    if State.player_representations[player_id] == rep and role_bot then
                         draw_role_text(player_id, rep, role_bot.role)
                     end
                 end
@@ -3566,7 +3565,7 @@ local function confirm_bomb_selection(player_id, rep)
         return
     end
 
-    if player_representations[player_id] ~= rep then
+    if State.player_representations[player_id] ~= rep then
         return
     end
 
@@ -3629,7 +3628,7 @@ local function confirm_navi_selection(player_id, rep)
 
     async(function()
         local function representation_is_current()
-            return player_representations[player_id] == rep
+            return State.player_representations[player_id] == rep
                 and Net.get_player_area(player_id) == rep.area_id
         end
 
@@ -3688,14 +3687,14 @@ local function confirm_navi_selection(player_id, rep)
             log("CONFIRM_FLOW: textbox settle wait complete player="
                 .. tostring(player_id))
 
-            if player_representations[player_id] == rep then
+            if State.player_representations[player_id] == rep then
                 log("CONFIRM_FLOW: entering try_begin_match player="
                     .. tostring(player_id))
                 try_begin_match(rep.instance_id)
             end
         end
 
-        if player_representations[player_id] == rep
+        if State.player_representations[player_id] == rep
             and not rep.selection_confirmed
         then
             -- The quiz may have consumed Confirm to close the textbox.
@@ -3723,17 +3722,17 @@ end
 ---------------------------------------------------------------------------
 
 local function join_waiting_match(player_id, source_area_id, reference)
-    local waiting = waiting_matches[source_area_id]
+    local waiting = State.waiting_matches[source_area_id]
 
     if not waiting then
         return false
     end
 
-    if pending_interactions[player_id] then
+    if State.pending_interactions[player_id] then
         return true
     end
 
-    pending_interactions[player_id] = true
+    State.pending_interactions[player_id] = true
 
     async(function()
         local npc = reference.npc
@@ -3746,7 +3745,7 @@ local function join_waiting_match(player_id, source_area_id, reference)
                 npc.mug_animation_path
             ))
 
-            pending_interactions[player_id] = nil
+            State.pending_interactions[player_id] = nil
             return
         end
 
@@ -3758,9 +3757,9 @@ local function join_waiting_match(player_id, source_area_id, reference)
         ))
 
         if Net.get_player_area(player_id) ~= source_area_id
-            or waiting_matches[source_area_id] ~= waiting
+            or State.waiting_matches[source_area_id] ~= waiting
         then
-            pending_interactions[player_id] = nil
+            State.pending_interactions[player_id] = nil
             return
         end
 
@@ -3773,8 +3772,8 @@ local function join_waiting_match(player_id, source_area_id, reference)
             npc.mug_animation_path
         ))
 
-        if choice == 0 and waiting_matches[source_area_id] == waiting then
-            waiting_matches[source_area_id] = nil
+        if choice == 0 and State.waiting_matches[source_area_id] == waiting then
+            State.waiting_matches[source_area_id] = nil
 
             local ok, err = launch_player_match(waiting, player_id)
 
@@ -3787,7 +3786,7 @@ local function join_waiting_match(player_id, source_area_id, reference)
                 ))
 
                 if player_is_available(waiting.player_id) then
-                    waiting_matches[source_area_id] = waiting
+                    State.waiting_matches[source_area_id] = waiting
                 end
             end
         else
@@ -3799,14 +3798,14 @@ local function join_waiting_match(player_id, source_area_id, reference)
             ))
         end
 
-        pending_interactions[player_id] = nil
+        State.pending_interactions[player_id] = nil
     end)
 
     return true
 end
 
 local function begin_interaction(player_id, area_id, reference)
-    if pending_interactions[player_id] then
+    if State.pending_interactions[player_id] then
         return
     end
 
@@ -3814,7 +3813,7 @@ local function begin_interaction(player_id, area_id, reference)
         return
     end
 
-    pending_interactions[player_id] = true
+    State.pending_interactions[player_id] = true
 
     async(function()
         local npc = reference.npc
@@ -3828,7 +3827,7 @@ local function begin_interaction(player_id, area_id, reference)
         ))
 
         if Net.get_player_area(player_id) ~= area_id then
-            pending_interactions[player_id] = nil
+            State.pending_interactions[player_id] = nil
             return
         end
 
@@ -3842,7 +3841,7 @@ local function begin_interaction(player_id, area_id, reference)
         ))
 
         if Net.get_player_area(player_id) ~= area_id then
-            pending_interactions[player_id] = nil
+            State.pending_interactions[player_id] = nil
             return
         end
 
@@ -3863,7 +3862,7 @@ local function begin_interaction(player_id, area_id, reference)
                 )
             end
         elseif choice == 1 then
-            if waiting_matches[area_id] then
+            if State.waiting_matches[area_id] then
                 await(Async.message_player(
                     player_id,
                     "Another player is already waiting for an opponent. Please let them finish matchmaking first.",
@@ -3871,7 +3870,7 @@ local function begin_interaction(player_id, area_id, reference)
                     npc.mug_animation_path
                 ))
             else
-                waiting_matches[area_id] = {
+                State.waiting_matches[area_id] = {
                     player_id = player_id,
                     source_area_id = area_id,
                     object = object,
@@ -3895,7 +3894,7 @@ local function begin_interaction(player_id, area_id, reference)
             ))
         end
 
-        pending_interactions[player_id] = nil
+        State.pending_interactions[player_id] = nil
     end)
 end
 
@@ -3904,7 +3903,7 @@ function FootBomb.handle_actor_interaction(player_id, actor_id, button)
         return
     end
 
-    if pending_interactions[player_id] then
+    if State.pending_interactions[player_id] then
         return
     end
 
@@ -3913,8 +3912,8 @@ function FootBomb.handle_actor_interaction(player_id, actor_id, button)
         return
     end
 
-    local reference = npc_refs[area_id]
-        and npc_refs[area_id][tostring(actor_id)]
+    local reference = State.npc_refs[area_id]
+        and State.npc_refs[area_id][tostring(actor_id)]
 
     if reference then
         begin_interaction(player_id, area_id, reference)
@@ -3941,7 +3940,7 @@ function FootBomb.handle_player_transfer(player_id)
         and record.metadata
         and record.metadata.game == "footbomb"
     then
-        local bots = instance_bots[record.id] or {}
+        local bots = State.instance_bots[record.id] or {}
 
         for slot, member_id in ipairs(record.player_ids or {}) do
             if member_id == player_id then
@@ -3957,11 +3956,11 @@ function FootBomb.handle_player_transfer(player_id)
 end
 
 function FootBomb.handle_player_disconnect(player_id)
-    pending_interactions[player_id] = nil
+    State.pending_interactions[player_id] = nil
 
-    for area_id, waiting in pairs(waiting_matches) do
+    for area_id, waiting in pairs(State.waiting_matches) do
         if waiting.player_id == player_id then
-            waiting_matches[area_id] = nil
+            State.waiting_matches[area_id] = nil
         end
     end
 
@@ -3988,7 +3987,7 @@ end
 -- Up/Down cycle Navi skins; Left/Right cycle ball skins. Confirm first locks
 -- the ball selection and then operates the existing Navi confirmation flow.
 Net:on("tick", function(event)
-    for player_id, rep in pairs(player_representations) do
+    for player_id, rep in pairs(State.player_representations) do
         if Net.get_player_area(player_id) == rep.area_id then
             update_direction_selector_bob(player_id, rep)
             local input = rep.input or InputAPI.get_controller(player_id)

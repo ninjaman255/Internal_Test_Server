@@ -1,61 +1,82 @@
--- Shared FootBomb configuration and tuning values.
--- Keep paths and UI layout values here so they can be adjusted without
--- touching match lifecycle or input logic.
-local C = {}
+-- FootBomb configuration.
+-- Keep values grouped by responsibility so UI, assets, input, and match tuning
+-- can be adjusted independently of lifecycle code.
+local ASSET_ROOT = "/server/assets/net-game-footbomb/"
+local BOT_ASSET_FOLDER = ASSET_ROOT .. "bots/"
+local SCREEN_CENTER = { x = 120, y = 80 }
 
-C.DEFAULT_SOURCE_AREA = "footbomb"
-C.DEFAULT_POINTS_TO_WIN = 10
-C.DEFAULT_ASSET_NAME = "ref-prog"
-C.BOT_ASSET_FOLDER = "/server/assets/net-game-footbomb/bots/"
-C.MUG_FOLDER = C.BOT_ASSET_FOLDER
-C.DEFAULT_MUGSHOT_NAME = "ref-prog-mug"
-C.BOMB_ASSET_FOLDER = "/server/assets/net-game-footbomb/bombs/"
-C.DEFAULT_MUG_ANIMATION = C.BOT_ASSET_FOLDER .. "mug.animation"
-C.CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png"
-C.CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
-C.CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg"
-C.OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 }
-C.CONFIRM_PROMPT = "Press A To Confirm"
-C.CONFIRM_PROMPT_SCALE = 2.0
-C.CONFIRM_PROMPT_Y = 5
-C.NAVI_NAME_SCALE = 1.5
-C.SCREEN_WIDTH = 240
-C.SCREEN_HEIGHT = 160
-C.SCREEN_CENTER = { x = 120, y = 80 }
-C.SCOREBOARD_TEXTURE = "/server/assets/net-game-footbomb/ui/score-board.png"
-C.SCOREBOARD_ANIMATION = "/server/assets/net-game-footbomb/ui/score-board.animation"
-C.SCOREBOARD_X = C.SCREEN_CENTER.x - 68
-C.SCOREBOARD_Y = C.SCREEN_CENTER.y - 28
-C.SCOREBOARD_SCALE = 4.0
-C.SCORE_PLAYER_ONE_X = 94
-C.SCORE_PLAYER_TWO_X = 132
-C.SCORE_TEXT_Y = C.SCREEN_CENTER.y - 8
-C.SCORE_TEXT_SCALE = 4.0
--- Character mug portraits sit on the matching score side.
-C.SCORE_PLAYER_ONE_MUG_X = 58
-C.SCORE_PLAYER_TWO_MUG_X = 162
-C.SCORE_MUG_Y = C.SCREEN_CENTER.y - 12
-C.SCORE_MUG_SCALE = 1.0
-C.BOMB_PREVIEW_ANIMATION = "Preview"
-C.DIRECTION_CHOICES = { "Left", "Up", "Right" }
-C.DIRECTION_CURSOR_X = { 40, C.SCREEN_CENTER.x, 200 }
-C.DIRECTION_CURSOR_Y = C.SCREEN_CENTER.y - 18
-C.DIRECTION_CURSOR_SCALE = 2.0
-C.DIRECTION_CURSOR_BOB_OFFSET = 5
-C.DIRECTION_CURSOR_BOB_TICKS = 2
-C.DIRECTION_INPUT_SETTLE_SECONDS = 0.30
--- Result phase movement tuning (map-coordinate units per second).
--- Adjust these independently to tune each leg of the result animation.
-C.RESULT_MOVE_STEP_SECONDS = 0.10
-C.RESULT_KICKER_WALK_UR_SPEED = 3 -- Kicker walking diagonally to Move Forward.
-C.RESULT_KICKER_WALK_U_SPEED = 3  -- Kicker walking upward from Move Forward to the bomb.
-C.RESULT_BOMB_MOVE_SPEED = 5       -- Bomb traveling from the Kicker to the chosen Defender point.
-C.RESULT_DEFENDER_JUMP_SPEED = 5   -- Defender jump speed; bomb duration matches this movement.
-C.BOMB_SELECTOR_SCALE = 2.0
-C.BOMB_CURSOR_LEFT_X = C.SCREEN_CENTER.x - 28
-C.BOMB_CURSOR_RIGHT_X = C.SCREEN_CENTER.x + 34
-C.BOMB_CURSOR_Y = C.SCREEN_CENTER.y + 12
-C.BOMB_PREVIEW_X = C.SCREEN_CENTER.x - 17
-C.BOMB_PREVIEW_Y = C.SCREEN_CENTER.y + 4
+local constants = {
+    DEFAULTS = {
+        SOURCE_AREA = "footbomb",
+        POINTS_TO_WIN = 10,
+        ASSET_NAME = "ref-prog",
+        MUGSHOT_NAME = "ref-prog-mug",
+    },
 
-return C
+    ASSETS = {
+        BOT_FOLDER = BOT_ASSET_FOLDER,
+        MUG_FOLDER = BOT_ASSET_FOLDER,
+        BOMB_FOLDER = ASSET_ROOT .. "bombs/",
+        DEFAULT_MUG_ANIMATION = BOT_ASSET_FOLDER .. "mug.animation",
+        CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png",
+        CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation",
+        CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg",
+        SCOREBOARD_TEXTURE = ASSET_ROOT .. "ui/score-board.png",
+        SCOREBOARD_ANIMATION = ASSET_ROOT .. "ui/score-board.animation",
+    },
+
+    UI = {
+        OFF_MAP_POSITION = { x = -1000, y = -1000, z = 0 },
+        CONFIRM_PROMPT = "Press A To Confirm",
+        CONFIRM_PROMPT_SCALE = 2.0,
+        CONFIRM_PROMPT_Y = 5,
+        NAVI_NAME_SCALE = 1.5,
+        SCREEN_WIDTH = 240,
+        SCREEN_HEIGHT = 160,
+        SCREEN_CENTER = SCREEN_CENTER,
+        SCOREBOARD_X = SCREEN_CENTER.x - 68,
+        SCOREBOARD_Y = SCREEN_CENTER.y - 28,
+        SCOREBOARD_SCALE = 4.0,
+        SCORE_PLAYER_ONE_X = 94,
+        SCORE_PLAYER_TWO_X = 132,
+        SCORE_TEXT_Y = SCREEN_CENTER.y - 8,
+        SCORE_TEXT_SCALE = 4.0,
+        ROLE_TEXT_Y = 142,
+        ROLE_TEXT_SCALE = 2.0,
+        -- Character mug portraits sit on the matching score side.
+        SCORE_PLAYER_ONE_MUG_X = 58,
+        SCORE_PLAYER_TWO_MUG_X = 162,
+        SCORE_MUG_Y = SCREEN_CENTER.y - 12,
+        SCORE_MUG_SCALE = 1.0,
+        BOMB_SELECTOR_SCALE = 2.0,
+        BOMB_CURSOR_LEFT_X = SCREEN_CENTER.x - 28,
+        BOMB_CURSOR_RIGHT_X = SCREEN_CENTER.x + 34,
+        BOMB_CURSOR_Y = SCREEN_CENTER.y + 12,
+        BOMB_PREVIEW_X = SCREEN_CENTER.x - 17,
+        BOMB_PREVIEW_Y = SCREEN_CENTER.y + 4,
+        DIRECTION_CURSOR_X = { 40, SCREEN_CENTER.x, 200 },
+        DIRECTION_CURSOR_Y = SCREEN_CENTER.y - 18,
+        DIRECTION_CURSOR_SCALE = 2.0,
+        DIRECTION_CURSOR_BOB_OFFSET = 5,
+        DIRECTION_CURSOR_BOB_TICKS = 2,
+    },
+
+    INPUT = {
+        DIRECTION_SETTLE_SECONDS = 0.30,
+    },
+
+    DIRECTIONS = {
+        CHOICES = { "Left", "Up", "Right" },
+    },
+
+    GAMEPLAY = {
+        -- Result phase movement tuning (map-coordinate units per second).
+        RESULT_MOVE_STEP_SECONDS = 0.10,
+        RESULT_KICKER_WALK_UR_SPEED = 3,
+        RESULT_KICKER_WALK_U_SPEED = 3,
+        RESULT_BOMB_MOVE_SPEED = 5,
+        RESULT_DEFENDER_JUMP_SPEED = 5,
+    },
+}
+
+return constants

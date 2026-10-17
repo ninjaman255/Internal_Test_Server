@@ -1,11 +1,14 @@
-# FootBomb scripts — configuration refactor
+# FootBomb scripts — state and configuration refactor
 
-`main.lua` now imports the shared configuration and roster modules instead of duplicating their values:
+`main.lua` is the FootBomb entry point and match behavior coordinator. The refactor follows the grouped-configuration and dedicated-state-module approach used by `net-game-tourney`:
 
-- `constants.lua`: source area, asset folders/default Ref assets, cursor assets, off-map position, selector layout, prompt styling, bomb-selector coordinates, direction choices, scoreboard asset/layout, and input-settle delay.
+- `state.lua`: centralized mutable registries for NPC references, pending interactions, waiting matches, player representations, instance bot/spawn data, and the rotating NPC direction index. `main.lua` owns the behavior; the state module owns these shared mutable tables.
+- `constants.lua`: configuration grouped by responsibility under `DEFAULTS`, `ASSETS`, `UI`, `INPUT`, `DIRECTIONS`, and `GAMEPLAY`.
 - `navi_options.lua`: selectable Navi names, texture/animation paths, and default animation state.
 - `bomb_options.lua`: selectable bomb/ball skins.
 - `animation_states.lua`: shared animation-state names, including the bomb preview and small-bomb states.
+
+Keep new tunable values in the appropriate `constants.lua` namespace and new module-level mutable registries in `state.lua`, rather than adding more global state to `main.lua`.
 
 The main script also rejects a missing direction rather than silently treating it as `Up`; the prompt displays `none` until the player makes a selection. Existing direction-selection input clearing and release gating are preserved.
 
@@ -24,7 +27,7 @@ During each round’s direction choice, both Kicker and Defender see three evenl
 
 The scoreboard is drawn near the top center for each human participant. Player 1's score is drawn to the left of the board image and Player 2's score to the right. The board image is expected at `/server/assets/net-game-footbomb/ui/score-board.png`, with a corresponding `score-board.animation` file for `games.add_ui_element`.
 
-Each participant also sees their current role (`Kicker` or `Defender`) as centered text near the bottom of the screen. The role label is shown each round, updated as soon as roles swap for the next round, and removed when the player representation is cleaned up. Its vertical position and scale are configurable with `ROLE_TEXT_Y` and `ROLE_TEXT_SCALE` in `constants.lua`.
+Each participant also sees their current role (`Kicker` or `Defender`) as centered text near the bottom of the screen. The role label is shown each round, updated as soon as roles swap for the next round, and removed when the player representation is cleaned up. Its vertical position and scale are configurable with `UI.ROLE_TEXT_Y` and `UI.ROLE_TEXT_SCALE` in `constants.lua`.
 
 
 ## Result animation phase
@@ -36,7 +39,7 @@ The result phase begins only after both participants have confirmed their direct
 3. The bomb bot moves to `Bomb 1`, `Bomb 2`, or `Bomb 3` according to the Kicker's selected direction (`Left`, `Up`, or `Right`). Defender movement points remain `Defender 1`, `Defender 2`, and `Defender 3`.
 4. Once the bomb reaches its target, the precomputed round winner receives a point and the scoreboard updates.
 
-The map must include point objects named exactly `Move Forward`, `Defender 1`, `Defender 2`, `Defender 3`, `Bomb 1`, `Bomb 2`, and `Bomb 3`, in addition to the existing required points (including `Bomb`, the bomb spawn point). Movement speeds and update interval are configured in `constants.lua` as `RESULT_KICKER_WALK_UR_SPEED`, `RESULT_KICKER_WALK_U_SPEED`, `RESULT_BOMB_MOVE_SPEED`, and `RESULT_MOVE_STEP_SECONDS`.
+The map must include point objects named exactly `Move Forward`, `Defender 1`, `Defender 2`, `Defender 3`, `Bomb 1`, `Bomb 2`, and `Bomb 3`, in addition to the existing required points (including `Bomb`, the bomb spawn point). Movement speeds and update interval are configured in `constants.lua` as `GAMEPLAY.RESULT_KICKER_WALK_UR_SPEED`, `GAMEPLAY.RESULT_KICKER_WALK_U_SPEED`, `GAMEPLAY.RESULT_BOMB_MOVE_SPEED`, and `GAMEPLAY.RESULT_MOVE_STEP_SECONDS`.
 
 Movement uses repeated `Net.move_bot` calls to interpolate between points. The bundle has not been tested on a live server; confirm the movement timing and animation names in-game.
 
@@ -47,7 +50,7 @@ The result phase uses `Net.animate_bot_properties()` keyframes to interpolate bo
 
 ## Synchronized Defender response
 
-- Defender jump speed is configured with `RESULT_DEFENDER_JUMP_SPEED` in `constants.lua` (default `60`). For Left/Right, the bomb and Defender use the same movement duration so they arrive together. The Defender uses `FOOTBOMB_JUMP_LEFT` or `FOOTBOMB_JUMP_RIGHT`; Up stays at `Defender 2` with `FOOTBOMB_READY_DEFENSE`.
+- Defender jump speed is configured with `GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED` in `constants.lua` (default `5`). For Left/Right, the bomb and Defender use the same movement duration so they arrive together. The Defender uses `FOOTBOMB_JUMP_LEFT` or `FOOTBOMB_JUMP_RIGHT`; Up stays at `Defender 2` with `FOOTBOMB_READY_DEFENSE`.
 
 
 ### Defender arrival animation override
@@ -70,4 +73,4 @@ Configuration note: The latest user-provided `constants.lua` mugshot positions a
 - The role label is shown only during active gameplay and is hidden while the scoreboard is displayed.
 - Role announcement and direction-instruction textboxes are omitted; the three direction cursors provide the selection UI.
 - The direction confirmation message and Yes/No question remain. Declining confirmation returns directly to the cursors.
-- The supplied `constants.lua` is preserved, including the current mugshot placement and scale. The role-label Y/scale use safe defaults in `main.lua` if they are not configured.
+- The supplied `constants.lua` is preserved, including the current mugshot placement and scale. The role-label Y/scale are configured in the `UI` namespace in `constants.lua`.

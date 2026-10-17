@@ -1,7 +1,7 @@
 -- Selectable Navi roster. Each entry references shared paths and state names.
 local C = require("scripts/ezlibs-custom/footbomb/constants")
 local States = require("scripts/ezlibs-custom/footbomb/animation_states")
-local root = C.BOT_ASSET_FOLDER
+local root = C.ASSETS.BOT_FOLDER
 
 return {
     { name = "MegaMan", texture = root .. "megaman.png", animation = root .. "megaman.animation", animation_state = States.FOOTBOMB_IDLE_DEFENSE },
