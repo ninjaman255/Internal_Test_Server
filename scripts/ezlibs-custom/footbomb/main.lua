@@ -2921,8 +2921,12 @@ local function resolve_round_winner(instance_id)
 
             -- Start the jump as a one-shot. Defender movement keyframes only
             -- interpolate position so they cannot restart/loop the jump state.
+            -- Jump clips should play once, but the center/up defense is a held
+            -- ready stance and must remain looping instead of falling back to IDLE_U.
+            local defender_animation_loops = defender.direction_choice ~= "Left"
+                and defender.direction_choice ~= "Right"
             set_result_animation(defender, defender_animation, defender_direction,
-                "defender-response-launch", false)
+                "defender-response-launch", defender_animation_loops)
 
             local bomb_done, bomb_ok = false, false
             local defender_done, defender_ok = false, false
