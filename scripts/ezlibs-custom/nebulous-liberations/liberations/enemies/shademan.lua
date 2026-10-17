@@ -18,7 +18,7 @@ function ShadeMan:new(instance, position, direction)
       texture_path = "/server/assets/NebuLibsAssets/mugs/shademan.png",
       animation_path = "/server/assets/NebuLibsAssets/mugs/shademan.animation",
     },
-    encounter = "/server/assets/encounters/dependencies/com_Dawn_Shademan.zip",
+    encounter = "/server/assets/ezlibs-assets/ezencounters/Shademan.zip",
     selection = EnemySelection:new(instance)
   }
 

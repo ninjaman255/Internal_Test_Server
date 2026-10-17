@@ -226,7 +226,7 @@ EnemyTemplates.register("ShadeMan", {
     max_health = 600,
     texture_path = "/server/assets/NebuLibsAssets/bots/shademan.png",
     animation_path = "/server/assets/NebuLibsAssets/bots/shademan.animation",
-    encounter = "/server/assets/encounters/dependencies/com_Dawn_Shademan.zip",
+    encounter = "/server/assets/ezlibs-assets/ezencounters/Shademan.zip",
     shape = { {1} },
     shape_offset_x = 0,
     shape_offset_y = -1,
