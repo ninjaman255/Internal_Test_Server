@@ -74,3 +74,8 @@ Configuration note: The latest user-provided `constants.lua` mugshot positions a
 - Role announcement and direction-instruction textboxes are omitted; the three direction cursors provide the selection UI.
 - The direction confirmation message and Yes/No question remain. Declining confirmation returns directly to the cursors.
 - The supplied `constants.lua` is preserved, including the current mugshot placement and scale. The role-label Y/scale are configured in the `UI` namespace in `constants.lua`.
+
+
+### Role text and dialogue
+
+The in-match Kicker/Defender role label is temporarily hidden whenever FootBomb opens a player message or quiz textbox. The label is restored after the awaited textbox closes, provided the current match representation still exists and the role label has not intentionally been hidden (for example, during the scoreboard intermission).

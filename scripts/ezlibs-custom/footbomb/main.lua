@@ -162,7 +162,13 @@ local function draw_confirm_prompt(player_id, text_id)
 end
 
 local function hide_role_text(player_id, rep)
-    if not rep or not rep.role_text_id then
+    if not rep then
+        return
+    end
+    -- An explicit hide (for example, the scoreboard intermission) means the
+    -- label should not be automatically restored after dialogue closes.
+    rep.role_text_enabled = false
+    if not rep.role_text_id then
         return
     end
     pcall(games.remove_text, rep.role_text_id, player_id)
@@ -170,6 +176,15 @@ end
 
 local function draw_role_text(player_id, rep, role)
     if not rep or not role or State.player_representations[player_id] ~= rep then
+        return false
+    end
+
+    -- Dialogue can be opened while the gameplay loop is otherwise active.
+    -- Keep the label suppressed even if another path attempts to redraw it.
+    if rep.role_text_suppressed then
+        if rep.role_text_id then
+            pcall(games.remove_text, rep.role_text_id, player_id)
+        end
         return false
     end
 
@@ -198,7 +213,66 @@ local function draw_role_text(player_id, rep, role)
         return false
     end
 
+    rep.role_text_enabled = true
     return true
+end
+
+-- Temporarily hide the role label for the entire lifetime of a message or
+-- quiz textbox. The awaited Async call resolves when that textbox is closed.
+-- A counter makes this safe if dialogue calls ever overlap for one player.
+local function begin_role_text_suppression(player_id)
+    local rep = State.player_representations[player_id]
+    if not rep then
+        return nil
+    end
+
+    rep.role_text_suppression_count = (rep.role_text_suppression_count or 0) + 1
+    rep.role_text_suppressed = true
+    if rep.role_text_id then
+        pcall(games.remove_text, rep.role_text_id, player_id)
+    end
+    return rep
+end
+
+local function end_role_text_suppression(player_id, rep)
+    if not rep or State.player_representations[player_id] ~= rep then
+        return
+    end
+
+    rep.role_text_suppression_count = math.max(
+        0,
+        (rep.role_text_suppression_count or 1) - 1
+    )
+    if rep.role_text_suppression_count > 0 then
+        return
+    end
+
+    rep.role_text_suppressed = false
+    if not rep.role_text_enabled then
+        return
+    end
+
+    -- Restore the current role, not a captured role that may have changed
+    -- during a round transition. Explicit hides disable role_text_enabled.
+    local bots = State.instance_bots[rep.instance_id]
+    local bot = bots and bots[rep.slot]
+    if bot then
+        draw_role_text(player_id, rep, bot.role)
+    end
+end
+
+local function await_player_message(player_id, ...)
+    local rep = begin_role_text_suppression(player_id)
+    local result = await(Async.message_player(player_id, ...))
+    end_role_text_suppression(player_id, rep)
+    return result
+end
+
+local function await_player_quiz(player_id, ...)
+    local rep = begin_role_text_suppression(player_id)
+    local result = await(Async.quiz_player(player_id, ...))
+    end_role_text_suppression(player_id, rep)
+    return result
 end
 
 local function draw_navi_name(player_id, rep, name)
@@ -1291,6 +1365,9 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         role_text_id = "footbomb_role_text_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        role_text_enabled = false,
+        role_text_suppressed = false,
+        role_text_suppression_count = 0,
 
         -- Selection state.
         skin_index = bot_record.skin_index or 1,
@@ -1449,11 +1526,11 @@ local function launch_npc_match(player_id, source_area_id, object, npc)
     )
 
     if not instance then
-        await(Async.message_player(
+        await_player_message(
             player_id,
             "I couldn't open the FootBomb field right now: "
             .. tostring(spawn_or_error)
-        ))
+        )
 
         log("NPC match setup failed: " .. tostring(spawn_or_error))
         return
@@ -1471,10 +1548,10 @@ local function launch_npc_match(player_id, source_area_id, object, npc)
         remove_instance_bots(instance.id)
         EzMapInstance.remove(instance.id)
 
-        await(Async.message_player(
+        await_player_message(
             player_id,
             "I couldn't transfer you to the FootBomb field. Please try again."
-        ))
+        )
 
         return
     end
@@ -3265,12 +3342,12 @@ local function confirm_direction_selection(player_id, rep)
 
         -- Disable direction input for the entire message/quiz sequence.
         rep.direction_selection_active = false
-        await(Async.message_player(
+        await_player_message(
             player_id,
             "You chose " .. string.upper(selected) .. " for your "
             .. (role == "Kicker" and "kick direction" or "defense direction")
             .. ". Would you like to confirm this selection?"
-        ))
+        )
         if State.player_representations[player_id] ~= rep then
             return
         end
@@ -3279,7 +3356,7 @@ local function confirm_direction_selection(player_id, rep)
             return
         end
 
-        local choice = await(Async.quiz_player(player_id, "Yes", "No"))
+        local choice = await_player_quiz(player_id, "Yes", "No")
         log("DIRECTION_FLOW: confirmation answer player=" .. tostring(player_id)
             .. " direction=" .. tostring(selected) .. " choice=" .. tostring(choice))
         if State.player_representations[player_id] ~= rep then
@@ -3302,10 +3379,10 @@ local function confirm_direction_selection(player_id, rep)
         if choice == 0 then
             rep.direction_selection_confirmed = true
             rep.direction_selection_active = false
-            await(Async.message_player(
+            await_player_message(
                 player_id,
                 "Confirmed " .. string.upper(selected) .. ". Waiting for the other player..."
-            ))
+            )
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
             if State.player_representations[player_id] == rep then
                 finish_direction_selection_if_ready(rep.instance_id)
@@ -3636,11 +3713,11 @@ local function confirm_navi_selection(player_id, rep)
             return
         end
 
-        await(Async.message_player(
+        await_player_message(
             player_id,
             "You selected " .. option.name
             .. ". Would you like to use " .. option.name .. "?"
-        ))
+        )
 
         if not representation_is_current() then
             return
@@ -3648,11 +3725,11 @@ local function confirm_navi_selection(player_id, rep)
 
         log("CONFIRM_FLOW: opening Yes/No quiz player="
             .. tostring(player_id))
-        local choice = await(Async.quiz_player(
+        local choice = await_player_quiz(
             player_id,
             "Yes",
             "No"
-        ))
+        )
         log("CONFIRM_FLOW: Yes/No quiz await returned player="
             .. tostring(player_id) .. " choice=" .. tostring(choice))
 
@@ -3673,10 +3750,10 @@ local function confirm_navi_selection(player_id, rep)
 
             log("CONFIRM_FLOW: opening final selection message player="
                 .. tostring(player_id))
-            await(Async.message_player(
+            await_player_message(
                 player_id,
                 "You selected " .. option.name .. "!"
-            ))
+            )
             log("CONFIRM_FLOW: final selection message await returned player="
                 .. tostring(player_id))
 
@@ -3738,23 +3815,23 @@ local function join_waiting_match(player_id, source_area_id, reference)
         local npc = reference.npc
 
         if waiting.player_id == player_id then
-            await(Async.message_player(
+            await_player_message(
                 player_id,
                 "You're already waiting for an opponent. The next player to talk to me can join.",
                 npc.mug_texture_path,
                 npc.mug_animation_path
-            ))
+            )
 
             State.pending_interactions[player_id] = nil
             return
         end
 
-        await(Async.message_player(
+        await_player_message(
             player_id,
             "Someone is looking for a FootBomb opponent. Would you like to join?",
             npc.mug_texture_path,
             npc.mug_animation_path
-        ))
+        )
 
         if Net.get_player_area(player_id) ~= source_area_id
             or State.waiting_matches[source_area_id] ~= waiting
@@ -3763,14 +3840,14 @@ local function join_waiting_match(player_id, source_area_id, reference)
             return
         end
 
-        local choice = await(Async.quiz_player(
+        local choice = await_player_quiz(
             player_id,
             "Join Match",
             "No",
             "Cancel",
             npc.mug_texture_path,
             npc.mug_animation_path
-        ))
+        )
 
         if choice == 0 and State.waiting_matches[source_area_id] == waiting then
             State.waiting_matches[source_area_id] = nil
@@ -3778,24 +3855,24 @@ local function join_waiting_match(player_id, source_area_id, reference)
             local ok, err = launch_player_match(waiting, player_id)
 
             if not ok then
-                await(Async.message_player(
+                await_player_message(
                     player_id,
                     "We couldn't start the match: " .. tostring(err),
                     npc.mug_texture_path,
                     npc.mug_animation_path
-                ))
+                )
 
                 if player_is_available(waiting.player_id) then
                     State.waiting_matches[source_area_id] = waiting
                 end
             end
         else
-            await(Async.message_player(
+            await_player_message(
                 player_id,
                 "No problem. The match is still waiting for an opponent.",
                 npc.mug_texture_path,
                 npc.mug_animation_path
-            ))
+            )
         end
 
         State.pending_interactions[player_id] = nil
@@ -3819,26 +3896,26 @@ local function begin_interaction(player_id, area_id, reference)
         local npc = reference.npc
         local object = reference.object
 
-        await(Async.message_player(
+        await_player_message(
             player_id,
             "Hey! Would you like to play FootBomb?",
             npc.mug_texture_path,
             npc.mug_animation_path
-        ))
+        )
 
         if Net.get_player_area(player_id) ~= area_id then
             State.pending_interactions[player_id] = nil
             return
         end
 
-        local choice = await(Async.quiz_player(
+        local choice = await_player_quiz(
             player_id,
             "VS [NPC]",
             "VS Player",
             "No",
             npc.mug_texture_path,
             npc.mug_animation_path
-        ))
+        )
 
         if Net.get_player_area(player_id) ~= area_id then
             State.pending_interactions[player_id] = nil
@@ -3846,12 +3923,12 @@ local function begin_interaction(player_id, area_id, reference)
         end
 
         if choice == 0 then
-            await(Async.message_player(
+            await_player_message(
                 player_id,
                 "Let's do it! I'll prepare a private field.",
                 npc.mug_texture_path,
                 npc.mug_animation_path
-            ))
+            )
 
             if Net.get_player_area(player_id) == area_id then
                 launch_npc_match(
@@ -3863,12 +3940,12 @@ local function begin_interaction(player_id, area_id, reference)
             end
         elseif choice == 1 then
             if State.waiting_matches[area_id] then
-                await(Async.message_player(
+                await_player_message(
                     player_id,
                     "Another player is already waiting for an opponent. Please let them finish matchmaking first.",
                     npc.mug_texture_path,
                     npc.mug_animation_path
-                ))
+                )
             else
                 State.waiting_matches[area_id] = {
                     player_id = player_id,
@@ -3878,20 +3955,20 @@ local function begin_interaction(player_id, area_id, reference)
                     created_at = os.time()
                 }
 
-                await(Async.message_player(
+                await_player_message(
                     player_id,
                     "All right! Stay here. The next player who talks to me can join your match.",
                     npc.mug_texture_path,
                     npc.mug_animation_path
-                ))
+                )
             end
         else
-            await(Async.message_player(
+            await_player_message(
                 player_id,
                 "No problem. Come back when you're ready.",
                 npc.mug_texture_path,
                 npc.mug_animation_path
-            ))
+            )
         end
 
         State.pending_interactions[player_id] = nil
