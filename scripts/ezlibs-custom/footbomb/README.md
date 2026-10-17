@@ -50,12 +50,12 @@ The result phase uses `Net.animate_bot_properties()` keyframes to interpolate bo
 
 ## Synchronized Defender response
 
-- Defender jump speed is configured with `GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED` in `constants.lua` (default `5`). For Left/Right, the bomb and Defender use the same movement duration so they arrive together. The Defender uses `FOOTBOMB_JUMP_LEFT` or `FOOTBOMB_JUMP_RIGHT`; Up stays at `Defender 2` with `FOOTBOMB_READY_DEFENSE`.
+- Defender jump speed is configured with `GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED` in `constants.lua` (default `5`). For Left/Right, the bomb and Defender use the same movement duration so they arrive together. The Defender starts `FOOTBOMB_JUMP_LEFT` or `FOOTBOMB_JUMP_RIGHT` as a non-looping animation; position keyframes do not set `Animation`, so they cannot restart the jump. At arrival, FootBomb switches to the matching `FOOTBOMB_JUMP_LEFT_END` or `FOOTBOMB_JUMP_RIGHT_END` pose and holds it. Up stays at `Defender 2` with `FOOTBOMB_READY_DEFENSE`.
 
 
 ### Defender arrival animation override
 
-After synchronized bomb/Defender movement completes, FootBomb explicitly reapplies the Defender's intended animation through the `Net.animate_bot()` wrapper (`set_result_animation`). This is necessary because the `Animation` property in `Net.animate_bot_properties()` keyframes may revert to an idle state after interpolation ends. Left/Right reapply the matching jump animation; Up reapplies `FOOTBOMB_READY_DEFENSE`.
+After synchronized bomb/Defender movement completes, FootBomb explicitly applies the appropriate end pose through `Net.animate_bot()`. The jump is requested with looping disabled and is not included in movement keyframes. Left/Right then switch to their corresponding `*_END` state, intended to hold the landing pose; Up reapplies `FOOTBOMB_READY_DEFENSE`. The end-state assets should be single-frame/static poses for a clean hold. Because the Navi animation asset files are external to this script bundle, verify the jump clip duration against the movement duration in-game if you notice the end pose cutting off the jump early.
 
 
 ## Configurable match length and match point

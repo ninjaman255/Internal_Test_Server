@@ -532,7 +532,7 @@ local function safe_remove_bot(bot_id)
     end
 end
 
-local function set_bot_animation_state(bot_id, animation_state)
+local function set_bot_animation_state(bot_id, animation_state, should_loop)
     -- Support the animation setter exposed by the server runtime.
     local setter = Net.animate_bot
 
@@ -540,7 +540,8 @@ local function set_bot_animation_state(bot_id, animation_state)
         return false, "bot animation setter is unavailable"
     end
 
-    local ok, result = pcall(setter, bot_id, animation_state, true)
+    if should_loop == nil then should_loop = true end
+    local ok, result = pcall(setter, bot_id, animation_state, should_loop)
 
     if not ok or result == false then
         return false, result
@@ -2600,7 +2601,7 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
     return true
 end
 
-local function set_result_animation(bot, animation_state, direction, phase)
+local function set_result_animation(bot, animation_state, direction, phase, should_loop)
     if not bot then return false end
     if bot.texture_path and bot.animation_path
         and type(Net.set_bot_avatar) == "function" then
@@ -2613,7 +2614,7 @@ local function set_result_animation(bot, animation_state, direction, phase)
                 .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction))
         end
     end
-    local animation_ok, animation_result = set_bot_animation_state(bot.id, animation_state)
+    local animation_ok, animation_result = set_bot_animation_state(bot.id, animation_state, should_loop)
     log("RESULT_FLOW: animation bot=" .. tostring(bot.id)
         .. " phase=" .. tostring(phase) .. " state=" .. tostring(animation_state)
         .. " success=" .. tostring(animation_ok)
@@ -2918,10 +2919,10 @@ local function resolve_round_winner(instance_id)
                 .. " defender_target=" .. tostring(defender_target_name)
                 .. " shared_duration=" .. tostring(shared_duration or "bomb-only"))
 
-            -- Apply the pose/direction at launch; the interpolated keyframes also
-            -- carry the jump animation throughout the Defender's movement.
+            -- Start the jump as a one-shot. Defender movement keyframes only
+            -- interpolate position so they cannot restart/loop the jump state.
             set_result_animation(defender, defender_animation, defender_direction,
-                "defender-response-launch")
+                "defender-response-launch", false)
 
             local bomb_done, bomb_ok = false, false
             local defender_done, defender_ok = false, false
@@ -2938,7 +2939,7 @@ local function resolve_round_winner(instance_id)
                         defender, defender_target,
                         Gameplay.RESULT_DEFENDER_JUMP_SPEED or 60,
                         "defender-to-" .. tostring(defender_target_name),
-                        defender_animation, shared_duration
+                        nil, shared_duration
                     )
                     defender_done = true
                 end)
@@ -2960,60 +2961,24 @@ local function resolve_round_winner(instance_id)
                 bots.result_animation_active = false
                 return
             end
-            -- animate_bot_properties drives the interpolation, but its Animation
-            -- property does not reliably persist after the keyframes finish. Reapply
-            -- the Defender's intended pose through the Net.animate_bot wrapper only
-            -- after both the bomb and Defender have arrived at their destinations.
+            -- The jump state is a one-shot: don't let movement keyframes restart
+            -- it. Once the Defender arrives, switch to the matching authored end
+            -- pose and hold that state instead of repeatedly replaying the jump.
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                local end_animation = defender.direction_choice == "Left"
+                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
                 local arrival_animation_ok = set_result_animation(
                     defender,
-                    defender_animation,
+                    end_animation,
                     defender_direction,
-                    "defender-arrival-animation-override"
+                    "defender-arrival-end-pose",
+                    true
                 )
-                log("RESULT_FLOW: defender arrival animation override bot="
+                log("RESULT_FLOW: defender end pose applied bot="
                     .. tostring(defender.id)
-                    .. " state=" .. tostring(defender_animation)
+                    .. " state=" .. tostring(end_animation)
                     .. " success=" .. tostring(arrival_animation_ok))
-
-                -- Some server/client animation controllers re-apply the bot's
-                -- directional idle shortly after a property interpolation ends.
-                -- The jump is already started with looping enabled above; reassert
-                -- it briefly after arrival to win any late completion/idle update.
-                -- This is intentionally after the synchronized movement and does
-                -- not alter either travel duration or the scoring decision.
-                async(function()
-                    for _, delay in ipairs({ 0.15, 0.35, 0.75, 1.25 }) do
-                        await(Async.sleep(delay))
-                        local current_bots = State.instance_bots[instance_id]
-                        local same_defender = false
-                        for _, current_bot in ipairs(current_bots or {}) do
-                            if current_bot.id == defender.id
-                                and current_bot.role == "Defender" then
-                                same_defender = true
-                                break
-                            end
-                        end
-                        if not same_defender then
-                            log(
-                                "ANIM_FLOW: stopping defender animation reassertion; bot no longer belongs to match instance="
-                                .. tostring(instance_id) .. " bot=" .. tostring(defender.id))
-                            return
-                        end
-
-                        local retry_ok = set_result_animation(
-                            defender,
-                            defender_animation,
-                            defender_direction,
-                            "defender-loop-reassert-" .. tostring(delay)
-                        )
-                        log("ANIM_FLOW: defender jump animation reasserted bot="
-                            .. tostring(defender.id)
-                            .. " state=" .. tostring(defender_animation)
-                            .. " delay=" .. tostring(delay)
-                            .. " success=" .. tostring(retry_ok))
-                    end
-                end)
             else
                 set_result_animation(
                     defender,
