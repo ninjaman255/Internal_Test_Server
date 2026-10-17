@@ -79,3 +79,8 @@ Configuration note: The latest user-provided `constants.lua` mugshot positions a
 ### Role text and dialogue
 
 The in-match Kicker/Defender role label is temporarily hidden whenever FootBomb opens a player message or quiz textbox. The label is restored after the awaited textbox closes, provided the current match representation still exists and the role label has not intentionally been hidden (for example, during the scoreboard intermission).
+
+
+### Selector camera transition
+
+When a player enters FootBomb, the camera fades to black before the bomb-skin or Navi selector is displayed. FootBomb then moves the camera to the selected bot, draws the appropriate selector UI while the screen is black, and fades back in after the transition settles. If the player's representation is removed during that delay, the pending fade-in does not run.

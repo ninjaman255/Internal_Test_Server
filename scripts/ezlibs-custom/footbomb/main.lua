@@ -1287,6 +1287,9 @@ local function remove_representation(player_id)
     State.player_representations[player_id] = nil
 end
 
+local fade_player_to_black
+local fade_player_in
+
 local function setup_player_representation(player_id, instance, bot_record)
     if not instance
         or not bot_record
@@ -1404,6 +1407,11 @@ local function setup_player_representation(player_id, instance, bot_record)
 
     State.player_representations[player_id] = rep
 
+    -- Enter the selector from black so the camera can be repositioned before
+    -- either selection screen is revealed. The fade-in is scheduled after the
+    -- camera focus and selector UI have both been initialized below.
+    fade_player_to_black(player_id)
+
     -- Hide the standard HUD while FootBomb's dedicated selector/game view is
     -- active. Restore it in remove_representation during match exit/disconnect.
     if type(Net.toggle_player_hud) == "function" then
@@ -1459,8 +1467,6 @@ local function setup_player_representation(player_id, instance, bot_record)
         log("No input controller available for player " .. tostring(player_id))
     end
 
-    show_selector_ui(player_id, rep)
-
     -- The real player actor is intentionally moved off-map. Do NOT lock the
     -- camera to that actor: doing so pins the view at roughly (-1000, -1000)
     -- and makes the player activate the free-camera controller to see the bot.
@@ -1505,6 +1511,18 @@ local function setup_player_representation(player_id, instance, bot_record)
             0
         )
     end
+
+    -- Draw the correct first selection screen while the camera is still black.
+    -- Only fade in after the black transition has had time to finish.
+    show_selector_ui(player_id, rep)
+
+    async(function()
+        await(Async.sleep(0.85))
+
+        if State.player_representations[player_id] == rep then
+            fade_player_in(player_id)
+        end
+    end)
 end
 
 local function setup_representations_for_match(instance, player_ids, bots)
@@ -1817,7 +1835,7 @@ local function cycle_bomb_skin(player_id, direction)
         .. " previewing ball skin " .. option.name)
 end
 
-local function fade_player_to_black(player_id)
+fade_player_to_black = function(player_id)
     local ok, err = pcall(
         Net.fade_player_camera,
         player_id,
@@ -1851,7 +1869,7 @@ local function fade_player_to_white(player_id)
     return true
 end
 
-local function fade_player_in(player_id)
+fade_player_in = function(player_id)
     local ok, err = pcall(
         Net.fade_player_camera,
         player_id,
