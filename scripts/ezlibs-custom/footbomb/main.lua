@@ -1353,15 +1353,23 @@ local function setup_player_representation(player_id, instance, bot_record)
         bomb_confirm_prompt_text_id = "footbomb_bomb_confirm_prompt_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
 
+        -- Scope scoreboard UI IDs to the match instance as well as player.
+        -- Reusing these IDs across matches can preserve a previous mugshot
+        -- binding in clients that retain UI state while assets are replaced.
         scoreboard_ui_id = "footbomb_scoreboard_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_mug_ui_id = "footbomb_scoreboard_mug_p1_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_mug_ui_id = "footbomb_scoreboard_mug_p2_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_one_text_id = "footbomb_score_p1_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         score_player_two_text_id = "footbomb_score_p2_"
+            .. tostring(instance.id):gsub("[^%w_%-]", "_") .. "_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         role_text_id = "footbomb_role_text_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
@@ -2350,6 +2358,12 @@ local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
     pcall(Net.provide_asset_for_player, player_id, bot.mug_texture_path)
     pcall(Net.provide_asset_for_player, player_id, bot.mug_animation_path)
 
+    log("SCORE_FLOW: drawing current bot mugshot player="
+        .. tostring(player_id) .. " slot=" .. tostring(bot.slot)
+        .. " navi=" .. tostring(bot.navi_name)
+        .. " texture=" .. tostring(bot.mug_texture_path)
+        .. " animation=" .. tostring(bot.mug_animation_path))
+
     local ok, err = pcall(
         games.add_ui_element,
         ui_id,
@@ -2697,13 +2711,20 @@ local function complete_match_and_return(instance_id)
         .. tostring(bots.player_two_score or 0) .. " seconds=3")
     await(Async.sleep(3.0))
 
-    -- Release minigame UI/input/camera ownership before leaving the instance.
+    -- Snapshot connection state before releasing UI/input/camera ownership.
+    -- A player can disconnect during the final-score delay; transfer_player
+    -- throws "No player matching ... found" for that stale session ID.
+    local connected_players = {}
     for _, player_id in ipairs(players) do
+        connected_players[player_id] = player_is_available(player_id)
         remove_representation(player_id)
     end
 
     for _, player_id in ipairs(players) do
-        if type(Net.transfer_player) == "function" then
+        if not connected_players[player_id] then
+            log("MATCH_FLOW: skipping return for disconnected player="
+                .. tostring(player_id) .. " instance=" .. tostring(instance_id))
+        elseif type(Net.transfer_player) == "function" then
             local ok, result
             if return_position then
                 ok, result = pcall(
