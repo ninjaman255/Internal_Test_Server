@@ -988,11 +988,11 @@ local function draw_direction_cursor(player_id, rep, direction, y)
         cursor_id,
         player_id,
         {
-            a = 255,
+            a = 125,
             r = 255,
-            g = 140,
+            g = 0,
             b = 0,
-            color_mode = 1
+            color_mode = 2
         }
     )
 end
