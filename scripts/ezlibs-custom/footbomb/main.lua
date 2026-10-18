@@ -46,6 +46,7 @@ local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
 local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
 
 local CURSOR_TEXTURE = Assets.CURSOR_TEXTURE
+local VIBRANT_CURSOR_TEXTURE = Assets.VIBRANT_CURSOR_TEXTURE
 local CURSOR_ANIMATION = Assets.CURSOR_ANIMATION
 local CURSOR_SFX = Assets.CURSOR_SFX
 
@@ -965,17 +966,47 @@ local function draw_direction_cursor(player_id, rep, direction, y)
     local x_index = direction == "Left" and 1
         or (direction == "Up" and 2 or 3)
     if not cursor_id then return end
-
+    local role_check = State.player_representations[player_id]["bot_record"]["role"]
     -- Recreate only this cursor so its position can be bobbed without relying
     -- on a UI-update API that is not exposed by the games interface.
+    local arrow_state = "CURSOR_UP"
+    local red = {
+        a = 255, 
+        r = 255, 
+        g = 0, 
+        b = 0, 
+        color_mode = 1
+    }
+    local blue = {
+        a =255,
+        r = 0, 
+        g = 0, 
+        b=255, 
+        color_mode = 1
+    }
+
+    local arrow_color = red
+    
+
+    if role_check == "Kicker" then
+        arrow_state = "CURSOR_UP"
+        arrow_color = red
+    elseif role_check == "Defender" then
+        arrow_state = "CURSOR_DOWN"
+        arrow_color = blue
+    else
+        print("ROLE IS UNKNOWN")
+    end
+
+
     pcall(games.remove_ui_element, cursor_id, player_id)
     pcall(
         games.add_ui_element,
         cursor_id,
         player_id,
-        CURSOR_TEXTURE,
+        VIBRANT_CURSOR_TEXTURE,
         CURSOR_ANIMATION,
-        "CURSOR_UP",
+        arrow_state,
         DIRECTION_CURSOR_X[x_index],
         y,
         100,
@@ -989,13 +1020,7 @@ local function draw_direction_cursor(player_id, rep, direction, y)
         games.update_ui_element,
         cursor_id,
         player_id,
-        {
-            a = 255,
-            r = 255,
-            g = 140,
-            b = 0,
-            color_mode = 1
-        }
+        arrow_color
     )
 end
 

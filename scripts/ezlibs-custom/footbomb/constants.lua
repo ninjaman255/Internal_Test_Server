@@ -19,6 +19,7 @@ local constants = {
         BOMB_FOLDER = ASSET_ROOT .. "bombs/",
         DEFAULT_MUG_ANIMATION = BOT_ASSET_FOLDER .. "mug.animation",
         CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png",
+        VIBRANT_CURSOR_TEXTURE = "/server/assets/net-games/cursors/vibrant_text_cursor.png",
         CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation",
         CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg",
         SCOREBOARD_TEXTURE = ASSET_ROOT .. "ui/score-board.png",
