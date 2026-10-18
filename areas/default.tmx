@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="184">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="186">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -20,6 +20,7 @@
  <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
  <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
  <tileset firstgid="68" source="../assets/tiles/gate.tsx"/>
+ <tileset firstgid="73" source="../assets/HP_Manager/Tilesets/machine.tsx"/>
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -468,7 +469,7 @@
   </object>
   <object id="145" type="Custom Warp" gid="6" x="688" y="688" width="61" height="32">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Direction" value="Down Right"/>
     <property name="Dont Teleport" type="bool" value="false"/>
     <property name="Target Area" value="footbomb"/>
     <property name="Target Object" value="149"/>
@@ -479,7 +480,7 @@
    <properties>
     <property name="Activated Time" value="0.3"/>
     <property name="Bot Details" type="object" value="147"/>
-    <property name="Button Behavior" propertytype="ButtonBehavior" value="Toggle"/>
+    <property name="Button Behavior" value="Toggle"/>
     <property name="Trigger Object" type="object" value="148"/>
    </properties>
    <point/>
@@ -493,14 +494,14 @@
     <property name="Asset Name" value="blue_button"/>
     <property name="Deactivated Animation" value="ANIMATE_PRESS"/>
     <property name="Deactivation Animation Duration" type="float" value="0.3"/>
-    <property name="Direction" propertytype="Direction" value="Down"/>
+    <property name="Direction" value="Down"/>
     <property name="Inactive Animation" value="UNPRESSED"/>
    </properties>
    <point/>
   </object>
   <object id="148" type="Button Trigger" x="840" y="616" width="12" height="12">
    <properties>
-    <property name="Trigger Type" propertytype="TriggerShape" value="rect"/>
+    <property name="Trigger Type" value="rect"/>
    </properties>
   </object>
   <object id="149" x="832" y="608"/>
@@ -514,7 +515,7 @@
    <properties>
     <property name="Activated Time" value="0.3"/>
     <property name="Bot Details" type="object" value="155"/>
-    <property name="Button Behavior" propertytype="ButtonBehavior" value="Toggle"/>
+    <property name="Button Behavior" value="Toggle"/>
     <property name="Trigger Object" type="object" value="156"/>
    </properties>
    <point/>
@@ -528,21 +529,21 @@
     <property name="Asset Name" value="pink_button"/>
     <property name="Deactivated Animation" value="ANIMATE_PRESS"/>
     <property name="Deactivation Animation Duration" type="float" value="0.3"/>
-    <property name="Direction" propertytype="Direction" value="Down"/>
+    <property name="Direction" value="Down"/>
     <property name="Inactive Animation" value="UNPRESSED"/>
    </properties>
    <point/>
   </object>
   <object id="156" type="Button Trigger" x="872" y="616" width="12" height="12">
    <properties>
-    <property name="Trigger Type" propertytype="TriggerShape" value="rect"/>
+    <property name="Trigger Type" value="rect"/>
    </properties>
   </object>
   <object id="160" type="OW Button Group Member" x="896" y="608">
    <properties>
     <property name="Activated Time" value="0.3"/>
     <property name="Bot Details" type="object" value="161"/>
-    <property name="Button Behavior" propertytype="ButtonBehavior" value="Toggle"/>
+    <property name="Button Behavior" value="Toggle"/>
     <property name="Trigger Object" type="object" value="162"/>
    </properties>
    <point/>
@@ -556,14 +557,14 @@
     <property name="Asset Name" value="purple_button"/>
     <property name="Deactivated Animation" value="ANIMATE_PRESS"/>
     <property name="Deactivation Animation Duration" type="float" value="0.3"/>
-    <property name="Direction" propertytype="Direction" value="Down"/>
+    <property name="Direction" value="Down"/>
     <property name="Inactive Animation" value="UNPRESSED"/>
    </properties>
    <point/>
   </object>
   <object id="162" type="Button Trigger" x="904" y="616" width="12" height="12">
    <properties>
-    <property name="Trigger Type" propertytype="TriggerShape" value="rect"/>
+    <property name="Trigger Type" value="rect"/>
    </properties>
   </object>
   <object id="164" type="Checkpoint" gid="68" x="848" y="560" width="34" height="52">
@@ -598,7 +599,7 @@
     <property name="Button Combo 2" type="object" value="181"/>
     <property name="Button Combo 3" type="object" value="182"/>
     <property name="Button Combo 4" type="object" value="183"/>
-    <property name="Combo Mode" propertytype="ButtonComboMode" value="Exclusive"/>
+    <property name="Combo Mode" value="Exclusive"/>
     <property name="Group ID" value="Combo Group Test"/>
    </properties>
    <point/>
@@ -633,5 +634,6 @@
    </properties>
    <point/>
   </object>
+  <object id="185" name="hp_manager" type="HP_Manager" gid="73" x="624" y="624" width="64" height="64"/>
  </objectgroup>
 </map>

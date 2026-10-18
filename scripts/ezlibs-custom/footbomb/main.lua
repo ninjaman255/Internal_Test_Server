@@ -956,7 +956,7 @@ local DIRECTION_CURSOR_DIRECTIONS = { "Left", "Up", "Right" }
 
 local function direction_cursor_id(rep, direction)
     if direction == "Left" then return rep.direction_cursor_left end
-    if direction == "Up" then return rep.direction_cursor_up end
+    if direction == ("Up" or "Down") then return rep.direction_cursor_up end
     if direction == "Right" then return rep.direction_cursor_right end
     return nil
 end
@@ -2969,6 +2969,69 @@ local function set_bot_position_immediately(bot, position, phase)
     return true
 end
 
+-- Move an attached bomb with short, positive-duration property keyframes.
+-- Do not use Net.move_bot for each follow sample: some clients treat those
+-- immediate movement packets as a bot-state refresh and fall back to the
+-- default/empty animation. The keyframes intentionally contain only position
+-- properties, so the bomb's looping Small-Bomb/Big-Bomb state is not restarted.
+local function move_bot_follow_keyframe(bot, position, phase, duration)
+    if not bot or not bot.id or type(position) ~= "table" then
+        return false
+    end
+
+    duration = math.max(0.01, tonumber(duration) or 0.02)
+    local start = bot.position or read_bot_position(bot) or position
+    local sx, sy, sz = tonumber(start.x) or 0, tonumber(start.y) or 0, tonumber(start.z) or 0
+    local tx = tonumber(position.x) or sx
+    local ty = tonumber(position.y) or sy
+    local tz = tonumber(position.z) or sz
+
+    if type(Net.animate_bot_properties) ~= "function" then
+        log("BALL_CATCH: keyframe follow unavailable; using immediate position update phase="
+            .. tostring(phase) .. " (animation persistence may vary by client)")
+        local moved = set_bot_position_immediately(bot, {
+            x = tx, y = ty, z = tz
+        }, phase)
+        await(Async.sleep(duration))
+        return moved
+    end
+
+    -- Mirror the character movement pattern (current-position frame followed
+    -- by an interpolated target), but keep both durations positive. A
+    -- zero-duration starting frame on every 20 ms follow sample has previously
+    -- interfered with this path. Neither frame writes the Animation property.
+    local start_duration = math.min(0.005, duration / 4)
+    local target_duration = math.max(0.005, duration - start_duration)
+    local keyframes = {
+        {
+            properties = {
+                { property = "X", value = sx },
+                { property = "Y", value = sy },
+                { property = "Z", value = sz },
+            },
+            duration = start_duration,
+        },
+        {
+            properties = {
+                { property = "X", ease = "InOut", value = tx },
+                { property = "Y", ease = "InOut", value = ty },
+                { property = "Z", ease = "InOut", value = tz },
+            },
+            duration = target_duration,
+        },
+    }
+    local ok, result = pcall(Net.animate_bot_properties, bot.id, keyframes)
+    if not ok or result == false then
+        log("BALL_CATCH: keyframe follow failed phase=" .. tostring(phase)
+            .. " error=" .. tostring(result))
+        return false
+    end
+
+    await(Async.sleep(duration))
+    bot.position = { x = tx, y = ty, z = tz }
+    return true
+end
+
 local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
     animation_state, initial_elapsed, shared_duration, start_position, target_position)
     local elapsed = math.max(0, tonumber(initial_elapsed) or 0)
@@ -3017,7 +3080,7 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
                 -- above the defender while it is attached to the Ball point.
                 z = defender_position.z + (tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1),
             }
-            if not set_bot_position_immediately(ball_bot, target, "attached-follow") then
+            if not move_bot_follow_keyframe(ball_bot, target, "attached-follow", step) then
                 bots.ball_follow_active = false
                 return
             end
@@ -3032,7 +3095,6 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
                     .. "," .. tostring(target.z))
             end
         end
-        await(Async.sleep(step))
         elapsed = elapsed + step
     end
     log("BALL_CATCH: detached at result fade instance=" .. tostring(instance_id))
@@ -3384,9 +3446,22 @@ local function resolve_round_winner(instance_id)
                 end
             end
 
-            -- Keep the ball locked to the Ball point throughout the jump and
-            -- result hold; stop updates when the camera fade begins.
+            -- Stop follow updates and explicitly restore the bomb's selected
+            -- looping animation immediately before the camera fade. This is
+            -- intentionally after the optional goal explosion so the bomb
+            -- remains on Small-Bomb/Big-Bomb through the transition itself.
             bots.ball_follow_active = false
+            local bomb_bot = bots.bomb_bot
+            if bomb_bot and bomb_bot.id then
+                local held_bomb_state = bomb_bot.animation_state or AnimationStates.SMALL_BOMB
+                local held_animation_ok, held_animation_result =
+                    set_bot_animation_state(bomb_bot.id, held_bomb_state, true)
+                log("BOMB_FLOW: holding bomb animation through camera fade bot="
+                    .. tostring(bomb_bot.id)
+                    .. " state=" .. tostring(held_bomb_state)
+                    .. " success=" .. tostring(held_animation_ok)
+                    .. " detail=" .. tostring(held_animation_result))
+            end
             local humans = {}
             for player_id, rep in pairs(State.player_representations) do
                 if rep.instance_id == instance_id then

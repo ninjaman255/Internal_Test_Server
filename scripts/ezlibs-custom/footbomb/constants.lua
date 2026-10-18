@@ -72,13 +72,13 @@ local constants = {
 
     GAMEPLAY = {
         -- Result phase movement tuning (map-coordinate units per second).
-        RESULT_MOVE_STEP_SECONDS = 0.10,
+        RESULT_MOVE_STEP_SECONDS = 0.1,
         RESULT_KICKER_WALK_UR_SPEED = 3,
         RESULT_KICKER_WALK_U_SPEED = 3,
-        RESULT_BOMB_MOVE_SPEED = 5,
-        RESULT_DEFENDER_JUMP_SPEED = 5,
+        RESULT_BOMB_MOVE_SPEED = 3,
+        RESULT_DEFENDER_JUMP_SPEED = 3,
         -- Render the attached ball in front of the defender using bot depth.
-        RESULT_BALL_Z_LIFT = 0.1,
+        RESULT_BALL_Z_LIFT = 0.01,
     },
 }
 

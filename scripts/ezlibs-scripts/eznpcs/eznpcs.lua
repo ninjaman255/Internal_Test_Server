@@ -668,6 +668,14 @@ function eznpcs.remove_exclusive_npc(player_id, placeholder_id)
     end
 end
 
+function eznpcs.handle_battle_exit()
+
+end
+
+function eznpcs.handle_battle_results()
+    
+end
+
 -- Helper to remove a quest‑exclusive NPC (can be called when quest state changes)
 function eznpcs.remove_quest_exclusive_npc(player_id, placeholder_id)
     if quest_exclusive_npcs[player_id] then

@@ -80,6 +80,18 @@ Net:on("battle_results", function(event)
     end
 end)
 
+Net:on("battle_exit", function(event)
+    --local player_id = event.player_id
+    print(tostring(event))
+    print(event.player_id)
+
+    for i, plugin in ipairs(plugins) do 
+        if plugin.handle_battle_exit then
+            plugin.handle_battle_exit(event.player_id)
+        end
+    end
+end)
+
 Net:on("shop_purchase", function(event)
     for i, plugin in ipairs(plugins) do
         if plugin.handle_shop_purchase then

@@ -411,7 +411,7 @@ local dialogue_types = {
                 local won = (stats.reason == 1) and (stats.health and stats.health > 0)
 
                 logger:for_player(player_id):info_data("[battle_npc] result", {won = won, reason = stats.reason, health = stats.health, bot_id = npc.bot_id, placeholder_id = npc.first_dialogue.id})
-
+                await(eznpcs.handle_battle_exit)
                 -- Wait a moment for the player to return to the game world
                 await(Async.sleep(1.0))
                 -- local mugshot = eznpcs.get_dialogue_mugshot(npc, player_id, dialogue)
