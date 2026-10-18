@@ -18,7 +18,7 @@ local constants = {
         MUG_FOLDER = BOT_ASSET_FOLDER,
         BOMB_FOLDER = ASSET_ROOT .. "bombs/",
         DEFAULT_MUG_ANIMATION = BOT_ASSET_FOLDER .. "mug.animation",
-        CURSOR_TEXTURE = "/server/assets/net-games/cursors/b&w_text_cursor.png",
+        CURSOR_TEXTURE = "/server/assets/net-games/cursors/text_cursor.png",
         CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation",
         CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg",
         SCOREBOARD_TEXTURE = ASSET_ROOT .. "ui/score-board.png",
@@ -76,6 +76,8 @@ local constants = {
         RESULT_KICKER_WALK_U_SPEED = 3,
         RESULT_BOMB_MOVE_SPEED = 5,
         RESULT_DEFENDER_JUMP_SPEED = 5,
+        -- Render the attached ball in front of the defender using bot depth.
+        RESULT_BALL_Z_LIFT = 0.1,
     },
 }
 

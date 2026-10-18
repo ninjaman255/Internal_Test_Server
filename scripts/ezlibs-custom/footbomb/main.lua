@@ -10,6 +10,7 @@ local EzExplosions = require("scripts/ezlibs-scripts/ezexplosions")
 local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
 local CameraManager = require("scripts/camera/camera-manager")
+local Boom = require("scripts/boom/main")
 
 -- Shared configuration/rosters live in dedicated modules so tuning and asset
 -- changes do not need edits in the match lifecycle code.
@@ -17,6 +18,7 @@ local Config = require("scripts/ezlibs-custom/footbomb/constants")
 local AnimationStates = require("scripts/ezlibs-custom/footbomb/animation_states")
 local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
 local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
+local AnimationPoints = require("scripts/ezlibs-custom/footbomb/animation_points")
 
 local FootBomb = {}
 local State = require("scripts/ezlibs-custom/footbomb/state")
@@ -988,11 +990,11 @@ local function draw_direction_cursor(player_id, rep, direction, y)
         cursor_id,
         player_id,
         {
-            a = 125,
+            a = 255,
             r = 255,
-            g = 0,
+            g = 140,
             b = 0,
-            color_mode = 2
+            color_mode = 1
         }
     )
 end
@@ -2072,6 +2074,7 @@ local function spawn_bomb_bot_for_round(instance_id, human_reps)
         skin_name = option.name,
         texture_path = texture_path,
         animation_path = animation_path,
+        animation_state = AnimationStates.SMALL_BOMB,
         position = { x = point.x, y = point.y, z = point.z or 0 }
     }
 
@@ -2529,10 +2532,18 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         return false
     end
 
+    -- Bomb movement must preserve its own animation even when the caller only
+    -- requests a position change. Otherwise a keyframe with no Animation field
+    -- can expose the bot's empty/default state on some clients.
+    animation_state = animation_state or bot.animation_state
+
     local sx, sy, sz = tonumber(start.x) or 0, tonumber(start.y) or 0, tonumber(start.z) or 0
     local tx, ty, tz = tonumber(target.x) or sx, tonumber(target.y) or sy, tonumber(target.z) or sz
-    local dx, dy, dz = tx - sx, ty - sy, tz - sz
-    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+    local dx, dy = tx - sx, ty - sy
+    -- Z is the bot depth/elevation layer, not horizontal travel. In particular,
+    -- the ball's small draw-order lift must not inflate catch travel distance
+    -- or distort movement timing.
+    local distance = math.sqrt(dx * dx + dy * dy)
     local move_speed = math.max(1, tonumber(speed) or Gameplay.RESULT_KICKER_WALK_U_SPEED or 150)
     local duration = math.max(0.12, tonumber(duration_override) or (distance / move_speed))
 
@@ -2805,6 +2816,203 @@ end
 -- can reuse the same prompt flow without duplicating its implementation.
 local begin_next_round
 
+
+-- Load the v2.0 Navi animation metadata once so the Ball point can be sampled
+-- at the same frame time as the defender's one-shot jump animation.
+local footbomb_animation_cache = {}
+local function get_footbomb_animation(path)
+    if type(path) ~= "string" or path == "" then
+        return nil, "animation path is missing"
+    end
+    local cached = footbomb_animation_cache[path]
+    if cached then return cached end
+    local ok, animation, load_error = pcall(Boom.load, path)
+    if not ok or type(animation) ~= "table" then
+        return nil, tostring(load_error or animation)
+    end
+    if animation.version ~= "2.0" then
+        return nil, "expected v2.0 animation, detected v" .. tostring(animation.version)
+    end
+    footbomb_animation_cache[path] = animation
+    return animation
+end
+
+local function animation_frame_at_elapsed(animation, state_name, elapsed)
+    local state = animation and animation.states and animation.states[state_name]
+    local frames = state and state.framelist
+    if type(frames) ~= "table" or #frames == 0 then return nil end
+    elapsed = math.max(0, tonumber(elapsed) or 0)
+    if state.loop then
+        local total_duration = 0
+        for _, frame in ipairs(frames) do
+            total_duration = total_duration + math.max(0, tonumber(frame.duration) or 0)
+        end
+        if total_duration > 0 then elapsed = elapsed % total_duration end
+    end
+    local last = frames[#frames]
+    for _, frame in ipairs(frames) do
+        local duration = math.max(0, tonumber(frame.duration) or 0)
+        if elapsed < duration then return frame end
+        elapsed = elapsed - duration
+    end
+    return last
+end
+
+-- Animation point coordinates are sprite pixels, but Net bot X/Y uses
+-- isometric map coordinates. First calculate the point relative to the frame
+-- origin in screen pixels (including flips), then invert the map projection
+-- using the area's actual tile dimensions before adding it to bot X/Y.
+local function get_navi_ball_point_offset(bot, state_name, elapsed)
+    local animation, animation_error = get_footbomb_animation(bot and bot.animation_path)
+    if not animation then return nil, animation_error end
+    local frame = animation_frame_at_elapsed(animation, state_name, elapsed)
+    if not frame then return nil, "state has no frames: " .. tostring(state_name) end
+    local point = frame.points and frame.points.Ball
+    if type(point) ~= "table" then
+        return nil, "state=" .. tostring(state_name) .. " frame has no Ball point"
+    end
+
+    local screen_offset, offset_error, meta = AnimationPoints.offset(frame, point)
+    if not screen_offset then return nil, offset_error end
+
+    local area_id = bot and bot.area_id
+    if not area_id and bot and bot.id and type(Net.get_bot_area) == "function" then
+        local area_ok, found_area = pcall(Net.get_bot_area, bot.id)
+        if area_ok then area_id = found_area end
+    end
+    local tile_width, tile_height = 64, 32
+    if area_id and type(Net.get_tile_width) == "function" then
+        local ok, value = pcall(Net.get_tile_width, area_id)
+        if ok and tonumber(value) and tonumber(value) > 0 then tile_width = tonumber(value) end
+    end
+    if area_id and type(Net.get_tile_height) == "function" then
+        local ok, value = pcall(Net.get_tile_height, area_id)
+        if ok and tonumber(value) and tonumber(value) > 0 then tile_height = tonumber(value) end
+    end
+
+    local map_offset, map_error = AnimationPoints.to_map_offset(
+        screen_offset, tile_width, tile_height
+    )
+    if not map_offset then return nil, map_error end
+    meta = meta or {}
+    meta.screen_offset_x, meta.screen_offset_y = screen_offset.x, screen_offset.y
+    meta.tile_width, meta.tile_height = tile_width, tile_height
+    return map_offset, nil, meta
+end
+
+local function read_bot_position(bot)
+    if bot and bot.id and type(Net.get_bot_position) == "function" then
+        local ok, position = pcall(Net.get_bot_position, bot.id)
+        if ok and type(position) == "table" then
+            return {
+                x = tonumber(position.x) or 0,
+                y = tonumber(position.y) or 0,
+                z = tonumber(position.z) or 0,
+            }
+        end
+    end
+    local position = bot and bot.position
+    if type(position) == "table" then
+        return {
+            x = tonumber(position.x) or 0,
+            y = tonumber(position.y) or 0,
+            z = tonumber(position.z) or 0,
+        }
+    end
+    return nil
+end
+
+local function set_bot_position_immediately(bot, position, phase)
+    if not bot or not bot.id or type(Net.move_bot) ~= "function" then
+        log("BALL_CATCH: cannot update ball position; Net.move_bot unavailable phase="
+            .. tostring(phase))
+        return false
+    end
+
+    -- The Ball-point follower needs an immediate map-position update on each
+    -- tick. A zero-duration Net.animate_bot_properties keyframe interferes
+    -- with this repeated follow path on the server/client and can leave the
+    -- ball lagging or detached from the defender. Keep animation selection
+    -- separate; use move_bot only for these per-tick coordinates.
+    local ok, result = pcall(Net.move_bot, bot.id, position.x, position.y, position.z or 0)
+    if not ok or result == false then
+        log("BALL_CATCH: ball position update failed phase=" .. tostring(phase)
+            .. " error=" .. tostring(result))
+        return false
+    end
+    bot.position = { x = position.x, y = position.y, z = position.z or 0 }
+    return true
+end
+
+local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
+    animation_state, initial_elapsed, shared_duration, start_position, target_position)
+    local elapsed = math.max(0, tonumber(initial_elapsed) or 0)
+    local step = 0.02
+    local follow_tick = 0
+    while bots.ball_follow_active and State.instance_bots[instance_id] == bots do
+        follow_tick = follow_tick + 1
+        local defender_position
+        -- During the catch transition, use the same interpolated defender path
+        -- used to calculate the initial catch target. Net.get_bot_position may
+        -- still report the last server-side position while the property
+        -- animation is being rendered, which makes the first follow update
+        -- snap the ball to a stale location. Once the movement duration ends,
+        -- use the live position so later movement remains tracked.
+        if start_position and target_position and shared_duration
+            and shared_duration > 0 and elapsed <= shared_duration then
+            local t = math.max(0, math.min(1, elapsed / shared_duration))
+            -- The defender's movement keyframes use InOut easing. Smoothstep
+            -- keeps the predicted handoff continuous through the midpoint.
+            local eased_t = t * t * (3 - 2 * t)
+            defender_position = {
+                x = start_position.x + (target_position.x - start_position.x) * eased_t,
+                y = start_position.y + (target_position.y - start_position.y) * eased_t,
+                z = start_position.z + (target_position.z - start_position.z) * eased_t,
+            }
+        else
+            defender_position = read_bot_position(defender)
+        end
+        defender_position = defender_position or read_bot_position(defender)
+        local offset, point_error = get_navi_ball_point_offset(defender, animation_state, elapsed)
+        if not offset then
+            log("BALL_CATCH: stopped following Ball point instance=" .. tostring(instance_id)
+                .. " state=" .. tostring(animation_state)
+                .. " elapsed=" .. tostring(elapsed)
+                .. " error=" .. tostring(point_error))
+            bots.ball_follow_active = false
+            return
+        end
+        if defender_position then
+            -- The helper converted sprite-pixel offsets into isometric map
+            -- coordinates; do not add raw animation pixels to Net X/Y.
+            local target = {
+                x = defender_position.x + offset.x,
+                y = defender_position.y + offset.y,
+                -- Z is the bot draw-order/depth coordinate. Lift the ball
+                -- above the defender while it is attached to the Ball point.
+                z = defender_position.z + (tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1),
+            }
+            if not set_bot_position_immediately(ball_bot, target, "attached-follow") then
+                bots.ball_follow_active = false
+                return
+            end
+            if follow_tick == 1 or follow_tick % 10 == 0 then
+                log("BALL_CATCH: follow sample instance=" .. tostring(instance_id)
+                    .. " tick=" .. tostring(follow_tick)
+                    .. " elapsed=" .. tostring(elapsed)
+                    .. " defender=" .. tostring(defender_position.x) .. ","
+                    .. tostring(defender_position.y) .. "," .. tostring(defender_position.z)
+                    .. " offset=" .. tostring(offset.x) .. "," .. tostring(offset.y)
+                    .. " ball=" .. tostring(target.x) .. "," .. tostring(target.y)
+                    .. "," .. tostring(target.z))
+            end
+        end
+        await(Async.sleep(step))
+        elapsed = elapsed + step
+    end
+    log("BALL_CATCH: detached at result fade instance=" .. tostring(instance_id))
+end
+
 local function resolve_round_winner(instance_id)
     local bots = State.instance_bots[instance_id]
     local points = State.instance_spawn_points[instance_id]
@@ -2903,18 +3111,16 @@ local function resolve_round_winner(instance_id)
             end
 
             local shared_duration
+            local defender_start
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
-                local start = defender.position
-                if not start and type(Net.get_bot_position) == "function" then
-                    local pos_ok, pos = pcall(Net.get_bot_position, defender.id)
-                    if pos_ok and type(pos) == "table" then start = pos end
-                end
+                local start = read_bot_position(defender)
                 if not start then
                     log("RESULT_FLOW: defender start position unavailable instance="
                         .. tostring(instance_id))
                     bots.result_animation_active = false
                     return
                 end
+                defender_start = start
                 local dx = (tonumber(defender_target.x) or 0) - (tonumber(start.x) or 0)
                 local dy = (tonumber(defender_target.y) or 0) - (tonumber(start.y) or 0)
                 local dz = (tonumber(defender_target.z) or 0) - (tonumber(start.z) or 0)
@@ -2939,13 +3145,137 @@ local function resolve_round_winner(instance_id)
 
             local bomb_done, bomb_ok = false, false
             local defender_done, defender_ok = false, false
-            async(function()
-                bomb_ok = move_bot_smoothly(
-                    bots.bomb_bot, bomb_target, Gameplay.RESULT_BOMB_MOVE_SPEED,
-                    "bomb-to-" .. tostring(target_name), nil, shared_duration
+            local is_matching_jump = winner.role == "Defender"
+                and (defender.direction_choice == "Left" or defender.direction_choice == "Right")
+            if is_matching_jump and shared_duration and defender_start then
+                local half_duration = shared_duration / 2
+                local start_position = {
+                    x = tonumber(defender_start.x) or 0,
+                    y = tonumber(defender_start.y) or 0,
+                    z = tonumber(defender_start.z) or 0,
+                }
+                local target_position = {
+                    x = tonumber(defender_target.x) or start_position.x,
+                    y = tonumber(defender_target.y) or start_position.y,
+                    z = tonumber(defender_target.z) or start_position.z,
+                }
+                local midpoint = {
+                    x = (start_position.x + target_position.x) / 2,
+                    y = (start_position.y + target_position.y) / 2,
+                    z = (start_position.z + target_position.z) / 2,
+                }
+                -- Convert the Ball point from sprite-pixel coordinates into
+                -- isometric map-coordinate offsets before adding it to the
+                -- defender's map position. Raw pixel offsets here would move
+                -- the ball many tiles away, outside the field.
+                local catch_offset, catch_point_error, catch_point_meta = get_navi_ball_point_offset(
+                    defender, defender_animation, half_duration
                 )
-                bomb_done = true
-            end)
+                if catch_offset then
+                    local catch_position = {
+                        x = midpoint.x + catch_offset.x,
+                        y = midpoint.y + catch_offset.y,
+                        -- Keep the catch travel on the defender's current Z
+                        -- layer. The small render-order lift is applied when
+                        -- the follower takes over at the Ball point.
+                        z = midpoint.z,
+                    }
+                    log("BALL_CATCH: matching jump catch scheduled instance=" .. tostring(instance_id)
+                        .. " direction=" .. tostring(defender.direction_choice)
+                        .. " state=" .. tostring(defender_animation)
+                        .. " catch_elapsed=" .. tostring(half_duration)
+                        .. " catch_x=" .. tostring(catch_position.x)
+                        .. " catch_y=" .. tostring(catch_position.y)
+                        .. " point_offset=" .. tostring(catch_offset.x) .. "," .. tostring(catch_offset.y)
+                        .. " frame_origin=" .. tostring(catch_point_meta and catch_point_meta.origin_x)
+                        .. "," .. tostring(catch_point_meta and catch_point_meta.origin_y)
+                        .. " frame_size=" .. tostring(catch_point_meta and catch_point_meta.frame_width)
+                        .. "x" .. tostring(catch_point_meta and catch_point_meta.frame_height)
+                        .. " screen_offset=" .. tostring(catch_point_meta and catch_point_meta.screen_offset_x)
+                        .. "," .. tostring(catch_point_meta and catch_point_meta.screen_offset_y)
+                        .. " tile_size=" .. tostring(catch_point_meta and catch_point_meta.tile_width)
+                        .. "x" .. tostring(catch_point_meta and catch_point_meta.tile_height))
+                    async(function()
+                        bomb_ok = move_bot_smoothly(
+                            bots.bomb_bot, catch_position, Gameplay.RESULT_BOMB_MOVE_SPEED,
+                            "bomb-to-defender-ball-point", nil, half_duration
+                        )
+                        if bomb_ok then
+                            bots.ball_follow_active = true
+                            async(function()
+                                follow_defender_ball_point(
+                                    instance_id, bots, bots.bomb_bot, defender,
+                                    defender_animation, half_duration, shared_duration,
+                                    start_position, target_position
+                                )
+                            end)
+                        end
+                        bomb_done = true
+                    end)
+                else
+                    log("BALL_CATCH: matching jump has no usable Ball point; using normal bomb path instance="
+                        .. tostring(instance_id) .. " state=" .. tostring(defender_animation)
+                        .. " error=" .. tostring(catch_point_error))
+                    async(function()
+                        bomb_ok = move_bot_smoothly(
+                            bots.bomb_bot, bomb_target, Gameplay.RESULT_BOMB_MOVE_SPEED,
+                            "bomb-to-" .. tostring(target_name), nil, shared_duration
+                        )
+                        bomb_done = true
+                    end)
+                end
+            else
+                async(function()
+                    bomb_ok = move_bot_smoothly(
+                        bots.bomb_bot, bomb_target, Gameplay.RESULT_BOMB_MOVE_SPEED,
+                        "bomb-to-" .. tostring(target_name), nil, shared_duration
+                    )
+                    -- When both choices are center/Up, the defender does not
+                    -- perform a jump. Attach the ball as soon as it reaches the
+                    -- center target, then keep sampling the held defense state's
+                    -- Ball point until the camera fade starts.
+                    if bomb_ok and winner.role == "Defender"
+                        and kicker.direction_choice == "Up"
+                        and defender.direction_choice == "Up" then
+                        local defender_position = read_bot_position(defender)
+                            or defender.position or defender_target
+                        local attach_offset, attach_error = get_navi_ball_point_offset(
+                            defender, AnimationStates.FOOTBOMB_READY_DEFENSE, 0
+                        )
+                        if attach_offset then
+                            local attach_position = {
+                                x = defender_position.x + attach_offset.x,
+                                y = defender_position.y + attach_offset.y,
+                                z = defender_position.z + (tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1),
+                            }
+                            set_bot_position_immediately(
+                                bots.bomb_bot, attach_position, "center-catch-initial-attach"
+                            )
+                            bots.ball_follow_active = true
+                            set_bot_animation_state(
+                                bots.bomb_bot.id,
+                                bots.bomb_bot.animation_state or AnimationStates.SMALL_BOMB,
+                                true
+                            )
+                            async(function()
+                                follow_defender_ball_point(
+                                    instance_id, bots, bots.bomb_bot, defender,
+                                    AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
+                                    0, defender_position, defender_position
+                                )
+                            end)
+                            log("BALL_CATCH: center/center ball attached instance="
+                                .. tostring(instance_id) .. " defender_z="
+                                .. tostring(defender_position.z) .. " ball_z="
+                                .. tostring(attach_position.z))
+                        else
+                            log("BALL_CATCH: center/center Ball point unavailable instance="
+                                .. tostring(instance_id) .. " error=" .. tostring(attach_error))
+                        end
+                    end
+                    bomb_done = true
+                end)
+            end
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
                 async(function()
                     defender_ok = move_bot_smoothly(
@@ -3029,6 +3359,9 @@ local function resolve_round_winner(instance_id)
                 end
             end
 
+            -- Keep the ball locked to the Ball point throughout the jump and
+            -- result hold; stop updates when the camera fade begins.
+            bots.ball_follow_active = false
             local humans = {}
             for player_id, rep in pairs(State.player_representations) do
                 if rep.instance_id == instance_id then

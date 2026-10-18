@@ -166,13 +166,13 @@
 </data>
  </layer>
  <objectgroup id="15" name="Object Layer 2">
-  <object id="166" name="Bomb 1" x="744" y="712">
+  <object id="166" name="Bomb 1" x="760" y="696">
    <point/>
   </object>
   <object id="167" name="Bomb 2" x="792" y="664">
    <point/>
   </object>
-  <object id="168" name="Bomb 3" x="840" y="616">
+  <object id="168" name="Bomb 3" x="824" y="632">
    <point/>
   </object>
  </objectgroup>
