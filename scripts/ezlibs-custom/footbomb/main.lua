@@ -12,6 +12,7 @@ local InputAPI = require("scripts/input-controller/main")
 local CameraManager = require("scripts/camera/camera-manager")
 local Boom = require("scripts/boom/main")
 
+
 -- Shared configuration/rosters live in dedicated modules so tuning and asset
 -- changes do not need edits in the match lifecycle code.
 local Config = require("scripts/ezlibs-custom/footbomb/constants")
@@ -2380,7 +2381,7 @@ local function prime_round_bot_animations(instance_id)
 
     -- Restore the actual starting poses after the warm-up sequence.
     local defender_ok = set_defender_animation_for_round(
-        instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE,
+        instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE,
         "post-animation-prime-ready")
     local kicker_ok, kicker_result = pcall(
         Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true)
@@ -2482,12 +2483,16 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
         SCORE_PLAYER_TWO_MUG_X
     )
 
-    pcall(games.draw_text, rep.score_player_one_text_id, player_id,
+
+    local score_size_one = TextLayout.measure(bots.player_one_score, {font = "THICK",scale = SCORE_TEXT_SCALE })
+    local score_size_two = TextLayout.measure(bots.player_two_score, {font ="THICK" ,scale = SCORE_TEXT_SCALE })
+
+    pcall(games.draw_advanced_text, rep.score_player_one_text_id, player_id,
         tostring(bots.player_one_score or 0), SCORE_PLAYER_ONE_X,
-        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE)
-    pcall(games.draw_text, rep.score_player_two_text_id, player_id,
+        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE, {})
+    pcall(games.draw_advanced_text, rep.score_player_two_text_id, player_id,
         tostring(bots.player_two_score or 0), SCORE_PLAYER_TWO_X,
-        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE)
+        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE, {})
 end
 
 local function update_scoreboard(instance_id)
@@ -3698,10 +3703,10 @@ begin_next_round = function(instance_id)
     log("ROUND_SETUP: next-round defender ready instance="
         .. tostring(instance_id) .. " success=" .. tostring(defender_ready_set))
 
-    local animations_primed = prime_round_bot_animations(instance_id)
-    log("ROUND_SETUP: next-round animation priming instance="
-        .. tostring(instance_id) .. " success=" .. tostring(animations_primed))
-    await(Async.sleep(0.15))
+    --local animations_primed = prime_round_bot_animations(instance_id)
+    -- log("ROUND_SETUP: next-round animation priming instance="
+    --   .. tostring(instance_id) .. " success=" .. tostring(animations_primed))
+    -- await(Async.sleep(0.15))
 
     local kicker
     for _, bot in ipairs(bots) do

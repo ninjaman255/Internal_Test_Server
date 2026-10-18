@@ -93,7 +93,7 @@
     <property name="Warp In" type="bool" value="true"/>
    </properties>
   </object>
-  <object id="151" name="Defender 1" x="752" y="704">
+  <object id="151" name="Defender 1" x="760" y="696">
    <point/>
   </object>
   <object id="152" name="Bomb" x="848" y="720">
@@ -108,7 +108,7 @@
   <object id="155" name="Defender 2" x="792" y="664">
    <point/>
   </object>
-  <object id="156" name="Defender 3" x="832" y="624">
+  <object id="156" name="Defender 3" x="824" y="632">
    <point/>
   </object>
   <object id="157" name="Player 1 Spawn" x="48" y="80">
