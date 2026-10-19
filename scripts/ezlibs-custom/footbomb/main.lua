@@ -75,6 +75,7 @@ local SCORE_BOX_Y = 54
 local SCORE_BOX_WIDTH = 52
 local SCORE_BOX_HEIGHT = 55
 local SCORE_TEXT_SCALE = UI.SCORE_TEXT_SCALE
+local FINAL_SCORE_SFX = "/server/assets/tourney/sfx/cheer.ogg"
 local ROLE_TEXT_Y = UI.ROLE_TEXT_Y
 local ROLE_TEXT_SCALE = UI.ROLE_TEXT_SCALE
 local SCORE_PLAYER_ONE_MUG_X = UI.SCORE_PLAYER_ONE_MUG_X
@@ -2639,12 +2640,43 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
     local score_two_y = SCORE_BOX_Y
         + (SCORE_BOX_HEIGHT - score_height_two) / 2
 
-    pcall(games.draw_text, rep.score_player_one_text_id, player_id,
-        score_text_one, math.floor(score_one_x + 0.5),
-        math.floor(score_one_y + 0.5), 101, "THICK", SCORE_TEXT_SCALE)
-    pcall(games.draw_text, rep.score_player_two_text_id, player_id,
-        score_text_two, math.floor(score_two_x + 0.5),
-        math.floor(score_two_y + 0.5), 101, "THICK", SCORE_TEXT_SCALE)
+    local function draw_score_number(text_id, score_text, x, y, slot)
+        local r, g, b = 255, 255, 255
+        if bots.match_complete and bots.final_winner_slot and bots.final_score_pulse then
+            local pulse = math.max(0, math.min(1, bots.final_score_pulse))
+            if slot == bots.final_winner_slot then
+                -- Winner pulses green, from a subdued green to a bright green.
+                r = math.floor(10 + 55 * pulse + 0.5)
+                g = math.floor(105 + 150 * pulse + 0.5)
+                b = math.floor(10 + 55 * pulse + 0.5)
+            else
+                -- Loser pulses red, from a subdued red to a bright red.
+                r = math.floor(105 + 150 * pulse + 0.5)
+                g = math.floor(8 + 45 * pulse + 0.5)
+                b = math.floor(8 + 45 * pulse + 0.5)
+            end
+        end
+
+        pcall(games.draw_advanced_text, player_id, score_text, {
+            text_id = text_id,
+            x = math.floor(x + 0.5),
+            y = math.floor(y + 0.5),
+            z = 101,
+            font = "THICK",
+            scale = SCORE_TEXT_SCALE,
+            r = r,
+            g = g,
+            b = b,
+            opacity = 255,
+            a = 255,
+            color_mode = 0,
+        })
+    end
+
+    draw_score_number(rep.score_player_one_text_id, score_text_one,
+        score_one_x, score_one_y, 1)
+    draw_score_number(rep.score_player_two_text_id, score_text_two,
+        score_two_x, score_two_y, 2)
 end
 
 local function update_scoreboard(instance_id)
@@ -2929,7 +2961,28 @@ local function complete_match_and_return(instance_id)
     log("MATCH_FLOW: final score display started instance=" .. tostring(instance_id)
         .. " score=" .. tostring(bots.player_one_score or 0) .. "-"
         .. tostring(bots.player_two_score or 0) .. " seconds=3")
-    await(Async.sleep(3.0))
+
+    -- Play the tournament cheer once for each participant, then pulse the final
+    -- scores for the same three-second results window.
+    for _, player_id in ipairs(players) do
+        if player_is_available(player_id) then
+            local sound_ok, sound_result = pcall(
+                Net.play_sound_for_player, player_id, FINAL_SCORE_SFX)
+            if not sound_ok or sound_result == false then
+                log("MATCH_FLOW: final score cheer failed player="
+                    .. tostring(player_id) .. " error=" .. tostring(sound_result))
+            end
+        end
+    end
+
+    local pulse_steps = 20
+    for pulse_step = 1, pulse_steps do
+        -- Smoothly pulse from dim to bright and back over the results display.
+        bots.final_score_pulse = (math.sin((pulse_step - 1) * math.pi / 5) + 1) / 2
+        update_scoreboard(instance_id)
+        await(Async.sleep(0.15))
+    end
+    bots.final_score_pulse = nil
 
     -- Snapshot connection state before releasing UI/input/camera ownership.
     -- A player can disconnect during the final-score delay; transfer_player
