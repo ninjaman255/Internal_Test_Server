@@ -2464,36 +2464,17 @@ local function set_kicker_pose_for_round(instance_id)
     log("ANIM_FLOW: applying kicker animation bot="
         .. tostring(kicker.id) .. " state=IDLE_UR via Net.animate_bot")
     local animation_ok, animation_result =
-        set_bot_animation_state(kicker.id, AnimationStates.IDLE_UR)
+        set_bot_animation_state(kicker.id, AnimationStates.IDLE_UR, true)
     log("ANIM_FLOW: kicker animation call returned bot="
         .. tostring(kicker.id) .. " success=" .. tostring(animation_ok)
         .. " detail=" .. tostring(animation_result))
 
-    -- The direct animation API returns nil on success, so it cannot confirm
-    -- that the renderer accepted the state. Try the documented keyframe API
-    -- as a fallback path, and log its outcome for diagnosis.
-    local property_setter = Net.animate_bot_properties
-    local property_ok, property_result = false, "setter unavailable"
-    if type(property_setter) == "function" then
-        log("ANIM_FLOW: fallback animation properties bot="
-            .. tostring(kicker.id) .. " state=IDLE_UR direction=Up Right")
-        property_ok, property_result = pcall(
-            property_setter,
-            kicker.id,
-            {
-                {
-                    properties = {
-                        { property = "Animation", value = AnimationStates.IDLE_UR },
-                        { property = "Direction", value = "Up Right" }
-                    },
-                    duration = 0.05
-                }
-            }
-        )
-    end
-    log("ANIM_FLOW: fallback animation properties returned bot="
-        .. tostring(kicker.id) .. " pcall_ok=" .. tostring(property_ok)
-        .. " return=" .. tostring(property_result))
+    -- Do not also enqueue an Animation/Direction property keyframe here. A
+    -- short property animation can finish after the explicit Net.animate_bot
+    -- request and leave the client displaying the avatar default instead of
+    -- IDLE_UR. Keep this setup path to the direct direction + animation APIs.
+    log("ANIM_FLOW: kicker property fallback skipped bot="
+        .. tostring(kicker.id) .. " reason=avoid-animation-keyframe-override")
 
     local final_direction_ok, final_direction =
         pcall(Net.get_bot_direction, kicker.id)
@@ -2513,7 +2494,7 @@ local function set_kicker_pose_for_round(instance_id)
     end
 
     return direction_ok and direction_result ~= false
-        and (animation_ok or property_ok)
+        and animation_ok and animation_result ~= false
 end
 
 -- Briefly request every Navi animation while the cameras are black. This
@@ -3826,10 +3807,17 @@ local function resolve_round_winner(instance_id)
             -- interpolate position so they cannot restart/loop the jump state.
             -- Jump clips should play once, but the center/up defense is a held
             -- ready stance and must remain looping instead of falling back to IDLE_U.
-            local defender_animation_loops = defender.direction_choice ~= "Left"
-                and defender.direction_choice ~= "Right"
-            set_result_animation(defender, defender_animation, defender_direction,
-                "defender-response-launch", defender_animation_loops)
+            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                -- Side defenses launch their one-shot jump together with movement.
+                set_result_animation(defender, defender_animation, defender_direction,
+                    "defender-response-launch", false)
+            else
+                -- Do not enter READY_DEFENSE merely because the round started or
+                -- the direction prompt opened. Up becomes ready only at ball launch.
+                log("ANIM_FLOW: keeping defender idle until Up ball launch bot="
+                    .. tostring(defender.id) .. " state="
+                    .. tostring(AnimationStates.FOOTBOMB_IDLE_DEFENSE))
+            end
 
             -- Freeze the authored final jump frame before the one-shot clip can
             -- fall back to an empty/default state. The *_END state is a single
@@ -3983,6 +3971,15 @@ local function resolve_round_winner(instance_id)
                     end
 
                     local bomb_destination = center_catch_position or bomb_target
+                    if defender.direction_choice == "Up" then
+                        set_result_animation(
+                            defender,
+                            AnimationStates.FOOTBOMB_READY_DEFENSE,
+                            "Up",
+                            "defender-up-ready-at-ball-launch",
+                            true
+                        )
+                    end
                     bomb_ok = move_bot_smoothly(
                         bots.bomb_bot, bomb_destination, response_bomb_speed,
                         is_center_catch and "bomb-to-center-ball-point" or ("bomb-to-" .. tostring(target_name)),
@@ -4048,26 +4045,61 @@ local function resolve_round_winner(instance_id)
             -- frame boundary. Do not restart the jump or transition poses again
             -- on arrival; keep the held pose visible through the camera fade.
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                -- Reassert the authored landing frame after both movement jobs
+                -- have completed. The scheduled frame switch can race the end
+                -- of the position keyframe on some clients; applying the held
+                -- pose at the synchronization barrier prevents a non-matching
+                -- jump from falling back to IDLE_DEFENSE while the bomb lands.
+                local final_hold_state = defender.direction_choice == "Left"
+                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
+                set_result_animation(
+                    defender, final_hold_state, defender_direction,
+                    "defender-arrival-final-jump-frame-hold", true
+                )
                 log("RESULT_FLOW: defender final jump frame held through result transition bot="
-                    .. tostring(defender.id) .. " direction=" .. tostring(defender.direction_choice))
+                    .. tostring(defender.id) .. " direction=" .. tostring(defender.direction_choice)
+                    .. " state=" .. tostring(final_hold_state))
             else
+                -- Up/center defense is a held stance, not a one-shot. Explicitly
+                -- keep it looping at arrival so it cannot fall back to IDLE_DEFENSE
+                -- while the bomb contact/result pause is still being shown.
                 set_result_animation(
                     defender,
                     AnimationStates.FOOTBOMB_READY_DEFENSE,
                     defender_direction,
-                    "defender-arrival-ready-defense-override"
+                    "defender-arrival-ready-defense-override",
+                    true
                 )
             end
 
             set_result_animation(kicker, AnimationStates.IDLE_U, "Up", "kicker-after-kick")
             award_round_point(instance_id, kicker, defender, winner)
 
-            -- Keep the result visible a little longer before transitioning.
-            -- A Kicker goal retains the explosion burst, but skips the sprite
-            -- wash and uses a white camera fade for the transition instead.
+            -- Hold the resolved poses for the entire result pause, explosion,
+            -- and camera wash. Stop Ball-point tracking before the explosion so
+            -- its updater cannot move or reanimate the bomb during the effect.
             log("ROUND_FLOW: result hold started instance=" .. tostring(instance_id)
                 .. " seconds=1.5")
             await(Async.sleep(1.5))
+            bots.ball_follow_active = false
+
+            -- Reassert only the participant poses before the transition effect.
+            -- Never restore the bomb's normal loop after EzExplosions.explode:
+            -- doing so can cancel/revert the explosion animation as it begins.
+            local held_defender_state = (defender.direction_choice == "Left")
+                and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                or ((defender.direction_choice == "Right")
+                    and AnimationStates.FOOTBOMB_JUMP_RIGHT_END
+                    or AnimationStates.FOOTBOMB_READY_DEFENSE)
+            set_result_animation(
+                defender, held_defender_state, defender_direction,
+                "defender-hold-before-transition-effect", true
+            )
+            set_result_animation(
+                kicker, AnimationStates.IDLE_U, "Up",
+                "kicker-hold-before-transition-effect", true
+            )
 
             if winner.role == "Kicker" then
                 local bomb_bot = bots.bomb_bot
@@ -4080,28 +4112,12 @@ local function resolve_round_winner(instance_id)
                         .. " bomb=" .. tostring(bomb_bot.id)
                         .. " area=" .. tostring(bomb_area_id)
                         .. " max_explosions_per_bot=2 success=" .. tostring(explosion_ok)
-                        .. " detail=" .. tostring(explosion_result))
+                        .. " detail=" .. tostring(explosion_result)
+                        .. " bomb_animation_restore=skipped")
                 else
                     log("GOAL_FX: skipping explosion burst; bomb bot unavailable instance="
                         .. tostring(instance_id))
                 end
-            end
-
-            -- Stop follow updates and explicitly restore the bomb's selected
-            -- looping animation immediately before the camera fade. This is
-            -- intentionally after the optional goal explosion so the bomb
-            -- remains on Small-Bomb/Big-Bomb through the transition itself.
-            bots.ball_follow_active = false
-            local bomb_bot = bots.bomb_bot
-            if bomb_bot and bomb_bot.id then
-                local held_bomb_state = bomb_bot.animation_state or AnimationStates.SMALL_BOMB
-                local held_animation_ok, held_animation_result =
-                    set_bot_animation_state(bomb_bot.id, held_bomb_state, true)
-                log("BOMB_FLOW: holding bomb animation through camera fade bot="
-                    .. tostring(bomb_bot.id)
-                    .. " state=" .. tostring(held_bomb_state)
-                    .. " success=" .. tostring(held_animation_ok)
-                    .. " detail=" .. tostring(held_animation_result))
             end
             local humans = {}
             for player_id, rep in pairs(State.player_representations) do
@@ -4333,31 +4349,16 @@ begin_next_round = function(instance_id)
         .. " kicker_pcall_ok=" .. tostring(kicker_pose_set)
         .. " kicker_result=" .. tostring(kicker_pose_result))
 
-    await(Async.sleep(0.2))
-    local defender_ready_set = set_defender_animation_for_round(
-        instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE, "next-round-ready")
-    log("ROUND_SETUP: next-round defender ready instance="
-        .. tostring(instance_id) .. " success=" .. tostring(defender_ready_set))
+    -- A new round always begins in IDLE_DEFENSE. The ready pose is deferred
+    -- until an Up defense is actually selected and the ball starts moving.
 
     --local animations_primed = prime_round_bot_animations(instance_id)
     -- log("ROUND_SETUP: next-round animation priming instance="
     --   .. tostring(instance_id) .. " success=" .. tostring(animations_primed))
     -- await(Async.sleep(0.15))
 
-    local kicker
-    for _, bot in ipairs(bots) do
-        if bot.role == "Kicker" then
-            kicker = bot
-            break
-        end
-    end
-    if kicker then
-        local retry_ok, retry_result = pcall(
-            Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true)
-        log("ROUND_SETUP: next-round kicker idle reassert bot="
-            .. tostring(kicker.id) .. " pcall_ok=" .. tostring(retry_ok)
-            .. " return=" .. tostring(retry_result))
-    end
+    -- set_kicker_pose_for_round already applies direction and looping IDLE_UR.
+    -- Avoid a second raw animation write that could race the pose setup.
 
     -- The score has been visible during the black intermission. Remove it
     -- before revealing the next active round so it does not cover gameplay.
@@ -4624,17 +4625,9 @@ local function try_begin_match(instance_id)
                         .. tostring(instance_id))
                 end
 
-                -- Give the Defender's idle animation time to be visible before
-                -- transitioning into the ready stance, while cameras are black.
-                await(Async.sleep(0.8))
-                log("ROUND_SETUP: switching defender to ready animation instance="
-                    .. tostring(instance_id))
-                local defender_ready_set = set_defender_animation_for_round(
-                    instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE, "ready"
-                )
-                log("ROUND_SETUP: defender ready animation call complete instance="
-                    .. tostring(instance_id) .. " success="
-                    .. tostring(defender_ready_set))
+                -- Keep the Defender in IDLE_DEFENSE throughout round setup and
+                -- direction selection. READY_DEFENSE is applied only if Up is
+                -- selected, at the moment the result ball begins moving.
 
                 -- Prime every animation on both Navi bots while the cameras
                 -- are still black. The helper restores each bot's starting
@@ -4660,9 +4653,23 @@ local function try_begin_match(instance_id)
                 if kicker then
                     log("ROUND_SETUP: reapplying kicker animation before fade-in bot="
                         .. tostring(kicker.id) .. " state=IDLE_UR")
-                    local retry_ok, retry_result = pcall(
-                        Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true
-                    )
+                    -- Reassert facing and a looping IDLE_UR together immediately
+                    -- before revealing the first round. The earlier direct retry
+                    -- only changed the animation and could race with the initial
+                    -- bot direction/state updates on first-round clients.
+                    local retry_ok, retry_result = pcall(function()
+                        local direction_ok, direction_result = pcall(
+                            Net.set_bot_direction, kicker.id, "Up Right"
+                        )
+                        local animation_ok, animation_result =
+                            set_bot_animation_state(kicker.id, AnimationStates.IDLE_UR, true)
+                        return direction_ok and direction_result ~= false
+                            and animation_ok and animation_result ~= false,
+                            "direction_ok=" .. tostring(direction_ok)
+                                .. " direction_result=" .. tostring(direction_result)
+                                .. " animation_ok=" .. tostring(animation_ok)
+                                .. " animation_result=" .. tostring(animation_result)
+                    end)
                     log("ROUND_SETUP: kicker animation retry returned bot="
                         .. tostring(kicker.id)
                         .. " pcall_ok=" .. tostring(retry_ok)
