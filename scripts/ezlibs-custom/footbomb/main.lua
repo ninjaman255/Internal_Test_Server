@@ -2739,8 +2739,8 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         { property = "Z", value = sz }
     }
     local target_properties = {
-        { property = "X", ease = "InOut", value = tx },
-        { property = "Y", ease = "InOut", value = ty },
+        { property = "X", ease = "Linear", value = tx },
+        { property = "Y", ease = "Linear", value = ty },
         { property = "Z", ease = "InOut", value = tz }
     }
     if animation_state then
@@ -3135,7 +3135,11 @@ local function move_bot_follow_keyframe(bot, position, phase, duration)
         return false
     end
 
-    duration = math.max(0.01, tonumber(duration) or 0.02)
+    -- Keep each update shorter than the follower sampling interval so the
+    -- Ball bot reaches the latest authored Ball-point target before the next
+    -- sample arrives. Longer overlapping interpolations make the ball trail
+    -- behind the Defender during the second half of a matching jump.
+    duration = math.max(0.005, tonumber(duration) or 0.01)
     local start = bot.position or read_bot_position(bot) or position
     local sx, sy, sz = tonumber(start.x) or 0, tonumber(start.y) or 0, tonumber(start.z) or 0
     local tx = tonumber(position.x) or sx
@@ -3152,12 +3156,12 @@ local function move_bot_follow_keyframe(bot, position, phase, duration)
         return false
     end
 
-    -- Mirror the character movement pattern (current-position frame followed
-    -- by an interpolated target), but keep both durations positive. A
-    -- zero-duration starting frame on every 20 ms follow sample has previously
-    -- interfered with this path. Neither frame writes the Animation property.
-    local start_duration = math.min(0.005, duration / 4)
-    local target_duration = math.max(0.005, duration - start_duration)
+    -- Use a very short positive start frame and let the target settle quickly.
+    -- The follower samples every 10 ms, so a longer target interpolation can
+    -- still be in flight when the next Ball-point target is submitted.
+    -- Neither frame writes the Animation property.
+    local start_duration = math.min(0.001, duration / 4)
+    local target_duration = math.max(0.004, duration - start_duration)
     local keyframes = {
         {
             properties = {
@@ -3171,7 +3175,7 @@ local function move_bot_follow_keyframe(bot, position, phase, duration)
             properties = {
                 { property = "X", ease = "InOut", value = tx },
                 { property = "Y", ease = "InOut", value = ty },
-                { property = "Z", ease = "InOut", value = tz },
+                { property = "Z", ease = "Linear", value = tz },
             },
             duration = target_duration,
         },
@@ -3190,70 +3194,116 @@ end
 
 local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
     animation_state, initial_elapsed, shared_duration, start_position, target_position)
+    -- Build one synchronized position track at the animation's actual frame
+    -- boundaries. The ball is handed off at initial_elapsed (the contact point),
+    -- then the engine interpolates the full remaining track; there is no 10 ms
+    -- polling loop and no repeated movement packets.
+    if not bots.ball_follow_active or State.instance_bots[instance_id] ~= bots then
+        return
+    end
+    if type(Net.animate_bot_properties) ~= "function" then
+        log("BALL_CATCH: animation track unavailable; cannot attach ball instance="
+            .. tostring(instance_id))
+        bots.ball_follow_active = false
+        return
+    end
+
     local elapsed = math.max(0, tonumber(initial_elapsed) or 0)
-    local step = 0.02
-    local follow_tick = 0
-    while bots.ball_follow_active and State.instance_bots[instance_id] == bots do
-        follow_tick = follow_tick + 1
-        local defender_position
-        -- During the catch transition, use the same interpolated defender path
-        -- used to calculate the initial catch target. Net.get_bot_position may
-        -- still report the last server-side position while the property
-        -- animation is being rendered, which makes the first follow update
-        -- snap the ball to a stale location. Once the movement duration ends,
-        -- use the live position so later movement remains tracked.
-        if start_position and target_position and shared_duration
-            and shared_duration > 0 and elapsed <= shared_duration then
-            local t = math.max(0, math.min(1, elapsed / shared_duration))
-            -- The defender's movement keyframes use InOut easing. Smoothstep
-            -- keeps the predicted handoff continuous through the midpoint.
-            local eased_t = t * t * (3 - 2 * t)
-            defender_position = {
-                x = start_position.x + (target_position.x - start_position.x) * eased_t,
-                y = start_position.y + (target_position.y - start_position.y) * eased_t,
-                z = start_position.z + (target_position.z - start_position.z) * eased_t,
+    local finish = math.max(elapsed, tonumber(shared_duration) or elapsed)
+    local animation, animation_error = get_footbomb_animation(defender and defender.animation_path)
+    local state = animation and animation.states and animation.states[animation_state]
+    local frames = state and state.framelist
+    if type(frames) ~= "table" or #frames == 0 then
+        log("BALL_CATCH: cannot build Ball-point track instance=" .. tostring(instance_id)
+            .. " state=" .. tostring(animation_state)
+            .. " error=" .. tostring(animation_error or "state has no frames"))
+        bots.ball_follow_active = false
+        return
+    end
+
+    local function defender_position_at(t)
+        if start_position and target_position and shared_duration and shared_duration > 0 then
+            local ratio = math.max(0, math.min(1, t / shared_duration))
+            -- Match the defender's InOut position interpolation.
+            local eased = ratio * ratio * (3 - 2 * ratio)
+            return {
+                x = start_position.x + (target_position.x - start_position.x) * eased,
+                y = start_position.y + (target_position.y - start_position.y) * eased,
+                z = start_position.z + (target_position.z - start_position.z) * eased,
             }
-        else
-            defender_position = read_bot_position(defender)
         end
-        defender_position = defender_position or read_bot_position(defender)
-        local offset, point_error = get_navi_ball_point_offset(defender, animation_state, elapsed)
-        if not offset then
-            log("BALL_CATCH: stopped following Ball point instance=" .. tostring(instance_id)
+        return read_bot_position(defender) or defender.position
+    end
+
+    -- The authored Ball point changes at animation frame boundaries. Use those
+    -- boundaries as target times and add the final movement endpoint, avoiding
+    -- arbitrary timer ticks that can drift behind the rendered animation.
+    local times = { elapsed }
+    local boundary = 0
+    for _, frame in ipairs(frames) do
+        boundary = boundary + math.max(0, tonumber(frame.duration) or 0)
+        if boundary > elapsed + 0.000001 and boundary < finish - 0.000001 then
+            times[#times + 1] = boundary
+        end
+    end
+    if finish > elapsed + 0.000001 then times[#times + 1] = finish end
+
+    local current = ball_bot.position or read_bot_position(ball_bot) or { x = 0, y = 0, z = 0 }
+    local keyframes = {
+        {
+            properties = {
+                { property = "X", value = tonumber(current.x) or 0 },
+                { property = "Y", value = tonumber(current.y) or 0 },
+                { property = "Z", value = tonumber(current.z) or 0 },
+            },
+            duration = 0,
+        }
+    }
+    local previous_time = elapsed
+    local lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+    for i = 2, #times do
+        local sample_time = times[i]
+        local point_time = sample_time
+        if math.abs(sample_time - finish) < 0.000001 and finish > elapsed then
+            point_time = math.max(elapsed, finish - 0.000001)
+        end
+        local offset, point_error = get_navi_ball_point_offset(
+            defender, animation_state, point_time
+        )
+        local defender_position = defender_position_at(point_time)
+        if not offset or not defender_position then
+            log("BALL_CATCH: failed building Ball-point track instance=" .. tostring(instance_id)
                 .. " state=" .. tostring(animation_state)
-                .. " elapsed=" .. tostring(elapsed)
-                .. " error=" .. tostring(point_error))
+                .. " elapsed=" .. tostring(point_time)
+                .. " error=" .. tostring(point_error or "defender position unavailable"))
             bots.ball_follow_active = false
             return
         end
-        if defender_position then
-            -- The helper converted sprite-pixel offsets into isometric map
-            -- coordinates; do not add raw animation pixels to Net X/Y.
-            local target = {
-                x = defender_position.x + offset.x,
-                y = defender_position.y + offset.y,
-                -- Z is the bot draw-order/depth coordinate. Lift the ball
-                -- above the defender while it is attached to the Ball point.
-                z = defender_position.z + (tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1),
-            }
-            if not move_bot_follow_keyframe(ball_bot, target, "attached-follow", step) then
-                bots.ball_follow_active = false
-                return
-            end
-            if follow_tick == 1 or follow_tick % 10 == 0 then
-                log("BALL_CATCH: follow sample instance=" .. tostring(instance_id)
-                    .. " tick=" .. tostring(follow_tick)
-                    .. " elapsed=" .. tostring(elapsed)
-                    .. " defender=" .. tostring(defender_position.x) .. ","
-                    .. tostring(defender_position.y) .. "," .. tostring(defender_position.z)
-                    .. " offset=" .. tostring(offset.x) .. "," .. tostring(offset.y)
-                    .. " ball=" .. tostring(target.x) .. "," .. tostring(target.y)
-                    .. "," .. tostring(target.z))
-            end
-        end
-        elapsed = elapsed + step
+        keyframes[#keyframes + 1] = {
+            properties = {
+                { property = "X", ease = "Linear", value = defender_position.x + offset.x },
+                { property = "Y", ease = "Linear", value = defender_position.y + offset.y },
+                { property = "Z", ease = "Linear", value = defender_position.z + lift },
+            },
+            duration = math.max(0.001, sample_time - previous_time),
+        }
+        previous_time = sample_time
     end
-    log("BALL_CATCH: detached at result fade instance=" .. tostring(instance_id))
+
+    local ok, result = pcall(Net.animate_bot_properties, ball_bot.id, keyframes)
+    if not ok or result == false then
+        log("BALL_CATCH: Ball-point track failed instance=" .. tostring(instance_id)
+            .. " error=" .. tostring(result))
+        bots.ball_follow_active = false
+        return
+    end
+    log("BALL_CATCH: synchronized Ball-point track started instance=" .. tostring(instance_id)
+        .. " state=" .. tostring(animation_state)
+        .. " keyframes=" .. tostring(#keyframes)
+        .. " from_elapsed=" .. tostring(elapsed)
+        .. " to_elapsed=" .. tostring(finish))
+    if finish > elapsed then await(Async.sleep(finish - elapsed)) end
+    log("BALL_CATCH: synchronized Ball-point track reached jump end instance=" .. tostring(instance_id))
 end
 
 local function resolve_round_winner(instance_id)
