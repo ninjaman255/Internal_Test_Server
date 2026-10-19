@@ -19,7 +19,7 @@ local Config = require("scripts/ezlibs-custom/footbomb/constants")
 local AnimationStates = require("scripts/ezlibs-custom/footbomb/animation_states")
 local NAVI_OPTIONS = require("scripts/ezlibs-custom/footbomb/navi_options")
 local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
-local AnimationPoints = require("scripts/ezlibs-custom/footbomb/animation_points")
+local WorldAttachment = require("scripts/world-attachment")
 
 local FootBomb = {}
 local State = require("scripts/ezlibs-custom/footbomb/state")
@@ -693,10 +693,15 @@ local function provide_match_assets(player_id)
 
     -- Every selectable bot skin must be ready, not just the currently
     -- equipped skin: the client may see either bot and later skin changes.
+    -- Mugshot textures share the Navi atlas naming convention and are used by
+    -- the scoreboard; provide them up front too so the first scoreboard frame
+    -- cannot race asset delivery.
     for _, option in ipairs(NAVI_OPTIONS) do
         provide(option.texture)
         provide(option.animation)
+        provide(option.texture:gsub("%.png$", "-mug.png"))
     end
+    provide(DEFAULT_MUG_ANIMATION)
 
     -- Bombs use paired texture/animation files, including the skins shown by
     -- the selector and the bomb used during the result sequence.
@@ -721,9 +726,17 @@ local function transfer_match_players(instance, player_ids, spawn_points)
     local transferred = {}
 
     for slot, player_id in ipairs(player_ids) do
-        -- Prime the client cache before transferring so the instance's bots
-        -- have their assets ready as soon as they appear.
-        provide_match_assets(player_id)
+        -- Asset delivery is a transfer precondition. Do not put a player into
+        -- the instance if any Navi, bomb, mugshot, cursor, or animation asset
+        -- could not be provided to that player's client first.
+        local assets_ready = provide_match_assets(player_id)
+        if not assets_ready then
+            log("ASSET_FLOW: refusing player transfer because asset preflight failed"
+                .. " player=" .. tostring(player_id)
+                .. " instance=" .. tostring(instance.id)
+                .. " slot=" .. tostring(slot))
+            break
+        end
 
         local spawn = spawn_points[slot]
 
@@ -741,9 +754,16 @@ local function transfer_match_players(instance, player_ids, spawn_points)
             transferred[#transferred + 1] = player_id
 
             -- Re-provide after transfer as well. Some runtimes scope asset
-            -- delivery to the player's current area/instance, and the bots
-            -- already exist by the time the client enters the match.
-            provide_match_assets(player_id)
+            -- delivery to the player's current area/instance. The pre-transfer
+            -- pass is mandatory; this second pass is a diagnostic/safety pass
+            -- because the instance area has already been provisioned too.
+            local post_transfer_assets_ready = provide_match_assets(player_id)
+            if not post_transfer_assets_ready then
+                log("ASSET_FLOW: post-transfer asset delivery reported failures"
+                    .. " player=" .. tostring(player_id)
+                    .. " instance=" .. tostring(instance.id)
+                    .. "; pre-transfer delivery succeeded")
+            end
         else
             log("Transfer failed for " .. tostring(player_id)
                 .. ": " .. tostring(result))
@@ -827,7 +847,33 @@ local function provide_instance_asset(area_id, path)
     return true
 end
 
-local function validate_animation_states(path, required_states, label)
+local function read_png_dimensions(path)
+    if type(path) ~= "string" or path == "" then
+        return nil, nil, "empty texture path"
+    end
+    local candidates = { path }
+    local relative = path:gsub("^/server/", "")
+    if relative ~= path then candidates[#candidates + 1] = relative end
+    for _, candidate in ipairs(candidates) do
+        local file = io.open(candidate, "rb")
+        if file then
+            local header = file:read(24)
+            file:close()
+            if type(header) == "string" and #header >= 24
+                and header:byte(1) == 137 and header:sub(2, 4) == "PNG" then
+                local function u32(offset)
+                    local a, b, c, d = header:byte(offset, offset + 3)
+                    return ((a * 256 + b) * 256 + c) * 256 + d
+                end
+                return u32(17), u32(21)
+            end
+            return nil, nil, "file is not a readable PNG: " .. candidate
+        end
+    end
+    return nil, nil, "texture file not found: " .. path
+end
+
+local function validate_animation_states(path, required_states, label, texture_path)
     local ok, animation, load_error = pcall(Boom.load, path)
     if not ok or type(animation) ~= "table" then
         local detail = tostring(load_error or animation)
@@ -841,6 +887,21 @@ local function validate_animation_states(path, required_states, label)
             .. " path=" .. tostring(path) .. " detail=" .. detail)
         return false, detail
     end
+
+    -- A state can exist and contain frames while still referencing pixels outside
+    -- the selected Navi's texture atlas. Validate every frame in each required
+    -- state against the actual PNG dimensions before the match starts.
+    local texture_width, texture_height, texture_error
+    if texture_path then
+        texture_width, texture_height, texture_error = read_png_dimensions(texture_path)
+        if not texture_width or not texture_height then
+            local detail = texture_error or "could not read texture dimensions"
+            log("ASSET_FLOW: texture dimension validation failed label=" .. tostring(label)
+                .. " texture=" .. tostring(texture_path) .. " error=" .. detail)
+            return false, detail
+        end
+    end
+
     for _, state_name in ipairs(required_states or {}) do
         local state = animation.states and animation.states[state_name]
         if type(state) ~= "table" or type(state.framelist) ~= "table"
@@ -850,7 +911,33 @@ local function validate_animation_states(path, required_states, label)
                 .. " path=" .. tostring(path) .. " state=" .. tostring(state_name))
             return false, detail
         end
+        for frame_index, frame in ipairs(state.framelist) do
+            local x, y = tonumber(frame.x), tonumber(frame.y)
+            local w, h = tonumber(frame.w), tonumber(frame.h)
+            if not x or not y or not w or not h or x < 0 or y < 0 or w <= 0 or h <= 0 then
+                local detail = "invalid frame rectangle state=" .. tostring(state_name)
+                    .. " frame=" .. tostring(frame_index)
+                log("ASSET_FLOW: invalid animation frame label=" .. tostring(label)
+                    .. " path=" .. tostring(path) .. " " .. detail)
+                return false, detail
+            end
+            if texture_width and (x + w > texture_width or y + h > texture_height) then
+                local detail = "frame outside texture bounds state=" .. tostring(state_name)
+                    .. " frame=" .. tostring(frame_index)
+                    .. " rect=" .. tostring(x) .. "," .. tostring(y) .. ","
+                    .. tostring(w) .. "," .. tostring(h)
+                    .. " texture=" .. tostring(texture_width) .. "x" .. tostring(texture_height)
+                log("ASSET_FLOW: animation frame exceeds texture bounds label=" .. tostring(label)
+                    .. " path=" .. tostring(path) .. " texture=" .. tostring(texture_path)
+                    .. " " .. detail)
+                return false, detail
+            end
+        end
     end
+    log("ASSET_FLOW: animation states and frame bounds validated label=" .. tostring(label)
+        .. " path=" .. tostring(path) .. " texture=" .. tostring(texture_path or "unspecified")
+        .. " texture_size=" .. tostring(texture_width or "unknown") .. "x"
+        .. tostring(texture_height or "unknown"))
     return true
 end
 
@@ -886,7 +973,7 @@ local function provide_instance_bot_assets(area_id)
     -- during setup rather than after a visible bot has already spawned.
     for _, option in ipairs(NAVI_OPTIONS) do
         local valid, detail = validate_animation_states(
-            option.animation, required_navi_states, "Navi " .. tostring(option.name))
+            option.animation, required_navi_states, "Navi " .. tostring(option.name), option.texture)
         if not valid then return false, detail end
         add(option.texture)
         add(option.animation)
@@ -2435,33 +2522,19 @@ end
 local function prime_round_bot_animations(instance_id)
     local bots = State.instance_bots[instance_id]
     if not bots then
-        log("ROUND_SETUP: cannot prime animations; bots missing instance="
+        log("ROUND_SETUP: cannot validate animations; bots missing instance="
             .. tostring(instance_id))
         return false
     end
 
-    local kicker, defender
-    for _, bot in ipairs(bots) do
-        if bot.role == "Kicker" then
-            kicker = bot
-        elseif bot.role == "Defender" then
-            defender = bot
-        end
-    end
-
-    if not kicker or not defender then
-        log("ROUND_SETUP: cannot prime animations; role bot missing instance="
-            .. tostring(instance_id)
-            .. " kicker=" .. tostring(kicker ~= nil)
-            .. " defender=" .. tostring(defender ~= nil))
-        return false
-    end
-
-    -- Keep this explicit and deterministic. Bomb-only states are excluded
-    -- because these two bots use Navi animation files, not bomb animation files.
-    local states = {
+    -- The complete .animation files are already provided to the instance area
+    -- and to each player before transfer. Every selectable Navi file was also
+    -- parsed and state-validated in provide_instance_bot_assets(). Validate
+    -- the two selected files here, but do not cycle through animation states:
+    -- calling animate_bot on each state is not a download-completion API and
+    -- can visibly replace the current ready/jump pose or leave it out of sync.
+    local required_states = {
         AnimationStates.IDLE_D,
-        AnimationStates.IDLE_DR,
         AnimationStates.IDLE_UR,
         AnimationStates.IDLE_U,
         AnimationStates.WALK_U,
@@ -2474,43 +2547,35 @@ local function prime_round_bot_animations(instance_id)
         AnimationStates.FOOTBOMB_JUMP_LEFT_END,
     }
 
-    log("ROUND_SETUP: priming Navi animation states while cameras are black"
-        .. " instance=" .. tostring(instance_id)
-        .. " state_count=" .. tostring(#states))
-
-    local failed = 0
-    for _, state in ipairs(states) do
-        for _, bot in ipairs({ kicker, defender }) do
-            local ok, result = pcall(Net.animate_bot, bot.id, state, true)
-            if not ok or result == false then
-                failed = failed + 1
-                log("ROUND_SETUP: animation prime failed bot="
-                    .. tostring(bot.id) .. " state=" .. tostring(state)
-                    .. " pcall_ok=" .. tostring(ok)
-                    .. " return=" .. tostring(result))
+    local checked = 0
+    for _, bot in ipairs(bots) do
+        if bot.role == "Kicker" or bot.role == "Defender" then
+            local valid, detail = validate_animation_states(
+                bot.animation_path,
+                required_states,
+                "selected Navi " .. tostring(bot.navi_name or bot.id),
+                bot.texture_path
+            )
+            if not valid then
+                log("ROUND_SETUP: selected Navi animation validation failed bot="
+                    .. tostring(bot.id) .. " error=" .. tostring(detail))
+                return false
             end
+            checked = checked + 1
         end
-        -- 100 ms per state: fast enough to keep the intro snappy, while
-        -- giving the client a brief opportunity to initialize each state.
-        await(Async.sleep(0.2))
     end
 
-    -- Restore the actual starting poses after the warm-up sequence.
-    local defender_ok = set_defender_animation_for_round(
-        instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE,
-        "post-animation-prime-ready")
-    local kicker_ok, kicker_result = pcall(
-        Net.animate_bot, kicker.id, AnimationStates.IDLE_UR, true)
+    if checked ~= 2 then
+        log("ROUND_SETUP: expected two selected Navi bots; validated="
+            .. tostring(checked) .. " instance=" .. tostring(instance_id))
+        return false
+    end
 
-    log("ROUND_SETUP: animation priming complete instance="
-        .. tostring(instance_id)
-        .. " failures=" .. tostring(failed)
-        .. " defender_ready=" .. tostring(defender_ok)
-        .. " kicker_idle_pcall_ok=" .. tostring(kicker_ok)
-        .. " kicker_idle_return=" .. tostring(kicker_result))
-
-    return failed == 0 and defender_ok and kicker_ok
-        and kicker_result ~= false
+    log("ROUND_SETUP: selected Navi animation assets/states validated without"
+        .. " cycling visible states instance=" .. tostring(instance_id)
+        .. " bots=" .. tostring(checked)
+        .. " state_count=" .. tostring(#required_states))
+    return true
 end
 
 ---------------------------------------------------------------------------
@@ -2838,15 +2903,25 @@ end
 
 local function set_result_animation(bot, animation_state, direction, phase, should_loop)
     if not bot then return false end
-    -- Do not reassign the avatar here. Movement phases change animation state,
-    -- not assets; reassigning can prompt clients to reload the animation file.
-    -- if direction and type(Net.set_bot_direction) == "function" then
-    --     local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
-    --     if not direction_ok or direction_result == false then
-    --         log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
-    --             .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction))
-    --     end
-    -- end
+    -- Direction must be applied before the state so the renderer receives a
+    -- consistent facing/state pair. Do not reassign the avatar here: changing
+    -- animation state should not force a client-side asset reload.
+    if direction and type(Net.set_bot_direction) == "function" then
+        local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
+        if not direction_ok or direction_result == false then
+            log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
+                .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction)
+                .. " pcall_ok=" .. tostring(direction_ok)
+                .. " return=" .. tostring(direction_result))
+        else
+            log("RESULT_FLOW: direction set bot=" .. tostring(bot.id)
+                .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction)
+                .. " pcall_ok=true return=" .. tostring(direction_result))
+        end
+    elseif direction then
+        log("RESULT_FLOW: direction API unavailable bot=" .. tostring(bot.id)
+            .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction))
+    end
     local animation_ok, animation_result = set_bot_animation_state(bot.id, animation_state, should_loop)
     log("RESULT_FLOW: animation bot=" .. tostring(bot.id)
         .. " phase=" .. tostring(phase) .. " state=" .. tostring(animation_state)
@@ -3071,6 +3146,138 @@ local function get_footbomb_animation(path)
     return animation
 end
 
+local function get_animation_state_duration(bot, state_name)
+    local animation, animation_error = get_footbomb_animation(bot and bot.animation_path)
+    if not animation then return nil, animation_error end
+    local state = animation.states and animation.states[state_name]
+    local frames = state and state.framelist
+    if type(frames) ~= "table" or #frames == 0 then
+        return nil, "state has no frames: " .. tostring(state_name)
+    end
+    local duration = 0
+    for _, frame in ipairs(frames) do
+        duration = duration + math.max(0, tonumber(frame.duration) or 0)
+    end
+    if duration <= 0 then return nil, "state has no positive frame duration: " .. tostring(state_name) end
+    return duration
+end
+
+local function get_animation_final_frame_timing(bot, state_name)
+    local animation, animation_error = get_footbomb_animation(bot and bot.animation_path)
+    if not animation then return nil, nil, animation_error end
+    local state = animation.states and animation.states[state_name]
+    local frames = state and state.framelist
+    if type(frames) ~= "table" or #frames == 0 then
+        return nil, nil, "state has no frames: " .. tostring(state_name)
+    end
+    local total_duration = 0
+    for _, frame in ipairs(frames) do
+        total_duration = total_duration + math.max(0, tonumber(frame.duration) or 0)
+    end
+    local final_frame_duration = math.max(0, tonumber(frames[#frames].duration) or 0)
+    if total_duration <= 0 or final_frame_duration <= 0 then
+        return nil, nil, "state has no positive final-frame timing: " .. tostring(state_name)
+    end
+    return total_duration, final_frame_duration
+end
+
+local function world_xy_distance(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then return nil end
+    local dx = (tonumber(b.x) or 0) - (tonumber(a.x) or 0)
+    local dy = (tonumber(b.y) or 0) - (tonumber(a.y) or 0)
+    -- Bot Z is the depth/elevation layer, not horizontal travel distance.
+    return math.sqrt(dx * dx + dy * dy)
+end
+
+local read_bot_position
+
+-- Return a curved, eased world-space jump path. The small perpendicular bow
+-- gives the jump a readable arc while preserving the exact authored landing
+-- point. Z remains a depth/elevation layer and is interpolated independently.
+local function defender_jump_position_at(start_position, target_position, ratio)
+    ratio = math.max(0, math.min(1, tonumber(ratio) or 0))
+    local sx, sy = tonumber(start_position and start_position.x) or 0,
+        tonumber(start_position and start_position.y) or 0
+    local tx, ty = tonumber(target_position and target_position.x) or sx,
+        tonumber(target_position and target_position.y) or sy
+    local sz, tz = tonumber(start_position and start_position.z) or 0,
+        tonumber(target_position and target_position.z) or 0
+    local dx, dy = tx - sx, ty - sy
+    local distance = math.sqrt(dx * dx + dy * dy)
+    local arc = math.min(0.15, distance * 0.08)
+    local control_x, control_y = (sx + tx) / 2, (sy + ty) / 2
+    if distance > 0.000001 then
+        -- Perpendicular control point creates a subtle arch without moving the
+        -- landing point or changing the separately managed Z layer.
+        control_x = control_x - (dy / distance) * arc
+        control_y = control_y + (dx / distance) * arc
+    end
+    local inverse = 1 - ratio
+    return {
+        x = inverse * inverse * sx + 2 * inverse * ratio * control_x + ratio * ratio * tx,
+        y = inverse * inverse * sy + 2 * inverse * ratio * control_y + ratio * ratio * ty,
+        z = sz + (tz - sz) * ratio,
+    }
+end
+
+local function move_defender_jump_arc(bot, target, duration, phase)
+    if not bot or not bot.id or type(target) ~= "table"
+        or type(Net.animate_bot_properties) ~= "function" then
+        log("RESULT_FLOW: jump arc keyframes unavailable bot=" .. tostring(bot and bot.id)
+            .. " phase=" .. tostring(phase))
+        return false
+    end
+    local start = read_bot_position(bot) or bot.position
+    if type(start) ~= "table" then
+        log("RESULT_FLOW: jump arc start position unavailable bot=" .. tostring(bot.id)
+            .. " phase=" .. tostring(phase))
+        return false
+    end
+    local sx, sy, sz = tonumber(start.x) or 0, tonumber(start.y) or 0, tonumber(start.z) or 0
+    local start_position = { x = sx, y = sy, z = sz }
+    local target_position = {
+        x = tonumber(target.x) or sx,
+        y = tonumber(target.y) or sy,
+        z = tonumber(target.z) or sz,
+    }
+    duration = math.max(0.12, tonumber(duration) or 0.12)
+    local keyframes = {
+        { properties = {
+            { property = "X", value = sx },
+            { property = "Y", value = sy },
+            { property = "Z", value = sz },
+        }, duration = 0 },
+    }
+    local previous_ratio = 0
+    -- Multiple positive-duration points approximate the quadratic arch smoothly
+    -- in the engine's property-keyframe system, without restarting animation.
+    for _, ratio in ipairs({ 0.2, 0.4, 0.6, 0.8, 1 }) do
+        local position = defender_jump_position_at(start_position, target_position, ratio)
+        keyframes[#keyframes + 1] = {
+            properties = {
+                { property = "X", ease = "Linear", value = position.x },
+                { property = "Y", ease = "Linear", value = position.y },
+                { property = "Z", ease = "Linear", value = position.z },
+            },
+            duration = duration * (ratio - previous_ratio),
+        }
+        previous_ratio = ratio
+    end
+    local ok, result = pcall(Net.animate_bot_properties, bot.id, keyframes)
+    if not ok or result == false then
+        log("RESULT_FLOW: jump arc keyframes failed bot=" .. tostring(bot.id)
+            .. " phase=" .. tostring(phase) .. " error=" .. tostring(result))
+        return false
+    end
+    await(Async.sleep(duration))
+    bot.position = target_position
+    log("RESULT_FLOW: defender jump arc complete bot=" .. tostring(bot.id)
+        .. " phase=" .. tostring(phase) .. " keyframes=" .. tostring(#keyframes)
+        .. " duration=" .. tostring(duration) .. " x=" .. tostring(target_position.x)
+        .. " y=" .. tostring(target_position.y))
+    return true
+end
+
 local function animation_frame_at_elapsed(animation, state_name, elapsed)
     local state = animation and animation.states and animation.states[state_name]
     local frames = state and state.framelist
@@ -3096,7 +3303,7 @@ end
 -- isometric map coordinates. First calculate the point relative to the frame
 -- origin in screen pixels (including flips), then invert the map projection
 -- using the area's actual tile dimensions before adding it to bot X/Y.
-local function get_navi_ball_point_offset(bot, state_name, elapsed)
+local function get_navi_ball_point_offset(bot, state_name, elapsed, child_z)
     local animation, animation_error = get_footbomb_animation(bot and bot.animation_path)
     if not animation then return nil, animation_error end
     local frame = animation_frame_at_elapsed(animation, state_name, elapsed)
@@ -3106,7 +3313,11 @@ local function get_navi_ball_point_offset(bot, state_name, elapsed)
         return nil, "state=" .. tostring(state_name) .. " frame has no Ball point"
     end
 
-    local screen_offset, offset_error, meta = AnimationPoints.offset(frame, point)
+    -- Shared attachment math owns frame-origin/flip handling, screen-pixel to
+    -- map-coordinate conversion, NetGames-style Z compensation, and jitter
+    -- correction. The caller supplies the intended absolute child Z because
+    -- the correction must track elevation throughout an animated attachment.
+    local screen_offset, offset_error, meta = WorldAttachment.point_to_pixel_offset(frame, point)
     if not screen_offset then return nil, offset_error end
 
     local area_id = bot and bot.area_id
@@ -3124,17 +3335,27 @@ local function get_navi_ball_point_offset(bot, state_name, elapsed)
         if ok and tonumber(value) and tonumber(value) > 0 then tile_height = tonumber(value) end
     end
 
-    local map_offset, map_error = AnimationPoints.to_map_offset(
-        screen_offset, tile_width, tile_height
-    )
+    local map_offset, map_error = WorldAttachment.pixel_offset_to_map(screen_offset, {
+        projection = "isometric",
+        tile_width = tile_width,
+        tile_height = tile_height,
+        z_correction = {
+            enabled = true,
+            child_z = tonumber(child_z) or 0,
+            scale = 0.5,
+        },
+        anti_jitter = true,
+    })
     if not map_offset then return nil, map_error end
+
     meta = meta or {}
     meta.screen_offset_x, meta.screen_offset_y = screen_offset.x, screen_offset.y
     meta.tile_width, meta.tile_height = tile_width, tile_height
+    meta.child_z_correction = (tonumber(child_z) or 0) * 0.5
     return map_offset, nil, meta
 end
 
-local function read_bot_position(bot)
+read_bot_position = function(bot)
     if bot and bot.id and type(Net.get_bot_position) == "function" then
         local ok, position = pcall(Net.get_bot_position, bot.id)
         if ok and type(position) == "table" then
@@ -3277,13 +3498,7 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
     local function defender_position_at(t)
         if start_position and target_position and shared_duration and shared_duration > 0 then
             local ratio = math.max(0, math.min(1, t / shared_duration))
-            -- Match the defender's InOut position interpolation.
-            local eased = ratio * ratio * (3 - 2 * ratio)
-            return {
-                x = start_position.x + (target_position.x - start_position.x) * eased,
-                y = start_position.y + (target_position.y - start_position.y) * eased,
-                z = start_position.z + (target_position.z - start_position.z) * eased,
-            }
+            return defender_jump_position_at(start_position, target_position, ratio)
         end
         return read_bot_position(defender) or defender.position
     end
@@ -3313,17 +3528,18 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
         }
     }
     local previous_time = elapsed
-    local lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
     for i = 2, #times do
         local sample_time = times[i]
         local point_time = sample_time
         if math.abs(sample_time - finish) < 0.000001 and finish > elapsed then
             point_time = math.max(elapsed, finish - 0.000001)
         end
-        local offset, point_error = get_navi_ball_point_offset(
-            defender, animation_state, point_time
-        )
         local defender_position = defender_position_at(point_time)
+        local lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+        local offset, point_error = get_navi_ball_point_offset(
+            defender, animation_state, point_time,
+            defender_position and ((tonumber(defender_position.z) or 0) + lift) or nil
+        )
         if not offset or not defender_position then
             log("BALL_CATCH: failed building Ball-point track instance=" .. tostring(instance_id)
                 .. " state=" .. tostring(animation_state)
@@ -3332,11 +3548,20 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
             bots.ball_follow_active = false
             return
         end
+        local attached_position, attach_error = WorldAttachment.target_position(
+            defender_position, offset, { z_offset = lift }
+        )
+        if not attached_position then
+            log("BALL_CATCH: failed composing attachment position instance="
+                .. tostring(instance_id) .. " error=" .. tostring(attach_error))
+            bots.ball_follow_active = false
+            return
+        end
         keyframes[#keyframes + 1] = {
             properties = {
-                { property = "X", ease = "Linear", value = defender_position.x + offset.x },
-                { property = "Y", ease = "Linear", value = defender_position.y + offset.y },
-                { property = "Z", ease = "Linear", value = defender_position.z + lift },
+                { property = "X", ease = "Linear", value = attached_position.x },
+                { property = "Y", ease = "Linear", value = attached_position.y },
+                { property = "Z", ease = "Linear", value = attached_position.z },
             },
             duration = math.max(0.001, sample_time - previous_time),
         }
@@ -3456,29 +3681,146 @@ local function resolve_round_winner(instance_id)
                 return
             end
 
-            local shared_duration
-            local defender_start
-            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
-                local start = read_bot_position(defender)
-                if not start then
-                    log("RESULT_FLOW: defender start position unavailable instance="
-                        .. tostring(instance_id))
-                    bots.result_animation_active = false
-                    return
-                end
-                defender_start = start
-                local dx = (tonumber(defender_target.x) or 0) - (tonumber(start.x) or 0)
-                local dy = (tonumber(defender_target.y) or 0) - (tonumber(start.y) or 0)
-                local dz = (tonumber(defender_target.z) or 0) - (tonumber(start.z) or 0)
-                local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-                shared_duration = math.max(0.12, distance / math.max(1,
-                    tonumber(Gameplay.RESULT_DEFENDER_JUMP_SPEED) or 60))
+            local defender_start = read_bot_position(defender) or defender.position
+            if not defender_start then
+                log("RESULT_FLOW: defender start position unavailable instance="
+                    .. tostring(instance_id))
+                bots.result_animation_active = false
+                return
             end
+
+            -- Use the authored jump clip timing and actual map-space travel
+            -- distances to plan one response timeline. Left, Up, and Right all
+            -- get the same minimum defensive cycle; longer movement paths extend
+            -- that cycle instead of making the ball or defender arrive early.
+            local left_jump_duration = get_animation_state_duration(
+                defender, AnimationStates.FOOTBOMB_JUMP_LEFT
+            )
+            local right_jump_duration = get_animation_state_duration(
+                defender, AnimationStates.FOOTBOMB_JUMP_RIGHT
+            )
+            local jump_cycle_duration = math.max(
+                tonumber(left_jump_duration) or 0,
+                tonumber(right_jump_duration) or 0
+            )
+            local defender_speed = math.max(1, tonumber(Gameplay.RESULT_DEFENDER_JUMP_SPEED) or 60)
+            -- The prior bomb speed made the defender's movement stretch well
+            -- beyond the authored jump clip (for example ~2.44s for a ~0.92s
+            -- jump). Result-phase ball travel uses a local 3x speed multiplier;
+            -- configured gameplay constants remain unchanged for other phases.
+            local base_bomb_speed = math.max(1, tonumber(Gameplay.RESULT_BOMB_MOVE_SPEED)
+                or tonumber(Gameplay.RESULT_KICKER_WALK_U_SPEED) or 150)
+            local response_bomb_speed = base_bomb_speed * 3.0
+            local bomb_speed = response_bomb_speed
+            local bomb_start = read_bot_position(bots.bomb_bot)
+                or bots.bomb_bot.position or points.Bomb
+            local defender_distance = world_xy_distance(defender_start, defender_target) or 0
+            local defender_travel_duration = 0
+            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                defender_travel_duration = defender_distance / defender_speed
+            end
+            local bomb_target_distance = world_xy_distance(bomb_start, bomb_target) or 0
+            local is_matching_jump = winner.role == "Defender"
+                and (defender.direction_choice == "Left" or defender.direction_choice == "Right")
+            local is_center_catch = winner.role == "Defender"
+                and kicker.direction_choice == "Up" and defender.direction_choice == "Up"
+            local bomb_target_travel_duration = bomb_target_distance / bomb_speed
+            local shared_duration = math.max(
+                0.12,
+                jump_cycle_duration,
+                defender_travel_duration,
+                (is_matching_jump or is_center_catch) and 0 or bomb_target_travel_duration
+            )
+
+            -- A matching jump catches at the animation's Ball point halfway
+            -- through the response, then the ball follows the point for the
+            -- second half. Solve the duration against the real ball-to-catch
+            -- distance; sample again if extending the duration changes the
+            -- animation frame used at contact.
+            if is_matching_jump then
+                local target_position = {
+                    x = tonumber(defender_target.x) or tonumber(defender_start.x) or 0,
+                    y = tonumber(defender_target.y) or tonumber(defender_start.y) or 0,
+                    z = tonumber(defender_target.z) or tonumber(defender_start.z) or 0,
+                }
+                local start_position = {
+                    x = tonumber(defender_start.x) or 0,
+                    y = tonumber(defender_start.y) or 0,
+                    z = tonumber(defender_start.z) or 0,
+                }
+                for _ = 1, 8 do
+                    local contact_elapsed = shared_duration / 2
+                    local ratio = math.max(0, math.min(1, contact_elapsed / shared_duration))
+                    -- Sample the same curved world-space path used by the
+                    -- defender's jump keyframes so contact stays synchronized.
+                    local midpoint = defender_jump_position_at(start_position, target_position, ratio)
+                    local offset = get_navi_ball_point_offset(
+                        defender, defender_animation, contact_elapsed, midpoint.z
+                    )
+                    if type(offset) == "table" then
+                        local catch_position = WorldAttachment.target_position(
+                            midpoint, offset, { z_offset = 0 }
+                        )
+                        if catch_position then
+                            local ball_distance = world_xy_distance(bomb_start, catch_position) or 0
+                            local required_speed = ball_distance / math.max(0.001, shared_duration / 2)
+                            if required_speed > response_bomb_speed then
+                                response_bomb_speed = required_speed
+                                bomb_speed = response_bomb_speed
+                            end
+                            -- Preserve the authored jump cycle. If this Navi's
+                            -- Ball point is farther away, accelerate the ball to
+                            -- meet the same contact time instead of stretching
+                            -- the Defender's jump and making the motion sluggish.
+                            break
+                        else
+                            break
+                        end
+                    else
+                        break
+                    end
+                end
+            elseif is_center_catch then
+                -- The Up defense is stationary, but its Ball point is still the
+                -- catch target. Give the ball half of the shared cycle to reach
+                -- that point, then hold/follow it for the second half.
+                local ball_lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+                local ready_offset = get_navi_ball_point_offset(
+                    defender, AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
+                    (tonumber(defender_target.z) or 0) + ball_lift
+                )
+                if type(ready_offset) == "table" then
+                    local ready_catch = WorldAttachment.target_position(
+                        defender_target, ready_offset, { z_offset = ball_lift }
+                    )
+                    if ready_catch then
+                        local ball_distance = world_xy_distance(bomb_start, ready_catch) or 0
+                        local required_speed = ball_distance / math.max(0.001, shared_duration / 2)
+                        if required_speed > response_bomb_speed then
+                            response_bomb_speed = required_speed
+                            bomb_speed = response_bomb_speed
+                        end
+                    end
+                end
+            end
+
+            log("RESULT_FLOW: planned shared response timing instance=" .. tostring(instance_id)
+                .. " direction=" .. tostring(defender.direction_choice)
+                .. " jump_cycle_duration=" .. tostring(jump_cycle_duration)
+                .. " defender_distance=" .. tostring(defender_distance)
+                .. " defender_travel_duration=" .. tostring(defender_travel_duration)
+                .. " bomb_target_distance=" .. tostring(bomb_target_distance)
+                .. " bomb_target_travel_duration=" .. tostring(bomb_target_travel_duration)
+                .. " base_bomb_speed=" .. tostring(base_bomb_speed)
+                .. " response_bomb_speed=" .. tostring(response_bomb_speed)
+                .. " shared_duration=" .. tostring(shared_duration)
+                .. " matching_jump=" .. tostring(is_matching_jump)
+                .. " center_catch=" .. tostring(is_center_catch))
 
             log("RESULT_FLOW: launching bomb and defender response together instance="
                 .. tostring(instance_id) .. " bomb_target=" .. tostring(target_name)
                 .. " defender_target=" .. tostring(defender_target_name)
-                .. " shared_duration=" .. tostring(shared_duration or "bomb-only"))
+                .. " shared_duration=" .. tostring(shared_duration))
 
             -- Start the jump as a one-shot. Defender movement keyframes only
             -- interpolate position so they cannot restart/loop the jump state.
@@ -3489,10 +3831,48 @@ local function resolve_round_winner(instance_id)
             set_result_animation(defender, defender_animation, defender_direction,
                 "defender-response-launch", defender_animation_loops)
 
+            -- Freeze the authored final jump frame before the one-shot clip can
+            -- fall back to an empty/default state. The *_END state is a single
+            -- frame containing that same final pose; loop it from the start of
+            -- the jump's last frame through the result hold and camera fade.
+            if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
+                local final_hold_state = defender.direction_choice == "Left"
+                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
+                local jump_total, final_frame_duration = get_animation_final_frame_timing(
+                    defender, defender_animation
+                )
+                if jump_total and final_frame_duration then
+                    -- Keep the animated jump visible through the curved travel.
+                    -- Switch to the matching one-frame landing pose only just
+                    -- before the world-space path reaches its final point; this
+                    -- avoids the old mid-flight state swap that could make the
+                    -- bot pop/disappear while position keyframes were still active.
+                    local final_frame_delay = math.max(0, math.min(jump_total, shared_duration) - 0.025)
+                    log("ANIM_FLOW: scheduling final jump-frame hold bot=" .. tostring(defender.id)
+                        .. " jump_state=" .. tostring(defender_animation)
+                        .. " hold_state=" .. tostring(final_hold_state)
+                        .. " hold_after=" .. tostring(final_frame_delay)
+                        .. " final_frame_duration=" .. tostring(final_frame_duration)
+                        .. " shared_duration=" .. tostring(shared_duration))
+                    async(function()
+                        if final_frame_delay > 0 then await(Async.sleep(final_frame_delay)) end
+                        if State.instance_bots[instance_id] ~= bots or not bots.result_animation_active then
+                            return
+                        end
+                        set_result_animation(
+                            defender, final_hold_state, defender_direction,
+                            "defender-final-jump-frame-hold", true
+                        )
+                    end)
+                else
+                    log("ANIM_FLOW: could not time final jump-frame hold bot=" .. tostring(defender.id)
+                        .. " state=" .. tostring(defender_animation))
+                end
+            end
+
             local bomb_done, bomb_ok = false, false
             local defender_done, defender_ok = false, false
-            local is_matching_jump = winner.role == "Defender"
-                and (defender.direction_choice == "Left" or defender.direction_choice == "Right")
             if is_matching_jump and shared_duration and defender_start then
                 local half_duration = shared_duration / 2
                 local start_position = {
@@ -3505,27 +3885,29 @@ local function resolve_round_winner(instance_id)
                     y = tonumber(defender_target.y) or start_position.y,
                     z = tonumber(defender_target.z) or start_position.z,
                 }
-                local midpoint = {
-                    x = (start_position.x + target_position.x) / 2,
-                    y = (start_position.y + target_position.y) / 2,
-                    z = (start_position.z + target_position.z) / 2,
-                }
+                local midpoint = defender_jump_position_at(start_position, target_position, 0.5)
                 -- Convert the Ball point from sprite-pixel coordinates into
                 -- isometric map-coordinate offsets before adding it to the
                 -- defender's map position. Raw pixel offsets here would move
                 -- the ball many tiles away, outside the field.
                 local catch_offset, catch_point_error, catch_point_meta = get_navi_ball_point_offset(
-                    defender, defender_animation, half_duration
+                    defender, defender_animation, half_duration, midpoint.z
                 )
+                local catch_position
                 if catch_offset then
-                    local catch_position = {
-                        x = midpoint.x + catch_offset.x,
-                        y = midpoint.y + catch_offset.y,
-                        -- Keep the catch travel on the defender's current Z
-                        -- layer. The small render-order lift is applied when
-                        -- the follower takes over at the Ball point.
-                        z = midpoint.z,
-                    }
+                    -- Keep the catch travel on the defender's current Z layer;
+                    -- the render-order lift is applied when the follower takes over.
+                    local catch_position_error
+                    catch_position, catch_position_error = WorldAttachment.target_position(
+                        midpoint, catch_offset, { z_offset = 0 }
+                    )
+                    if not catch_position then
+                        log("BALL_CATCH: failed composing catch position instance="
+                            .. tostring(instance_id) .. " error=" .. tostring(catch_position_error))
+                        catch_offset = nil
+                    end
+                end
+                if catch_offset then
                     log("BALL_CATCH: matching jump catch scheduled instance=" .. tostring(instance_id)
                         .. " direction=" .. tostring(defender.direction_choice)
                         .. " state=" .. tostring(defender_animation)
@@ -3543,7 +3925,7 @@ local function resolve_round_winner(instance_id)
                         .. "x" .. tostring(catch_point_meta and catch_point_meta.tile_height))
                     async(function()
                         bomb_ok = move_bot_smoothly(
-                            bots.bomb_bot, catch_position, Gameplay.RESULT_BOMB_MOVE_SPEED,
+                            bots.bomb_bot, catch_position, response_bomb_speed,
                             "bomb-to-defender-ball-point", nil, half_duration
                         )
                         if bomb_ok then
@@ -3564,7 +3946,7 @@ local function resolve_round_winner(instance_id)
                         .. " error=" .. tostring(catch_point_error))
                     async(function()
                         bomb_ok = move_bot_smoothly(
-                            bots.bomb_bot, bomb_target, Gameplay.RESULT_BOMB_MOVE_SPEED,
+                            bots.bomb_bot, bomb_target, response_bomb_speed,
                             "bomb-to-" .. tostring(target_name), nil, shared_duration
                         )
                         bomb_done = true
@@ -3572,63 +3954,75 @@ local function resolve_round_winner(instance_id)
                 end
             else
                 async(function()
-                    bomb_ok = move_bot_smoothly(
-                        bots.bomb_bot, bomb_target, Gameplay.RESULT_BOMB_MOVE_SPEED,
-                        "bomb-to-" .. tostring(target_name), nil, shared_duration
-                    )
-                    -- When both choices are center/Up, the defender does not
-                    -- perform a jump. Attach the ball as soon as it reaches the
-                    -- center target, then keep sampling the held defense state's
-                    -- Ball point until the camera fade starts.
-                    if bomb_ok and winner.role == "Defender"
-                        and kicker.direction_choice == "Up"
-                        and defender.direction_choice == "Up" then
+                    local center_catch_position
+                    local center_catch_duration = shared_duration
+                    if is_center_catch then
                         local defender_position = read_bot_position(defender)
                             or defender.position or defender_target
+                        local ball_z_lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
                         local attach_offset, attach_error = get_navi_ball_point_offset(
-                            defender, AnimationStates.FOOTBOMB_READY_DEFENSE, 0
+                            defender, AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
+                            (tonumber(defender_position.z) or 0) + ball_z_lift
                         )
                         if attach_offset then
-                            local attach_position = {
-                                x = defender_position.x + attach_offset.x,
-                                y = defender_position.y + attach_offset.y,
-                                z = defender_position.z + (tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1),
-                            }
-                            set_bot_position_immediately(
-                                bots.bomb_bot, attach_position, "center-catch-initial-attach"
+                            local attach_position_error
+                            center_catch_position, attach_position_error = WorldAttachment.target_position(
+                                defender_position, attach_offset, { z_offset = ball_z_lift }
                             )
-                            bots.ball_follow_active = true
-                            set_bot_animation_state(
-                                bots.bomb_bot.id,
-                                bots.bomb_bot.animation_state or AnimationStates.SMALL_BOMB,
-                                true
-                            )
-                            async(function()
-                                follow_defender_ball_point(
-                                    instance_id, bots, bots.bomb_bot, defender,
-                                    AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
-                                    0, defender_position, defender_position
-                                )
-                            end)
-                            log("BALL_CATCH: center/center ball attached instance="
-                                .. tostring(instance_id) .. " defender_z="
-                                .. tostring(defender_position.z) .. " ball_z="
-                                .. tostring(attach_position.z))
+                            if not center_catch_position then
+                                log("BALL_CATCH: failed composing center catch target instance="
+                                    .. tostring(instance_id) .. " error=" .. tostring(attach_position_error))
+                            end
                         else
                             log("BALL_CATCH: center/center Ball point unavailable instance="
                                 .. tostring(instance_id) .. " error=" .. tostring(attach_error))
                         end
+                        if center_catch_position then
+                            center_catch_duration = shared_duration / 2
+                        end
+                    end
+
+                    local bomb_destination = center_catch_position or bomb_target
+                    bomb_ok = move_bot_smoothly(
+                        bots.bomb_bot, bomb_destination, response_bomb_speed,
+                        is_center_catch and "bomb-to-center-ball-point" or ("bomb-to-" .. tostring(target_name)),
+                        nil, center_catch_duration
+                    )
+                    -- Center/Up has no jump clip: arrive at the actual authored
+                    -- Ball point halfway through the shared cycle, then keep the
+                    -- ball attached while the rest of the defensive cycle elapses.
+                    if bomb_ok and is_center_catch and center_catch_position then
+                        local defender_position = read_bot_position(defender)
+                            or defender.position or defender_target
+                        bots.ball_follow_active = true
+                        set_bot_animation_state(
+                            bots.bomb_bot.id,
+                            bots.bomb_bot.animation_state or AnimationStates.SMALL_BOMB,
+                            true
+                        )
+                        async(function()
+                            follow_defender_ball_point(
+                                instance_id, bots, bots.bomb_bot, defender,
+                                AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
+                                shared_duration / 2, defender_position, defender_position
+                            )
+                        end)
+                        log("BALL_CATCH: center/center ball reached Ball point instance="
+                            .. tostring(instance_id) .. " contact_elapsed="
+                            .. tostring(center_catch_duration) .. " shared_duration="
+                            .. tostring(shared_duration) .. " defender_z="
+                            .. tostring(defender_position.z) .. " ball_z="
+                            .. tostring(center_catch_position.z))
+                        await(Async.sleep(math.max(0, shared_duration - center_catch_duration)))
                     end
                     bomb_done = true
                 end)
             end
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
                 async(function()
-                    defender_ok = move_bot_smoothly(
-                        defender, defender_target,
-                        Gameplay.RESULT_DEFENDER_JUMP_SPEED or 60,
-                        "defender-to-" .. tostring(defender_target_name),
-                        nil, shared_duration
+                    defender_ok = move_defender_jump_arc(
+                        defender, defender_target, shared_duration,
+                        "defender-to-" .. tostring(defender_target_name)
                     )
                     defender_done = true
                 end)
@@ -3650,24 +4044,12 @@ local function resolve_round_winner(instance_id)
                 bots.result_animation_active = false
                 return
             end
-            -- The jump state is a one-shot: don't let movement keyframes restart
-            -- it. Once the Defender arrives, switch to the matching authored end
-            -- pose and hold that state instead of repeatedly replaying the jump.
+            -- The final jump frame has already been frozen at its authored
+            -- frame boundary. Do not restart the jump or transition poses again
+            -- on arrival; keep the held pose visible through the camera fade.
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
-                local end_animation = defender.direction_choice == "Left"
-                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
-                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
-                local arrival_animation_ok = set_result_animation(
-                    defender,
-                    end_animation,
-                    defender_direction,
-                    "defender-arrival-end-pose",
-                    true
-                )
-                log("RESULT_FLOW: defender end pose applied bot="
-                    .. tostring(defender.id)
-                    .. " state=" .. tostring(end_animation)
-                    .. " success=" .. tostring(arrival_animation_ok))
+                log("RESULT_FLOW: defender final jump frame held through result transition bot="
+                    .. tostring(defender.id) .. " direction=" .. tostring(defender.direction_choice))
             else
                 set_result_animation(
                     defender,

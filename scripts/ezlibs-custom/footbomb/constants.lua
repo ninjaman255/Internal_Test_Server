@@ -78,7 +78,7 @@ local constants = {
         RESULT_BOMB_MOVE_SPEED = 3,
         RESULT_DEFENDER_JUMP_SPEED = 3,
         -- Render the attached ball in front of the defender using bot depth.
-        RESULT_BALL_Z_LIFT = 0.01,
+        RESULT_BALL_Z_LIFT = 4,
     },
 }
 

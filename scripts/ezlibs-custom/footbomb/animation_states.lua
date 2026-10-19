@@ -3,7 +3,6 @@
 -- files and this list together when the game adds or renames a state.
 return {
     IDLE_D = "IDLE_D",
-    IDLE_DR = "IDLE_DR",
     IDLE_UR = "IDLE_UR",
     IDLE_U = "IDLE_U",
     WALK_U = "WALK_U",
