@@ -2808,13 +2808,13 @@ local function set_result_animation(bot, animation_state, direction, phase, shou
     if not bot then return false end
     -- Do not reassign the avatar here. Movement phases change animation state,
     -- not assets; reassigning can prompt clients to reload the animation file.
-    if direction and type(Net.set_bot_direction) == "function" then
-        local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
-        if not direction_ok or direction_result == false then
-            log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
-                .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction))
-        end
-    end
+    -- if direction and type(Net.set_bot_direction) == "function" then
+    --     local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
+    --     if not direction_ok or direction_result == false then
+    --         log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
+    --             .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction))
+    --     end
+    -- end
     local animation_ok, animation_result = set_bot_animation_state(bot.id, animation_state, should_loop)
     log("RESULT_FLOW: animation bot=" .. tostring(bot.id)
         .. " phase=" .. tostring(phase) .. " state=" .. tostring(animation_state)

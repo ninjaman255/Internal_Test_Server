@@ -6,7 +6,7 @@
   <property name="Background Vel X" value="0.20"/>
   <property name="Background Vel Y" value=".1"/>
   <property name="Name" value="                  "/>
-  <property name="Song" value="/server/assets/demo/space.ogg"/>
+  <property name="Song" value="/server/assets/net-game-footbomb/music/Wsoccer.ogg"/>
  </properties>
  <tileset firstgid="1" source="../assets/tiles/coffee.tsx"/>
  <tileset firstgid="5" source="../assets/demo/warp.tsx"/>
