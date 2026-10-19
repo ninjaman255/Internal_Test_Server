@@ -16,4 +16,5 @@ return {
     FOOTBOMB_JUMP_LEFT_END = "FOOTBOMB_JUMP_LEFT_END",
     BOMB_PREVIEW = "Preview",
     SMALL_BOMB = "Small-Bomb",
+    BIG_BOMB = "Big-Bomb",
 }

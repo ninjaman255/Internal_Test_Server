@@ -67,9 +67,13 @@ local SCOREBOARD_ANIMATION = Assets.SCOREBOARD_ANIMATION
 local SCOREBOARD_X = UI.SCOREBOARD_X
 local SCOREBOARD_Y = UI.SCOREBOARD_Y
 local SCOREBOARD_SCALE = UI.SCOREBOARD_SCALE
-local SCORE_PLAYER_ONE_X = UI.SCORE_PLAYER_ONE_X
-local SCORE_PLAYER_TWO_X = UI.SCORE_PLAYER_TWO_X
-local SCORE_TEXT_Y = UI.SCORE_TEXT_Y
+-- Score text is centered inside the scoreboard's two fixed score panels.
+-- Coordinates use the same virtual-screen space as games.draw_advanced_text.
+local SCORE_BOX_PLAYER_ONE_X = 67
+local SCORE_BOX_PLAYER_TWO_X = 122
+local SCORE_BOX_Y = 54
+local SCORE_BOX_WIDTH = 52
+local SCORE_BOX_HEIGHT = 55
 local SCORE_TEXT_SCALE = UI.SCORE_TEXT_SCALE
 local ROLE_TEXT_Y = UI.ROLE_TEXT_Y
 local ROLE_TEXT_SCALE = UI.ROLE_TEXT_SCALE
@@ -779,6 +783,139 @@ local function cleanup_empty_instance(instance)
     end
 end
 
+-- Validate and preload every bot/bomb asset into the instance area before
+-- creating any bots. Player-only provisioning is still kept for UI assets, but
+-- area provisioning prevents the first bot frame from racing the client's
+-- asset delivery when a player enters the newly-created map.
+local function server_asset_file_exists(path)
+    if type(path) ~= "string" or path == "" then return false end
+    local file = io.open(path, "rb")
+    if file then file:close(); return true end
+    local relative = path:gsub("^/server/", "")
+    if relative ~= path then
+        file = io.open(relative, "rb")
+        if file then file:close(); return true end
+    end
+    return false
+end
+
+local function provide_instance_asset(area_id, path)
+    if type(area_id) ~= "string" or area_id == ""
+        or type(path) ~= "string" or path == "" then
+        return false, "invalid area or asset path"
+    end
+    if not server_asset_file_exists(path) then
+        log("ASSET_FLOW: required server asset file is missing area="
+            .. tostring(area_id) .. " path=" .. tostring(path))
+        return false, "server file missing: " .. tostring(path)
+    end
+    if type(Net.provide_asset) ~= "function" then
+        log("ASSET_FLOW: Net.provide_asset unavailable area=" .. tostring(area_id)
+            .. " path=" .. tostring(path))
+        return false, "Net.provide_asset is unavailable"
+    end
+    local ok, result = pcall(Net.provide_asset, area_id, path)
+    if not ok or result == false then
+        log("ASSET_FLOW: area asset provision failed area=" .. tostring(area_id)
+            .. " path=" .. tostring(path) .. " pcall_ok=" .. tostring(ok)
+            .. " return=" .. tostring(result))
+        return false, "could not provide " .. tostring(path) .. ": " .. tostring(result)
+    end
+    log("ASSET_FLOW: area asset provided area=" .. tostring(area_id)
+        .. " path=" .. tostring(path) .. " pcall_ok=true return=" .. tostring(result))
+    return true
+end
+
+local function validate_animation_states(path, required_states, label)
+    local ok, animation, load_error = pcall(Boom.load, path)
+    if not ok or type(animation) ~= "table" then
+        local detail = tostring(load_error or animation)
+        log("ASSET_FLOW: animation parse failed label=" .. tostring(label)
+            .. " path=" .. tostring(path) .. " error=" .. detail)
+        return false, "cannot parse " .. tostring(path) .. ": " .. detail
+    end
+    if animation.version ~= "2.0" then
+        local detail = "expected animation v2.0, got v" .. tostring(animation.version)
+        log("ASSET_FLOW: unsupported animation version label=" .. tostring(label)
+            .. " path=" .. tostring(path) .. " detail=" .. detail)
+        return false, detail
+    end
+    for _, state_name in ipairs(required_states or {}) do
+        local state = animation.states and animation.states[state_name]
+        if type(state) ~= "table" or type(state.framelist) ~= "table"
+            or #state.framelist == 0 then
+            local detail = "missing/empty state " .. tostring(state_name)
+            log("ASSET_FLOW: required animation state missing label=" .. tostring(label)
+                .. " path=" .. tostring(path) .. " state=" .. tostring(state_name))
+            return false, detail
+        end
+    end
+    return true
+end
+
+local function provide_instance_bot_assets(area_id)
+    local paths, seen = {}, {}
+    local function add(path)
+        if type(path) == "string" and path ~= "" and not seen[path] then
+            seen[path] = true
+            paths[#paths + 1] = path
+        end
+    end
+
+    local required_navi_states = {
+        AnimationStates.IDLE_D,
+        AnimationStates.IDLE_U,
+        AnimationStates.IDLE_UR,
+        AnimationStates.WALK_U,
+        AnimationStates.WALK_UR,
+        AnimationStates.FOOTBOMB_IDLE_DEFENSE,
+        AnimationStates.FOOTBOMB_READY_DEFENSE,
+        AnimationStates.FOOTBOMB_JUMP_LEFT,
+        AnimationStates.FOOTBOMB_JUMP_LEFT_END,
+        AnimationStates.FOOTBOMB_JUMP_RIGHT,
+        AnimationStates.FOOTBOMB_JUMP_RIGHT_END,
+    }
+    local required_bomb_states = {
+        AnimationStates.SMALL_BOMB,
+        AnimationStates.BIG_BOMB,
+        AnimationStates.BOMB_PREVIEW,
+    }
+
+    -- Parse with Boom before any bot exists so bad files or renamed states fail
+    -- during setup rather than after a visible bot has already spawned.
+    for _, option in ipairs(NAVI_OPTIONS) do
+        local valid, detail = validate_animation_states(
+            option.animation, required_navi_states, "Navi " .. tostring(option.name))
+        if not valid then return false, detail end
+        add(option.texture)
+        add(option.animation)
+        add(option.texture:gsub("%.png$", "-mug.png"))
+    end
+    add(DEFAULT_MUG_ANIMATION)
+
+    for _, option in ipairs(BOMB_OPTIONS) do
+        local texture = BOMB_ASSET_FOLDER .. option.asset_name .. ".png"
+        local animation_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".animation"
+        local valid, detail = validate_animation_states(
+            animation_path, required_bomb_states, "bomb " .. tostring(option.name))
+        if not valid then return false, detail end
+        add(texture)
+        add(animation_path)
+    end
+
+    local provided = 0
+    for _, path in ipairs(paths) do
+        local ok, detail = provide_instance_asset(area_id, path)
+        if not ok then return false, detail end
+        provided = provided + 1
+    end
+    log("ASSET_FLOW: instance bot asset preload complete area=" .. tostring(area_id)
+        .. " assets=" .. tostring(provided)
+        .. " navi_skins=" .. tostring(#NAVI_OPTIONS)
+        .. " bomb_skins=" .. tostring(#BOMB_OPTIONS))
+    return true
+end
+
 local function make_instance(player_id, source_area_id, object, mode)
     local props = object.custom_properties or {}
 
@@ -818,6 +955,14 @@ local function make_instance(player_id, source_area_id, object, mode)
 
     if not instance then
         return nil, err
+    end
+
+    -- Provision and validate the instance's bot assets before creating any
+    -- actors or transferring players into the area.
+    local assets_ok, assets_error = provide_instance_bot_assets(instance.area_id)
+    if not assets_ok then
+        pcall(EzMapInstance.remove, instance.id)
+        return nil, "FootBomb instance asset preflight failed: " .. tostring(assets_error)
     end
 
     local spawn_points, spawn_error =
@@ -2124,8 +2269,9 @@ local function spawn_bomb_bot_for_round(instance_id, human_reps)
 end
 
 -- Apply a custom defensive animation state after the bot has reached its
--- round position. Refreshing the avatar assets first is important for clients
--- that have not bound the bot's animation file yet.
+-- round position. The avatar is assigned when the bot is created; do not call
+-- set_bot_avatar for every state change because clients may reload the texture
+-- and animation file, showing a loading indicator or briefly dropping frames.
 local function set_defender_animation_for_round(instance_id, animation_state, phase)
     local bots = State.instance_bots[instance_id]
     if not bots then
@@ -2150,20 +2296,6 @@ local function set_defender_animation_for_round(instance_id, animation_state, ph
         .. " phase=" .. tostring(phase)
         .. " state=" .. tostring(animation_state)
         .. " navi=" .. tostring(defender.navi_name))
-
-    if defender.texture_path and defender.animation_path
-        and type(Net.set_bot_avatar) == "function" then
-        local avatar_ok, avatar_result = pcall(
-            Net.set_bot_avatar,
-            defender.id,
-            defender.texture_path,
-            defender.animation_path
-        )
-        log("ANIM_FLOW: defender avatar refresh returned bot="
-            .. tostring(defender.id) .. " phase=" .. tostring(phase)
-            .. " pcall_ok=" .. tostring(avatar_ok)
-            .. " return=" .. tostring(avatar_result))
-    end
 
     local animation_ok, animation_result = pcall(
         Net.animate_bot, defender.id, animation_state, true
@@ -2223,25 +2355,8 @@ local function set_kicker_pose_for_round(instance_id)
         .. " direction_ok=" .. tostring(direction_before_ok)
         .. " direction=" .. tostring(direction_before))
 
-    -- Re-apply the same avatar assets before requesting the state. This is a
-    -- targeted test for clients that have not bound the bot's animation file
-    -- yet; it does not change the selected Navi skin.
-    if kicker.texture_path and kicker.animation_path
-        and type(Net.set_bot_avatar) == "function" then
-        log("ANIM_FLOW: refreshing kicker avatar assets bot="
-            .. tostring(kicker.id)
-            .. " animation_path=" .. tostring(kicker.animation_path))
-        local avatar_ok, avatar_result = pcall(
-            Net.set_bot_avatar,
-            kicker.id,
-            kicker.texture_path,
-            kicker.animation_path
-        )
-        log("ANIM_FLOW: kicker avatar refresh returned bot="
-            .. tostring(kicker.id)
-            .. " pcall_ok=" .. tostring(avatar_ok)
-            .. " return=" .. tostring(avatar_result))
-    end
+    -- The avatar was assigned when this bot was created. Keep state changes
+    -- separate from asset assignment to avoid triggering client-side reloads.
 
     log("ANIM_FLOW: applying kicker direction bot="
         .. tostring(kicker.id) .. " direction=Up Right")
@@ -2484,15 +2599,52 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
     )
 
 
-    local score_size_one = TextLayout.measure(bots.player_one_score, {font = "THICK",scale = SCORE_TEXT_SCALE })
-    local score_size_two = TextLayout.measure(bots.player_two_score, {font ="THICK" ,scale = SCORE_TEXT_SCALE })
+    local score_text_one = tostring(bots.player_one_score or 0)
+    local score_text_two = tostring(bots.player_two_score or 0)
+    local score_text_options = { font = "THICK", scale = SCORE_TEXT_SCALE }
 
-    pcall(games.draw_advanced_text, rep.score_player_one_text_id, player_id,
-        tostring(bots.player_one_score or 0), SCORE_PLAYER_ONE_X,
-        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE, {})
-    pcall(games.draw_advanced_text, rep.score_player_two_text_id, player_id,
-        tostring(bots.player_two_score or 0), SCORE_PLAYER_TWO_X,
-        SCORE_TEXT_Y, 101, "THICK", SCORE_TEXT_SCALE, {})
+    -- TextLayout.measure may expose dimensions as a table or as two return
+    -- values; support either shape so centering follows the actual digit count.
+    local function measure_score(text)
+        local measured_width, measured_height = TextLayout.measure(text, score_text_options)
+        if type(measured_width) == "table" then
+            local size = measured_width
+            measured_width = size.width or size.w or size[1]
+            measured_height = size.height or size.h or size[2]
+        end
+
+        -- measureLine is the established width-only API used elsewhere here.
+        measured_width = tonumber(measured_width)
+            or TextLayout.measureLine(text, score_text_options)
+        measured_height = tonumber(measured_height)
+
+        -- Keep vertical centering useful if this TextLayout version only
+        -- reports width. The font's rendered line height scales with its scale.
+        if not measured_height or measured_height <= 0 then
+            measured_height = 16 * SCORE_TEXT_SCALE
+        end
+
+        return measured_width, measured_height
+    end
+
+    local score_width_one, score_height_one = measure_score(score_text_one)
+    local score_width_two, score_height_two = measure_score(score_text_two)
+
+    local score_one_x = SCORE_BOX_PLAYER_ONE_X
+        + (SCORE_BOX_WIDTH - score_width_one) / 2
+    local score_one_y = SCORE_BOX_Y
+        + (SCORE_BOX_HEIGHT - score_height_one) / 2
+    local score_two_x = SCORE_BOX_PLAYER_TWO_X
+        + (SCORE_BOX_WIDTH - score_width_two) / 2
+    local score_two_y = SCORE_BOX_Y
+        + (SCORE_BOX_HEIGHT - score_height_two) / 2
+
+    pcall(games.draw_text, rep.score_player_one_text_id, player_id,
+        score_text_one, math.floor(score_one_x + 0.5),
+        math.floor(score_one_y + 0.5), 101, "THICK", SCORE_TEXT_SCALE)
+    pcall(games.draw_text, rep.score_player_two_text_id, player_id,
+        score_text_two, math.floor(score_two_x + 0.5),
+        math.floor(score_two_y + 0.5), 101, "THICK", SCORE_TEXT_SCALE)
 end
 
 local function update_scoreboard(instance_id)
@@ -2577,9 +2729,10 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
     local move_speed = math.max(1, tonumber(speed) or Gameplay.RESULT_KICKER_WALK_U_SPEED or 150)
     local duration = math.max(0.12, tonumber(duration_override) or (distance / move_speed))
 
-    -- Keep the current position as a zero-duration starting keyframe, then let
-    -- the engine interpolate X/Y/Z over the duration of the second keyframe.
-    -- This follows the Net.animate_bot_properties patterns used by ezlibs.
+    -- Follow the proven indy-trains keyframe shape: a zero-duration starting
+    -- frame followed by a timed destination frame. Keep the intended Animation
+    -- in both movement frames and prime it with Net.animate_bot before the
+    -- sequence, so asset/state selection is explicit at every transition.
     local start_properties = {
         { property = "X", value = sx },
         { property = "Y", value = sy },
@@ -2653,10 +2806,8 @@ end
 
 local function set_result_animation(bot, animation_state, direction, phase, should_loop)
     if not bot then return false end
-    if bot.texture_path and bot.animation_path
-        and type(Net.set_bot_avatar) == "function" then
-        pcall(Net.set_bot_avatar, bot.id, bot.texture_path, bot.animation_path)
-    end
+    -- Do not reassign the avatar here. Movement phases change animation state,
+    -- not assets; reassigning can prompt clients to reload the animation file.
     if direction and type(Net.set_bot_direction) == "function" then
         local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
         if not direction_ok or direction_result == false then
@@ -2992,13 +3143,13 @@ local function move_bot_follow_keyframe(bot, position, phase, duration)
     local tz = tonumber(position.z) or sz
 
     if type(Net.animate_bot_properties) ~= "function" then
-        log("BALL_CATCH: keyframe follow unavailable; using immediate position update phase="
-            .. tostring(phase) .. " (animation persistence may vary by client)")
-        local moved = set_bot_position_immediately(bot, {
-            x = tx, y = ty, z = tz
-        }, phase)
-        await(Async.sleep(duration))
-        return moved
+        -- Do not fall back to Net.move_bot here: repeated immediate position
+        -- updates are the suspected trigger for clients losing the bomb's
+        -- looping animation. Prefer stopping the attachment update to clearing
+        -- or replacing the visible animation state.
+        log("BALL_CATCH: keyframe follow unavailable; refusing immediate-move fallback phase="
+            .. tostring(phase) .. " bot=" .. tostring(bot.id))
+        return false
     end
 
     -- Mirror the character movement pattern (current-position frame followed
@@ -3697,7 +3848,7 @@ begin_next_round = function(instance_id)
         .. " kicker_pcall_ok=" .. tostring(kicker_pose_set)
         .. " kicker_result=" .. tostring(kicker_pose_result))
 
-    await(Async.sleep(0.8))
+    await(Async.sleep(0.2))
     local defender_ready_set = set_defender_animation_for_round(
         instance_id, AnimationStates.FOOTBOMB_READY_DEFENSE, "next-round-ready")
     log("ROUND_SETUP: next-round defender ready instance="
