@@ -3897,10 +3897,12 @@ local function resolve_round_winner(instance_id)
                     -- bot pop/disappear while position keyframes were still active.
                     -- Schedule the held landing pose with enough margin to beat
                     -- one-shot completion even if Async.sleep wakes a little late.
-                    -- The margin is half of the authored final-frame duration,
-                    -- capped at 80 ms; this keeps the final pose visible without
-                    -- letting the one-shot fall back to a default/missing state.
-                    local hold_margin = math.min(0.08, math.max(0.04, final_frame_duration * 0.5))
+                    -- Async.sleep can resume late under load, and the client may
+                    -- finish rendering a one-shot a little after the server-side
+                    -- timeline. Switch to the looping *_END pose with a larger
+                    -- safety margin so the one-shot cannot briefly fall back to
+                    -- an idle/default state at the catch or landing boundary.
+                    local hold_margin = math.min(0.18, math.max(0.12, final_frame_duration * 0.75))
                     local final_frame_delay = math.max(
                         0, math.min(jump_total, response_timeline.duration) - hold_margin
                     )

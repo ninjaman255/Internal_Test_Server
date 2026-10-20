@@ -76,3 +76,12 @@ This pass intentionally preserves the existing destination points, curved defend
 The side-jump result now has one coroutine responsible for the Defender's jump-to-landing animation transition. It switches to the authored `*_END` pose near the final jump frame, then reasserts that pose once after the movement track reports completion. The movement coroutine only reports completion, and the shared result barrier no longer issues another duplicate animation write. This reduces competing animation-state writers while preserving the early transition and post-movement safety reassertion.
 
 This pass does not remove general `Async.sleep` calls or change the shared response duration. The remaining short polling sleep in the pose owner is deliberate synchronization with movement completion; if this pass does not improve consistency in-game, the next diagnostic pass should trace which sleeps are only polling and replace those with completion signaling where the async API permits it.
+
+
+## Pass 3.1 — Jump landing-state stability
+
+The final-frame transition now uses a 120–180 ms safety margin instead of 40–80 ms.
+This gives the server coroutine and client renderer more time to enter the looping
+`FOOTBOMB_JUMP_LEFT_END` / `FOOTBOMB_JUMP_RIGHT_END` state before the one-shot jump
+animation can finish and briefly expose a fallback state. The animation ownership
+model and movement timeline are otherwise unchanged.
