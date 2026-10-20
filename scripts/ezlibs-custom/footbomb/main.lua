@@ -76,6 +76,10 @@ local SCORE_BOX_WIDTH = 52
 local SCORE_BOX_HEIGHT = 55
 local SCORE_TEXT_SCALE = UI.SCORE_TEXT_SCALE
 local FINAL_SCORE_SFX = "/server/assets/net-game-footbomb/sfx/winner.ogg"
+local ITEM_THUD_SFX = "/server/assets/net-game-footbomb/sfx/item-thud.ogg"
+-- Request contact audio slightly before the expected position-track endpoint so
+-- network/client playback latency does not make the impact sound feel late.
+local ITEM_THUD_CONTACT_LEAD_SECONDS = 0.08
 local ROLE_TEXT_Y = UI.ROLE_TEXT_Y
 local ROLE_TEXT_SCALE = UI.ROLE_TEXT_SCALE
 local SCORE_PLAYER_ONE_MUG_X = UI.SCORE_PLAYER_ONE_MUG_X
@@ -115,6 +119,28 @@ local RESULT_TARGET_BY_DIRECTION = {
     Up = "Bomb 2",
     Right = "Bomb 3",
 }
+
+-- During live rounds, Up and Down are two inputs for the same center lane.
+-- Keep the existing internal "Up" token because the round resolver and
+-- animation APIs use it for the center lane, but present it to players as CENTER.
+local function normalize_round_direction(direction)
+    if direction == "Up" or direction == "Down" or direction == "Center"
+        or direction == "CENTER" then
+        return "Up"
+    end
+    if direction == "Left" or direction == "Right" then
+        return direction
+    end
+    return nil
+end
+
+local function round_direction_label(direction)
+    local normalized = normalize_round_direction(direction)
+    if normalized == "Up" then return "CENTER" end
+    if normalized == "Left" then return "LEFT" end
+    if normalized == "Right" then return "RIGHT" end
+    return string.upper(tostring(direction or "UNKNOWN"))
+end
 
 -- Diagnostic-only test: print all nine Kicker/Defender direction combinations
 -- when the FootBomb module loads. This does not move bots, alter a match, or
@@ -1190,15 +1216,19 @@ local DIRECTION_CURSOR_DIRECTIONS = { "Left", "Up", "Right" }
 
 local function direction_cursor_id(rep, direction)
     if direction == "Left" then return rep.direction_cursor_left end
-    if direction == ("Up" or "Down") then return rep.direction_cursor_up end
+    if direction == "Up" or direction == "Down" or direction == "Center"
+        or direction == "CENTER" then
+        return rep.direction_cursor_up
+    end
     if direction == "Right" then return rep.direction_cursor_right end
     return nil
 end
 
 local function draw_direction_cursor(player_id, rep, direction, y)
     local cursor_id = direction_cursor_id(rep, direction)
-    local x_index = direction == "Left" and 1
-        or (direction == "Up" and 2 or 3)
+    local normalized_direction = normalize_round_direction(direction)
+    local x_index = normalized_direction == "Left" and 1
+        or (normalized_direction == "Up" and 2 or 3)
     if not cursor_id then return end
     local role_check = State.player_representations[player_id]["bot_record"]["role"]
     -- Recreate only this cursor so its position can be bobbed without relying
@@ -1288,8 +1318,8 @@ local function update_direction_selector_bob(player_id, rep)
         return
     end
 
-    local selected = rep.selected_direction
-    if selected ~= "Left" and selected ~= "Up" and selected ~= "Right" then
+    local selected = normalize_round_direction(rep.selected_direction)
+    if not selected then
         return
     end
 
@@ -2446,14 +2476,23 @@ local function set_kicker_pose_for_round(instance_id)
     -- The avatar was assigned when this bot was created. Keep state changes
     -- separate from asset assignment to avoid triggering client-side reloads.
 
-    log("ANIM_FLOW: applying kicker direction bot="
-        .. tostring(kicker.id) .. " direction=Up Right")
-    local direction_ok, direction_result = pcall(
-        Net.set_bot_direction, kicker.id, "Up Right"
-    )
-    log("ANIM_FLOW: kicker direction call returned bot="
-        .. tostring(kicker.id) .. " pcall_ok=" .. tostring(direction_ok)
-        .. " return=" .. tostring(direction_result))
+    -- Avoid rewriting an already-correct facing. Some clients briefly reset
+    -- the displayed animation when direction and animation are sent as two
+    -- separate bot updates; only change facing when it is actually different.
+    local direction_ok, direction_result = true, true
+    if not direction_before_ok or direction_before ~= "Up Right" then
+        log("ANIM_FLOW: applying kicker direction bot="
+            .. tostring(kicker.id) .. " direction=Up Right")
+        direction_ok, direction_result = pcall(
+            Net.set_bot_direction, kicker.id, "Up Right"
+        )
+        log("ANIM_FLOW: kicker direction call returned bot="
+            .. tostring(kicker.id) .. " pcall_ok=" .. tostring(direction_ok)
+            .. " return=" .. tostring(direction_result))
+    else
+        log("ANIM_FLOW: kicker direction already correct; skipping redundant write bot="
+            .. tostring(kicker.id) .. " direction=Up Right")
+    end
 
     local direction_after_ok, direction_after =
         pcall(Net.get_bot_direction, kicker.id)
@@ -2764,7 +2803,35 @@ local function hide_scoreboard_for_instance(instance_id)
     end
 end
 
-local function move_bot_smoothly(bot, target, speed, phase, animation_state, duration_override)
+-- Play a match sound for every human currently represented in this instance.
+-- Sound playback is deliberately isolated from the animation flow so one
+-- player's playback failure cannot interrupt the ball/Defender synchronization.
+local function play_instance_sound(instance_id, sound_path, phase)
+    local played = 0
+    for player_id, rep in pairs(State.player_representations) do
+        if rep and rep.instance_id == instance_id and player_is_available(player_id) then
+            local ok, result = pcall(Net.play_sound_for_player, player_id, sound_path)
+            if ok and result ~= false then
+                played = played + 1
+            else
+                log("SFX: playback failed instance=" .. tostring(instance_id)
+                    .. " player=" .. tostring(player_id)
+                    .. " phase=" .. tostring(phase)
+                    .. " error=" .. tostring(result))
+            end
+        end
+    end
+    log("SFX: instance sound requested instance=" .. tostring(instance_id)
+        .. " phase=" .. tostring(phase)
+        .. " path=" .. tostring(sound_path)
+        .. " players=" .. tostring(played))
+    return played > 0
+end
+
+local function move_bot_smoothly(
+    bot, target, speed, phase, animation_state, duration_override,
+    on_arrival_callback, arrival_callback_lead_seconds
+)
     if not bot or not bot.id or not target then
         log("RESULT_FLOW: cannot move bot; missing bot/target phase=" .. tostring(phase))
         return false
@@ -2807,10 +2874,13 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
     local move_speed = math.max(1, tonumber(speed) or Gameplay.RESULT_KICKER_WALK_U_SPEED or 150)
     local duration = math.max(0.12, tonumber(duration_override) or (distance / move_speed))
 
-    -- Follow the proven indy-trains keyframe shape: a zero-duration starting
-    -- frame followed by a timed destination frame. Keep the intended Animation
-    -- in both movement frames and prime it with Net.animate_bot before the
-    -- sequence, so asset/state selection is explicit at every transition.
+    -- Use keyframes for position ONLY. Animation state is applied separately
+    -- through Net.animate_bot below. Including Animation in both property
+    -- frames can race the direct animation request: the property animator may
+    -- re-apply a stale/default state when a frame starts or completes, producing
+    -- the brief IDLE/missing-sprite flashes reported during catches and jumps.
+    -- The direct request preserves the intended state without forcing an avatar
+    -- reload or allowing a movement keyframe to overwrite it.
     local start_properties = {
         { property = "X", value = sx },
         { property = "Y", value = sy },
@@ -2821,24 +2891,20 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         { property = "Y", ease = "Linear", value = ty },
         { property = "Z", ease = "InOut", value = tz }
     }
-    if animation_state then
-        start_properties[#start_properties + 1] = {
-            property = "Animation", value = animation_state
-        }
-        target_properties[#target_properties + 1] = {
-            property = "Animation", value = animation_state
-        }
-    end
 
+    -- Avoid zero-duration property keyframes. Some clients briefly render a
+    -- bot's fallback sphere/default avatar when a property track starts with
+    -- an instantaneous frame. Keep the total movement duration unchanged by
+    -- taking the initial 1 ms from the target interpolation.
+    local initial_frame_duration = math.min(0.001, duration / 2)
     local keyframes = {
-        { properties = start_properties,  duration = 0 },
-        { properties = target_properties, duration = duration }
+        { properties = start_properties,  duration = initial_frame_duration },
+        { properties = target_properties, duration = math.max(0.001, duration - initial_frame_duration) }
     }
 
     -- Set the intended animation through Net.animate_bot before starting the
-    -- property interpolation. The Animation property on keyframes can be
-    -- transient or arrive out of order on clients, so prime the bot's state
-    -- first and still include it in both keyframes as a secondary safeguard.
+    -- position-only interpolation. Do not put Animation in the keyframes: that
+    -- creates a second writer for animation state and can cause visible flashes.
     if animation_state then
         local pre_animation_ok, pre_animation_result =
             set_bot_animation_state(bot.id, animation_state)
@@ -2857,7 +2923,8 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         .. " phase=" .. tostring(phase)
         .. " distance=" .. tostring(distance)
         .. " duration=" .. tostring(duration)
-        .. " animation=" .. tostring(animation_state or "unchanged"))
+        .. " animation=" .. tostring(animation_state or "unchanged")
+        .. " keyframe_properties=position-only")
 
     local animation_ok, animation_result = pcall(
         Net.animate_bot_properties, bot.id, keyframes
@@ -2869,11 +2936,37 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
         return false
     end
 
-    -- The animation runs on the server. Resume at the exact interpolation
-    -- duration so the arrival animation override can run immediately, without
-    -- leaving a small post-interpolation gap where the client may show a
-    -- missing/default animation asset.
-    await(Async.sleep(duration))
+    -- Contact callbacks can be requested just before the position track ends.
+    -- This is important for one-shot impact sounds: waiting until after the full
+    -- movement duration makes the sound request itself late by the network/audio
+    -- dispatch time. The bot still waits for the full duration before its server
+    -- position is committed or the movement function reports completion.
+    if type(on_arrival_callback) == "function" then
+        local lead = math.max(0, math.min(
+            duration,
+            tonumber(arrival_callback_lead_seconds) or 0
+        ))
+        local callback_delay = math.max(0, duration - lead)
+        if callback_delay > 0 then
+            await(Async.sleep(callback_delay))
+        end
+        local callback_ok, callback_error = pcall(on_arrival_callback)
+        log("CONTACT_TIMING: arrival callback requested bot=" .. tostring(bot.id)
+            .. " phase=" .. tostring(phase)
+            .. " planned_duration=" .. tostring(duration)
+            .. " callback_lead=" .. tostring(lead)
+            .. " callback_delay=" .. tostring(callback_delay)
+            .. " success=" .. tostring(callback_ok)
+            .. (not callback_ok and (" error=" .. tostring(callback_error)) or ""))
+        local remaining = duration - callback_delay
+        if remaining > 0 then
+            await(Async.sleep(remaining))
+        end
+    else
+        -- Resume at the interpolation duration so arrival pose changes happen
+        -- without a post-movement gap that could expose a fallback animation.
+        await(Async.sleep(duration))
+    end
     bot.position = { x = tx, y = ty, z = tz }
 
     log("RESULT_FLOW: interpolated movement complete bot=" .. tostring(bot.id)
@@ -2888,16 +2981,26 @@ local function set_result_animation(bot, animation_state, direction, phase, shou
     -- consistent facing/state pair. Do not reassign the avatar here: changing
     -- animation state should not force a client-side asset reload.
     if direction and type(Net.set_bot_direction) == "function" then
-        local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
-        if not direction_ok or direction_result == false then
-            log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
-                .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction)
-                .. " pcall_ok=" .. tostring(direction_ok)
-                .. " return=" .. tostring(direction_result))
+        local current_ok, current_direction = false, nil
+        if type(Net.get_bot_direction) == "function" then
+            current_ok, current_direction = pcall(Net.get_bot_direction, bot.id)
+        end
+        if current_ok and current_direction == direction then
+            log("RESULT_FLOW: direction already correct; skipping redundant write bot="
+                .. tostring(bot.id) .. " phase=" .. tostring(phase)
+                .. " direction=" .. tostring(direction))
         else
-            log("RESULT_FLOW: direction set bot=" .. tostring(bot.id)
-                .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction)
-                .. " pcall_ok=true return=" .. tostring(direction_result))
+            local direction_ok, direction_result = pcall(Net.set_bot_direction, bot.id, direction)
+            if not direction_ok or direction_result == false then
+                log("RESULT_FLOW: direction set failed bot=" .. tostring(bot.id)
+                    .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction)
+                    .. " pcall_ok=" .. tostring(direction_ok)
+                    .. " return=" .. tostring(direction_result))
+            else
+                log("RESULT_FLOW: direction set bot=" .. tostring(bot.id)
+                    .. " phase=" .. tostring(phase) .. " direction=" .. tostring(direction)
+                    .. " pcall_ok=true return=" .. tostring(direction_result))
+            end
         end
     elseif direction then
         log("RESULT_FLOW: direction API unavailable bot=" .. tostring(bot.id)
@@ -3222,25 +3325,36 @@ local function move_defender_jump_arc(bot, target, duration, phase)
         z = tonumber(target.z) or sz,
     }
     duration = math.max(0.12, tonumber(duration) or 0.12)
+    -- Do not start a position track with a zero-duration keyframe. We already
+    -- removed that pattern from ordinary bot movement and Ball-point tracking;
+    -- the Defender's curved jump arc still had one, which can race the client's
+    -- avatar/animation update and briefly expose its fallback sphere.
+    local initial_frame_duration = math.min(0.001, duration / 10)
     local keyframes = {
         { properties = {
             { property = "X", value = sx },
             { property = "Y", value = sy },
             { property = "Z", value = sz },
-        }, duration = 0 },
+        }, duration = initial_frame_duration },
     }
     local previous_ratio = 0
     -- Multiple positive-duration points approximate the quadratic arch smoothly
     -- in the engine's property-keyframe system, without restarting animation.
-    for _, ratio in ipairs({ 0.2, 0.4, 0.6, 0.8, 1 }) do
+    -- Subtract the 1 ms initial frame from the first segment so total duration
+    -- remains exactly aligned with the bomb and jump-animation timeline.
+    for index, ratio in ipairs({ 0.2, 0.4, 0.6, 0.8, 1 }) do
         local position = defender_jump_position_at(start_position, target_position, ratio)
+        local segment_duration = duration * (ratio - previous_ratio)
+        if index == 1 then
+            segment_duration = segment_duration - initial_frame_duration
+        end
         keyframes[#keyframes + 1] = {
             properties = {
                 { property = "X", ease = "Linear", value = position.x },
                 { property = "Y", ease = "Linear", value = position.y },
                 { property = "Z", ease = "Linear", value = position.z },
             },
-            duration = duration * (ratio - previous_ratio),
+            duration = math.max(0.001, segment_duration),
         }
         previous_ratio = ratio
     end
@@ -3254,8 +3368,10 @@ local function move_defender_jump_arc(bot, target, duration, phase)
     bot.position = target_position
     log("RESULT_FLOW: defender jump arc complete bot=" .. tostring(bot.id)
         .. " phase=" .. tostring(phase) .. " keyframes=" .. tostring(#keyframes)
+        .. " initial_frame_duration=" .. tostring(initial_frame_duration)
         .. " duration=" .. tostring(duration) .. " x=" .. tostring(target_position.x)
-        .. " y=" .. tostring(target_position.y))
+        .. " y=" .. tostring(target_position.y)
+        .. " keyframe_properties=position-only")
     return true
 end
 
@@ -3498,6 +3614,14 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
     if finish > elapsed + 0.000001 then times[#times + 1] = finish end
 
     local current = ball_bot.position or read_bot_position(ball_bot) or { x = 0, y = 0, z = 0 }
+    -- The synchronization track previously began with a zero-duration frame.
+    -- That instant keyframe is a strong suspect for the white-sphere/fallback
+    -- avatar seen exactly when the Ball-point track starts. Use a tiny positive
+    -- duration and compensate the first segment so the jump's end time stays
+    -- aligned with the Defender's jump.
+    local track_duration = math.max(0, finish - elapsed)
+    local initial_frame_duration = track_duration > 0
+        and math.min(0.001, track_duration / 4) or 0.001
     local keyframes = {
         {
             properties = {
@@ -3505,7 +3629,7 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
                 { property = "Y", value = tonumber(current.y) or 0 },
                 { property = "Z", value = tonumber(current.z) or 0 },
             },
-            duration = 0,
+            duration = initial_frame_duration,
         }
     }
     local previous_time = elapsed
@@ -3538,13 +3662,19 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
             bots.ball_follow_active = false
             return
         end
+        local segment_duration = sample_time - previous_time
+        if i == 2 then
+            -- The initial frame consumes part of the first interval; subtract
+            -- it rather than extending the synchronized catch/jump timeline.
+            segment_duration = segment_duration - initial_frame_duration
+        end
         keyframes[#keyframes + 1] = {
             properties = {
                 { property = "X", ease = "Linear", value = attached_position.x },
                 { property = "Y", ease = "Linear", value = attached_position.y },
                 { property = "Z", ease = "Linear", value = attached_position.z },
             },
-            duration = math.max(0.001, sample_time - previous_time),
+            duration = math.max(0.001, segment_duration),
         }
         previous_time = sample_time
     end
@@ -3559,8 +3689,10 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
     log("BALL_CATCH: synchronized Ball-point track started instance=" .. tostring(instance_id)
         .. " state=" .. tostring(animation_state)
         .. " keyframes=" .. tostring(#keyframes)
+        .. " initial_frame_duration=" .. tostring(initial_frame_duration)
         .. " from_elapsed=" .. tostring(elapsed)
-        .. " to_elapsed=" .. tostring(finish))
+        .. " to_elapsed=" .. tostring(finish)
+        .. " properties=position-only")
     if finish > elapsed then await(Async.sleep(finish - elapsed)) end
     log("BALL_CATCH: synchronized Ball-point track reached jump end instance=" .. tostring(instance_id))
 end
@@ -3633,11 +3765,18 @@ local function resolve_round_winner(instance_id)
         if kicker_ok then
             kicker_ok = move_bot_smoothly(
                 kicker, bomb_position, Gameplay.RESULT_KICKER_WALK_U_SPEED, "kicker-to-bomb",
-                AnimationStates.WALK_U
+                AnimationStates.WALK_U, nil,
+                function()
+                    play_instance_sound(instance_id, ITEM_THUD_SFX, "kicker-reaches-ball")
+                end,
+                ITEM_THUD_CONTACT_LEAD_SECONDS
             )
         end
 
         if kicker_ok then
+            -- The kicker-contact sound was requested shortly before this movement
+            -- completed, using the movement track's own planned duration.
+
             -- Launch the bomb and Defender response together. For Left/Right,
             -- the Defender's configured speed (60) determines the shared travel
             -- duration; the bomb uses that exact duration so both arrive together.
@@ -3836,11 +3975,20 @@ local function resolve_round_winner(instance_id)
                     -- before the world-space path reaches its final point; this
                     -- avoids the old mid-flight state swap that could make the
                     -- bot pop/disappear while position keyframes were still active.
-                    local final_frame_delay = math.max(0, math.min(jump_total, shared_duration) - 0.025)
+                    -- Schedule the held landing pose with enough margin to beat
+                    -- one-shot completion even if Async.sleep wakes a little late.
+                    -- The margin is half of the authored final-frame duration,
+                    -- capped at 80 ms; this keeps the final pose visible without
+                    -- letting the one-shot fall back to a default/missing state.
+                    local hold_margin = math.min(0.08, math.max(0.04, final_frame_duration * 0.5))
+                    local final_frame_delay = math.max(
+                        0, math.min(jump_total, shared_duration) - hold_margin
+                    )
                     log("ANIM_FLOW: scheduling final jump-frame hold bot=" .. tostring(defender.id)
                         .. " jump_state=" .. tostring(defender_animation)
                         .. " hold_state=" .. tostring(final_hold_state)
                         .. " hold_after=" .. tostring(final_frame_delay)
+                        .. " hold_margin=" .. tostring(hold_margin)
                         .. " final_frame_duration=" .. tostring(final_frame_duration)
                         .. " shared_duration=" .. tostring(shared_duration))
                     async(function()
@@ -3912,11 +4060,21 @@ local function resolve_round_winner(instance_id)
                         .. " tile_size=" .. tostring(catch_point_meta and catch_point_meta.tile_width)
                         .. "x" .. tostring(catch_point_meta and catch_point_meta.tile_height))
                     async(function()
+                        local catch_sound_callback
+                        if kicker.direction_choice == defender.direction_choice then
+                            catch_sound_callback = function()
+                                play_instance_sound(instance_id, ITEM_THUD_SFX,
+                                    "defender-catches-ball-matching-direction")
+                            end
+                        end
                         bomb_ok = move_bot_smoothly(
                             bots.bomb_bot, catch_position, response_bomb_speed,
-                            "bomb-to-defender-ball-point", nil, half_duration
+                            "bomb-to-defender-ball-point", nil, half_duration,
+                            catch_sound_callback, ITEM_THUD_CONTACT_LEAD_SECONDS
                         )
                         if bomb_ok then
+                            -- The catch impact was scheduled against the same
+                            -- movement timeline, rather than after it completed.
                             bots.ball_follow_active = true
                             async(function()
                                 follow_defender_ball_point(
@@ -3980,10 +4138,19 @@ local function resolve_round_winner(instance_id)
                             true
                         )
                     end
+                    local center_catch_sound_callback
+                    if is_center_catch and center_catch_position
+                        and kicker.direction_choice == defender.direction_choice then
+                        center_catch_sound_callback = function()
+                            play_instance_sound(instance_id, ITEM_THUD_SFX,
+                                "defender-catches-ball-matching-direction")
+                        end
+                    end
                     bomb_ok = move_bot_smoothly(
                         bots.bomb_bot, bomb_destination, response_bomb_speed,
                         is_center_catch and "bomb-to-center-ball-point" or ("bomb-to-" .. tostring(target_name)),
-                        nil, center_catch_duration
+                        nil, center_catch_duration,
+                        center_catch_sound_callback, ITEM_THUD_CONTACT_LEAD_SECONDS
                     )
                     -- Center/Up has no jump clip: arrive at the actual authored
                     -- Ball point halfway through the shared cycle, then keep the
@@ -4021,6 +4188,24 @@ local function resolve_round_winner(instance_id)
                         defender, defender_target, shared_duration,
                         "defender-to-" .. tostring(defender_target_name)
                     )
+                    if defender_ok and State.instance_bots[instance_id] == bots
+                        and bots.result_animation_active then
+                        local final_hold_state = defender.direction_choice == "Left"
+                            and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                            or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
+                        -- Reapply the END pose at the exact movement-completion
+                        -- barrier. The earlier timed hold prevents a one-shot
+                        -- jump clip from falling back while movement is still in
+                        -- progress; this call guarantees the settled bot remains
+                        -- in its directional END pose after position stops.
+                        set_result_animation(
+                            defender, final_hold_state, defender_direction,
+                            "defender-movement-complete-end-pose", true
+                        )
+                        log("ANIM_FLOW: END pose applied after movement ceased bot="
+                            .. tostring(defender.id) .. " state=" .. tostring(final_hold_state)
+                            .. " movement_duration=" .. tostring(shared_duration))
+                    end
                     defender_done = true
                 end)
             else
@@ -4384,7 +4569,27 @@ begin_next_round = function(instance_id)
         end
     end
     log("ROUND_FLOW: next-round fade-in started instance=" .. tostring(instance_id))
-    await(Async.sleep(0.85))
+
+    -- Some clients finish initializing the bot's visible avatar only as the
+    -- camera reveal begins. Reassert the active kicker pose after that reveal
+    -- starts, so IDLE_UR is not lost to a late avatar/state update.
+    await(Async.sleep(0.15))
+    local reveal_kicker_ok, reveal_kicker_result = pcall(
+        set_kicker_pose_for_round, instance_id
+    )
+    log("ROUND_SETUP: kicker pose reasserted after next-round fade-in instance="
+        .. tostring(instance_id)
+        .. " pcall_ok=" .. tostring(reveal_kicker_ok)
+        .. " result=" .. tostring(reveal_kicker_result))
+
+    await(Async.sleep(0.70))
+    local settled_kicker_ok, settled_kicker_result = pcall(
+        set_kicker_pose_for_round, instance_id
+    )
+    log("ROUND_SETUP: kicker pose reasserted after next-round fade-in settled instance="
+        .. tostring(instance_id)
+        .. " pcall_ok=" .. tostring(settled_kicker_ok)
+        .. " result=" .. tostring(settled_kicker_result))
 
     bots.round_transition_active = false
     start_direction_selection(instance_id, humans)
@@ -4399,8 +4604,8 @@ local function confirm_direction_selection(player_id, rep)
     end
 
     rep.confirming = true
-    local selected = rep.selected_direction
-    if selected ~= "Left" and selected ~= "Up" and selected ~= "Right" then
+    local selected = normalize_round_direction(rep.selected_direction)
+    if not selected then
         rep.confirming = false
         log("DIRECTION_FLOW: ignored Confirm before direction selected player="
             .. tostring(player_id))
@@ -4436,7 +4641,7 @@ local function confirm_direction_selection(player_id, rep)
         rep.direction_selection_active = false
         await_player_message(
             player_id,
-            "You chose " .. string.upper(selected) .. " for your "
+            "You chose " .. round_direction_label(selected) .. " for your "
             .. (role == "Kicker" and "kick direction" or "defense direction")
             .. ". Would you like to confirm this selection?"
         )
@@ -4450,7 +4655,8 @@ local function confirm_direction_selection(player_id, rep)
 
         local choice = await_player_quiz(player_id, "Yes", "No")
         log("DIRECTION_FLOW: confirmation answer player=" .. tostring(player_id)
-            .. " direction=" .. tostring(selected) .. " choice=" .. tostring(choice))
+            .. " direction=" .. round_direction_label(selected)
+            .. " choice=" .. tostring(choice))
         if State.player_representations[player_id] ~= rep then
             return
         end
@@ -4473,7 +4679,7 @@ local function confirm_direction_selection(player_id, rep)
             rep.direction_selection_active = false
             await_player_message(
                 player_id,
-                "Confirmed " .. string.upper(selected) .. ". Waiting for the other player..."
+                "Confirmed " .. round_direction_label(selected) .. ". Waiting for the other player..."
             )
             await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
             if State.player_representations[player_id] == rep then
@@ -4701,6 +4907,31 @@ local function try_begin_match(instance_id)
                 -- immediately after the fade-in and cause a visible jump.
                 log("CAMERA_FLOW: keeping Camera Focus locked after fade-in instance="
                     .. tostring(instance_id))
+
+                -- The initial avatar can finish its client-side initialization
+                -- after the first fade begins. Reapply the kicker's direction
+                -- and looping IDLE_UR once the bot is actually being revealed.
+                await(Async.sleep(0.15))
+                local reveal_kicker_ok, reveal_kicker_result = pcall(
+                    set_kicker_pose_for_round, instance_id
+                )
+                log("ROUND_SETUP: kicker pose reasserted during initial fade-in instance="
+                    .. tostring(instance_id)
+                    .. " pcall_ok=" .. tostring(reveal_kicker_ok)
+                    .. " result=" .. tostring(reveal_kicker_result))
+
+                -- The first avatar initialization can finish after the fade
+                -- begins. Wait for the 0.8-second reveal to complete, then make
+                -- one final pose assertion before direction selection opens.
+                await(Async.sleep(0.70))
+                local settled_kicker_ok, settled_kicker_result = pcall(
+                    set_kicker_pose_for_round, instance_id
+                )
+                log("ROUND_SETUP: kicker pose reasserted after initial fade-in settled instance="
+                    .. tostring(instance_id)
+                    .. " pcall_ok=" .. tostring(settled_kicker_ok)
+                    .. " result=" .. tostring(settled_kicker_result))
+
                 -- The scoreboard is reserved for the black intermission after
                 -- the first result; keep the active field clear during gameplay.
                 hide_scoreboard_for_instance(instance_id)
@@ -5158,9 +5389,10 @@ end
 -- Input and camera update
 ---------------------------------------------------------------------------
 
--- Camera follow and both selection stages use the shared InputController.
--- Up/Down cycle Navi skins; Left/Right cycle ball skins. Confirm first locks
--- the ball selection and then operates the existing Navi confirmation flow.
+-- Camera follow and all selection stages use the shared InputController.
+-- During pre-match skin selection, Up/Down cycle Navi skins and Left/Right
+-- cycle ball skins. Only while direction_selection_active during a live round,
+-- Up and Down both choose the center lane; this does not alter skin handling.
 Net:on("tick", function(event)
     for player_id, rep in pairs(State.player_representations) do
         if Net.get_player_area(player_id) == rep.area_id then
@@ -5177,7 +5409,10 @@ Net:on("tick", function(event)
                 local chosen_direction = nil
                 if input:is_action_pressed("Left", rep.input_owner) then
                     chosen_direction = "Left"
-                elseif input:is_action_pressed("Up", rep.input_owner) then
+                elseif input:is_action_pressed("Up", rep.input_owner)
+                    or input:is_action_pressed("Down", rep.input_owner) then
+                    -- Up and Down are equivalent only in the live-round lane
+                    -- selector; both highlight and resolve to the center lane.
                     chosen_direction = "Up"
                 elseif input:is_action_pressed("Right", rep.input_owner) then
                     chosen_direction = "Right"
@@ -5200,7 +5435,7 @@ Net:on("tick", function(event)
                     end
                     pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
                     log("DIRECTION_FLOW: player changed direction player="
-                        .. tostring(player_id) .. " direction=" .. chosen_direction)
+                        .. tostring(player_id) .. " direction=" .. round_direction_label(chosen_direction))
                     input:consume(rep.input_owner)
                     input:require_release(
                         { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
