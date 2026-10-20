@@ -2814,6 +2814,29 @@ local function play_instance_sound(instance_id, sound_path, phase)
     return played > 0
 end
 
+-- A single response timeline owns the contact events for one resolved round.
+-- Movement jobs may finish on separate async branches, so contact SFX are guarded
+-- here rather than relying on a branch being entered only once.
+local function play_response_contact_once(instance_id, bots, timeline, contact_key, phase)
+    if not timeline or not contact_key then return false end
+    timeline.contacts = timeline.contacts or {}
+    if timeline.contacts[contact_key] then
+        log("ROUND_TIMELINE: duplicate contact ignored instance=" .. tostring(instance_id)
+            .. " contact=" .. tostring(contact_key))
+        return false
+    end
+    if State.instance_bots[instance_id] ~= bots or not bots.result_animation_active then
+        log("ROUND_TIMELINE: stale contact ignored instance=" .. tostring(instance_id)
+            .. " contact=" .. tostring(contact_key))
+        return false
+    end
+    timeline.contacts[contact_key] = true
+    log("ROUND_TIMELINE: contact fired instance=" .. tostring(instance_id)
+        .. " contact=" .. tostring(contact_key)
+        .. " elapsed=" .. tostring(timeline[contact_key .. "_elapsed"]))
+    return play_instance_sound(instance_id, ITEM_THUD_SFX, phase)
+end
+
 local function move_bot_smoothly(bot, target, speed, phase, animation_state, duration_override)
     if not bot or not bot.id or not target then
         log("RESULT_FLOW: cannot move bot; missing bot/target phase=" .. tostring(phase))
@@ -3615,6 +3638,13 @@ local function resolve_round_winner(instance_id)
         .. " bomb_target=" .. tostring(target_name))
 
     async(function()
+        local response_timeline = {
+            duration = 0,
+            started = false,
+            contacts = {},
+            kicker_contact_elapsed = 0,
+            defender_contact_elapsed = nil,
+        }
         local kicker_ok = set_result_animation(
             kicker, AnimationStates.WALK_UR, "Up Right", "kicker-to-move-forward"
         )
@@ -3638,9 +3668,11 @@ local function resolve_round_winner(instance_id)
         end
 
         if kicker_ok then
-            -- The kicker has reached the bomb. Play the item impact at contact,
-            -- immediately before the bomb/Defender response launches.
-            play_instance_sound(instance_id, ITEM_THUD_SFX, "kicker-reaches-ball")
+            -- The kicker has reached the bomb. This is response time zero and
+            -- the first contact event can only fire once for this round.
+            play_response_contact_once(
+                instance_id, bots, response_timeline, "kicker_contact", "kicker-reaches-ball"
+            )
 
             -- Launch the bomb and Defender response together. For Left/Right,
             -- the Defender's configured speed (60) determines the shared travel
@@ -3789,6 +3821,11 @@ local function resolve_round_winner(instance_id)
                 end
             end
 
+            response_timeline.duration = shared_duration
+            response_timeline.defender_contact_elapsed = (is_matching_jump or is_center_catch)
+                and (shared_duration / 2) or nil
+            response_timeline.started = true
+
             log("RESULT_FLOW: planned shared response timing instance=" .. tostring(instance_id)
                 .. " direction=" .. tostring(defender.direction_choice)
                 .. " jump_cycle_duration=" .. tostring(jump_cycle_duration)
@@ -3799,6 +3836,9 @@ local function resolve_round_winner(instance_id)
                 .. " base_bomb_speed=" .. tostring(base_bomb_speed)
                 .. " response_bomb_speed=" .. tostring(response_bomb_speed)
                 .. " shared_duration=" .. tostring(shared_duration)
+                .. " timeline_duration=" .. tostring(response_timeline.duration)
+                .. " kicker_contact_elapsed=" .. tostring(response_timeline.kicker_contact_elapsed)
+                .. " defender_contact_elapsed=" .. tostring(response_timeline.defender_contact_elapsed)
                 .. " matching_jump=" .. tostring(is_matching_jump)
                 .. " center_catch=" .. tostring(is_center_catch))
 
@@ -3823,6 +3863,11 @@ local function resolve_round_winner(instance_id)
                     .. tostring(AnimationStates.FOOTBOMB_IDLE_DEFENSE))
             end
 
+            -- One result-animation owner controls the Defender's one-shot jump
+            -- and its held landing pose. Movement tasks only report completion;
+            -- they do not compete to re-apply animation state.
+            local defender_movement_done = false
+
             -- Freeze the authored final jump frame before the one-shot clip can
             -- fall back to an empty/default state. The *_END state is a single
             -- frame containing that same final pose; loop it from the start of
@@ -3834,6 +3879,16 @@ local function resolve_round_winner(instance_id)
                 local jump_total, final_frame_duration = get_animation_final_frame_timing(
                     defender, defender_animation
                 )
+                if not jump_total or not final_frame_duration then
+                    -- Keep the single-owner guarantee even if animation metadata
+                    -- is incomplete: use the shared movement duration as a safe
+                    -- fallback deadline rather than reverting to competing writers.
+                    log("ANIM_FLOW: missing final-frame metadata; using shared timeline fallback bot="
+                        .. tostring(defender.id) .. " jump_total=" .. tostring(jump_total)
+                        .. " final_frame_duration=" .. tostring(final_frame_duration))
+                    jump_total = tonumber(jump_total) or response_timeline.duration
+                    final_frame_duration = tonumber(final_frame_duration) or 0.12
+                end
                 if jump_total and final_frame_duration then
                     -- Keep the animated jump visible through the curved travel.
                     -- Switch to the matching one-frame landing pose only just
@@ -3847,7 +3902,7 @@ local function resolve_round_winner(instance_id)
                     -- letting the one-shot fall back to a default/missing state.
                     local hold_margin = math.min(0.08, math.max(0.04, final_frame_duration * 0.5))
                     local final_frame_delay = math.max(
-                        0, math.min(jump_total, shared_duration) - hold_margin
+                        0, math.min(jump_total, response_timeline.duration) - hold_margin
                     )
                     log("ANIM_FLOW: scheduling final jump-frame hold bot=" .. tostring(defender.id)
                         .. " jump_state=" .. tostring(defender_animation)
@@ -3861,10 +3916,27 @@ local function resolve_round_winner(instance_id)
                         if State.instance_bots[instance_id] ~= bots or not bots.result_animation_active then
                             return
                         end
+
+                        -- This coroutine is the sole owner of the jump-to-landing
+                        -- animation transition. It switches before the one-shot can
+                        -- fall back, then performs one final reassertion after the
+                        -- position track has finished (the client may race the two).
                         set_result_animation(
                             defender, final_hold_state, defender_direction,
                             "defender-final-jump-frame-hold", true
                         )
+                        while not defender_movement_done do
+                            if State.instance_bots[instance_id] ~= bots or not bots.result_animation_active then
+                                return
+                            end
+                            await(Async.sleep(0.02))
+                        end
+                        if State.instance_bots[instance_id] == bots and bots.result_animation_active then
+                            set_result_animation(
+                                defender, final_hold_state, defender_direction,
+                                "defender-final-pose-owner-after-movement", true
+                            )
+                        end
                     end)
                 else
                     log("ANIM_FLOW: could not time final jump-frame hold bot=" .. tostring(defender.id)
@@ -3874,8 +3946,8 @@ local function resolve_round_winner(instance_id)
 
             local bomb_done, bomb_ok = false, false
             local defender_done, defender_ok = false, false
-            if is_matching_jump and shared_duration and defender_start then
-                local half_duration = shared_duration / 2
+            if is_matching_jump and response_timeline.duration and defender_start then
+                local half_duration = response_timeline.defender_contact_elapsed or (response_timeline.duration / 2)
                 local start_position = {
                     x = tonumber(defender_start.x) or 0,
                     y = tonumber(defender_start.y) or 0,
@@ -3934,14 +4006,16 @@ local function resolve_round_winner(instance_id)
                             -- at the catch midpoint. Only play the second thud
                             -- when the Defender correctly chose the same lane.
                             if kicker.direction_choice == defender.direction_choice then
-                                play_instance_sound(instance_id, ITEM_THUD_SFX,
-                                    "defender-catches-ball-matching-direction")
+                                play_response_contact_once(
+                                    instance_id, bots, response_timeline, "defender_contact",
+                                    "defender-catches-ball-matching-direction"
+                                )
                             end
                             bots.ball_follow_active = true
                             async(function()
                                 follow_defender_ball_point(
                                     instance_id, bots, bots.bomb_bot, defender,
-                                    defender_animation, half_duration, shared_duration,
+                                    defender_animation, half_duration, response_timeline.duration,
                                     start_position, target_position
                                 )
                             end)
@@ -3955,7 +4029,7 @@ local function resolve_round_winner(instance_id)
                     async(function()
                         bomb_ok = move_bot_smoothly(
                             bots.bomb_bot, bomb_target, response_bomb_speed,
-                            "bomb-to-" .. tostring(target_name), nil, shared_duration
+                            "bomb-to-" .. tostring(target_name), nil, response_timeline.duration
                         )
                         bomb_done = true
                     end)
@@ -3963,7 +4037,7 @@ local function resolve_round_winner(instance_id)
             else
                 async(function()
                     local center_catch_position
-                    local center_catch_duration = shared_duration
+                    local center_catch_duration = response_timeline.duration
                     if is_center_catch then
                         local defender_position = read_bot_position(defender)
                             or defender.position or defender_target
@@ -3986,7 +4060,7 @@ local function resolve_round_winner(instance_id)
                                 .. tostring(instance_id) .. " error=" .. tostring(attach_error))
                         end
                         if center_catch_position then
-                            center_catch_duration = shared_duration / 2
+                            center_catch_duration = response_timeline.duration / 2
                         end
                     end
 
@@ -4010,8 +4084,10 @@ local function resolve_round_winner(instance_id)
                     -- ball attached while the rest of the defensive cycle elapses.
                     if bomb_ok and is_center_catch and center_catch_position then
                         if kicker.direction_choice == defender.direction_choice then
-                            play_instance_sound(instance_id, ITEM_THUD_SFX,
-                                "defender-catches-ball-matching-direction")
+                            play_response_contact_once(
+                                instance_id, bots, response_timeline, "defender_contact",
+                                "defender-catches-ball-matching-direction"
+                            )
                         end
                         local defender_position = read_bot_position(defender)
                             or defender.position or defender_target
@@ -4025,16 +4101,16 @@ local function resolve_round_winner(instance_id)
                             follow_defender_ball_point(
                                 instance_id, bots, bots.bomb_bot, defender,
                                 AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
-                                shared_duration / 2, defender_position, defender_position
+                                response_timeline.duration / 2, defender_position, defender_position
                             )
                         end)
                         log("BALL_CATCH: center/center ball reached Ball point instance="
                             .. tostring(instance_id) .. " contact_elapsed="
                             .. tostring(center_catch_duration) .. " shared_duration="
-                            .. tostring(shared_duration) .. " defender_z="
+                            .. tostring(response_timeline.duration) .. " defender_z="
                             .. tostring(defender_position.z) .. " ball_z="
                             .. tostring(center_catch_position.z))
-                        await(Async.sleep(math.max(0, shared_duration - center_catch_duration)))
+                        await(Async.sleep(math.max(0, response_timeline.duration - center_catch_duration)))
                     end
                     bomb_done = true
                 end)
@@ -4042,27 +4118,10 @@ local function resolve_round_winner(instance_id)
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
                 async(function()
                     defender_ok = move_defender_jump_arc(
-                        defender, defender_target, shared_duration,
+                        defender, defender_target, response_timeline.duration,
                         "defender-to-" .. tostring(defender_target_name)
                     )
-                    if defender_ok and State.instance_bots[instance_id] == bots
-                        and bots.result_animation_active then
-                        local final_hold_state = defender.direction_choice == "Left"
-                            and AnimationStates.FOOTBOMB_JUMP_LEFT_END
-                            or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
-                        -- Reapply the END pose at the exact movement-completion
-                        -- barrier. The earlier timed hold prevents a one-shot
-                        -- jump clip from falling back while movement is still in
-                        -- progress; this call guarantees the settled bot remains
-                        -- in its directional END pose after position stops.
-                        set_result_animation(
-                            defender, final_hold_state, defender_direction,
-                            "defender-movement-complete-end-pose", true
-                        )
-                        log("ANIM_FLOW: END pose applied after movement ceased bot="
-                            .. tostring(defender.id) .. " state=" .. tostring(final_hold_state)
-                            .. " movement_duration=" .. tostring(shared_duration))
-                    end
+                    defender_movement_done = true
                     defender_done = true
                 end)
             else
@@ -4083,25 +4142,19 @@ local function resolve_round_winner(instance_id)
                 bots.result_animation_active = false
                 return
             end
-            -- The final jump frame has already been frozen at its authored
-            -- frame boundary. Do not restart the jump or transition poses again
-            -- on arrival; keep the held pose visible through the camera fade.
+            response_timeline.completed = true
+            log("ROUND_TIMELINE: response complete instance=" .. tostring(instance_id)
+                .. " planned_duration=" .. tostring(response_timeline.duration)
+                .. " bomb_ok=" .. tostring(bomb_ok)
+                .. " defender_ok=" .. tostring(defender_ok))
+
+            -- Side-jump final-pose ownership belongs to the scheduled animation
+            -- coroutine, which switches before the one-shot ends and reasserts
+            -- once after movement completion. Do not write the same animation
+            -- again from this synchronization barrier.
             if defender.direction_choice == "Left" or defender.direction_choice == "Right" then
-                -- Reassert the authored landing frame after both movement jobs
-                -- have completed. The scheduled frame switch can race the end
-                -- of the position keyframe on some clients; applying the held
-                -- pose at the synchronization barrier prevents a non-matching
-                -- jump from falling back to IDLE_DEFENSE while the bomb lands.
-                local final_hold_state = defender.direction_choice == "Left"
-                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
-                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
-                set_result_animation(
-                    defender, final_hold_state, defender_direction,
-                    "defender-arrival-final-jump-frame-hold", true
-                )
-                log("RESULT_FLOW: defender final jump frame held through result transition bot="
-                    .. tostring(defender.id) .. " direction=" .. tostring(defender.direction_choice)
-                    .. " state=" .. tostring(final_hold_state))
+                log("ANIM_FLOW: final jump pose owned by transition coroutine bot="
+                    .. tostring(defender.id) .. " direction=" .. tostring(defender.direction_choice))
             else
                 -- Up/center defense is a held stance, not a one-shot. Explicitly
                 -- keep it looping at arrival so it cannot fall back to IDLE_DEFENSE
@@ -4121,9 +4174,10 @@ local function resolve_round_winner(instance_id)
             -- Hold the resolved poses for the entire result pause, explosion,
             -- and camera wash. Stop Ball-point tracking before the explosion so
             -- its updater cannot move or reanimate the bomb during the effect.
+            local result_hold_seconds = tonumber(Gameplay.RESULT_HOLD_SECONDS) or 1.5
             log("ROUND_FLOW: result hold started instance=" .. tostring(instance_id)
-                .. " seconds=1.5")
-            await(Async.sleep(1.5))
+                .. " seconds=" .. tostring(result_hold_seconds))
+            await(Async.sleep(result_hold_seconds))
             bots.ball_follow_active = false
 
             -- Reassert only the participant poses before the transition effect.

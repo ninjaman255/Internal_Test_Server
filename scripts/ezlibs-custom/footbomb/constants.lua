@@ -85,6 +85,8 @@ local constants = {
         RESULT_DEFENDER_JUMP_SPEED = 3,
         -- Render the attached ball in front of the defender using bot depth.
         RESULT_BALL_Z_LIFT = 4,
+        -- Duration for the settled round-result pose before the transition wash.
+        RESULT_HOLD_SECONDS = 1.5,
     },
 }
 

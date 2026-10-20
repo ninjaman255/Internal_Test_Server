@@ -62,3 +62,17 @@ Navi avatars are assigned when the bot is created. During gameplay, defense, jum
 - Verbose animation-file diagnostics and the direction-mapping log test are opt-in through `constants.lua` and default to disabled.
 - Removed two unreferenced local movement helpers from `main.lua` and removed the unused `RESULT_MOVE_STEP_SECONDS` setting. These changes do not alter live movement paths.
 - The configuration's `RESULT_BALL_Z_LIFT = 4` is the active default; update this documentation alongside the value if it is intentionally tuned later.
+
+
+## Pass 2: shared response timeline
+
+The resolved response now carries a per-round timeline record for the shared bomb/defender duration, planned defender contact time, and completion barrier. The kicker impact is the response time-zero contact; matching-direction catches fire a second impact at the midpoint only once. Contact dispatch rejects stale round work and suppresses duplicate contact events across async branches. The final jump-frame deadline and result-hold duration are tied to the named timeline/configuration values. `GAMEPLAY.RESULT_HOLD_SECONDS` defaults to `1.5` seconds.
+
+This pass intentionally preserves the existing destination points, curved defender jump, Ball-point offsets and tracking, bomb speed adjustment, `RESULT_BALL_Z_LIFT`, winner rules, and position-only movement keyframes. The round timeline is a shared timing plan and completion barrier; the engine's animation/property APIs still own actual client-side interpolation.
+
+
+## Pass 3 — Result animation ownership
+
+The side-jump result now has one coroutine responsible for the Defender's jump-to-landing animation transition. It switches to the authored `*_END` pose near the final jump frame, then reasserts that pose once after the movement track reports completion. The movement coroutine only reports completion, and the shared result barrier no longer issues another duplicate animation write. This reduces competing animation-state writers while preserving the early transition and post-movement safety reassertion.
+
+This pass does not remove general `Async.sleep` calls or change the shared response duration. The remaining short polling sleep in the pose owner is deliberate synchronization with movement completion; if this pass does not improve consistency in-game, the next diagnostic pass should trace which sleeps are only polling and replace those with completion signaling where the async API permits it.
