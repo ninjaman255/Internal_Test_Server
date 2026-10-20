@@ -77,9 +77,6 @@ local SCORE_BOX_HEIGHT = 55
 local SCORE_TEXT_SCALE = UI.SCORE_TEXT_SCALE
 local FINAL_SCORE_SFX = "/server/assets/net-game-footbomb/sfx/winner.ogg"
 local ITEM_THUD_SFX = "/server/assets/net-game-footbomb/sfx/item-thud.ogg"
--- Request contact audio slightly before the expected position-track endpoint so
--- network/client playback latency does not make the impact sound feel late.
-local ITEM_THUD_CONTACT_LEAD_SECONDS = 0.08
 local ROLE_TEXT_Y = UI.ROLE_TEXT_Y
 local ROLE_TEXT_SCALE = UI.ROLE_TEXT_SCALE
 local SCORE_PLAYER_ONE_MUG_X = UI.SCORE_PLAYER_ONE_MUG_X
@@ -103,17 +100,19 @@ local function log(message)
     logger:info("[footbomb] " .. tostring(message))
 end
 
--- Read-only animation format diagnostics. The active FootBomb roster uses v2.0
--- .animation files; matching .ani files are inspected as v2.5 compatibility
--- candidates. Failures are logged but never prevent FootBomb from loading.
-local AnimationDiagnostics = require("scripts/ezlibs-custom/footbomb/animation_diagnostics")
-local diagnostics_ok, diagnostics_error = pcall(AnimationDiagnostics.run, NAVI_OPTIONS, log)
-if not diagnostics_ok then
-    log("ANIM_DIAGNOSTICS: unexpected diagnostic failure: " .. tostring(diagnostics_error))
+-- Verbose animation diagnostics are opt-in because they print every frame and
+-- point for every active and alternate animation file. Enable the setting in
+-- constants.lua when investigating an asset or animation-format issue.
+if Config.DIAGNOSTICS and Config.DIAGNOSTICS.RUN_ANIMATION_DIAGNOSTICS then
+    local AnimationDiagnostics = require("scripts/ezlibs-custom/footbomb/animation_diagnostics")
+    local diagnostics_ok, diagnostics_error = pcall(AnimationDiagnostics.run, NAVI_OPTIONS, log)
+    if not diagnostics_ok then
+        log("ANIM_DIAGNOSTICS: unexpected diagnostic failure: " .. tostring(diagnostics_error))
+    end
 end
 
--- Keep the target mapping shared by the live round resolver and the startup
--- diagnostic below so the printed test verifies the same mapping used in-game.
+-- Keep the target mapping shared by the live round resolver and optional
+-- direction-mapping diagnostics so both use the same in-game mapping.
 local RESULT_TARGET_BY_DIRECTION = {
     Left = "Bomb 1",
     Up = "Bomb 2",
@@ -142,38 +141,25 @@ local function round_direction_label(direction)
     return string.upper(tostring(direction or "UNKNOWN"))
 end
 
--- Diagnostic-only test: print all nine Kicker/Defender direction combinations
--- when the FootBomb module loads. This does not move bots, alter a match, or
--- award points. Remove/disable this call after verifying the logs if desired.
-local function run_direction_mapping_test()
+-- Optional diagnostic-only test for the nine Kicker/Defender combinations.
+-- It logs mapping predictions only; it does not simulate a live round.
+if Config.DIAGNOSTICS and Config.DIAGNOSTICS.RUN_DIRECTION_MAPPING_TEST then
     local directions = { "Left", "Up", "Right" }
     local instance_id = "direction-mapping-test"
-
     log("RESULT_FLOW: starting direction mapping test instance=" .. instance_id)
-
     for _, kicker_direction in ipairs(directions) do
         for _, defender_direction in ipairs(directions) do
             local target_name = RESULT_TARGET_BY_DIRECTION[kicker_direction]
-            local winner = (kicker_direction == defender_direction)
-                and "Defender" or "Kicker"
-
-            log("RESULT_FLOW: starting result animation instance=" .. instance_id
+            local winner = (kicker_direction == defender_direction) and "Defender" or "Kicker"
+            log("RESULT_FLOW: mapping test instance=" .. instance_id
                 .. " kicker_direction=" .. kicker_direction
                 .. " defender_direction=" .. defender_direction
                 .. " predicted_winner=" .. winner
                 .. " bomb_target=" .. tostring(target_name))
-
-            log("SCORE_FLOW: direction mapping test kicker_direction=" .. kicker_direction
-                .. " defender_direction=" .. defender_direction
-                .. " winner=" .. winner
-                .. " bomb_target=" .. tostring(target_name))
         end
     end
-
     log("RESULT_FLOW: direction mapping test complete instance=" .. instance_id)
 end
-
-run_direction_mapping_test()
 
 -- The camera is kept centered on the selected bot, while displayer text uses
 -- virtual screen coordinates. Center the label using the measured width and
@@ -2828,10 +2814,7 @@ local function play_instance_sound(instance_id, sound_path, phase)
     return played > 0
 end
 
-local function move_bot_smoothly(
-    bot, target, speed, phase, animation_state, duration_override,
-    on_arrival_callback, arrival_callback_lead_seconds
-)
+local function move_bot_smoothly(bot, target, speed, phase, animation_state, duration_override)
     if not bot or not bot.id or not target then
         log("RESULT_FLOW: cannot move bot; missing bot/target phase=" .. tostring(phase))
         return false
@@ -2936,37 +2919,11 @@ local function move_bot_smoothly(
         return false
     end
 
-    -- Contact callbacks can be requested just before the position track ends.
-    -- This is important for one-shot impact sounds: waiting until after the full
-    -- movement duration makes the sound request itself late by the network/audio
-    -- dispatch time. The bot still waits for the full duration before its server
-    -- position is committed or the movement function reports completion.
-    if type(on_arrival_callback) == "function" then
-        local lead = math.max(0, math.min(
-            duration,
-            tonumber(arrival_callback_lead_seconds) or 0
-        ))
-        local callback_delay = math.max(0, duration - lead)
-        if callback_delay > 0 then
-            await(Async.sleep(callback_delay))
-        end
-        local callback_ok, callback_error = pcall(on_arrival_callback)
-        log("CONTACT_TIMING: arrival callback requested bot=" .. tostring(bot.id)
-            .. " phase=" .. tostring(phase)
-            .. " planned_duration=" .. tostring(duration)
-            .. " callback_lead=" .. tostring(lead)
-            .. " callback_delay=" .. tostring(callback_delay)
-            .. " success=" .. tostring(callback_ok)
-            .. (not callback_ok and (" error=" .. tostring(callback_error)) or ""))
-        local remaining = duration - callback_delay
-        if remaining > 0 then
-            await(Async.sleep(remaining))
-        end
-    else
-        -- Resume at the interpolation duration so arrival pose changes happen
-        -- without a post-movement gap that could expose a fallback animation.
-        await(Async.sleep(duration))
-    end
+    -- The animation runs on the server. Resume at the exact interpolation
+    -- duration so the arrival animation override can run immediately, without
+    -- leaving a small post-interpolation gap where the client may show a
+    -- missing/default animation asset.
+    await(Async.sleep(duration))
     bot.position = { x = tx, y = ty, z = tz }
 
     log("RESULT_FLOW: interpolated movement complete bot=" .. tostring(bot.id)
@@ -3474,95 +3431,6 @@ read_bot_position = function(bot)
     return nil
 end
 
-local function set_bot_position_immediately(bot, position, phase)
-    if not bot or not bot.id or type(Net.move_bot) ~= "function" then
-        log("BALL_CATCH: cannot update ball position; Net.move_bot unavailable phase="
-            .. tostring(phase))
-        return false
-    end
-
-    -- The Ball-point follower needs an immediate map-position update on each
-    -- tick. A zero-duration Net.animate_bot_properties keyframe interferes
-    -- with this repeated follow path on the server/client and can leave the
-    -- ball lagging or detached from the defender. Keep animation selection
-    -- separate; use move_bot only for these per-tick coordinates.
-    local ok, result = pcall(Net.move_bot, bot.id, position.x, position.y, position.z or 0)
-    if not ok or result == false then
-        log("BALL_CATCH: ball position update failed phase=" .. tostring(phase)
-            .. " error=" .. tostring(result))
-        return false
-    end
-    bot.position = { x = position.x, y = position.y, z = position.z or 0 }
-    return true
-end
-
--- Move an attached bomb with short, positive-duration property keyframes.
--- Do not use Net.move_bot for each follow sample: some clients treat those
--- immediate movement packets as a bot-state refresh and fall back to the
--- default/empty animation. The keyframes intentionally contain only position
--- properties, so the bomb's looping Small-Bomb/Big-Bomb state is not restarted.
-local function move_bot_follow_keyframe(bot, position, phase, duration)
-    if not bot or not bot.id or type(position) ~= "table" then
-        return false
-    end
-
-    -- Keep each update shorter than the follower sampling interval so the
-    -- Ball bot reaches the latest authored Ball-point target before the next
-    -- sample arrives. Longer overlapping interpolations make the ball trail
-    -- behind the Defender during the second half of a matching jump.
-    duration = math.max(0.005, tonumber(duration) or 0.01)
-    local start = bot.position or read_bot_position(bot) or position
-    local sx, sy, sz = tonumber(start.x) or 0, tonumber(start.y) or 0, tonumber(start.z) or 0
-    local tx = tonumber(position.x) or sx
-    local ty = tonumber(position.y) or sy
-    local tz = tonumber(position.z) or sz
-
-    if type(Net.animate_bot_properties) ~= "function" then
-        -- Do not fall back to Net.move_bot here: repeated immediate position
-        -- updates are the suspected trigger for clients losing the bomb's
-        -- looping animation. Prefer stopping the attachment update to clearing
-        -- or replacing the visible animation state.
-        log("BALL_CATCH: keyframe follow unavailable; refusing immediate-move fallback phase="
-            .. tostring(phase) .. " bot=" .. tostring(bot.id))
-        return false
-    end
-
-    -- Use a very short positive start frame and let the target settle quickly.
-    -- The follower samples every 10 ms, so a longer target interpolation can
-    -- still be in flight when the next Ball-point target is submitted.
-    -- Neither frame writes the Animation property.
-    local start_duration = math.min(0.001, duration / 4)
-    local target_duration = math.max(0.004, duration - start_duration)
-    local keyframes = {
-        {
-            properties = {
-                { property = "X", value = sx },
-                { property = "Y", value = sy },
-                { property = "Z", value = sz },
-            },
-            duration = start_duration,
-        },
-        {
-            properties = {
-                { property = "X", ease = "InOut", value = tx },
-                { property = "Y", ease = "InOut", value = ty },
-                { property = "Z", ease = "Linear", value = tz },
-            },
-            duration = target_duration,
-        },
-    }
-    local ok, result = pcall(Net.animate_bot_properties, bot.id, keyframes)
-    if not ok or result == false then
-        log("BALL_CATCH: keyframe follow failed phase=" .. tostring(phase)
-            .. " error=" .. tostring(result))
-        return false
-    end
-
-    await(Async.sleep(duration))
-    bot.position = { x = tx, y = ty, z = tz }
-    return true
-end
-
 local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
     animation_state, initial_elapsed, shared_duration, start_position, target_position)
     -- Build one synchronized position track at the animation's actual frame
@@ -3765,17 +3633,14 @@ local function resolve_round_winner(instance_id)
         if kicker_ok then
             kicker_ok = move_bot_smoothly(
                 kicker, bomb_position, Gameplay.RESULT_KICKER_WALK_U_SPEED, "kicker-to-bomb",
-                AnimationStates.WALK_U, nil,
-                function()
-                    play_instance_sound(instance_id, ITEM_THUD_SFX, "kicker-reaches-ball")
-                end,
-                ITEM_THUD_CONTACT_LEAD_SECONDS
+                AnimationStates.WALK_U
             )
         end
 
         if kicker_ok then
-            -- The kicker-contact sound was requested shortly before this movement
-            -- completed, using the movement track's own planned duration.
+            -- The kicker has reached the bomb. Play the item impact at contact,
+            -- immediately before the bomb/Defender response launches.
+            play_instance_sound(instance_id, ITEM_THUD_SFX, "kicker-reaches-ball")
 
             -- Launch the bomb and Defender response together. For Left/Right,
             -- the Defender's configured speed (60) determines the shared travel
@@ -4060,21 +3925,18 @@ local function resolve_round_winner(instance_id)
                         .. " tile_size=" .. tostring(catch_point_meta and catch_point_meta.tile_width)
                         .. "x" .. tostring(catch_point_meta and catch_point_meta.tile_height))
                     async(function()
-                        local catch_sound_callback
-                        if kicker.direction_choice == defender.direction_choice then
-                            catch_sound_callback = function()
+                        bomb_ok = move_bot_smoothly(
+                            bots.bomb_bot, catch_position, response_bomb_speed,
+                            "bomb-to-defender-ball-point", nil, half_duration
+                        )
+                        if bomb_ok then
+                            -- The bomb reaches the Defender's authored Ball point
+                            -- at the catch midpoint. Only play the second thud
+                            -- when the Defender correctly chose the same lane.
+                            if kicker.direction_choice == defender.direction_choice then
                                 play_instance_sound(instance_id, ITEM_THUD_SFX,
                                     "defender-catches-ball-matching-direction")
                             end
-                        end
-                        bomb_ok = move_bot_smoothly(
-                            bots.bomb_bot, catch_position, response_bomb_speed,
-                            "bomb-to-defender-ball-point", nil, half_duration,
-                            catch_sound_callback, ITEM_THUD_CONTACT_LEAD_SECONDS
-                        )
-                        if bomb_ok then
-                            -- The catch impact was scheduled against the same
-                            -- movement timeline, rather than after it completed.
                             bots.ball_follow_active = true
                             async(function()
                                 follow_defender_ball_point(
@@ -4138,24 +4000,19 @@ local function resolve_round_winner(instance_id)
                             true
                         )
                     end
-                    local center_catch_sound_callback
-                    if is_center_catch and center_catch_position
-                        and kicker.direction_choice == defender.direction_choice then
-                        center_catch_sound_callback = function()
-                            play_instance_sound(instance_id, ITEM_THUD_SFX,
-                                "defender-catches-ball-matching-direction")
-                        end
-                    end
                     bomb_ok = move_bot_smoothly(
                         bots.bomb_bot, bomb_destination, response_bomb_speed,
                         is_center_catch and "bomb-to-center-ball-point" or ("bomb-to-" .. tostring(target_name)),
-                        nil, center_catch_duration,
-                        center_catch_sound_callback, ITEM_THUD_CONTACT_LEAD_SECONDS
+                        nil, center_catch_duration
                     )
                     -- Center/Up has no jump clip: arrive at the actual authored
                     -- Ball point halfway through the shared cycle, then keep the
                     -- ball attached while the rest of the defensive cycle elapses.
                     if bomb_ok and is_center_catch and center_catch_position then
+                        if kicker.direction_choice == defender.direction_choice then
+                            play_instance_sound(instance_id, ITEM_THUD_SFX,
+                                "defender-catches-ball-matching-direction")
+                        end
                         local defender_position = read_bot_position(defender)
                             or defender.position or defender_target
                         bots.ball_follow_active = true

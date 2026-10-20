@@ -8,9 +8,11 @@
 
 The public API remains compatible: `get_state`, `get_frame`, `get_point`, `duration`/`get_duration`, `refresh`, and `update`. Animation points are optional and are retained when present.
 
-## Startup diagnostics
+## Optional diagnostics
 
-FootBomb's `animation_diagnostics.lua` checks each active `.animation` file and its matching `.ani` counterpart (when configured by the same basename). Logs begin with `ANIM_DIAGNOSTICS:` and include detected version, image path, states, frame counts, total state durations, each frame's rectangle/origin/flip flags and duration, any labeled points, and whether the configured initial state exists. This is read-only diagnostics and does not change live bot animations. Missing or malformed assets are logged without intentionally stopping FootBomb startup.
+Verbose diagnostics are disabled during normal gameplay to avoid dumping every frame and point to the server log on every module load. To enable them temporarily, set `RUN_ANIMATION_DIAGNOSTICS = true` in `constants.lua`. The `animation_diagnostics.lua` module checks each active `.animation` file and its matching `.ani` counterpart and logs detected format/version, image path, states, frame counts, frame rectangles/origins/flips/durations, labeled points, and whether the configured initial state exists. This is read-only and does not change live bot animations. Failures are logged and do not intentionally stop FootBomb startup.
+
+Set `RUN_DIRECTION_MAPPING_TEST = true` in the same `DIAGNOSTICS` section to print the nine Left/Up/Right kicker/defender mapping predictions at module load. This test logs predictions only; it does not simulate a live round. Both flags default to `false`.
 
 ## Install
 
@@ -38,18 +40,25 @@ The code can be syntax-checked and its parser can be tested against supplied v2.
 
 When both players choose **Up** (the center direction) and the Defender wins, the ball first reaches the center target, then attaches to the Defender's `Ball` point in `FOOTBOMB_READY_DEFENSE`. The follower samples looping animation states using their loop duration and remains active until the result camera fade begins.
 
-The ball bot stores its selected looping animation state (`Small-Bomb` by default; `Big-Bomb` if configured) on the bomb-bot record. Smooth movement keyframes include that state at the start and target. While attached to a defender, each follow sample uses a short, positive-duration `Net.animate_bot_properties` keyframe containing only X/Y/Z; it deliberately does not change the Animation property or use a zero-duration starting frame. This avoids repeated `Net.move_bot` updates that can make some clients fall back to an empty/default animation, and avoids restarting the bomb animation on every sample. If the property API is unavailable, the code logs that it refuses the immediate-movement fallback because animation persistence may vary by client. Immediately before the result camera fade, FootBomb reasserts the bomb's stored looping animation so it remains selected through the transition.
+The ball bot stores its selected looping animation state (`Small-Bomb` by default; `Big-Bomb` if configured) on the bomb-bot record. Its movement keyframes and attached-ball track contain position properties only; animation state is set separately so a position track cannot overwrite the intended looping animation. The attached-ball track is built once using the parsed `Ball` point's animation-frame boundaries, with short positive-duration position keyframes rather than a polling loop. Immediately before the result camera fade, FootBomb reasserts the bomb's stored looping animation so it remains selected through the transition.
 
-While attached, the ball's Z coordinate is `defender Z + Gameplay.RESULT_BALL_Z_LIFT` (default `0.1`) so it is only slightly above the Defender. The initial catch travel stays on the defender's current Z layer; Z is excluded from horizontal travel-distance calculations. During the remaining defender jump, the follower uses the same eased start-to-target path used by the defender's movement keyframes, avoiding a handoff snap if `Net.get_bot_position` still reports a stale position. After that movement duration, the follower switches to the live defender position. Follow samples are logged periodically for diagnosing any remaining coordinate mismatch.
+While attached, the ball's Z coordinate is `defender Z + Gameplay.RESULT_BALL_Z_LIFT` (default `4`). The initial catch travel stays on the defender's current Z layer; Z is excluded from horizontal travel-distance calculations. During the remaining defender jump, the ball track uses the same quadratic start-to-target path used by the defender's jump movement, avoiding a handoff snap if `Net.get_bot_position` still reports a stale position. The full position track is submitted to `Net.animate_bot_properties`; it does not switch to a live-position polling loop at the end of the jump.
 
 
 ### Instance-area bot asset preflight
 
 When a FootBomb instance is created, `main.lua` now validates every selectable Navi and bomb animation with `Boom.load` before creating any bots. It verifies the states used by gameplay (including `Small-Bomb`, `Big-Bomb`, and `Preview`), checks that each referenced texture/animation file exists on the server, then calls `Net.provide_asset(instance_area_id, path)` for the instance area's Navi textures, animations, mug textures, shared mug animation, and all bomb textures/animations. If an asset is missing, malformed, or cannot be provided, instance setup fails before bots or players are exposed to a partially provisioned match. Player-specific provisioning remains in place for UI assets.
 
-The result movement keyframes use the same shape seen in `scripts/indy-trains/main.lua`: a zero-duration start frame and a timed target frame, with the selected animation explicitly included in both frames. Attached-bomb follow remains position-only keyframes so the looped bomb animation is not restarted on every follow sample. If that keyframe API is unavailable, the follower deliberately stops instead of falling back to repeated `Net.move_bot` calls, which are suspected of causing the animation to disappear. `Boom` parses and validates animation-file states and named points; it is not itself the network keyframe scheduler.
+Result movement uses a short positive-duration start frame followed by timed position-only frames. The start-frame duration is deducted from the first movement segment so it does not extend the planned total duration. Animation state is applied separately through `Net.animate_bot`, avoiding competing animation writes from the movement property track. The attached-ball track also uses position-only keyframes and refuses to proceed if `Net.animate_bot_properties` is unavailable. `Boom` parses and validates animation-file states and named points; it is not itself the network keyframe scheduler.
 
 
 ### Avoiding client-side animation reloads
 
 Navi avatars are assigned when the bot is created. During gameplay, defense, jump, idle, and walk phases should only change the animation state (and direction when needed); they should not call `Net.set_bot_avatar` again. Reassigning the same texture/animation path on every state transition can trigger client-side asset reload/loading indicators and may briefly interrupt rendering. The bomb avatar is assigned when each round's bomb bot is spawned; subsequent movement/result phases only select its animation state.
+
+
+## Pass 1 maintenance notes
+
+- Verbose animation-file diagnostics and the direction-mapping log test are opt-in through `constants.lua` and default to disabled.
+- Removed two unreferenced local movement helpers from `main.lua` and removed the unused `RESULT_MOVE_STEP_SECONDS` setting. These changes do not alter live movement paths.
+- The configuration's `RESULT_BALL_Z_LIFT = 4` is the active default; update this documentation alongside the value if it is intentionally tuned later.

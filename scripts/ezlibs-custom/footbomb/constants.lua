@@ -6,6 +6,13 @@ local BOT_ASSET_FOLDER = ASSET_ROOT .. "bots/"
 local SCREEN_CENTER = { x = 120, y = 80 }
 
 local constants = {
+    -- Expensive, verbose diagnostics are disabled during normal gameplay.
+    -- Enable either flag temporarily when investigating mappings or assets.
+    DIAGNOSTICS = {
+        RUN_ANIMATION_DIAGNOSTICS = false,
+        RUN_DIRECTION_MAPPING_TEST = false,
+    },
+
     DEFAULTS = {
         SOURCE_AREA = "footbomb",
         POINTS_TO_WIN = 10,
@@ -72,7 +79,6 @@ local constants = {
 
     GAMEPLAY = {
         -- Result phase movement tuning (map-coordinate units per second).
-        RESULT_MOVE_STEP_SECONDS = 0.1,
         RESULT_KICKER_WALK_UR_SPEED = 3,
         RESULT_KICKER_WALK_U_SPEED = 3,
         RESULT_BOMB_MOVE_SPEED = 3,
