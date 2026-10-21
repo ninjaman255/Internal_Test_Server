@@ -2530,22 +2530,32 @@ local function get_navi_ball_point_offset(bot, state_name, elapsed, child_z)
             tile_height = tonumber(value)
         end
     end
-    local map_offset, map_error = WorldAttachment.pixel_offset_to_map(screen_offset, {
-        projection = "isometric",
-        tile_width = tile_width,
-        tile_height = tile_height,
-        z_correction = {
-            enabled = true,
-            child_z = tonumber(child_z) or 0,
-            scale = 0.5,
-        },
-        anti_jitter = true,
-    })
+    -- NOTE: child_z here is the LIFT (delta above the parent), not the
+    -- parent's absolute z. The engine already renders the parent at its
+    -- own z; we only compensate x/y for the lift we add on top.
+    -- The scale is derived dynamically by world-attachment from
+    -- tile_height / tile_width (0.5 for the standard 64x32 map).
+    local map_offset, map_error, map_meta = WorldAttachment.pixel_offset_to_map(
+        screen_offset,
+        {
+            projection = "isometric",
+            tile_width = tile_width,
+            tile_height = tile_height,
+            z_correction = {
+                enabled = true,
+                child_z = tonumber(child_z) or 0,
+            },
+            anti_jitter = true,
+        }
+    )
     if not map_offset then return nil, map_error end
     meta = meta or {}
     meta.screen_offset_x, meta.screen_offset_y = screen_offset.x, screen_offset.y
     meta.tile_width, meta.tile_height = tile_width, tile_height
-    meta.child_z_correction = (tonumber(child_z) or 0) * 0.5
+    meta.child_z_correction = map_meta and map_meta.child_z_correction
+        or ((tonumber(child_z) or 0) * (tile_height / tile_width))
+    meta.child_z_scale = map_meta and map_meta.scale
+        or (tile_height / tile_width)
     return map_offset, nil, meta
 end
 
@@ -2945,9 +2955,11 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
         end
         local defender_position = defender_position_at(point_time)
         local lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
-        local offset, point_error = get_navi_ball_point_offset(
-            defender, animation_state, point_time,
-            defender_position and ((tonumber(defender_position.z) or 0) + lift) or nil
+        -- Pass lift (delta) not defender.z + lift (absolute). Matches the
+        -- catch phase so the ball does not snap at the catch→follow
+        -- transition; the engine handles the defender's absolute z.
+        local offset, point_error, point_meta = get_navi_ball_point_offset(
+            defender, animation_state, point_time, lift
         )
         if not offset or not defender_position then
             log("BALL_CATCH: failed building Ball-point track instance="
@@ -2966,6 +2978,14 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
             bots.ball_follow_active = false
             return
         end
+        log("BALL_FOLLOW: phase=sample instance=" .. tostring(instance_id)
+            .. " state=" .. tostring(animation_state)
+            .. " defender_z=" .. tostring(defender_position.z)
+            .. " lift=" .. tostring(lift)
+            .. " child_z_correction=" .. tostring(point_meta and point_meta.child_z_correction)
+            .. " child_z_scale=" .. tostring(point_meta and point_meta.child_z_scale)
+            .. " attached_z=" .. tostring(attached_position.z)
+            .. " t=" .. tostring(point_time))
         keyframes[#keyframes + 1] = {
             properties = {
                 { property = "X", ease = "Linear", value = attached_position.x },
@@ -3063,6 +3083,22 @@ local function resolve_round_winner(instance_id)
         })
 
         if kicker_ok then
+            -- The kicker's walk-to-bomb just finished. Emit BOMB_LAUNCHED
+            -- here so THUD_SFX is dispatched in step with the kicker's
+            -- arrival, before the planning block runs. Planning can take
+            -- tens to hundreds of milliseconds (animation parsing,
+            -- tile-size lookups, 8-iteration catch probe), so emitting at
+            -- the end of the block visibly lags the kick.
+            round_events:emit(ROUND_EVENT.BOMB_LAUNCHED, {
+                kicker_direction = kicker.direction_choice,
+                defender_direction = defender.direction_choice,
+            })
+
+            -- Hoisted so catch planning, catch execution, and follow all use
+            -- the same lift, keeping the ball visually attached without a
+            -- snap at the catch→follow boundary.
+            local ball_lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+
             local defender_target_name = ({
                 Left = "Defender 1", Up = "Defender 2", Right = "Defender 3",
             })[defender.direction_choice]
@@ -3145,12 +3181,15 @@ local function resolve_round_winner(instance_id)
                     local midpoint = defender_jump_position_at(
                         start_position, target_position, ratio
                     )
+                    -- Lift is the DELTA above the defender, not midpoint.z
+                    -- (which is an absolute z). This matches the follow
+                    -- phase so the ball does not snap when follow starts.
                     local offset = get_navi_ball_point_offset(
-                        defender, jump_state, contact_elapsed, midpoint.z
+                        defender, jump_state, contact_elapsed, ball_lift
                     )
                     if type(offset) == "table" then
                         local catch_position = WorldAttachment.target_position(
-                            midpoint, offset, { z_offset = 0 }
+                            midpoint, offset, { z_offset = ball_lift }
                         )
                         if catch_position then
                             local ball_distance = world_xy_distance(bomb_start, catch_position) or 0
@@ -3168,10 +3207,12 @@ local function resolve_round_winner(instance_id)
                     end
                 end
             elseif is_center_catch then
-                local ball_lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+                -- Same delta-based child_z as the matching jump catch so the
+                -- x/y correction is consistent between center and side
+                -- catches. `ball_lift` is already hoisted above.
                 local ready_offset = get_navi_ball_point_offset(
                     defender, AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
-                    (tonumber(defender_target.z) or 0) + ball_lift
+                    ball_lift
                 )
                 if type(ready_offset) == "table" then
                     local ready_catch = WorldAttachment.target_position(
@@ -3198,17 +3239,13 @@ local function resolve_round_winner(instance_id)
                 .. " response_bomb_speed=" .. tostring(response_bomb_speed)
                 .. " shared_duration=" .. tostring(shared_duration)
                 .. " matching_jump=" .. tostring(is_matching_jump)
-                .. " center_catch=" .. tostring(is_center_catch))
+                .. " center_catch=" .. tostring(is_center_catch)
+                .. " ball_lift=" .. tostring(ball_lift))
 
             log("RESULT_FLOW: launching bomb and defender response together instance="
                 .. tostring(instance_id) .. " bomb_target=" .. tostring(target_name)
                 .. " defender_target=" .. tostring(defender_target_name)
                 .. " shared_duration=" .. tostring(shared_duration))
-
-            round_events:emit(ROUND_EVENT.BOMB_LAUNCHED, {
-                kicker_direction = kicker.direction_choice,
-                defender_direction = defender.direction_choice,
-            })
 
             local bomb_done, bomb_ok = false, false
             local defender_done, defender_ok = false, false
@@ -3259,14 +3296,15 @@ local function resolve_round_winner(instance_id)
                     and (catch_duration / jump_movement_duration) or 0.5
                 ratio = math.max(0, math.min(1, ratio))
                 local midpoint = defender_jump_position_at(start_position, target_position, ratio)
+                -- Same delta-based values as the planning block above.
                 local catch_offset, catch_point_error = get_navi_ball_point_offset(
-                    defender, jump_state, catch_duration, midpoint.z
+                    defender, jump_state, catch_duration, ball_lift
                 )
                 local catch_position
                 if catch_offset then
                     local catch_position_error
                     catch_position, catch_position_error = WorldAttachment.target_position(
-                        midpoint, catch_offset, { z_offset = 0 }
+                        midpoint, catch_offset, { z_offset = ball_lift }
                     )
                     if not catch_position then
                         log("BALL_CATCH: failed composing catch position instance="
@@ -3281,8 +3319,10 @@ local function resolve_round_winner(instance_id)
                         .. " state=" .. tostring(jump_state)
                         .. " catch_elapsed=" .. tostring(catch_duration)
                         .. " jump_movement_duration=" .. tostring(jump_movement_duration)
+                        .. " ball_lift=" .. tostring(ball_lift)
                         .. " catch_x=" .. tostring(catch_position.x)
-                        .. " catch_y=" .. tostring(catch_position.y))
+                        .. " catch_y=" .. tostring(catch_position.y)
+                        .. " catch_z=" .. tostring(catch_position.z))
                     async(function()
                         bomb_ok = move_bot_smoothly(
                             bots.bomb_bot, catch_position, response_bomb_speed,
@@ -3327,17 +3367,17 @@ local function resolve_round_winner(instance_id)
                     if is_center_catch then
                         local defender_position = read_bot_position(defender)
                             or defender.position or defender_target
-                        local ball_z_lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+                        -- Delta-based; matches ball_lift and target z_offset.
                         local attach_offset, attach_error = get_navi_ball_point_offset(
                             defender, AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
-                            (tonumber(defender_position.z) or 0) + ball_z_lift
+                            ball_lift
                         )
                         if attach_offset then
                             local attach_position_error
                             center_catch_position, attach_position_error =
                                 WorldAttachment.target_position(
                                     defender_position, attach_offset,
-                                    { z_offset = ball_z_lift }
+                                    { z_offset = ball_lift }
                                 )
                             if not center_catch_position then
                                 log("BALL_CATCH: failed composing center catch target instance="
@@ -3431,6 +3471,18 @@ local function resolve_round_winner(instance_id)
             role_events.kicker:emit("assert_idle_u")
             round_events:emit(ROUND_EVENT.DEFENDER_HOLD_STARTED, {})
 
+            -- Diagnostic: confirm the ball's catch/follow z values match so
+            -- the ball stays glued to the ball point through the END pose.
+            if bots.bomb_bot and bots.bomb_bot.position then
+                local bp = bots.bomb_bot.position
+                local dp = defender.position or read_bot_position(defender)
+                log("BALL_FLOW: catch→follow transition instance=" .. tostring(instance_id)
+                    .. " bomb_z=" .. tostring(bp.z)
+                    .. " defender_z=" .. tostring(dp and dp.z)
+                    .. " ball_lift=" .. tostring(ball_lift)
+                    .. " expected_bomb_z=" .. tostring(dp and (dp.z + ball_lift)))
+            end
+
             award_round_point(instance_id, kicker, defender, winner)
 
             log("ROUND_FLOW: result hold started instance=" .. tostring(instance_id)
@@ -3520,6 +3572,44 @@ local function resolve_round_winner(instance_id)
     end)
 end
 
+-- ---------------------------------------------------------------------------
+-- NPC direction variety (Fisher-Yates shuffle bag)
+-- ---------------------------------------------------------------------------
+-- Each fill of the bag contains all three directions exactly once, in random
+-- order. Picking pops from the bag; when the bag empties it refills with a
+-- fresh shuffle. Consequences:
+--   * No fixed cycle. The order changes every three picks.
+--   * No streaks. "Left, Left, Left" is impossible within any 3-pick window.
+--   * Still random-feeling. Nothing about the next pick is predictable from
+--     the previous ones within a bag fill.
+--
+-- The bag lives on the bot record (`bot._direction_bag`) rather than on
+-- `State`, so it survives the Kicker/Defender role swap each round. The
+-- NPC's variety is a property of the NPC, not of the role they're in.
+
+local function refill_npc_direction_bag(bot)
+    local bag = {}
+    for i, direction in ipairs(DIRECTION_CHOICES) do
+        bag[i] = direction
+    end
+    for i = #bag, 2, -1 do
+        local j = math.random(1, i)
+        bag[i], bag[j] = bag[j], bag[i]
+    end
+    bot._direction_bag = bag
+    log("DIRECTION_FLOW: NPC direction bag refilled bot=" .. tostring(bot.id)
+        .. " order=" .. table.concat(bag, ","))
+    return bag
+end
+
+local function draw_npc_direction(bot)
+    local bag = bot._direction_bag
+    if type(bag) ~= "table" or #bag == 0 then
+        bag = refill_npc_direction_bag(bot)
+    end
+    return table.remove(bag, 1)
+end
+
 local function finish_direction_selection_if_ready(instance_id)
     local bots = State.instance_bots[instance_id]
     if not bots or bots.directions_resolved then return end
@@ -3535,14 +3625,12 @@ local function finish_direction_selection_if_ready(instance_id)
     if #humans == 0 then return end
     for slot, bot in ipairs(bots) do
         if not human_slots[slot] then
-            State.npc_direction_sequence_index =
-                (State.npc_direction_sequence_index % #DIRECTION_CHOICES) + 1
-            bot.direction_choice = DIRECTION_CHOICES[State.npc_direction_sequence_index]
+            bot.direction_choice = draw_npc_direction(bot)
             log("DIRECTION_FLOW: server chose NPC direction instance="
                 .. tostring(instance_id) .. " slot=" .. tostring(slot)
                 .. " role=" .. tostring(bot.role)
                 .. " direction=" .. tostring(bot.direction_choice)
-                .. " sequence_index=" .. tostring(State.npc_direction_sequence_index))
+                .. " bag_remaining=" .. tostring(#(bot._direction_bag or {})))
         end
     end
     bots.directions_resolved = true
@@ -4231,16 +4319,21 @@ Net:on("tick", function(event)
                 end
                 if chosen_direction then
                     local previous_direction = rep.selected_direction
+                    local direction_changed = previous_direction ~= chosen_direction
                     rep.selected_direction = chosen_direction
-                    if rep.direction_cursor_ui_visible
-                        and previous_direction ~= chosen_direction then
+                    if rep.direction_cursor_ui_visible and direction_changed then
                         rep.direction_cursor_bob_tick = 0
                         rep.direction_cursor_bob_offset = 0
                         show_direction_selector_ui(player_id, rep)
                     end
-                    pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
-                    log("DIRECTION_FLOW: player changed direction player="
-                        .. tostring(player_id) .. " direction=" .. chosen_direction)
+                    if direction_changed then
+                        pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
+                        log("DIRECTION_FLOW: player changed direction player="
+                            .. tostring(player_id) .. " direction=" .. chosen_direction)
+                    else
+                        log("DIRECTION_FLOW: player re-selected same direction (no change) player="
+                            .. tostring(player_id) .. " direction=" .. chosen_direction)
+                    end
                     input:consume(rep.input_owner)
                     input:require_release(
                         { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
