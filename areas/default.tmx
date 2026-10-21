@@ -251,16 +251,7 @@
    </properties>
    <point/>
   </object>
-  <object id="117" name="MarqueeBat" x="704" y="576">
-   <point/>
-  </object>
-  <object id="118" name="LiberationPointsBat" x="704" y="544">
-   <point/>
-  </object>
-  <object id="119" name="NaviChanger" x="704" y="512">
-   <point/>
-  </object>
-  <object id="120" name="CosmeticRoll" x="704" y="480">
+  <object id="120" name="CosmeticRoll" x="704" y="576">
    <point/>
   </object>
   <object id="122" type="Mystery Data" x="656" y="944">

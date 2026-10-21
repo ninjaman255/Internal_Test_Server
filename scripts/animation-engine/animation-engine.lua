@@ -60,6 +60,17 @@ local function remove_from_tag_sets(collection, id)
     for _, set in pairs(collection) do set[id] = nil end
 end
 
+local function owner_tag(owner)
+    if owner == nil then return nil end
+    return "owner:" .. tostring(owner)
+end
+
+local function add_tag(collection, tag, id)
+    if tag == nil or tag == "" then return end
+    collection[tag] = collection[tag] or {}
+    collection[tag][id] = true
+end
+
 function AnimationEngine.get_time()
     return engine_time
 end
@@ -119,8 +130,10 @@ function AnimationEngine.animate(start_values, target_values, duration, options)
     local id = options.id or generate_animation_id()
     local actual_duration = math.max(0, tonumber(duration) or 0)
     local tag = options.tag
+    local owner = options.owner
 
     animations[id] = {
+        owner = owner,
         id = id,
         start_time = now(),
         duration = actual_duration,
@@ -141,10 +154,8 @@ function AnimationEngine.animate(start_values, target_values, duration, options)
         current_values = copy_table(start_values),
     }
 
-    if tag then
-        tagged_animations[tag] = tagged_animations[tag] or {}
-        tagged_animations[tag][id] = true
-    end
+    add_tag(tagged_animations, tag, id)
+    add_tag(tagged_animations, owner_tag(owner), id)
 
     -- Preserve the old "instant" behavior without waiting for a later tick.
     if easing == "instant" or actual_duration <= 0 then
@@ -310,10 +321,9 @@ function AnimationEngine.create_sequence(steps, options)
         original_values = options.original_values,
         next_step_time = nil,
     }
-    if options.tag then
-        tagged_sequences[options.tag] = tagged_sequences[options.tag] or {}
-        tagged_sequences[options.tag][id] = true
-    end
+    add_tag(tagged_sequences, options.tag, id)
+    add_tag(tagged_sequences, owner_tag(options.owner), id)
+    sequences[id].owner = options.owner
     return id
 end
 
@@ -555,6 +565,31 @@ function AnimationEngine.get_sequence_count()
     local count = 0
     for _ in pairs(sequences) do count = count + 1 end
     return count
+end
+
+-- Stop only work registered to a specific owner. Owners are independent of
+-- ordinary tags, so an animation may belong to both a feature tag and a player.
+function AnimationEngine.stop_by_owner(owner)
+    local tag = owner_tag(owner)
+    if not tag then return 0 end
+    local stopped = 0
+    local animation_set = tagged_animations[tag]
+    if animation_set then
+        local ids = {}
+        for id in pairs(animation_set) do ids[#ids + 1] = id end
+        for _, id in ipairs(ids) do
+            if AnimationEngine.stop_animation(id) then stopped = stopped + 1 end
+        end
+    end
+    local sequence_set = tagged_sequences[tag]
+    if sequence_set then
+        local ids = {}
+        for id in pairs(sequence_set) do ids[#ids + 1] = id end
+        for _, id in ipairs(ids) do
+            if AnimationEngine.stop_sequence(id) then stopped = stopped + 1 end
+        end
+    end
+    return stopped
 end
 
 function AnimationEngine.clear_all()

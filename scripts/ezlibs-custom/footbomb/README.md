@@ -85,3 +85,32 @@ This gives the server coroutine and client renderer more time to enter the loopi
 `FOOTBOMB_JUMP_LEFT_END` / `FOOTBOMB_JUMP_RIGHT_END` state before the one-shot jump
 animation can finish and briefly expose a fallback state. The animation ownership
 model and movement timeline are otherwise unchanged.
+
+
+## Pass 4 — centralized animation writes and ezbus diagnostics
+
+All explicit FootBomb `Net.animate_bot` requests now pass through the single
+`set_bot_animation_state` owner in `main.lua`. Movement keyframes are position-only,
+including the result movement helper; they no longer contain `Animation` properties
+that can compete with the direct animation-state API. Bomb and defender setup use the
+same owner as result, kicker, and later phase transitions. Avatar assignment remains
+separate from state changes.
+
+The owner emits synchronous diagnostics through the shared `ezbus` (which is backed
+by `ezemitter`):
+
+- `footbomb:animation:requested` — bot, instance when known, phase when supplied,
+  requested state, loop flag, and monotonically increasing per-bot request revision.
+- `footbomb:animation:applied` — the same request data plus success/result from the
+  server API call. This means the server accepted the request; it does not prove the
+  client has rendered the requested frame.
+- `footbomb:animation:bot_removed` — emitted when FootBomb removes a bot and clears
+  its request revision.
+
+`ezbus` listeners run synchronously, so the event emission is protected with `pcall`
+and a diagnostic listener failure will not intentionally interrupt gameplay. Consumers
+should observe these events for logging/diagnostics only and must not issue their own
+`Net.animate_bot` calls for FootBomb bots, or they would reintroduce competing writers.
+The per-bot revision is a correlation/diagnostic ID, not a client render acknowledgement
+or a substitute for a match-phase validity check. Existing result-flow ownership and
+round guards remain responsible for deciding when a phase transition is still valid.

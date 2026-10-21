@@ -183,7 +183,7 @@ function AnimationSequences.summon(object, start_x, start_y, start_scale,
             end,
             on_complete = on_complete
         }
-    }, { tag = tag })
+    }, { tag = tag, owner = options.owner })
     
     AnimationEngine.start_sequence(sequence_id)
     return sequence_id
@@ -433,6 +433,7 @@ function AnimationSequences.bob(object, options)
             loop = loop,
             ping_pong = ping_pong,
             tag = tag,
+            owner = options.owner,
             on_update = function(values)
                 object.y = values.y
                 if on_update then
@@ -524,6 +525,7 @@ function AnimationSequences.color_pulse(object, start_color, target_color, optio
             loop = loop,
             ping_pong = ping_pong,
             tag = tag,
+            owner = options.owner,
             on_update = function(values)
                 -- Apply color and alpha to object
                 if object.setColor then
@@ -616,7 +618,7 @@ function AnimationSequences.shake(object, options)
             end,
             on_complete = on_complete
         }
-    }, { tag = tag })
+    }, { tag = tag, owner = options.owner })
     
     AnimationEngine.start_sequence(sequence_id)
     return sequence_id

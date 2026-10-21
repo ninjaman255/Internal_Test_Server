@@ -10,7 +10,7 @@ frame duration="0.283333" x="166" y="114" w="35" h="33" originx="17" originy="32
 point label="Ball" x="29" y="11"
 frame duration="0.133333" x="202" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
 point label="Ball" x="29" y="13"
-frame duration="0.183333" x="238" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
+frame duration="2.5" x="238" y="114" w="35" h="33" originx="17" originy="32" flipx="1"
 point label="Ball" x="29" y="16"
 
 animation state="FOOTBOMB_JUMP_LEFT_END"
@@ -26,7 +26,7 @@ frame duration="0.283333" x="166" y="114" w="35" h="33" originx="17" originy="32
 point label="Ball" x="29" y="11"
 frame duration="0.133333" x="202" y="114" w="35" h="33" originx="17" originy="32"
 point label="Ball" x="29" y="13"
-frame duration="0.183333" x="238" y="114" w="35" h="33" originx="17" originy="32"
+frame duration="2.5" x="238" y="114" w="35" h="33" originx="17" originy="32"
 point label="Ball" x="29" y="16"
 
 animation state="FOOTBOMB_JUMP_RIGHT_END"

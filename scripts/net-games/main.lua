@@ -236,26 +236,96 @@ end
 -- COSMETIC FUNCTIONS
 -- ===========================================================
 
--- Purpose: Show a texture as a cosmetic on a player's avatar
+-- Purpose: Show a cosmetic as a native animated sprite for its owner and as
+-- an animated world bot for every other player.
+--
+-- The owner's sprite is deliberately local to that player. The bot remains
+-- the authoritative world representation for other players. Movement updates
+-- below only animate bot position; they never rewrite its Animation property,
+-- so moving does not restart the cosmetic's animation on remote clients.
 function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset)
     return async(function()
-        -- Safety checks
-        if not cosmetic_id or not animation or not state or not player_id or not texture or not x or not y then
+        if not cosmetic_id or not animation or not state or not player_id
+            or not texture or x == nil or y == nil then
             print("[games] One or more required arguments is missing for set_cosmetic()")
             return
         end
-        
-        local visibility = visible ~= false
-        if not cosmetic_cache[player_id] then 
+
+        if not cosmetic_cache[player_id] then
             cosmetic_cache[player_id] = {}
         end
-        
         if cosmetic_cache[player_id][cosmetic_id] then
-            print("[games] Player already has cosmetic named '"..cosmetic_id.."'.")
-            return 
-        end 
-        
-        -- Draw sprite on player
+            print("[games] Player already has cosmetic named '" .. tostring(cosmetic_id) .. "'.")
+            return
+        end
+
+        local visibility = visible ~= false
+        local p_xoffset = player_xoffset or 0
+        local p_yoffset = player_yoffset or 0
+        local bot_id = cosmetic_id .. "_" .. player_id
+        local sprite_id = cosmetic_id .. "_obj"
+
+        if not last_position_cache[player_id] then
+            last_position_cache[player_id] = {}
+        end
+
+        local area_id = last_position_cache[player_id].area or Net.get_player_area(player_id)
+        local position = Net.get_player_position(player_id)
+        if not position then
+            print("[games] Cannot create cosmetic '" .. tostring(cosmetic_id) .. "': player position unavailable.")
+            return
+        end
+
+        local xoffset, yoffset = convertOffsets(-x, -y, (position.z or 0) + 3)
+        xoffset, yoffset = fixOffsets(xoffset, yoffset)
+
+        -- Cache before publishing the bot so subsequent movement events have
+        -- a complete record to use.
+        cosmetic_cache[player_id][cosmetic_id] = {
+            id = cosmetic_id,
+            bot_id = bot_id,
+            sprite_id = sprite_id,
+            texture = texture,
+            animation = animation,
+            state = state,
+            x = xoffset,
+            y = yoffset,
+            visibility = visibility,
+            spritex = (x + 120 + p_xoffset) * 2,
+            spritey = (y + 80 + p_yoffset) * 2,
+            player_xoffset = p_xoffset,
+            player_yoffset = p_yoffset
+        }
+
+        -- World bot: other players see this representation and receive the
+        -- normal engine-driven animation playback.
+        Net.create_bot(bot_id, {
+            area_id = area_id,
+            warp_in = false,
+            texture_path = texture,
+            animation_path = animation,
+            animation = state,
+            x = position.x + xoffset,
+            y = position.y + yoffset,
+            z = (position.z or 0) + 3,
+            solid = false
+        })
+
+        -- Explicitly start the bot animation once. Do not call animate_bot
+        -- from player_move; that would continually restart the animation.
+        if Net.animate_bot then
+            pcall(Net.animate_bot, bot_id, state, true)
+        end
+
+        -- Hide the world bot only from its owner; that player gets a native
+        -- player sprite instead. Keep the bot available to every other client.
+        if Net.exclude_actor_for_player then
+            pcall(Net.exclude_actor_for_player, player_id, bot_id)
+        end
+
+        -- Allocate and draw the owner's sprite using the same native animated
+        -- sprite API used by Net Games UI elements. Keep the animation state
+        -- on the sprite itself rather than trying to emulate it with bot frames.
         Net.provide_asset_for_player(player_id, texture)
         Net.provide_asset_for_player(player_id, animation)
         Net.player_alloc_sprite(player_id, cosmetic_id, {
@@ -263,12 +333,8 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
             anim_path = animation,
             anim_state = state
         })
-        
-        local p_xoffset = player_xoffset or 0
-        local p_yoffset = player_yoffset or 0
-        
         Net.player_draw_sprite(player_id, cosmetic_id, {
-            id = cosmetic_id .. "_obj",
+            id = sprite_id,
             x = (x + 120 + p_xoffset) * 2,
             y = (y + 80 + p_yoffset) * 2,
             sx = 2,
@@ -283,62 +349,42 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
             b = 255,
             anim_state = state
         })
-        
-        -- Spawn bot on player
-        if not last_position_cache[player_id] then
-            last_position_cache[player_id] = {}
-        end 
-        
-        local area_id = last_position_cache[player_id]["area"] or Net.get_player_area(player_id)
-        local position = Net.get_player_position(player_id)
-        local xoffset, yoffset = convertOffsets(x * -1, y * -1, position.z + 3)
-        xoffset, yoffset = fixOffsets(xoffset, yoffset)
-        
-        -- Add cosmetic to cache
-        cosmetic_cache[player_id][cosmetic_id] = {
-            id = cosmetic_id,
-            texture = texture,
-            x = xoffset,
-            y = yoffset,
-            visibility = visibility,
-            animation = animation,
-            state = state,
-            spritex = (x + 120 + p_xoffset) * 2,
-            spritey = (y + 80 + p_yoffset) * 2
-        }
-        
-        Net.create_bot(cosmetic_id .. "_" .. player_id, {
-            area_id = area_id,
-            warp_in = false,
-            texture_path = texture,
-            animation_path = animation,
-            animation = state,
-            x = position.x + xoffset,
-            y = position.y + yoffset,
-            z = position.z + 3,
-            solid = false
-        })
-        
-        -- Hide bot from player (since we show it the cosmetic with a sprite)
-        Net.exclude_actor_for_player(player_id, cosmetic_id .. "_" .. player_id)
+
+        -- If visibility is false, hide the world bot from all existing viewers
+        -- as well. The owner sprite remains visible to its owner.
+        if not visibility and Net.exclude_actor_for_player then
+            for _, viewer_id in ipairs(online_players) do
+                if viewer_id ~= player_id then
+                    pcall(Net.exclude_actor_for_player, viewer_id, bot_id)
+                end
+            end
+        end
     end)
 end
 
 -- Purpose: Remove a player's existing cosmetic
 function frame.remove_cosmetic(cosmetic_id, player_id)
-    if not cosmetic_cache[player_id] then 
-        print("[games] Player has no cosmetics.")
+    local player_cosmetics = cosmetic_cache[player_id]
+    if not player_cosmetics or not player_cosmetics[cosmetic_id] then
+        print("[games] Player has no cosmetic '" .. tostring(cosmetic_id) .. "'.")
         return
     end
-    
-    if not cosmetic_cache[player_id][cosmetic_id] then
-        print("[games] Player has no cosmetic '"..cosmetic_id.."'.")
-        return
-    end 
-    
-    Net.remove_bot(cosmetic_id .. "_" .. player_id, false)
-    Net.player_erase_sprite(player_id, cosmetic_id .. "_obj")
-    cosmetic_cache[player_id][cosmetic_id] = nil
+
+    local cosmetic_data = player_cosmetics[cosmetic_id]
+    local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. player_id)
+    local sprite_id = cosmetic_data.sprite_id or (cosmetic_id .. "_obj")
+
+    if Net.is_bot and Net.is_bot(bot_id) then
+        Net.remove_bot(bot_id, false)
+    else
+        pcall(Net.remove_bot, bot_id, false)
+    end
+    pcall(Net.player_erase_sprite, player_id, sprite_id)
+    player_cosmetics[cosmetic_id] = nil
+
+    if next(player_cosmetics) == nil then
+        cosmetic_cache[player_id] = nil
+    end
 end
 
 -- ===========================================================
@@ -2483,11 +2529,13 @@ Net:on("player_join", function(event)
     -- Ensure input controller exists (the InputSystem already does this, but safe)
     InputSystem.create_controller(event.player_id)
     
-    -- Hide player exclusive cosmetics
-    for player_id, cosmetics in pairs(cosmetic_cache) do
-        for cosmetic_id, cosmetic_data in pairs(cosmetics) do 
-            if not cosmetic_data["visibility"] then
-                Net.exclude_actor_for_player(event.player_id, cosmetic_id .. "_" .. player_id)
+    -- Each cosmetic owner sees their own native sprite, never their world bot.
+    -- Other players see the bot unless that cosmetic is marked private.
+    for owner_id, cosmetics in pairs(cosmetic_cache) do
+        for cosmetic_id, cosmetic_data in pairs(cosmetics) do
+            local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. owner_id)
+            if event.player_id == owner_id or not cosmetic_data.visibility then
+                pcall(Net.exclude_actor_for_player, event.player_id, bot_id)
             end
         end
     end
@@ -2525,10 +2573,14 @@ Net:on("player_disconnect", function(event)
         end
     end
     
-    -- Remove cosmetics
+    -- Remove cosmetics owned by the disconnecting player, including the
+    -- owner-only screen sprites as well as their world bots.
     if cosmetic_cache[event.player_id] then
-        for cosmetic_id, _ in pairs(cosmetic_cache[event.player_id]) do
-            Net.remove_bot(cosmetic_id .. "_" .. event.player_id, false)
+        for cosmetic_id, cosmetic_data in pairs(cosmetic_cache[event.player_id]) do
+            local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. event.player_id)
+            local sprite_id = cosmetic_data.sprite_id or (cosmetic_id .. "_obj")
+            pcall(Net.remove_bot, bot_id, false)
+            pcall(Net.player_erase_sprite, event.player_id, sprite_id)
         end
         cosmetic_cache[event.player_id] = nil
     end
@@ -2539,37 +2591,48 @@ end)
 
 -- Player move event
 Net:on("player_move", function(event)
-    -- Update cosmetic position
-    if cosmetic_cache[event.player_id] then
-        for cosmetic_id, cosmetic_data in pairs(cosmetic_cache[event.player_id]) do
-            local bot_id = cosmetic_id .. "_" .. event.player_id
-            local bot_position = Net.get_bot_position(bot_id)
-            
-            Net.move_bot(bot_id, event.x + cosmetic_data["x"], event.y + cosmetic_data["y"], event.z + 3)
-            
+    local cosmetics = cosmetic_cache[event.player_id]
+    if not cosmetics then return end
+
+    for cosmetic_id, cosmetic_data in pairs(cosmetics) do
+        local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. event.player_id)
+        local target_x = (tonumber(event.x) or 0) + (tonumber(cosmetic_data.x) or 0)
+        local target_y = (tonumber(event.y) or 0) + (tonumber(cosmetic_data.y) or 0)
+        local target_z = (tonumber(event.z) or 0) + 3
+        local bot_position
+        local position_ok, position_result = pcall(Net.get_bot_position, bot_id)
+        if position_ok and type(position_result) == "table" then
+            bot_position = position_result
+        end
+
+        if bot_position and type(Net.animate_bot_properties) == "function" then
+            -- Position-only keyframes. Never write Animation here: doing so
+            -- restarts the loop whenever the owner moves.
             local keyframes = {
                 {
                     properties = {
-                        {property = "Animation", value = cosmetic_data["state"]},
-                        {property = "X", ease = "Linear", value = bot_position.x},
-                        {property = "Y", ease = "Linear", value = bot_position.y},
-                        {property = "Z", ease = "Linear", value = bot_position.z}
+                        { property = "X", value = tonumber(bot_position.x) or target_x },
+                        { property = "Y", value = tonumber(bot_position.y) or target_y },
+                        { property = "Z", value = tonumber(bot_position.z) or target_z },
                     },
                     duration = 0
                 },
                 {
                     properties = {
-                        {property = "Animation", value = cosmetic_data["state"]},
-                        {property = "X", ease = "Linear", value = event.x + cosmetic_data["x"]},
-                        {property = "Y", ease = "Linear", value = event.y + cosmetic_data["y"]},
-                        {property = "Z", ease = "Linear", value = event.z + 3}
+                        { property = "X", ease = "Linear", value = target_x },
+                        { property = "Y", ease = "Linear", value = target_y },
+                        { property = "Z", ease = "Linear", value = target_z },
                     },
-                    duration = .1
+                    duration = 0.1
                 }
             }
-            
-            Net.animate_bot_properties(bot_id, keyframes)
-            Net.animate_bot(bot_id, cosmetic_data["state"], true)
+            local ok, result = pcall(Net.animate_bot_properties, bot_id, keyframes)
+            if not ok or result == false then
+                print("[games] cosmetic movement failed for " .. tostring(bot_id)
+                    .. ": " .. tostring(result))
+            end
+        else
+            pcall(Net.move_bot, bot_id, target_x, target_y, target_z)
         end
     end
 end)
@@ -2585,9 +2648,12 @@ Net:on("player_area_transfer", function(event)
     
     -- Transfer cosmetics
     if cosmetic_cache[event.player_id] then
-        for cosmetic_id, _ in pairs(cosmetic_cache[event.player_id]) do
-            Net.transfer_bot(cosmetic_id .. "_" .. event.player_id, 
-                            last_position_cache[event.player_id]["area"], false)
+        for cosmetic_id, cosmetic_data in pairs(cosmetic_cache[event.player_id]) do
+            local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. event.player_id)
+            Net.transfer_bot(bot_id, last_position_cache[event.player_id]["area"], false)
+            -- Area transfers may rebuild actor visibility; reassert the owner
+            -- exclusion so the owner continues to see only their sprite.
+            pcall(Net.exclude_actor_for_player, event.player_id, bot_id)
         end
     end
 end)
