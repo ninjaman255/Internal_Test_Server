@@ -82,7 +82,7 @@ local constants = {
         RESULT_KICKER_WALK_UR_SPEED = 3,
         RESULT_KICKER_WALK_U_SPEED = 3,
         RESULT_BOMB_MOVE_SPEED = 3,
-        RESULT_DEFENDER_JUMP_SPEED = 3,
+        RESULT_DEFENDER_JUMP_SPEED = 5,
         -- Render the attached ball in front of the defender using bot depth.
         RESULT_BALL_Z_LIFT = 4,
         -- Duration for the settled round-result pose before the transition wash.

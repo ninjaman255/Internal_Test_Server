@@ -10,11 +10,11 @@ frame duration="0.1833333" x="223" y="110" w="32" h="39" originx="16" originy="3
 point label="Ball" x="28" y="17"
 frame duration="0.0333333" x="256" y="110" w="32" h="39" originx="16" originy="38" flipx="1"
 point label="Ball" x="28" y="20"
-frame duration="2.5" x="289" y="110" w="32" h="39" originx="16" originy="38" flipx="1"
+frame duration="5.0" x="289" y="110" w="32" h="39" originx="16" originy="38" flipx="1"
 point label="Ball" x="28" y="23"
 
 animation state="FOOTBOMB_JUMP_LEFT_END"
-frame duration="0.0833333" x="289" y="110" w="32" h="39" originx="16" originy="38" flipx="1"
+frame duration="5.0" x="289" y="110" w="32" h="39" originx="16" originy="38" flipx="1"
 point label="Ball" x="28" y="23"
 
 animation state="FOOTBOMB_JUMP_RIGHT"
@@ -26,11 +26,11 @@ frame duration="0.1833333" x="223" y="110" w="32" h="39" originx="16" originy="3
 point label="Ball" x="28" y="17"
 frame duration="0.0333333" x="256" y="110" w="32" h="39" originx="16" originy="38"
 point label="Ball" x="28" y="20"
-frame duration="2.5" x="289" y="110" w="32" h="39" originx="16" originy="38"
+frame duration="5.0" x="289" y="110" w="32" h="39" originx="16" originy="38"
 point label="Ball" x="28" y="23"
 
 animation state="FOOTBOMB_JUMP_RIGHT_END"
-frame duration="0.0833333" x="289" y="110" w="32" h="39" originx="16" originy="38"
+frame duration="5.0" x="289" y="110" w="32" h="39" originx="16" originy="38"
 point label="Ball" x="28" y="23"
 
 animation state="FOOTBOMB_READY_DEFENSE"

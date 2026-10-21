@@ -38,7 +38,10 @@ local plugins = {
     ezpress,
     ezusers,
     ezbbs,
-    ezbuttons
+    ezbuttons,
+    ezexplosions,
+    ezcache,
+    ezbus,
 }
 
 local sfx = {
