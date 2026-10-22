@@ -6,6 +6,7 @@ local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- central event bus
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
+local ezbattle_results = require('scripts/ezlibs-scripts/ezbattle_results')
 eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezmystery = require('scripts/ezlibs-scripts/ezmystery')
@@ -22,7 +23,7 @@ local ezpress = require('scripts/ezlibs-scripts/ezpress')
 local ezusers = require('scripts/ezlibs-scripts/ezusers')
 local ezbbs = require('scripts/ezlibs-scripts/ezbbs')
 local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
-local ezpushback = require('scripts/ezlibs-scripts/ezpushback')
+local ezpushback = require('scripts/ezlibs-scripts/eznpcs/ezpushback')
 local ezbottriggers = require('scripts/ezlibs-scripts/eztriggers/ezbottriggers')
 
 local plugins = { 
@@ -68,7 +69,13 @@ eznpcs.load_npcs()
 ezrushroads.init()  -- group roads after all objects are cached
 
 Net:on("battle_results", function(event)
+    -- Keep the full payload available until this player exits the battle.
+    -- Some fields (for example reason) are intentionally not part of the
+    -- normalized stats table passed to existing plugins.
+    ezbattle_results.store(event.player_id, event)
+
     local stats = {
+        reason=event.reason,
         health=event.health,
         time=event.time,
         ran=event.ran,
@@ -85,15 +92,18 @@ Net:on("battle_results", function(event)
 end)
 
 Net:on("battle_exit", function(event)
-    --local player_id = event.player_id
-    print(tostring(event))
-    print(event.player_id)
+    local player_id = event.player_id
+    local battle_results = ezbattle_results.peek(player_id)
 
-    for i, plugin in ipairs(plugins) do 
+    for i, plugin in ipairs(plugins) do
         if plugin.handle_battle_exit then
-            plugin.handle_battle_exit(event.player_id)
+            plugin.handle_battle_exit(player_id, battle_results, event)
         end
     end
+
+    -- Results remain available to every plugin during the fan-out, then are
+    -- consumed so a later battle_exit cannot accidentally reuse stale results.
+    ezbattle_results.consume(player_id)
 end)
 
 Net:on("shop_purchase", function(event)
@@ -211,6 +221,7 @@ Net:on("player_disconnect", function(event)
             plugin.handle_player_disconnect(event.player_id)
         end
     end
+    ezbattle_results.clear(event.player_id)
 end)
 
 Net:on("object_interaction", function(event)

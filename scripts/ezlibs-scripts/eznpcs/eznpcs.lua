@@ -9,6 +9,11 @@ local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local ezquests = require('scripts/ezlibs-scripts/ezquests')   -- added for quest checks
 
 local eznpcs = {}
+
+-- Battle-exit notifications are retained per player so a dialogue coroutine
+-- can wait for the actual exit event even if it arrives just before waiting.
+local battle_exit_generation = {}
+local battle_exit_waiting = {}
 local placeholder_to_botid = {}          -- area_id -> placeholder_id -> global bot ID (for non-exclusive NPCs)
 local exclusive_npcs = {}                -- player_id -> { placeholder_id = bot_id }
 local exclusive_placeholders = {}        -- list of { area_id, object_id } for all exclusive NPC placeholders
@@ -197,10 +202,25 @@ function create_bot_from_object(area_id, object, player_id)
         printd("Global bot", npc.bot_id, "created for placeholder", object.id)
     end
 
-    if object.custom_properties["Dialogue Type"] then
-        npc.first_dialogue = object
-        local chat_behaviour = chat_behaviour()
-        add_behaviour(npc, chat_behaviour)
+    -- New Tiled format: NPCs reference a separate Dialogue object.
+    -- Keep the NPC placeholder ID/properties separate from the dialogue data:
+    -- Player Exclusive and placeholder hiding belong to the NPC object.
+    npc.placeholder_id = object.id
+    npc.placeholder_custom_properties = object.custom_properties or {}
+
+    local first_dialogue_id = object.custom_properties["First Dialogue"]
+    if first_dialogue_id ~= nil and tostring(first_dialogue_id) ~= "" then
+        local first_dialogue = ezcache.get_object_by_id_cached(area_id, first_dialogue_id)
+        if first_dialogue and (first_dialogue.type == "Dialogue" or first_dialogue.class == "Dialogue") then
+            npc.first_dialogue = first_dialogue
+            local chat_behaviour = chat_behaviour()
+            add_behaviour(npc, chat_behaviour)
+        else
+            printd("NPC " .. tostring(object.id)
+                .. " has an invalid First Dialogue reference: "
+                .. tostring(first_dialogue_id)
+                .. " (expected a Dialogue object in area " .. tostring(area_id) .. ")")
+        end
     end
 
     if object.custom_properties["Next Waypoint 1"] then
@@ -626,6 +646,7 @@ end
 
 function eznpcs.handle_player_disconnect(player_id)
     clear_player_conversation(player_id)
+    eznpcs.cancel_battle_exit_wait(player_id)
 
     -- Remove player‑exclusive NPCs
     if exclusive_npcs[player_id] then
@@ -723,12 +744,50 @@ function eznpcs.remove_exclusive_npc(player_id, placeholder_id)
     end
 end
 
-function eznpcs.handle_battle_exit()
-
+function eznpcs.prepare_battle_exit_wait(player_id)
+    battle_exit_waiting[player_id] = true
+    battle_exit_generation[player_id] = nil
 end
 
-function eznpcs.handle_battle_results()
-    
+function eznpcs.cancel_battle_exit_wait(player_id)
+    battle_exit_waiting[player_id] = nil
+    battle_exit_generation[player_id] = nil
+end
+
+-- Called by ezlibs main.lua when the engine emits battle_exit. The full
+-- battle_results payload is supplied as the second argument when available.
+function eznpcs.handle_battle_exit(player_id, battle_results, exit_event)
+    if player_id == nil then
+        return
+    end
+
+    battle_exit_generation[player_id] = {
+        results = battle_results,
+        event = exit_event
+    }
+    battle_exit_waiting[player_id] = nil
+end
+
+-- Await the actual battle_exit event before running post-battle world effects.
+-- Returns the stored battle_results payload and battle_exit event, if present.
+function eznpcs.wait_for_battle_exit(player_id)
+    return async(function()
+        while battle_exit_waiting[player_id] do
+            await(Async.sleep(0.05))
+        end
+
+        local result = battle_exit_generation[player_id]
+        battle_exit_generation[player_id] = nil
+        if result then
+            return result.results, result.event
+        end
+        return nil, nil
+    end)
+end
+
+function eznpcs.handle_battle_results(player_id, stats)
+    -- Kept as a plugin hook for consistency with the central battle event
+    -- fan-out. The canonical full payload is stored by ezbattle_results.
 end
 
 -- Helper to remove a quest‑exclusive NPC (can be called when quest state changes)

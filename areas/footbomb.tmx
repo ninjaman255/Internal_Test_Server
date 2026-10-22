@@ -1,25 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="16" nextobjectid="169">
  <properties>
-  <property name="Background Animation" value="/server/assets/Backgrounds/bomb.animation"/>
-  <property name="Background Texture" value="/server/assets/Backgrounds/bomb.png"/>
-  <property name="Background Vel X" value="0.20"/>
-  <property name="Background Vel Y" value=".1"/>
-  <property name="Name" value="                  "/>
-  <property name="Song" value="/server/assets/net-game-footbomb/music/Wsoccer.ogg"/>
+  <property name="Background Animation" value="/server/assets/Backgrounds/bomb.animation" />
+  <property name="Background Texture" value="/server/assets/Backgrounds/bomb.png" />
+  <property name="Background Vel X" value="0.20" />
+  <property name="Background Vel Y" value=".1" />
+  <property name="Name" value="                  " />
+  <property name="Song" value="/server/assets/net-game-footbomb/music/Wsoccer.ogg" />
  </properties>
- <tileset firstgid="1" source="../assets/tiles/coffee.tsx"/>
- <tileset firstgid="5" source="../assets/demo/warp.tsx"/>
- <tileset firstgid="11" source="../assets/demo/Custom_Central_Tiles.tsx"/>
- <tileset firstgid="19" source="../assets/ezlibs-assets/ezmystery/GreenMysteryData.tsx"/>
- <tileset firstgid="27" source="../assets/ezlibs-assets/ezmystery/Dark Mystery Data.tsx"/>
- <tileset firstgid="35" source="../assets/ezlibs-assets/ezmystery/BlueMysteryData.tsx"/>
- <tileset firstgid="43" source="../assets/ezlibs-assets/ezmystery/PurpleMysteryData.tsx"/>
- <tileset firstgid="51" source="../assets/ezlibs-assets/ezmystery/OrangeMysteryData.tsx"/>
- <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
- <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
- <tileset firstgid="68" source="../assets/net-game-footbomb/goal-post/goal-net.tsx"/>
- <tileset firstgid="70" source="../assets/net-game-footbomb/tiles/SoccorTiles.tsx"/>
+ <tileset firstgid="1" source="../assets/tiles/coffee.tsx" />
+ <tileset firstgid="5" source="../assets/demo/warp.tsx" />
+ <tileset firstgid="11" source="../assets/demo/Custom_Central_Tiles.tsx" />
+ <tileset firstgid="19" source="../assets/ezlibs-assets/ezmystery/GreenMysteryData.tsx" />
+ <tileset firstgid="27" source="../assets/ezlibs-assets/ezmystery/Dark Mystery Data.tsx" />
+ <tileset firstgid="35" source="../assets/ezlibs-assets/ezmystery/BlueMysteryData.tsx" />
+ <tileset firstgid="43" source="../assets/ezlibs-assets/ezmystery/PurpleMysteryData.tsx" />
+ <tileset firstgid="51" source="../assets/ezlibs-assets/ezmystery/OrangeMysteryData.tsx" />
+ <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx" />
+ <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx" />
+ <tileset firstgid="68" source="../assets/net-game-footbomb/goal-post/goal-net.tsx" />
+ <tileset firstgid="70" source="../assets/net-game-footbomb/tiles/SoccorTiles.tsx" />
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -65,60 +65,55 @@
 </data>
  </layer>
  <objectgroup id="7" name="Object Layer 0">
-  <object id="148" gid="68" x="776" y="648" width="208" height="64"/>
-  <object id="150" name="FootBomb Ref" type="FootBomb Ref" x="704" y="736">
+  <object id="148" gid="68" x="776" y="648" width="208" height="64" />
+  <object id="150" name="FootBomb Controller" type="FootBomb Controller" x="704" y="736">
    <properties>
-    <property name="Animation Name" value=""/>
-    <property name="Asset Name" value="ref-prog"/>
-    <property name="Declined Message" value="No problem. Come back when you're ready."/>
-    <property name="Dialogue Type" value=""/>
-    <property name="Direction" value="Down Right"/>
-    <property name="Dont Face Player" type="bool" value="false"/>
-    <property name="Instance Map" value="footbomb"/>
-    <property name="Intro Message" value="Hey! Want to play a round of FootBomb?"/>
-    <property name="Mug Animation Name" value="mug"/>
-    <property name="Mugshot" value="ref-prog-mug"/>
-    <property name="Points to Win" type="int" value="5"/>
-    <property name="Question" value="Would you like to join a FootBomb party and enter the field?"/>
-    <property name="Started Message" value="All right! I'll get your party onto the field."/>
-   </properties>
-   <point/>
+    <property name="Animation Name" value="" />
+    <property name="Asset Name" value="ref-prog" />
+    <property name="Direction" value="Down Right" />
+    <property name="Dont Face Player" type="bool" value="false" />
+    <property name="Instance Map" value="footbomb" />
+    <property name="Mug Animation Name" value="mug" />
+    <property name="Mugshot" value="ref-prog-mug" />
+    <property name="Points to Win" type="int" value="5" />
+    </properties>
+   <point />
   </object>
   <object id="149" type="Custom Warp" gid="6" x="800" y="864" width="61" height="32">
    <properties>
-    <property name="Direction" value="Up Right"/>
-    <property name="Dont Teleport" type="bool" value="false"/>
-    <property name="Target Area" value="default"/>
-    <property name="Target Object" value="145"/>
-    <property name="Warp In" type="bool" value="true"/>
+    <property name="Direction" value="Up Right" />
+    <property name="Dont Teleport" type="bool" value="false" />
+    <property name="Target Area" value="default" />
+    <property name="Target Object" value="145" />
+    <property name="Warp In" type="bool" value="true" />
    </properties>
   </object>
   <object id="151" name="Defender 1" x="752" y="704">
-   <point/>
+   <point />
   </object>
   <object id="152" name="Bomb" x="848" y="720">
-   <point/>
+   <point />
   </object>
   <object id="153" name="Kicker" x="864" y="768">
-   <point/>
+   <point />
   </object>
   <object id="154" name="Move Forward" x="864" y="736">
-   <point/>
+   <point />
   </object>
   <object id="155" name="Defender 2" x="792" y="664">
-   <point/>
+   <point />
   </object>
   <object id="156" name="Defender 3" x="832" y="624">
-   <point/>
+   <point />
   </object>
   <object id="157" name="Player 1 Spawn" x="48" y="80">
-   <point/>
+   <point />
   </object>
   <object id="158" name="Player 2 Spawn" x="80" y="48">
-   <point/>
+   <point />
   </object>
   <object id="159" name="Camera Focus" x="824" y="696">
-   <point/>
+   <point />
   </object>
  </objectgroup>
  <layer id="14" name="Tile Layer 2" width="40" height="40" offsetx="0" offsety="-16">
@@ -167,13 +162,13 @@
  </layer>
  <objectgroup id="15" name="Object Layer 2">
   <object id="166" name="Bomb 1" x="768" y="688">
-   <point/>
+   <point />
   </object>
   <object id="167" name="Bomb 2" x="792" y="664">
-   <point/>
+   <point />
   </object>
   <object id="168" name="Bomb 3" x="816" y="640">
-   <point/>
+   <point />
   </object>
  </objectgroup>
 </map>

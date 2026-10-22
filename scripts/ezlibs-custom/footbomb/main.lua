@@ -1,4 +1,4 @@
--- FootBomb Ref NPC and match-instance entry point.
+-- FootBomb Controller and match-instance entry point.
 -- Loaded by scripts/ezlibs-scripts/main.lua through custom.lua.
 
 local logger = require("scripts/ezlibs-scripts/ezlogger").get("footbomb")
@@ -381,7 +381,7 @@ local function create_ref_npc(area_id, object)
         and (MUG_FOLDER .. mug_animation_name .. ".animation")
         or DEFAULT_MUG_ANIMATION
     local bot_id = Net.create_bot(actor_id, {
-        name = as_string(object.name, "FootBomb Ref"),
+        name = as_string(object.name, "FootBomb Controller"),
         area_id = area_id,
         texture_path = BOT_ASSET_FOLDER .. asset_name .. ".png",
         animation_path = animation_path,
@@ -394,7 +394,7 @@ local function create_ref_npc(area_id, object)
         dont_face_player = properties["Dont Face Player"] == true
     })
     if not bot_id then
-        log("Net.create_bot failed for FootBomb Ref object " .. tostring(object.id))
+        log("Net.create_bot failed for FootBomb Controller object " .. tostring(object.id))
         return nil
     end
     local reference = {
@@ -408,11 +408,11 @@ local function create_ref_npc(area_id, object)
     }
     ensure_area_refs(area_id)[tostring(actor_id)] = reference
     ensure_area_refs(area_id)[tostring(bot_id)] = reference
-    log("Created FootBomb Ref " .. tostring(bot_id) .. " in " .. tostring(area_id))
+    log("Created FootBomb Controller " .. tostring(bot_id) .. " in " .. tostring(area_id))
     return reference.npc
 end
 
-object_registry.register_handler("FootBomb Ref", function(area_id, object)
+object_registry.register_handler("FootBomb Controller", function(area_id, object)
     create_ref_npc(area_id, object)
 end)
 

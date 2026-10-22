@@ -397,9 +397,14 @@ local dialogue_types = {
                     return
                 end
 
+                -- Start listening for this battle's exit before initiating it;
+                -- battle_exit can arrive very soon after battle_results.
+                eznpcs.prepare_battle_exit_wait(player_id)
+
                 -- Start encounter
                 local stats = await(ezencounters.begin_encounter_by_name(player_id, encounter_name))
                 if not stats then
+                    eznpcs.cancel_battle_exit_wait(player_id)
                     await(Async.message_player(player_id, "The challenge could not be initiated."))
                     return
                 end
@@ -410,9 +415,18 @@ local dialogue_types = {
                 -- reason 0 = normal victory, anything else = loss (2,3,4 as per request)
                 local won = (stats.reason == 1) and (stats.health and stats.health > 0)
 
-                logger:for_player(player_id):info_data("[battle_npc] result", {won = won, reason = stats.reason, health = stats.health, bot_id = npc.bot_id, placeholder_id = npc.first_dialogue.id})
-                await(eznpcs.handle_battle_exit)
-                -- Wait a moment for the player to return to the game world
+                logger:for_player(player_id):info_data("[battle_npc] result", {won = won, reason = stats.reason, health = stats.health, bot_id = npc.bot_id, placeholder_id = npc.placeholder_id})
+
+                -- Do not explode either actor until the engine says the battle
+                -- has exited. The result payload is available here as well.
+                local exit_results, exit_event = await(eznpcs.wait_for_battle_exit(player_id))
+                if exit_results then
+                    stats = exit_results
+                    won = (stats.reason == 1) and (stats.health and stats.health > 0)
+                end
+                logger:for_player(player_id):debug_data("[battle_npc] battle_exit received", {has_results = exit_results ~= nil, exit_event = exit_event})
+
+                -- Allow the player to return to the world before applying effects.
                 await(Async.sleep(1.0))
                 -- local mugshot = eznpcs.get_dialogue_mugshot(npc, player_id, dialogue)
                 -- local after_battle_message = await(Async.message_player(player_id, "AHHHHHHHHHHHHHH!!!!!!", mugshot.texture_path, mugshot.animation_path))
@@ -427,11 +441,12 @@ local dialogue_types = {
                         max_explosions = 3
                     })
                     -- Remove the exclusive NPC (if it's exclusive)
-                    if npc.first_dialogue.custom_properties and is_property_true(npc.first_dialogue.custom_properties["Player Exclusive"]) then
-                        eznpcs.remove_exclusive_npc(player_id, npc.first_dialogue.id)
+                    local npc_properties = npc.placeholder_custom_properties or {}
+                    if is_property_true(npc_properties["Player Exclusive"]) then
+                        eznpcs.remove_exclusive_npc(player_id, npc.placeholder_id)
                     end
-                    -- Permanently hide the placeholder for this player
-                    ezmemory.hide_object_from_player(player_id, area_id, npc.first_dialogue.id)
+                    -- Permanently hide the NPC placeholder, not its separate Dialogue object.
+                    ezmemory.hide_object_from_player(player_id, area_id, npc.placeholder_id)
 
                     -- Wait for explosion to complete before continuing (explosion lasts ~2 seconds)
                     await(Async.sleep(2.5))
