@@ -13,8 +13,9 @@ return {
     ["DialogueType"] = { type = "string", values = { "first", "question", "quiz", "random", "itemcheck", "before", "after", "shop", "password", "quest_switch", "quest_event", "item", "email", "questcheck", "battle_npc" } },
     ["Direction"] = { type = "string", values = { "Up", "Down", "Left", "Right", "Up Left", "Up Right", "Down Left", "Down Right" } },
     ["ItemType"] = { type = "string", values = { "item", "keyitem", "money", "fragments", "tokens" } },
-    ["KeyType"] = { type = "string", values = { "money", "fragments", "tokens", "item", "bossgate" } },
+    ["KeyType"] = { type = "string", values = { "money", "fragments", "tokens", "item", "bossgate", "navi_name", "navi_element", "navi_list" } },
     ["MysteryType"] = { type = "string", values = { "keyitem", "item", "money", "random", "quiz", "fragments", "tokens", "encounter" } },
+    ["NaviElement"] = { type = "string", values = { "None", "Fire", "Aqua", "Elec", "Wood", "Sword", "Break", "Cursor", "Wind", "Summon", "Plus" } },
     ["QuizFailAction"] = { type = "string", values = { "retry", "hide_once", "hide_temp", "explode" } },
     ["SizeModeScope"] = { type = "string", values = { "Player", "Area Wide" } },
     ["TriggerShape"] = { type = "string", values = { "rect", "ellipse" } },
@@ -27,70 +28,183 @@ return {
       description = "Lockable Security Cube that gates progression.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "If set, requires typing this password to unlock. Overrides Key Type.",
           ["name"] = "Password",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "How to unlock when Password is empty. Ignored when Password is set.",
           ["name"] = "Key Type",
           ["propertyType"] = "KeyType",
           ["type"] = "string",
           ["value"] = "money"
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Key Type == 'item'.",
+          ["dependsOn"] = {
+            ["equals"] = "item",
+            ["property"] = "Key Type"
+          },
+          ["description"] = "Item name required when Key Type == 'item'.",
           ["name"] = "Key Item Name",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Amount required for money / fragments / tokens / item.",
           ["name"] = "Required Keys",
           ["type"] = "number",
           ["value"] = 1
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Whether to consume the key on unlock.",
           ["name"] = "Consume",
           ["type"] = "bool",
           ["value"] = false
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, stays hidden permanently; else hidden till disconnect.",
           ["name"] = "Once",
           ["type"] = "bool",
           ["value"] = false
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Asset played during the unlock animation.",
           ["name"] = "Unlocking Asset Name",
           ["type"] = "string",
           ["value"] = "bn5cubegreen_bot"
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Seconds to play the unlock animation; 0 skips it.",
           ["name"] = "Unlocking Animation Time",
           ["type"] = "number",
           ["value"] = 0
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Sound asset to play when the checkpoint unlocks.",
           ["name"] = "Unlocking Sound Path",
           ["type"] = "string",
           ["value"] = "/server/assets/ezlibs-assets/sfx/panel_change.ogg"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, attempts the unlock without asking the player.",
           ["name"] = "Skip Prompt",
           ["type"] = "bool",
           ["value"] = false
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Shown to the player before the unlock check.",
           ["name"] = "Description",
           ["type"] = "string",
           ["value"] = "It's a Security Cube"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Shown on successful unlock.",
           ["name"] = "Unlocked Message",
           ["type"] = "string",
           ["value"] = "The Security Cube was unlocked!"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Shown when the unlock check fails.",
           ["name"] = "Unlock Failed Message",
           ["type"] = "string",
           ["value"] = "You were unable to unlock the Security Cube"
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Key Type == 'navi_name'.",
+          ["dependsOn"] = {
+            ["equals"] = "navi_name",
+            ["property"] = "Key Type"
+          },
+          ["description"] = "Exact Navi name required to unlock (case-insensitive).",
+          ["name"] = "Navi Name",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Key Type == 'navi_element'.",
+          ["dependsOn"] = {
+            ["equals"] = "navi_element",
+            ["property"] = "Key Type"
+          },
+          ["description"] = "Navi element required to unlock (case-insensitive).",
+          ["name"] = "Navi Element",
+          ["propertyType"] = "NaviElement",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Key Type == 'navi_list'.",
+          ["dependsOn"] = {
+            ["equals"] = "navi_list",
+            ["property"] = "Key Type"
+          },
+          ["description"] = "First entry in the approved-Navi list (any match unlocks).",
+          ["name"] = "Navi 1",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 2",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 3",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 4",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 5",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 6",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 7",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 8",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 9",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["name"] = "Navi 10",
+          ["type"] = "string",
+          ["value"] = ""
         },
       },
     },

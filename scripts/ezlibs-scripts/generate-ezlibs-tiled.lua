@@ -17,7 +17,7 @@
 local json = require('scripts/ezlibs-scripts/json')
 
 -- ----------------------------------------------------------------------
--- Enums (unchanged)
+-- Enums
 local Enums = {
     Direction = {
         type = "string",
@@ -59,7 +59,8 @@ local Enums = {
     },
     KeyType = {
         type = "string",
-        values = {"money", "fragments", "tokens", "item", "bossgate"}
+        values = {"money", "fragments", "tokens", "item", "bossgate",
+                  "navi_name", "navi_element", "navi_list"}
     },
     ButtonChainType = {
         type = "string",
@@ -92,7 +93,14 @@ local Enums = {
     SizeModeScope = {
         type = "string",
         values = {"Player", "Area Wide"}
-    }
+    },
+    -- Element taxonomy used by `Key Type = "navi_element"` checkpoints and
+    -- any future navi-property that needs to reference an element.
+    NaviElement = {
+        type = "string",
+        values = {"None", "Fire", "Aqua", "Elec", "Wood", "Sword",
+                  "Break", "Cursor", "Wind", "Summon", "Plus"}
+    },
 }
 
 -- ----------------------------------------------------------------------
@@ -105,7 +113,7 @@ local function prop(name, typ, default, enumName)
 end
 
 -- ----------------------------------------------------------------------
--- Object types (unchanged from existing generator)
+-- Object types
 local object_types = {
     {
         name = "Checkpoint",
@@ -124,6 +132,20 @@ local object_types = {
             prop("Description", "string", "It's a Security Cube"),
             prop("Unlocked Message", "string", "The Security Cube was unlocked!"),
             prop("Unlock Failed Message", "string", "You were unable to unlock the Security Cube"),
+
+            -- Navi-based unlock methods (Key Type = navi_name / navi_element / navi_list).
+            prop("Navi Name", "string", ""),
+            prop("Navi Element", "string", "", "NaviElement"),
+            prop("Navi 1", "string", ""),
+            prop("Navi 2", "string", ""),
+            prop("Navi 3", "string", ""),
+            prop("Navi 4", "string", ""),
+            prop("Navi 5", "string", ""),
+            prop("Navi 6", "string", ""),
+            prop("Navi 7", "string", ""),
+            prop("Navi 8", "string", ""),
+            prop("Navi 9", "string", ""),
+            prop("Navi 10", "string", ""),
         }
     },
     {
@@ -555,9 +577,8 @@ local object_types = {
 }
 
 -- ----------------------------------------------------------------------
--- META — additive metadata.
--- Never included in the Tiled types.json (stripped before emit). Consumed by
--- the schema.lua and reference.md emitters, and by runtime validation.
+-- META — additive metadata (never emitted into types.json; drives schema.lua,
+-- reference.md, and runtime validation).
 --
 -- Fields:
 --   classes[cname] = { category, description, numberedTemplates }
@@ -565,13 +586,12 @@ local object_types = {
 --       category, required, description, conditional, dependsOn
 --   }
 --   dependsOn = { property="X", equals=... | oneOf={...} }
---
--- Values not present here fall back to their class category and "optional".
 -- ----------------------------------------------------------------------
 local META = {
     classes = {
         ["Checkpoint"] = { category = "gameplay",
-            description = "Lockable Security Cube that gates progression." },
+            description = "Lockable Security Cube that gates progression.",
+            numberedTemplates = { "Navi " } },
         ["Mystery Data"] = { category = "gameplay",
             description = "Pickup or event; behaviour branches on `Type`." },
         ["Quiz List"] = { category = "dialogue",
@@ -616,6 +636,83 @@ local META = {
     },
 
     properties = {
+        ["Checkpoint"] = {
+            ["Password"] = {
+                category = "gameplay",
+                description = "If set, requires typing this password to unlock. Overrides Key Type.",
+            },
+            ["Key Type"] = {
+                category = "gameplay",
+                description = "How to unlock when Password is empty. Ignored when Password is set.",
+            },
+            ["Key Item Name"] = {
+                category = "gameplay",
+                description = "Item name required when Key Type == 'item'.",
+                conditional = "Only used when Key Type == 'item'.",
+                dependsOn = { property = "Key Type", equals = "item" },
+            },
+            ["Required Keys"] = {
+                category = "gameplay",
+                description = "Amount required for money / fragments / tokens / item.",
+            },
+            ["Consume"] = {
+                category = "gameplay",
+                description = "Whether to consume the key on unlock.",
+            },
+            ["Once"] = {
+                category = "gameplay",
+                description = "If true, stays hidden permanently; else hidden till disconnect.",
+            },
+            ["Unlocking Asset Name"] = {
+                category = "appearance",
+                description = "Asset played during the unlock animation.",
+            },
+            ["Unlocking Animation Time"] = {
+                category = "appearance",
+                description = "Seconds to play the unlock animation; 0 skips it.",
+            },
+            ["Unlocking Sound Path"] = {
+                category = "appearance",
+                description = "Sound asset to play when the checkpoint unlocks.",
+            },
+            ["Skip Prompt"] = {
+                category = "gameplay",
+                description = "If true, attempts the unlock without asking the player.",
+            },
+            ["Description"] = {
+                category = "gameplay",
+                description = "Shown to the player before the unlock check.",
+            },
+            ["Unlocked Message"] = {
+                category = "gameplay",
+                description = "Shown on successful unlock.",
+            },
+            ["Unlock Failed Message"] = {
+                category = "gameplay",
+                description = "Shown when the unlock check fails.",
+            },
+            ["Navi Name"] = {
+                category = "gameplay",
+                description = "Exact Navi name required to unlock (case-insensitive).",
+                conditional = "Only used when Key Type == 'navi_name'.",
+                dependsOn = { property = "Key Type", equals = "navi_name" },
+            },
+            ["Navi Element"] = {
+                category = "gameplay",
+                description = "Navi element required to unlock (case-insensitive).",
+                conditional = "Only used when Key Type == 'navi_element'.",
+                dependsOn = { property = "Key Type", equals = "navi_element" },
+            },
+            ["Navi 1"] = {
+                category = "gameplay",
+                description = "First entry in the approved-Navi list (any match unlocks).",
+                conditional = "Only used when Key Type == 'navi_list'.",
+                dependsOn = { property = "Key Type", equals = "navi_list" },
+            },
+            -- Navi 2..Navi 10 inherit Navi 1's category and description
+            -- conventions via the reference-doc fallback (no per-field entry
+            -- needed).
+        },
         ["NPC"] = {
             ["Direction"] = {
                 category = "appearance",

@@ -370,7 +370,7 @@
     <property name="Type" value="quiz"/>
    </properties>
   </object>
-  <object id="136" name="Quiz List" type="Quiz List" x="800" y="800">
+  <object id="136" name="Quiz List" type="Quiz List" x="800" y="784">
    <properties>
     <property name="Failure Message" value="YOU FAILED"/>
     <property name="Next 1" type="object" value="137"/>
@@ -558,6 +558,9 @@
   </object>
   <object id="164" type="Checkpoint" gid="68" x="848" y="560" width="34" height="52">
    <properties>
+    <property name="Key Type" propertytype="KeyType" value="navi_name"/>
+    <property name="Navi 1" value=""/>
+    <property name="Navi Name" value="Snakeman"/>
     <property name="Skip Prompt" type="bool" value="true"/>
     <property name="Unlocking Sound Path" value="/server/assets/ezlibs-assets/sfx/panel_change.ogg"/>
    </properties>

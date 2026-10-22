@@ -101,6 +101,9 @@ Auto-generated from `generate-ezlibs-tiled.lua`. Do not edit by hand.
 - `tokens`
 - `item`
 - `bossgate`
+- `navi_name`
+- `navi_element`
+- `navi_list`
 
 ### MysteryType
 
@@ -112,6 +115,20 @@ Auto-generated from `generate-ezlibs-tiled.lua`. Do not edit by hand.
 - `fragments`
 - `tokens`
 - `encounter`
+
+### NaviElement
+
+- `None`
+- `Fire`
+- `Aqua`
+- `Elec`
+- `Wood`
+- `Sword`
+- `Break`
+- `Cursor`
+- `Wind`
+- `Summon`
+- `Plus`
 
 ### QuizFailAction
 
@@ -145,19 +162,40 @@ Lockable Security Cube that gates progression.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Consume` | bool |  | false | gameplay |  |
-| `Description` | string |  | `It's a Security Cube` | gameplay |  |
-| `Key Item Name` | string |  | `""` | gameplay |  |
-| `Key Type` | string (KeyType) |  | `money` | gameplay |  |
-| `Once` | bool |  | false | gameplay |  |
-| `Password` | string |  | `""` | gameplay |  |
-| `Required Keys` | number |  | 1 | gameplay |  |
-| `Skip Prompt` | bool |  | false | gameplay |  |
-| `Unlock Failed Message` | string |  | `You were unable to unlock the Security Cube` | gameplay |  |
-| `Unlocked Message` | string |  | `The Security Cube was unlocked!` | gameplay |  |
-| `Unlocking Animation Time` | number |  | 0 | gameplay |  |
-| `Unlocking Asset Name` | string |  | `bn5cubegreen_bot` | gameplay |  |
-| `Unlocking Sound Path` | string |  | `/server/assets/ezlibs-assets/sfx/panel_change.ogg` | gameplay |  |
+| `Unlocking Animation Time` | number |  | 0 | appearance | Seconds to play the unlock animation; 0 skips it. |
+| `Unlocking Asset Name` | string |  | `bn5cubegreen_bot` | appearance | Asset played during the unlock animation. |
+| `Unlocking Sound Path` | string |  | `/server/assets/ezlibs-assets/sfx/panel_change.ogg` | appearance | Sound asset to play when the checkpoint unlocks. |
+| `Consume` | bool |  | false | gameplay | Whether to consume the key on unlock. |
+| `Description` | string |  | `It's a Security Cube` | gameplay | Shown to the player before the unlock check. |
+| `Key Item Name` | string |  | `""` | gameplay | Item name required when Key Type == 'item'. |
+| `Key Type` | string (KeyType) |  | `money` | gameplay | How to unlock when Password is empty. Ignored when Password is set. |
+| `Navi 1` | string |  | `""` | gameplay | First entry in the approved-Navi list (any match unlocks). |
+| `Navi 10` | string |  | `""` | gameplay |  |
+| `Navi 2` | string |  | `""` | gameplay |  |
+| `Navi 3` | string |  | `""` | gameplay |  |
+| `Navi 4` | string |  | `""` | gameplay |  |
+| `Navi 5` | string |  | `""` | gameplay |  |
+| `Navi 6` | string |  | `""` | gameplay |  |
+| `Navi 7` | string |  | `""` | gameplay |  |
+| `Navi 8` | string |  | `""` | gameplay |  |
+| `Navi 9` | string |  | `""` | gameplay |  |
+| `Navi Element` | string (NaviElement) |  | `""` | gameplay | Navi element required to unlock (case-insensitive). |
+| `Navi Name` | string |  | `""` | gameplay | Exact Navi name required to unlock (case-insensitive). |
+| `Once` | bool |  | false | gameplay | If true, stays hidden permanently; else hidden till disconnect. |
+| `Password` | string |  | `""` | gameplay | If set, requires typing this password to unlock. Overrides Key Type. |
+| `Required Keys` | number |  | 1 | gameplay | Amount required for money / fragments / tokens / item. |
+| `Skip Prompt` | bool |  | false | gameplay | If true, attempts the unlock without asking the player. |
+| `Unlock Failed Message` | string |  | `You were unable to unlock the Security Cube` | gameplay | Shown when the unlock check fails. |
+| `Unlocked Message` | string |  | `The Security Cube was unlocked!` | gameplay | Shown on successful unlock. |
+
+**Template properties:** `Navi N` — add additional numbered instances manually in Tiled.
+
+**Conditional properties**
+
+- `Key Item Name`: Only used when Key Type == 'item'. Only meaningful when `Key Type` == `item`.
+- `Navi 1`: Only used when Key Type == 'navi_list'. Only meaningful when `Key Type` == `navi_list`.
+- `Navi Element`: Only used when Key Type == 'navi_element'. Only meaningful when `Key Type` == `navi_element`.
+- `Navi Name`: Only used when Key Type == 'navi_name'. Only meaningful when `Key Type` == `navi_name`.
 
 ### Mystery Data
 **Category:** gameplay

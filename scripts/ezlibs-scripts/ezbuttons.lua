@@ -2,7 +2,7 @@
 -- Creates trigger-based buttons (non-solid NPCs).
 -- Logical relationships are defined with groups and button/group effects.
 -- Supports five interaction behaviors: Pressure Plate, One-Time, Toggle, Custom, Timed.
--- Supports area‑wide unlock/relock via "Area Wide" flag on Unlock/Relock Behavior objects.
+-- Supports area-wide unlock/relock via "Area Wide" flag on Unlock/Relock Behavior objects.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbuttons')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
@@ -12,6 +12,15 @@ local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezcheckpoints = require('scripts/ezlibs-scripts/ezcheckpoints')
+local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
+
+local tiled_schema = nil
+do
+    local ok, mod = pcall(require, "scripts.ezlibs-scripts.ezlibs-tiled-schema")
+    if ok and type(mod) == "table" and mod.classes then
+        tiled_schema = mod
+    end
+end
 
 function async(p)
     local co = coroutine.create(p)
@@ -26,11 +35,37 @@ local ezbuttons = {}
 local button_asset_folder = '/server/assets/ezlibs-assets/ezbuttons/'
 local TILE_SIZE = 32
 
--- Cache for custom behavior scripts
 local custom_script_cache = {}
-
--- Global table to keep strong references to all button triggers
 local button_triggers = {}
+
+local read_bool = tu.is_true
+
+-- ==========================================================================
+-- Player liveness
+-- ==========================================================================
+local function player_is_alive(player_id)
+    if player_id == nil then return false end
+    if type(Net.is_player) ~= "function" then return true end
+    local ok, alive = pcall(Net.is_player, player_id)
+    if not ok then return true end
+    return not not alive
+end
+
+local function validate_button_object(area_id, object)
+    if not tiled_schema then return end
+    local class_name = object.type
+    if not class_name then return end
+    local class_def = tiled_schema.classes[class_name]
+    if not class_def then return end
+    local ok, report = tu.validate_properties(object, class_def.members, tiled_schema.enums)
+    if ok then return end
+    for _, e in ipairs(report.errors) do
+        logger:for_area(area_id):warn(string.format(
+            "[ezbuttons] %s %s: %s (expected %s, got %s)",
+            class_name, tostring(object.id), e.issue,
+            tostring(e.expected), tostring(e.got)))
+    end
+end
 
 
 local function object_to_tile_pos(object)
@@ -54,15 +89,15 @@ local deactivate_button
 local set_button_active_state
 
 -- Additive group/combination/effect layer. All IDs are scoped to an area.
-local button_groups = {}       -- area_id -> group_id -> definition
-local button_effects = {}      -- area_id -> source_button_id -> { [event] = { rules... } }
-local group_effects = {}       -- area_id -> group_id -> { [event] = { rules... } }
-local pending_group_objects = {} -- area_id -> Tiled Button Group objects waiting for member buttons
-local group_object_ids = {}       -- area_id -> Tiled Button Group/Combo Button Group object ID -> runtime group ID
-local pending_group_effect_objects = {} -- group effects waiting for their group definition
-local combo_object_definitions = {} -- area_id -> Tiled Button Combo object ID -> validated combo definition
-local pending_combo_objects = {} -- area_id -> Tiled Button Combo objects waiting for member buttons
-local pending_combo_group_objects = {} -- area_id -> Tiled Combo Button Group objects waiting for combos
+local button_groups = {}
+local button_effects = {}
+local group_effects = {}
+local pending_group_objects = {}
+local group_object_ids = {}
+local pending_group_effect_objects = {}
+local combo_object_definitions = {}
+local pending_combo_objects = {}
+local pending_combo_group_objects = {}
 local try_configure_pending_groups
 local try_configure_pending_combos
 local try_configure_pending_combo_groups
@@ -70,10 +105,6 @@ local logic_queue = {}
 local processing_logic_queue = false
 local MAX_LOGIC_EVENTS_PER_DRAIN = 1000
 
--- Group modes:
---   all_active: every member is active
---   any_active: at least one member is active
---   combination: every required member is active and every forbidden member is inactive
 local function normalize_ids(ids)
     local result, seen = {}, {}
     for _, id in ipairs(ids or {}) do
@@ -85,6 +116,76 @@ local function normalize_ids(ids)
     end
     return result
 end
+
+-- ==========================================================================
+-- Live-contributor resolution for group state transitions
+--
+-- When a group becomes satisfied, the callback normally fires with the
+-- player whose action triggered the transition. If that player has
+-- disconnected (typical when a pressure plate releases during cleanup),
+-- we search the group's required buttons for a live contributor. The
+-- contributor is whoever last activated one of the required buttons and
+-- is still connected - they're the one who "owns" the current combo state.
+--
+-- If no contributor is alive but there ARE live players in the area, fall
+-- back to area-wide so the achievement isn't silently lost. If nobody is
+-- alive, skip (nothing to apply to).
+--
+-- This helper is only consulted on the SATISFIED direction. The relock
+-- direction uses the triggerer as before - if that's a dead player, the
+-- existing skip-with-log behavior is correct (their per-player checkpoint
+-- state persists across reconnects via memory).
+-- ==========================================================================
+
+local function find_live_contributor(area_id, group)
+    local function first_live_from(ids)
+        for _, id in ipairs(ids or {}) do
+            local info = button_placeholders[area_id] and button_placeholders[area_id][tostring(id)]
+            if info and info.last_activator and player_is_alive(info.last_activator) then
+                return info.last_activator
+            end
+        end
+        return nil
+    end
+    if group.combo then
+        return first_live_from(group.combo.button_ids)
+    end
+    if group.combos then
+        for _, combo in ipairs(group.combos) do
+            local p = first_live_from(combo.button_ids)
+            if p then return p end
+        end
+        return nil
+    end
+    return first_live_from(group.button_ids)
+end
+
+-- Resolve the effective player (and possibly area-wide fallback) for a
+-- satisfied transition. Returns (player_id, use_area_wide, reason).
+--
+--   player_id      - may be nil if no contributor and no fallback
+--   use_area_wide  - true if we should apply the unlock to every live player
+--                    in the area
+--   reason         - human-readable for logging
+local function resolve_transition_player(area_id, group, event_player_id)
+    if event_player_id and player_is_alive(event_player_id) then
+        return event_player_id, false, "triggerer"
+    end
+
+    local contributor = find_live_contributor(area_id, group)
+    if contributor then
+        return contributor, false, "live contributor " .. tostring(contributor)
+    end
+
+    local players = Net.list_players(area_id) or {}
+    if #players > 0 then
+        return nil, true, "area-wide fallback (no live contributor, "
+            .. tostring(#players) .. " player(s) in area)"
+    end
+
+    return nil, false, "no live players in area"
+end
+
 
 local function combo_is_satisfied(area_id, combo)
     local required = {}
@@ -98,8 +199,6 @@ local function combo_is_satisfied(area_id, combo)
         if is_button_active(area_id, id) then return false end
     end
 
-    -- Inclusive allows other group-member buttons to be active. Exclusive requires
-    -- the active group-member set in this area to match this combo exactly.
     if combo.mode == "Exclusive" then
         for id, info in pairs(button_placeholders[area_id] or {}) do
             if info.group_member and is_button_active(area_id, id) and not required[tostring(id)] then
@@ -141,6 +240,13 @@ local function group_is_satisfied(area_id, group)
 end
 
 local function apply_logic_action(area_id, target_id, action, player_id)
+    -- Never propagate a dead player into a downstream activation. Otherwise
+    -- the newly activated button records a stale last_activator and the same
+    -- skip-on-disconnect bug cascades to further group transitions.
+    if player_id and not player_is_alive(player_id) then
+        player_id = nil
+    end
+
     target_id = tostring(target_id)
     if action == "activate" then
         activate_button(area_id, target_id, player_id)
@@ -184,7 +290,6 @@ local function process_logic_event(event)
         local now = group_is_satisfied(area_id, group)
         local previous = group.last_satisfied
         group.last_satisfied = now
-        -- First observation establishes a baseline; later state changes emit events.
         if (previous == false and now == true) or
            (previous == true and now == false) or
            (previous == nil and now == true) then
@@ -233,7 +338,6 @@ local function enqueue_logic_event(area_id, object_id, active, player_id)
     processing_logic_queue = false
 end
 
--- Helper: hide the original Tiled placeholder object for a player
 local function hide_button_placeholder_for_player(player_id, area_id, object_id)
     if not player_id or not area_id or not object_id then return end
     local ok_area, player_area = pcall(Net.get_player_area, player_id)
@@ -261,7 +365,6 @@ local function set_button_animation(bot_id, anim_state, loop)
     end
 end
 
--- Sync all button animations in an area for a specific player
 local function sync_button_animations_for_player(player_id)
     if not player_id then return end
     local ok_area, area_id = pcall(Net.get_player_area, player_id)
@@ -279,32 +382,116 @@ local function sync_button_animations_for_player(player_id)
     end
 end
 
--- Apply any area‑wide unlock flags to a player who just entered the area
 local function apply_area_wide_unlocks(player_id, area_id)
     if not player_id or not area_id then return end
     local area_mem = ezmemory.get_area_memory(area_id)
     if not area_mem.area_wide_unlock then return end
 
     for _, entry in pairs(area_mem.area_wide_unlock) do
-        -- entry contains { area_id = checkpoint_area_id, checkpoint_object_id, once }
         pcall(ezcheckpoints.force_unlock_checkpoint, player_id, entry.area_id, entry.checkpoint_object_id, entry.once)
     end
 end
 
 Net:on("player_join", function(event)
-    hide_button_placeholders_for_player(event.player_id)
-    sync_button_animations_for_player(event.player_id)
-    local ok, area_id = pcall(Net.get_player_area, event.player_id)
-    if ok and area_id then
-        apply_area_wide_unlocks(event.player_id, area_id)
+    local player_id = event and event.player_id
+    if not player_id then return end
+    local ok, err = pcall(function()
+        hide_button_placeholders_for_player(player_id)
+        sync_button_animations_for_player(player_id)
+        local ok_area, area_id = pcall(Net.get_player_area, player_id)
+        if ok_area and area_id then
+            apply_area_wide_unlocks(player_id, area_id)
+        end
+    end)
+    if not ok then
+        logger:for_player(player_id):warn("[ezbuttons] player_join handler error:", tostring(err))
     end
 end)
 
 Net:on("player_area_transfer", function(event)
-    hide_button_placeholders_for_player(event.player_id)
-    sync_button_animations_for_player(event.player_id)
-    apply_area_wide_unlocks(event.player_id, event.new_area_id)
+    local player_id = event and event.player_id
+    local new_area_id = event and event.new_area_id
+    if not player_id then return end
+    local ok, err = pcall(function()
+        hide_button_placeholders_for_player(player_id)
+        sync_button_animations_for_player(player_id)
+        if new_area_id then
+            apply_area_wide_unlocks(player_id, new_area_id)
+        end
+    end)
+    if not ok then
+        logger:for_player(player_id):warn("[ezbuttons] player_area_transfer handler error:", tostring(err))
+    end
 end)
+
+-- ==========================================================================
+-- Disconnect cleanup - deterministic three-phase
+--
+-- Why three phases? Because group re-evaluation fires inside deactivate, and
+-- that re-evaluation may consult other buttons' last_activator as a fallback
+-- when the departing player was the triggerer. If we cleared last_activators
+-- in the same pass as deactivation, the order of pairs() iteration would
+-- decide whether the fallback had data to work with - the symptom being that
+-- "releasing one button sometimes activates the combo, sometimes doesn't".
+--
+-- Phase 1: clear trigger_players on every button, collect plates to release.
+-- Phase 2: deactivate those plates. last_activator for every button is still
+--          intact, so any transition fires with full context.
+-- Phase 3: clear last_activator for the departing player on every button.
+-- ==========================================================================
+local function cleanup_player_state(player_id)
+    if not player_id then return end
+
+    -- Phase 1
+    local plates_to_deactivate = {}
+    for area_id, area_table in pairs(button_placeholders) do
+        for object_id, info in pairs(area_table) do
+            if info.trigger_players then
+                info.trigger_players[player_id] = nil
+            end
+            if info.behavior == "Pressure Plate"
+                and info.trigger_players
+                and next(info.trigger_players) == nil
+                and is_button_active(area_id, object_id) then
+                plates_to_deactivate[#plates_to_deactivate + 1] = { area_id, object_id }
+            end
+        end
+    end
+
+    -- Phase 2
+    for _, entry in ipairs(plates_to_deactivate) do
+        local area_id, object_id = entry[1], entry[2]
+        logger:info("[ezbuttons] Auto-deactivating Pressure Plate",
+            tostring(object_id), "in area", tostring(area_id),
+            "after last trigger departed")
+        pcall(deactivate_button, area_id, object_id)
+    end
+
+    -- Phase 3
+    for area_id, area_table in pairs(button_placeholders) do
+        for object_id, info in pairs(area_table) do
+            if info.last_activator == player_id then
+                info.last_activator = nil
+            end
+        end
+    end
+end
+
+Net:on("player_disconnect", function(event)
+    local player_id = (type(event) == "table") and event.player_id or event
+    if not player_id then return end
+    local ok, err = pcall(cleanup_player_state, player_id)
+    if not ok then
+        logger:for_player(player_id):warn("[ezbuttons] player_disconnect cleanup error:", tostring(err))
+    end
+end)
+
+function ezbuttons.handle_player_disconnect(player_id)
+    local ok, err = pcall(cleanup_player_state, player_id)
+    if not ok then
+        logger:for_player(player_id):warn("[ezbuttons] handle_player_disconnect error:", tostring(err))
+    end
+end
 
 -- Helper: create a non‑solid bot for the button
 local function create_button_bot(area_id, asset_name, x, y, z, direction,
@@ -336,23 +523,13 @@ local function create_button_bot(area_id, asset_name, x, y, z, direction,
         warp_in = true,
     }
 
-    -- Diagnostic: explicitly provide the button texture and animation assets
-    -- before creating the bot, then report whether either call raises an error.
     logger:info("[ezbuttons] Button texture:", texture_path)
     logger:info("[ezbuttons] Button animation:", animation_path)
 
-    local texture_ok, texture_err = pcall(
-        Net.provide_asset,
-        area_id,
-        texture_path
-    )
+    local texture_ok, texture_err = pcall(Net.provide_asset, area_id, texture_path)
     logger:info("[ezbuttons] Texture provision:", texture_ok, texture_err or "")
 
-    local animation_ok, animation_err = pcall(
-        Net.provide_asset,
-        area_id,
-        animation_path
-    )
+    local animation_ok, animation_err = pcall(Net.provide_asset, area_id, animation_path)
     logger:info("[ezbuttons] Animation provision:", animation_ok, animation_err or "")
 
     local bot_id = Net.create_bot(npc_data)
@@ -364,7 +541,6 @@ local function create_button_bot(area_id, asset_name, x, y, z, direction,
     return bot_id
 end
 
--- Active state from memory
 is_button_active = function(area_id, object_id)
     local area_mem = ezmemory.get_area_memory(area_id)
     area_mem.buttons = area_mem.buttons or {}
@@ -381,11 +557,7 @@ set_button_active_state = function(area_id, object_id, bot_id, active_anim, inac
     set_button_animation(bot_id, new_anim, true)
 end
 
--- Trigger creation
 local function create_button_trigger(area_id, object, width_px, height_px, trigger_id)
-    -- Preserve explicitly configured Tiled dimensions. The old minimum-size
-    -- clamp expanded every rectangle smaller than 4 units to 4x4, even when
-    -- the Tiled trigger intentionally measured less than 4 units.
     width_px = tonumber(width_px)
     height_px = tonumber(height_px)
 
@@ -407,22 +579,19 @@ local function create_button_trigger(area_id, object, width_px, height_px, trigg
 end
 
 -- ============================================================
--- PERFORM ACTIVATION (with checkpoint unlocking, area-wide support)
+-- PERFORM ACTIVATION
 -- ============================================================
 perform_activation = function(area_id, object_id, player_id, info)
     if is_button_active(area_id, object_id) then
         return false
     end
 
-    -- Remember who activated this button
     info.last_activator = player_id
 
     set_button_active_state(area_id, object_id, info.bot_id, info.active_anim, info.inactive_anim, true)
     logger:for_player(player_id):info("[ezbuttons] Button", object_id, "activated in area", area_id)
     enqueue_logic_event(area_id, object_id, true, player_id)
 
-    -- Group members only report their active state to group logic. Their checkpoint
-    -- actions are owned by the Button Group object, never by an individual member.
     local cp_id = not info.group_member and info.unlock_checkpoint_obj or nil
     if cp_id and cp_id ~= "" then
         if info.unlock_area_wide then
@@ -441,7 +610,7 @@ perform_activation = function(area_id, object_id, player_id, info)
                 ezmemory.save_area_memory(info.area_id)
             end
             logger:info("[ezbuttons] Area-wide checkpoint unlock applied by button " .. tostring(object_id))
-        else
+        elseif player_is_alive(player_id) then
             local ok, err = pcall(ezcheckpoints.force_unlock_checkpoint, player_id, info.area_id, cp_id, info.unlock_permanently)
             if not ok then
                 logger:for_area(area_id):warn("[ezbuttons] Failed to unlock checkpoint: " .. tostring(err))
@@ -455,6 +624,9 @@ perform_activation = function(area_id, object_id, player_id, info)
                 }
                 ezmemory.save_area_memory(area_id)
             end
+        else
+            logger:info("[ezbuttons] Skipping per-player checkpoint unlock for button "
+                .. tostring(object_id) .. ": activator is no longer connected")
         end
     end
 
@@ -462,7 +634,7 @@ perform_activation = function(area_id, object_id, player_id, info)
 end
 
 -- ============================================================
--- PERFORM DEACTIVATION (with optional explicit Relock Behavior, area-wide support)
+-- PERFORM DEACTIVATION
 -- ============================================================
 perform_deactivation = function(area_id, object_id, info)
     if not is_button_active(area_id, object_id) then
@@ -472,62 +644,63 @@ perform_deactivation = function(area_id, object_id, info)
     set_button_active_state(area_id, object_id, info.bot_id, info.active_anim, info.inactive_anim, false)
     logger:info("[ezbuttons] Button", object_id, "deactivated")
 
-    -- Individual buttons own their own relock behavior. Group members must not
-    -- execute per-button relocks; the owning Button Group handles its transition.
     if not info.group_member then
-    -- Automatic relock is scoped to this area and button ID.
-    local area_mem = ezmemory.get_area_memory(area_id)
-    local object_key = tostring(object_id)
-    local area_wide_entries = area_mem and area_mem.area_wide_unlock
-    local area_wide_entry = area_wide_entries and area_wide_entries[object_key]
-    if area_wide_entry then
-        local players = Net.list_players(area_wide_entry.area_id) or {}
-        for _, pid in ipairs(players) do
-            pcall(ezcheckpoints.relock_checkpoint, pid, area_wide_entry.area_id, area_wide_entry.checkpoint_object_id)
-        end
-        area_wide_entries[object_key] = nil
-        ezmemory.save_area_memory(area_wide_entry.area_id)
-        logger:info("[ezbuttons] Area-wide checkpoint relock applied by button " .. object_key)
-    else
-        local unlocks = area_mem and area_mem.timed_button_unlock_info
-        local unlock_info = unlocks and unlocks[object_key]
-        if unlock_info then
-            local ok, err = pcall(ezcheckpoints.relock_checkpoint, unlock_info.player_id, unlock_info.area_id, unlock_info.checkpoint_object_id)
-            if not ok then logger:for_area(area_id):warn("[ezbuttons] Failed to relock checkpoint: " .. tostring(err)) end
-            unlocks[object_key] = nil
-            ezmemory.save_area_memory(area_id)
-        end
-    end
-
-    -- Explicit Relock Behavior (independent of automatic)
-    if info.relock_target then
-        if info.relock_area_wide then
-            -- Area‑wide explicit relock
-            local players = Net.list_players(info.area_id) or {}
+        local area_mem = ezmemory.get_area_memory(area_id)
+        local object_key = tostring(object_id)
+        local area_wide_entries = area_mem and area_mem.area_wide_unlock
+        local area_wide_entry = area_wide_entries and area_wide_entries[object_key]
+        if area_wide_entry then
+            local players = Net.list_players(area_wide_entry.area_id) or {}
             for _, pid in ipairs(players) do
-                pcall(ezcheckpoints.relock_checkpoint, pid, info.area_id, info.relock_target)
+                pcall(ezcheckpoints.relock_checkpoint, pid, area_wide_entry.area_id, area_wide_entry.checkpoint_object_id)
             end
-            logger:info("[ezbuttons] Explicit area‑wide relock for checkpoint " .. info.relock_target .. " in area " .. info.area_id)
+            area_wide_entries[object_key] = nil
+            ezmemory.save_area_memory(area_wide_entry.area_id)
+            logger:info("[ezbuttons] Area-wide checkpoint relock applied by button " .. object_key)
         else
-            -- Per‑player explicit relock
-            if info.last_activator then
-                logger:info("[ezbuttons] Explicit Relock Behavior: relocking " .. info.relock_target .. " for player " .. info.last_activator)
-                pcall(ezcheckpoints.relock_checkpoint, info.last_activator, info.area_id, info.relock_target)
+            local unlocks = area_mem and area_mem.timed_button_unlock_info
+            local unlock_info = unlocks and unlocks[object_key]
+            if unlock_info then
+                if player_is_alive(unlock_info.player_id) then
+                    local ok, err = pcall(ezcheckpoints.relock_checkpoint,
+                        unlock_info.player_id, unlock_info.area_id, unlock_info.checkpoint_object_id)
+                    if not ok then
+                        logger:for_area(area_id):warn("[ezbuttons] Failed to relock checkpoint: " .. tostring(err))
+                    end
+                else
+                    logger:info("[ezbuttons] Skipping automatic relock for button "
+                        .. object_key .. ": recorded player no longer connected")
+                end
+                unlocks[object_key] = nil
+                ezmemory.save_area_memory(area_id)
+            end
+        end
+
+        if info.relock_target then
+            if info.relock_area_wide then
+                local players = Net.list_players(info.area_id) or {}
+                for _, pid in ipairs(players) do
+                    pcall(ezcheckpoints.relock_checkpoint, pid, info.area_id, info.relock_target)
+                end
+                logger:info("[ezbuttons] Explicit area‑wide relock for checkpoint " .. info.relock_target .. " in area " .. info.area_id)
             else
-                logger:warn("[ezbuttons] No last_activator for explicit relock; cannot relock")
+                if info.last_activator and player_is_alive(info.last_activator) then
+                    logger:info("[ezbuttons] Explicit Relock Behavior: relocking " .. info.relock_target .. " for player " .. info.last_activator)
+                    pcall(ezcheckpoints.relock_checkpoint, info.last_activator, info.area_id, info.relock_target)
+                elseif info.last_activator then
+                    logger:info("[ezbuttons] Skipping explicit relock for checkpoint " .. info.relock_target
+                        .. ": last activator is no longer connected")
+                else
+                    logger:warn("[ezbuttons] No last_activator for explicit relock; cannot relock")
+                end
             end
         end
     end
-
-    end -- not info.group_member
 
     enqueue_logic_event(area_id, object_id, false, info.last_activator)
     return true
 end
 
--- Reconcile the requested state after an animation completes. Enter/exit
--- events may arrive while an animation is running; retain the latest request
--- instead of dropping it, then apply it once the current transition finishes.
 local function reconcile_pending_button_state(area_id, object_id, info)
     if not info or info.is_animating or info.pending_state == nil then
         return
@@ -549,7 +722,6 @@ local function reconcile_pending_button_state(area_id, object_id, info)
     end
 end
 
--- Internal deactivation helper
 deactivate_button_internal = function(area_id, object_id, info)
     if not info then
         info = button_placeholders[area_id] and button_placeholders[area_id][tostring(object_id)]
@@ -559,8 +731,6 @@ deactivate_button_internal = function(area_id, object_id, info)
         end
     end
 
-    -- Invalidate every outstanding Timed timer, including one that is
-    -- sleeping while an animation is in progress.
     info.timer_generation = (info.timer_generation or 0) + 1
     info.timed_cancel = true
 
@@ -599,10 +769,7 @@ deactivate_button_internal = function(area_id, object_id, info)
     end
 end
 
--- Start a timer that will deactivate the button after its activated_time
 local function start_timed_deactivation(area_id, object_id, info)
-    -- A generation token prevents an older sleeping timer from firing after a
-    -- later activation has started a replacement timer.
     info.timer_generation = (info.timer_generation or 0) + 1
     local timer_generation = info.timer_generation
     info.timed_cancel = false
@@ -626,7 +793,6 @@ local function start_timed_deactivation(area_id, object_id, info)
     end)
 end
 
--- Public activate with optional animation
 activate_button = function(area_id, object_id, player_id)
     object_id = tostring(object_id)
     local info = button_placeholders[area_id] and button_placeholders[area_id][object_id]
@@ -665,7 +831,6 @@ activate_button = function(area_id, object_id, player_id)
     end
 end
 
--- Public deactivate with optional animation
 deactivate_button = function(area_id, object_id)
     object_id = tostring(object_id)
     local info = button_placeholders[area_id] and button_placeholders[area_id][object_id]
@@ -677,7 +842,6 @@ deactivate_button = function(area_id, object_id)
     return deactivate_button_internal(area_id, object_id, info)
 end
 
--- Load custom behavior script
 local function load_custom_script(script_path)
     if not script_path or script_path == "" then
         return nil, "No script path provided"
@@ -701,13 +865,11 @@ end
 -- OBJECT REGISTRY HANDLER FOR "OW BUTTON"
 -- ============================================================
 local function register_button_object(area_id, object, group_member)
-    local props = object.custom_properties or {}
+    validate_button_object(area_id, object)
 
-    -- OW Button Group Member is deliberately separate from OW Button. It uses the
-    -- same trigger/visual machinery but never runs individual checkpoint actions.
+    local props = object.custom_properties or {}
     group_member = group_member == true
 
-    -- Bot Details
     local bot_details_obj_id = props["Bot Details"]
     if not bot_details_obj_id or bot_details_obj_id == "" then
         logger:info("[ezbuttons] OW Button missing Bot Details reference, skipping", object.id)
@@ -734,17 +896,17 @@ local function register_button_object(area_id, object, group_member)
     local inactive_anim = details_props["Inactive Animation"] or "INACTIVE"
     local activation_anim = details_props["Activated Animation"] or nil
     local deactivation_anim = details_props["Deactivated Animation"] or nil
-    local activation_duration = tonumber(details_props["Activation Animation Duration"]) or 0.5
-    local deactivation_duration = tonumber(details_props["Deactivation Animation Duration"]) or 0.5
+    local activation_duration =
+        tu.get_number_from(details_props, "Activation Animation Duration", 0.5)
+    local deactivation_duration =
+        tu.get_number_from(details_props, "Deactivation Animation Duration", 0.5)
 
     local bot_name = object.name
 
-    -- Behavior properties
     local behavior = props["Button Behavior"] or "One-Time"
     local script_path = props["Script Path"] or nil
-    local activated_time = tonumber(props["Activated Time"]) or 1
+    local activated_time = tu.get_number_from(props, "Activated Time", 1)
 
-    -- ====== Unlock Behavior (activation) ======
     local unlock_checkpoint_obj = nil
     local unlock_permanently = true
     local unlock_area_wide = false
@@ -754,23 +916,8 @@ local function register_button_object(area_id, object, group_member)
         if behavior_obj then
             local beh_props = behavior_obj.custom_properties or {}
             unlock_checkpoint_obj = beh_props["Unlock This"]
-            if beh_props["Unlock Permanently"] ~= nil then
-                local val = beh_props["Unlock Permanently"]
-                if type(val) == "boolean" then
-                    unlock_permanently = val
-                elseif type(val) == "string" then
-                    unlock_permanently = (val:lower() == "true")
-                end
-            end
-            -- Area Wide flag
-            if beh_props["Area Wide"] ~= nil then
-                local val = beh_props["Area Wide"]
-                if type(val) == "boolean" then
-                    unlock_area_wide = val
-                elseif type(val) == "string" then
-                    unlock_area_wide = (val:lower() == "true")
-                end
-            end
+            unlock_permanently = read_bool(beh_props["Unlock Permanently"], true)
+            unlock_area_wide = read_bool(beh_props["Area Wide"], false)
             logger:info(string.format("   [DEBUG] Button %s: Unlock Behavior -> checkpoint=%s, permanent=%s, area_wide=%s",
                   tostring(object.id), tostring(unlock_checkpoint_obj), tostring(unlock_permanently), tostring(unlock_area_wide)))
         else
@@ -778,7 +925,6 @@ local function register_button_object(area_id, object, group_member)
         end
     end
 
-    -- ====== Relock Behavior (deactivation) ======
     local relock_target = nil
     local relock_area_wide = false
     local deactivated_behavior_id = props["Button Deactivated Behavior"]
@@ -787,15 +933,7 @@ local function register_button_object(area_id, object, group_member)
         if relock_obj then
             local relock_props = relock_obj.custom_properties or {}
             relock_target = relock_props["Relock This"]
-            -- Area Wide flag
-            if relock_props["Area Wide"] ~= nil then
-                local val = relock_props["Area Wide"]
-                if type(val) == "boolean" then
-                    relock_area_wide = val
-                elseif type(val) == "string" then
-                    relock_area_wide = (val:lower() == "true")
-                end
-            end
+            relock_area_wide = read_bool(relock_props["Area Wide"], false)
             if relock_target and relock_target ~= "" then
                 logger:info("[ezbuttons] Button " .. tostring(object.id) .. " will relock checkpoint " .. relock_target .. " on deactivation (area_wide=" .. tostring(relock_area_wide) .. ")")
             else
@@ -807,7 +945,6 @@ local function register_button_object(area_id, object, group_member)
         end
     end
 
-    -- Bot creation
     local bot_x, bot_y, bot_z = object_to_tile_pos(object)
     local bot_id = create_button_bot(area_id, asset_name, bot_x, bot_y,
                                      bot_z, direction, bot_name,
@@ -815,7 +952,6 @@ local function register_button_object(area_id, object, group_member)
                                      inactive_anim)
     if not bot_id then return end
 
-    -- Restore saved active state
     local was_active = is_button_active(area_id, object.id)
     if was_active then
         set_button_animation(bot_id, active_anim, true)
@@ -823,12 +959,10 @@ local function register_button_object(area_id, object, group_member)
         set_button_animation(bot_id, inactive_anim, true)
     end
 
-    -- Store placeholder info
     if not button_placeholders[area_id] then
         button_placeholders[area_id] = {}
     end
 
-    -- Determine trigger source
     local trigger_source_obj = object
     local trigger_type = "rect"
     local trigger_width_px = 4
@@ -853,7 +987,6 @@ local function register_button_object(area_id, object, group_member)
         trigger_height_px = props["Trigger Height"] or 4
     end
 
-    -- Build info table (including relock_target, relock_area_wide, last_activator)
     local info = {
         area_id = area_id,
         object_id = object.id,
@@ -893,12 +1026,10 @@ local function register_button_object(area_id, object, group_member)
     button_placeholders[area_id][tostring(object.id)] = info
     button_bots[bot_id] = info
 
-    -- Hide original object
     for _, player_id in ipairs(Net.list_players(area_id) or {}) do
         hide_button_placeholder_for_player(player_id, area_id, object.id)
     end
 
-    -- Create trigger
     local trigger_id = "button_" .. area_id .. "_" .. tostring(object.id)
     local emitter
     if trigger_type == "ellipse" then
@@ -915,7 +1046,6 @@ local function register_button_object(area_id, object, group_member)
         return
     end
 
-    -- Custom script handlers
     local custom_handlers = nil
     if behavior == "Custom" then
         local mod, err = load_custom_script(script_path)
@@ -930,7 +1060,6 @@ local function register_button_object(area_id, object, group_member)
     info.behavior = behavior
     info.custom_handlers = custom_handlers
 
-    -- Enter handler
     emitter:on("entered", function(event)
         if type(event) ~= "table" or not event.object
             or tostring(event.object.id) ~= tostring(trigger_source_obj.id) then
@@ -946,8 +1075,6 @@ local function register_button_object(area_id, object, group_member)
             if not is_button_active(area_id, object.id) then
                 activate_button(area_id, object.id, player_id)
             elseif info.is_animating then
-                -- A deactivation may already be in progress. The latest
-                -- occupancy requires the button to end in the active state.
                 info.pending_state = true
                 info.pending_player_id = player_id
             end
@@ -980,7 +1107,6 @@ local function register_button_object(area_id, object, group_member)
         end
     end)
 
-    -- Depart handler
     emitter:on("departed", function(event)
         if type(event) ~= "table" or not event.object
             or tostring(event.object.id) ~= tostring(trigger_source_obj.id) then
@@ -997,16 +1123,15 @@ local function register_button_object(area_id, object, group_member)
             if not someone_inside and is_button_active(area_id, object.id) then
                 deactivate_button(area_id, object.id)
             elseif not someone_inside and info.is_animating then
-                -- Queue the inactive state even if activation has not committed yet.
                 info.pending_state = false
                 info.pending_player_id = nil
             end
         elseif behavior == "One-Time" then
             -- do nothing
         elseif behavior == "Toggle" then
-            -- do nothing (deactivation happens on next enter via toggle)
+            -- do nothing
         elseif behavior == "Timed" then
-            -- Timer handles deactivation, do nothing on depart
+            -- Timer handles deactivation
         elseif behavior == "Custom" and custom_handlers and custom_handlers.on_exit then
             custom_handlers.on_exit(player_id, info)
         end
@@ -1022,12 +1147,8 @@ local function register_button_object(area_id, object, group_member)
         logger:info("[ezbuttons] OW Button Group Member initialized:", tostring(object.id), "(checkpoint actions are group-owned)")
     end
 
-    if try_configure_pending_groups then
-        try_configure_pending_groups(area_id)
-    end
-    if try_configure_pending_combos then
-        try_configure_pending_combos(area_id)
-    end
+    if try_configure_pending_groups then try_configure_pending_groups(area_id) end
+    if try_configure_pending_combos then try_configure_pending_combos(area_id) end
 end
 
 object_registry.register_handler("OW Button", function(area_id, object)
@@ -1063,9 +1184,6 @@ function ezbuttons.reset_button(area_id, object_id)
     return false
 end
 
--- Define a logical group. button_ids are Tiled object IDs within area_id.
--- mode is "all_active", "any_active", or "combination". For a combination,
--- all button_ids must be active and options.forbidden_ids must all be inactive.
 function ezbuttons.define_group(area_id, group_id, button_ids, mode, options)
     if type(area_id) ~= "string" and type(area_id) ~= "number" then error("define_group: area_id is required") end
     if type(group_id) ~= "string" and type(group_id) ~= "number" then error("define_group: group_id is required") end
@@ -1093,8 +1211,6 @@ function ezbuttons.define_group(area_id, group_id, button_ids, mode, options)
     return true
 end
 
--- Set or replace a callback. It runs only when the group's satisfied state changes,
--- after the first observed baseline has been recorded.
 function ezbuttons.on_group_change(area_id, group_id, callback)
     if type(callback) ~= "function" then error("on_group_change: callback must be a function") end
     local group = button_groups[tostring(area_id)] and button_groups[tostring(area_id)][tostring(group_id)]
@@ -1103,8 +1219,6 @@ function ezbuttons.on_group_change(area_id, group_id, callback)
     return true
 end
 
--- A button effect runs when the source changes state. event is "activated" or "deactivated".
--- action is "activate", "deactivate", "toggle", or "reset". Target must be in same area.
 function ezbuttons.add_button_effect(area_id, source_id, event_name, target_id, action)
     if event_name ~= "activated" and event_name ~= "deactivated" then error("add_button_effect: event must be activated or deactivated") end
     if target_id == nil then error("add_button_effect: target_id is required") end
@@ -1117,7 +1231,6 @@ function ezbuttons.add_button_effect(area_id, source_id, event_name, target_id, 
     return true
 end
 
--- Run an action when a group changes to "completed" or "incomplete".
 function ezbuttons.add_group_effect(area_id, group_id, event_name, target_id, action)
     if event_name ~= "completed" and event_name ~= "incomplete" then error("add_group_effect: event must be completed or incomplete") end
     if target_id == nil then error("add_group_effect: target_id is required") end
@@ -1130,7 +1243,6 @@ function ezbuttons.add_group_effect(area_id, group_id, event_name, target_id, ac
     return true
 end
 
--- Recalculate group states after definitions are added or after saved button states are restored.
 function ezbuttons.refresh_groups(area_id, player_id)
     area_id = tostring(area_id)
     local groups = button_groups[area_id]
@@ -1150,9 +1262,6 @@ function ezbuttons.get_group_state(area_id, group_id)
 end
 
 local function property_ids(props, prefix)
-    -- Tiled object types define only the first numbered property as a template.
-    -- Map makers can add any number of numbered properties; discover them from
-    -- the actual custom-properties table instead of imposing a hard upper limit.
     local numbered = {}
     for name, value in pairs(props or {}) do
         if type(name) == "string" then
@@ -1168,14 +1277,8 @@ local function property_ids(props, prefix)
     return ids
 end
 
-local function read_bool(value, default)
-    if value == nil then return default end
-    if type(value) == "boolean" then return value end
-    if type(value) == "number" then return value ~= 0 end
-    if type(value) == "string" then return value:lower() == "true" or value == "1" end
-    return default
-end
-
+-- Group checkpoint action. Area-wide: applies to every live player. Per-player:
+-- applies to the resolved target if still alive; otherwise skips with a log.
 local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids, area_wide, unlock, permanent, group_id)
     if type(checkpoint_ids) ~= "table" then
         checkpoint_ids = checkpoint_ids ~= nil and checkpoint_ids ~= "" and { checkpoint_ids } or {}
@@ -1204,9 +1307,6 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
                     end
                 end
 
-                -- Temporary area-wide unlocks must also apply to players who enter
-                -- the area later. Use a group-specific key so groups do not overwrite
-                -- each other's checkpoint tracking.
                 area_mem.area_wide_unlock = area_mem.area_wide_unlock or {}
                 local tracking_key = "button_group:" .. tostring(group_id or "") .. ":" .. checkpoint_id
                 if unlock and not permanent then
@@ -1223,16 +1323,21 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
                     end
                 end
             elseif player_id then
-                local ok, err
-                if unlock then
-                    ok, err = pcall(ezcheckpoints.force_unlock_checkpoint,
-                        player_id, area_id, checkpoint_id, permanent)
+                if player_is_alive(player_id) then
+                    local ok, err
+                    if unlock then
+                        ok, err = pcall(ezcheckpoints.force_unlock_checkpoint,
+                            player_id, area_id, checkpoint_id, permanent)
+                    else
+                        ok, err = pcall(ezcheckpoints.relock_checkpoint,
+                            player_id, area_id, checkpoint_id)
+                    end
+                    if not ok then
+                        logger:warn("[ezbuttons] Group checkpoint action failed:", tostring(err))
+                    end
                 else
-                    ok, err = pcall(ezcheckpoints.relock_checkpoint,
-                        player_id, area_id, checkpoint_id)
-                end
-                if not ok then
-                    logger:warn("[ezbuttons] Group checkpoint action failed:", tostring(err))
+                    logger:info("[ezbuttons] Group checkpoint action skipped for checkpoint "
+                        .. checkpoint_id .. ": triggering player is no longer connected")
                 end
             else
                 logger:info("[ezbuttons] Group checkpoint action skipped: no player ID and Area Wide is false")
@@ -1245,7 +1350,28 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
     end
 end
 
+-- Resolve-and-route wrapper used by every group/combo callback. If the
+-- triggerer is dead, route to a live contributor or fall back to area-wide.
+local function route_group_callback(area_id, group_ref, event_player_id,
+                                    checkpoint_ids, area_wide, unlock, permanent, group_id, log_tag)
+    local effective_player = event_player_id
+    local force_area_wide = false
+
+    if unlock and (not effective_player or not player_is_alive(effective_player)) then
+        local resolved_player, use_area_wide, reason =
+            resolve_transition_player(area_id, group_ref, effective_player)
+        effective_player = resolved_player
+        force_area_wide = use_area_wide
+        logger:info("[ezbuttons]", log_tag, "satisfied; routing via", reason)
+    end
+
+    apply_group_checkpoint_action(area_id, effective_player, checkpoint_ids,
+        area_wide or force_area_wide, unlock, permanent, group_id)
+end
+
 local function configure_group_object(area_id, object)
+    validate_button_object(area_id, object)
+
     local props = object.custom_properties or {}
     local required_ids = property_ids(props, "Button ")
     local forbidden_ids = property_ids(props, "Forbidden Button ")
@@ -1254,8 +1380,6 @@ local function configure_group_object(area_id, object)
         return false
     end
 
-    -- Tiled object load order is not guaranteed. Wait until all required and forbidden
-    -- references resolve to registered OW Button Group Member objects.
     for _, button_id in ipairs(required_ids) do
         local info = button_placeholders[area_id] and button_placeholders[area_id][button_id]
         if not info or not info.group_member then return false end
@@ -1269,7 +1393,6 @@ local function configure_group_object(area_id, object)
     if group_id == nil or tostring(group_id) == "" then group_id = tostring(object.id) end
     group_id = tostring(group_id)
     local mode = props["Group Mode"] or "all_active"
-    -- Checkpoint targets are configured only through numbered properties.
     local unlock_checkpoints = property_ids(props, "Unlock Checkpoint ")
     local relock_checkpoints = property_ids(props, "Relock Checkpoint ")
     local unlock_permanently = read_bool(props["Unlock Permanently"], true)
@@ -1279,9 +1402,12 @@ local function configure_group_object(area_id, object)
     local ok, err = pcall(ezbuttons.define_group, area_id, group_id, required_ids, mode, {
         forbidden_ids = forbidden_ids,
         on_change = function(changed_area_id, changed_group_id, satisfied, player_id)
+            local group_ref = button_groups[changed_area_id]
+                and button_groups[changed_area_id][changed_group_id]
             if satisfied then
-                apply_group_checkpoint_action(changed_area_id, player_id, unlock_checkpoints,
-                    unlock_area_wide, true, unlock_permanently, changed_group_id)
+                route_group_callback(changed_area_id, group_ref, player_id,
+                    unlock_checkpoints, unlock_area_wide, true, unlock_permanently,
+                    changed_group_id, "Button Group " .. tostring(changed_group_id))
             elseif #relock_checkpoints > 0 then
                 apply_group_checkpoint_action(changed_area_id, player_id, relock_checkpoints,
                     relock_area_wide, false, false, changed_group_id)
@@ -1297,7 +1423,6 @@ local function configure_group_object(area_id, object)
     group_object_ids[area_id][tostring(object.id)] = group_id
     logger:for_area(area_id):info("[ezbuttons] Configured Button Group:", tostring(object.id), "group_id=", group_id, "mode=", tostring(mode), "members=", #required_ids)
 
-    -- Register group effects that may have appeared earlier in the Tiled object list.
     local pending = pending_group_effect_objects[area_id]
     if pending then
         for index = #pending, 1, -1 do
@@ -1328,15 +1453,15 @@ try_configure_pending_groups = function(area_id)
 end
 
 object_registry.register_handler("Button Group", function(area_id, object)
+    validate_button_object(area_id, object)
     pending_group_objects[area_id] = pending_group_objects[area_id] or {}
     pending_group_objects[area_id][#pending_group_objects[area_id] + 1] = object
     try_configure_pending_groups(area_id)
 end)
 
--- Button Combo objects define a button-state pattern and the actions to run
--- when that individual pattern becomes satisfied. The matching mode comes from
--- the parent Combo Button Group, not from the Button Combo object.
 local function configure_button_combo_object(area_id, object)
+    validate_button_object(area_id, object)
+
     local props = object.custom_properties or {}
     local required_ids = property_ids(props, "Button ")
     local forbidden_ids = property_ids(props, "Forbidden Button ")
@@ -1388,12 +1513,15 @@ try_configure_pending_combos = function(area_id)
 end
 
 object_registry.register_handler("Button Combo", function(area_id, object)
+    validate_button_object(area_id, object)
     pending_combo_objects[area_id] = pending_combo_objects[area_id] or {}
     pending_combo_objects[area_id][#pending_combo_objects[area_id] + 1] = object
     if try_configure_pending_combos then try_configure_pending_combos(area_id) end
 end)
 
 local function configure_combo_button_group_object(area_id, object)
+    validate_button_object(area_id, object)
+
     local props = object.custom_properties or {}
     local combo_object_ids = property_ids(props, "Button Combo ")
     if #combo_object_ids == 0 then
@@ -1417,8 +1545,6 @@ local function configure_combo_button_group_object(area_id, object)
         local definition = known_combos[tostring(combo_object_id)]
         if not definition then return false end
 
-        -- Each referenced combo gets its own runtime identity and its own callback.
-        -- This means achieving one combo runs that combo's actions, not the parent group's.
         local combo = {
             object_id = definition.object_id,
             button_ids = normalize_ids(definition.button_ids),
@@ -1432,21 +1558,23 @@ local function configure_combo_button_group_object(area_id, object)
         button_groups[tostring(area_id)][combo_runtime_id] = {
             combo = combo,
             callback = function(changed_area_id, changed_group_id, satisfied, player_id)
+                local group_ref = button_groups[changed_area_id]
+                    and button_groups[changed_area_id][changed_group_id]
                 if satisfied then
-                    apply_group_checkpoint_action(changed_area_id, player_id, definition.unlock_checkpoints,
-                        definition.unlock_area_wide, true, definition.unlock_permanently, combo_runtime_id)
+                    route_group_callback(changed_area_id, group_ref, player_id,
+                        definition.unlock_checkpoints, definition.unlock_area_wide,
+                        true, definition.unlock_permanently,
+                        combo_runtime_id, "Button Combo " .. tostring(definition.object_id))
                 elseif #definition.relock_checkpoints > 0 then
-                    apply_group_checkpoint_action(changed_area_id, player_id, definition.relock_checkpoints,
-                        definition.relock_area_wide, false, false, combo_runtime_id)
+                    apply_group_checkpoint_action(changed_area_id, player_id,
+                        definition.relock_checkpoints, definition.relock_area_wide,
+                        false, false, combo_runtime_id)
                 end
             end,
             last_satisfied = nil,
         }
     end
 
-    -- This aggregate group only represents whether ANY referenced combo matches.
-    -- Its transition events remain useful for Button Group Effect objects, but it
-    -- does not own checkpoint actions; those belong to each Button Combo object.
     button_groups[tostring(area_id)] = button_groups[tostring(area_id)] or {}
     button_groups[tostring(area_id)][group_id] = {
         combos = combos,
@@ -1489,12 +1617,14 @@ try_configure_pending_combo_groups = function(area_id)
 end
 
 object_registry.register_handler("Combo Button Group", function(area_id, object)
+    validate_button_object(area_id, object)
     pending_combo_group_objects[area_id] = pending_combo_group_objects[area_id] or {}
     pending_combo_group_objects[area_id][#pending_combo_group_objects[area_id] + 1] = object
     if try_configure_pending_combo_groups then try_configure_pending_combo_groups(area_id) end
 end)
 
 object_registry.register_handler("Button Effect", function(area_id, object)
+    validate_button_object(area_id, object)
     local props = object.custom_properties or {}
     local source_id = props["Source Button"]
     local target_id = props["Target Button"]
@@ -1508,6 +1638,7 @@ object_registry.register_handler("Button Effect", function(area_id, object)
 end)
 
 object_registry.register_handler("Button Group Effect", function(area_id, object)
+    validate_button_object(area_id, object)
     local props = object.custom_properties or {}
     local group_object_id = props["Button Group"]
     local target_id = props["Target Button"]
