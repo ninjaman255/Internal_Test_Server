@@ -57,6 +57,19 @@ Auto-generated from `generate-ezlibs-tiled.lua`. Do not edit by hand.
 - `fragments`
 - `tokens`
 
+### CutsceneStepType
+
+- `Wait`
+- `Move Actor`
+- `Set Pose`
+- `Show Message`
+- `Ask Quiz`
+- `Prompt Player`
+- `Play Sound`
+- `Fade Camera`
+- `Move Camera`
+- `Emit Event`
+
 ### DialogueType
 
 - `first`
@@ -346,6 +359,7 @@ Placed non-player character.
 | `Dont Face Player` | bool |  | false | appearance | If true, the NPC does not turn to face the player. |
 | `Mug Animation Name` | string |  | `""` | appearance | Portrait animation used while talking. |
 | `First Dialogue` | object |  | `""` | dialogue | Reference to the root Dialogue object. |
+| `Cutscene` | string |  | `""` | gameplay | Optional cutscene name. Plays before First Dialogue on the first interaction; subsequent interactions go straight to dialogue. |
 | `Next Waypoint 1` | object |  | `""` | gameplay | First waypoint in the NPC's path. |
 | `Player Exclusive` | bool |  | false | advanced | Only spawned for the owning player. |
 | `Quest Exclusive` | string |  | `""` | advanced | Quest name; when set, the NPC is created per-player for that quest. |
@@ -354,6 +368,7 @@ Placed non-player character.
 
 **Conditional properties**
 
+- `Cutscene`: Only used if a Cutscene with this Name exists in the area.
 - `Quest State`: Only used when Quest Exclusive is set. Only meaningful when `Quest Exclusive` is set.
 
 ### Pushback NPC
@@ -719,4 +734,101 @@ A group's completion transition drives another button's action.
 | `Button Group` | object | yes | `""` | gameplay | Button Group (or Combo Button Group) whose completion transition triggers this effect. |
 | `Event` | string (ButtonGroupEvent) |  | `completed` | gameplay | Which group transition triggers the effect. |
 | `Target Button` | object | yes | `""` | gameplay | Button this effect acts on. |
+
+### Cutscene
+**Category:** gameplay
+Named cutscene definition. Trigger via radius or script.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Name` | string | yes | `""` | gameplay | Unique cutscene identifier within the area. |
+| `Once` | bool |  | false | gameplay | If true, plays at most once per player per session. |
+| `Start Step` | object | yes | `""` | gameplay | First step in the chain (Cutscene Step object). |
+| `Trigger Radius` | number |  | 0 | gameplay | If > 0, the cutscene auto-starts when a player enters a radius of this size. |
+
+### Cutscene Step
+**Category:** gameplay
+One action in a cutscene chain. Chain via Next Step; branch via Next N / Fail Next.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Color A` | number |  | 255 | appearance |  |
+| `Color B` | number |  | 0 | appearance |  |
+| `Color G` | number |  | 0 | appearance |  |
+| `Color R` | number |  | 0 | appearance |  |
+| `Mugshot Override` | string |  | `""` | appearance | 'player' for the current player's mug, or a mug asset name to override the speaker's mug. |
+| `Sound Path` | string |  | `""` | appearance |  |
+| `Expected` | string |  | `""` | dialogue | If set, the input must match to route via Next Step; otherwise Fail Next runs. Empty accepts any input. |
+| `Message` | string |  | `""` | dialogue | Text shown before the input field appears. |
+| `Option 1` | string |  | `""` | dialogue |  |
+| `Option 2` | string |  | `""` | dialogue |  |
+| `Option 3` | string |  | `""` | dialogue | Optional third option; leave empty for a 2-option quiz. |
+| `Question` | string |  | `""` | dialogue |  |
+| `Speaker` | object |  | `""` | dialogue | NPC whose mugshot appears with the message. Empty = the NPC that started the cutscene. |
+| `Text` | string |  | `""` | dialogue |  |
+| `Actor` | object |  | `""` | gameplay | NPC placeholder whose bot moves or poses. Use 'trigger_npc' to reference the NPC that started the cutscene. |
+| `Animation` | string |  | `""` | gameplay | Pose animation to set (without moving). |
+| `Direction` | string (Direction) |  | `""` | gameplay |  |
+| `Duration` | number |  | 0.8 | gameplay |  |
+| `End Animation` | string |  | `""` | gameplay | Pose held after reaching the target. Leave empty to keep the move animation. |
+| `End Direction` | string (Direction) |  | `""` | gameplay |  |
+| `End Hold Seconds` | number |  | 0 | gameplay | 0 = hold indefinitely (until the next pose step). >0 = hold for that many seconds before the next step runs. |
+| `End Loop` | bool |  | true | gameplay |  |
+| `Fail Next` | object |  | `""` | gameplay | Step to run when the prompt fails to match Expected. |
+| `Hold Seconds` | number |  | 0 | gameplay | 0 = indefinite; >0 = await that long before continuing. |
+| `Loop` | bool |  | true | gameplay |  |
+| `Move Animation` | string |  | `""` | gameplay | Animation played while moving (e.g. WALK_UR). |
+| `Move Direction` | string (Direction) |  | `""` | gameplay | Facing direction during movement. |
+| `Move Speed` | number |  | 3 | gameplay | Map units per second during movement. |
+| `Next 1` | object |  | `""` | gameplay | On Ask Quiz: step to run when option 1 is chosen. |
+| `Next 2` | object |  | `""` | gameplay |  |
+| `Next 3` | object |  | `""` | gameplay |  |
+| `Next Step` | object |  | `""` | gameplay | Step to run after this one. Empty ends the cutscene (for branch types, this is the fallback). |
+| `Target` | object |  | `""` | gameplay | Point object to move to. When set, Target X/Y/Z are ignored. |
+| `Target X` | number |  | 0 | gameplay |  |
+| `Target Y` | number |  | 0 | gameplay |  |
+| `Target Z` | number |  | 0 | gameplay |  |
+| `Type` | string (CutsceneStepType) | yes | `Wait` | gameplay | Which action this step performs. |
+| `Wait Seconds` | number |  | 1 | gameplay |  |
+| `Event Name` | string |  | `""` | advanced | ezbus event name to emit. Payload includes player_id, area_id, cutscene_name. |
+
+**Conditional properties**
+
+- `Color A`: Only used by Fade Camera. Only meaningful when `Type` == `Fade Camera`.
+- `Color B`: Only used by Fade Camera. Only meaningful when `Type` == `Fade Camera`.
+- `Color G`: Only used by Fade Camera. Only meaningful when `Type` == `Fade Camera`.
+- `Color R`: Only used by Fade Camera. Only meaningful when `Type` == `Fade Camera`.
+- `Mugshot Override`: Only used by Show Message, Ask Quiz, and Prompt Player. Only meaningful when `Type` in {`Show Message`, `Ask Quiz`, `Prompt Player`}.
+- `Sound Path`: Only used by Play Sound. Only meaningful when `Type` == `Play Sound`.
+- `Expected`: Only used by Prompt Player. Only meaningful when `Type` == `Prompt Player`.
+- `Message`: Only used by Prompt Player. Only meaningful when `Type` == `Prompt Player`.
+- `Option 1`: Only used by Ask Quiz. Only meaningful when `Type` == `Ask Quiz`.
+- `Option 2`: Only used by Ask Quiz. Only meaningful when `Type` == `Ask Quiz`.
+- `Option 3`: Only used by Ask Quiz. Only meaningful when `Type` == `Ask Quiz`.
+- `Question`: Only used by Ask Quiz. Only meaningful when `Type` == `Ask Quiz`.
+- `Speaker`: Only used by Show Message, Ask Quiz, and Prompt Player. Only meaningful when `Type` in {`Show Message`, `Ask Quiz`, `Prompt Player`}.
+- `Text`: Only used by Show Message. Only meaningful when `Type` == `Show Message`.
+- `Actor`: Only used by Move Actor and Set Pose. Only meaningful when `Type` in {`Move Actor`, `Set Pose`}.
+- `Animation`: Only used by Set Pose. Only meaningful when `Type` == `Set Pose`.
+- `Direction`: Only used by Set Pose. Only meaningful when `Type` == `Set Pose`.
+- `Duration`: Only used by Fade Camera and Move Camera. Only meaningful when `Type` in {`Fade Camera`, `Move Camera`}.
+- `End Animation`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `End Direction`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `End Hold Seconds`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `End Loop`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `Fail Next`: Only used when Type == 'Prompt Player' with Expected set. Only meaningful when `Type` == `Prompt Player`.
+- `Hold Seconds`: Only used by Set Pose. Only meaningful when `Type` == `Set Pose`.
+- `Loop`: Only used by Set Pose. Only meaningful when `Type` == `Set Pose`.
+- `Move Animation`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `Move Direction`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `Move Speed`: Only used by Move Actor. Only meaningful when `Type` == `Move Actor`.
+- `Next 1`: Only used when Type == 'Ask Quiz'. Only meaningful when `Type` == `Ask Quiz`.
+- `Next 2`: Only used when Type == 'Ask Quiz'. Only meaningful when `Type` == `Ask Quiz`.
+- `Next 3`: Only used when Type == 'Ask Quiz'. Only meaningful when `Type` == `Ask Quiz`.
+- `Target`: Only used by Move Actor and Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Target X`: Only used when Target is empty and Type is Move Actor or Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Target Y`: Only used when Target is empty and Type is Move Actor or Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Target Z`: Only used when Target is empty and Type is Move Actor or Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Wait Seconds`: Only used when Type == 'Wait'. Only meaningful when `Type` == `Wait`.
+- `Event Name`: Only used by Emit Event. Only meaningful when `Type` == `Emit Event`.
 

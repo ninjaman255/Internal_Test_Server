@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="216">
+ <properties>
+  <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
+  <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
+  <property name="Background Vel X" value="0.20"/>
+  <property name="Background Vel Y" value=".1"/>
+  <property name="Name" value="                  "/>
+  <property name="Size Mode" value="Enlarge"/>
+  <property name="Size Mode Scope" value="Area Wide"/>
+  <property name="Song" value="/server/assets/demo/space.ogg"/>
+  <property name="Stasis" value="26,21,0"/>
+ </properties>
+ <tileset firstgid="1" source="../assets/tiles/coffee.tsx"/>
+ <tileset firstgid="5" source="../assets/demo/warp.tsx"/>
+ <tileset firstgid="11" source="../assets/demo/Custom_Central_Tiles.tsx"/>
+ <tileset firstgid="19" source="../assets/ezlibs-assets/ezmystery/GreenMysteryData.tsx"/>
+ <tileset firstgid="27" source="../assets/ezlibs-assets/ezmystery/Dark Mystery Data.tsx"/>
+ <tileset firstgid="35" source="../assets/ezlibs-assets/ezmystery/BlueMysteryData.tsx"/>
+ <tileset firstgid="43" source="../assets/ezlibs-assets/ezmystery/PurpleMysteryData.tsx"/>
+ <tileset firstgid="51" source="../assets/ezlibs-assets/ezmystery/OrangeMysteryData.tsx"/>
+ <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
+ <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
+ <tileset firstgid="68" source="../assets/tiles/gate.tsx"/>
+ <tileset firstgid="73" source="../assets/HP_Manager/Tilesets/machine.tsx"/>
+ <layer id="4" name="Tile Layer 0" width="40" height="40">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,12,12,12,12,12,12,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,12,12,12,12,12,12,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,12,12,12,12,12,12,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,12,12,12,12,12,12,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,12,12,12,12,12,12,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,12,12,12,12,12,12,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,13,13,13,13,13,13,13,13,13,13,13,13,13,13,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <objectgroup id="7" name="Object Layer 0">
+  <object id="142" name="Shademan" type="NPC" x="704" y="640">
+   <properties>
+    <property name="Asset Name" value="shademan-exe5"/>
+    <property name="Cutscene" value="ShademanSpotting"/>
+    <property name="Direction" value="Down Right"/>
+    <property name="First Dialogue" type="object" value="195"/>
+    <property name="Mug Animation Name" value="shademan-exe5"/>
+    <property name="Player Exclusive" type="bool" value="true"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="145" type="Custom Warp" gid="6" x="704" y="704" width="61" height="32">
+   <properties>
+    <property name="Direction" value="Down Right"/>
+    <property name="Dont Teleport" type="bool" value="false"/>
+    <property name="Target Area" value="default"/>
+    <property name="Target Object" value="197"/>
+    <property name="Warp In" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="195" name="Shademan Dialogue" type="Dialogue" x="704" y="672">
+   <properties>
+    <property name="Dialogue Type" value="battle_npc"/>
+    <property name="Encounter Name" value="BossTest"/>
+    <property name="Failure Message" value="Oh No you failed!"/>
+    <property name="Kick On Loss" type="bool" value="false"/>
+    <property name="Mugshot" value="shademan-exe5"/>
+    <property name="Persist" type="bool" value="true"/>
+    <property name="Text 1" value="Think you can take me?"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="201" name="Step01_Wait" type="Cutscene Step" x="100" y="100">
+   <properties>
+    <property name="Next Step" type="object" value="202"/>
+    <property name="Type" value="Wait"/>
+    <property name="Wait Seconds" type="float" value="0.6"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="202" name="Step02_Alert" type="Cutscene Step" x="100" y="150">
+   <properties>
+    <property name="Actor" type="object" value="142"/>
+    <property name="Animation" value="IDLE_DR"/>
+    <property name="Direction" value="Down Right"/>
+    <property name="Loop" type="bool" value="true"/>
+    <property name="Next Step" type="object" value="203"/>
+    <property name="Type" value="Set Pose"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="203" name="Step03_AlertSound" type="Cutscene Step" x="100" y="200">
+   <properties>
+    <property name="Next Step" type="object" value="204"/>
+    <property name="Sound Path" value="/server/assets/ezlibs-assets/sfx/panel_change.ogg"/>
+    <property name="Type" value="Play Sound"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="204" name="Step04_Approach" type="Cutscene Step" x="100" y="250">
+   <properties>
+    <property name="Actor" type="object" value="142"/>
+    <property name="End Animation" value="IDLE_DR"/>
+    <property name="End Direction" value="Down Right"/>
+    <property name="End Loop" type="bool" value="true"/>
+    <property name="Move Animation" value="WALK_DR"/>
+    <property name="Move Direction" value="Down Right"/>
+    <property name="Move Speed" type="float" value="2"/>
+    <property name="Next Step" type="object" value="205"/>
+    <property name="Target X" type="float" value="736"/>
+    <property name="Target Y" type="float" value="656"/>
+    <property name="Target Z" type="float" value="0"/>
+    <property name="Type" value="Move Actor"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="205" name="Step05_Taunt1" type="Cutscene Step" x="100" y="300">
+   <properties>
+    <property name="Next Step" type="object" value="206"/>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Text" value="So, you have finally come."/>
+    <property name="Type" value="Show Message"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="206" name="Step06_Taunt2" type="Cutscene Step" x="100" y="350">
+   <properties>
+    <property name="Next Step" type="object" value="207"/>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Text" value="Do you truly believe you can defeat me?"/>
+    <property name="Type" value="Show Message"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="207" name="Step07_AskChallenge" type="Cutscene Step" x="100" y="400">
+   <properties>
+    <property name="Next 1" type="object" value="208"/>
+    <property name="Next 2" type="object" value="213"/>
+    <property name="Option 1" value="Yes"/>
+    <property name="Option 2" value="No"/>
+    <property name="Question" value="Challenge Shademan?"/>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Type" value="Ask Quiz"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="208" name="Step08_DramaticSound" type="Cutscene Step" x="100" y="450">
+   <properties>
+    <property name="Next Step" type="object" value="209"/>
+    <property name="Sound Path" value="/server/assets/ezlibs-assets/sfx/explode.ogg"/>
+    <property name="Type" value="Play Sound"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="209" name="Step09_ChallengeLine" type="Cutscene Step" x="100" y="500">
+   <properties>
+    <property name="Next Step" type="object" value="210"/>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Text" value="Then prove your words. Type BATTLE to accept my challenge."/>
+    <property name="Type" value="Show Message"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="210" name="Step10_PromptBattle" type="Cutscene Step" x="100" y="550">
+   <properties>
+    <property name="Expected" value="BATTLE"/>
+    <property name="Fail Next" type="object" value="213"/>
+    <property name="Message" value="Enter your answer:"/>
+    <property name="Next Step" type="object" value="211"/>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Type" value="Prompt Player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="211" name="Step11_AcceptLine" type="Cutscene Step" x="100" y="600">
+   <properties>
+    <property name="Next Step" type="object" value="212"/>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Text" value="Very well. Prepare yourself."/>
+    <property name="Type" value="Show Message"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="212" name="Step12_EmitReady" type="Cutscene Step" x="100" y="650">
+   <properties>
+    <property name="Event Name" value="shademan_ready"/>
+    <property name="Type" value="Emit Event"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="213" name="Step13_Dismiss" type="Cutscene Step" x="100" y="700">
+   <properties>
+    <property name="Speaker" type="object" value="142"/>
+    <property name="Text" value="Pathetic. Come back when you are ready."/>
+    <property name="Type" value="Show Message"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="215" type="Cutscene" x="688" y="624" width="32" height="32">
+   <properties>
+    <property name="Name" value="ShademanSpotting"/>
+    <property name="Once" type="bool" value="true"/>
+    <property name="Start Step" type="object" value="201"/>
+    <property name="Trigger Radius" type="float" value="2"/>
+   </properties>
+  </object>
+ </objectgroup>
+</map>

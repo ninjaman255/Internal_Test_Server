@@ -10,6 +10,7 @@ return {
     ["ButtonGroupMode"] = { type = "string", values = { "all_active", "any_active", "combination" } },
     ["CompressionMode"] = { type = "string", values = { "Compress", "Normalize", "Enlarge" } },
     ["CurrencyType"] = { type = "string", values = { "money", "fragments", "tokens" } },
+    ["CutsceneStepType"] = { type = "string", values = { "Wait", "Move Actor", "Set Pose", "Show Message", "Ask Quiz", "Prompt Player", "Play Sound", "Fade Camera", "Move Camera", "Emit Event" } },
     ["DialogueType"] = { type = "string", values = { "first", "question", "quiz", "random", "itemcheck", "before", "after", "shop", "password", "quest_switch", "quest_event", "item", "email", "questcheck", "battle_npc" } },
     ["Direction"] = { type = "string", values = { "Up", "Down", "Left", "Right", "Up Left", "Up Right", "Down Left", "Down Right" } },
     ["ItemType"] = { type = "string", values = { "item", "keyitem", "money", "fragments", "tokens" } },
@@ -750,6 +751,14 @@ return {
           ["description"] = "Reference to the root Dialogue object.",
           ["name"] = "First Dialogue",
           ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used if a Cutscene with this Name exists in the area.",
+          ["description"] = "Optional cutscene name. Plays before First Dialogue on the first interaction; subsequent interactions go straight to dialogue.",
+          ["name"] = "Cutscene",
+          ["type"] = "string",
           ["value"] = ""
         },
         {
@@ -2034,6 +2043,493 @@ return {
           ["propertyType"] = "ButtonEffectAction",
           ["type"] = "string",
           ["value"] = "activate"
+        },
+      },
+    },
+    ["Cutscene"] = {
+      color = "#c678dd",
+      category    = "gameplay",
+      description = "Named cutscene definition. Trigger via radius or script.",
+      members = {
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Unique cutscene identifier within the area.",
+          ["name"] = "Name",
+          ["required"] = true,
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "First step in the chain (Cutscene Step object).",
+          ["name"] = "Start Step",
+          ["required"] = true,
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "If > 0, the cutscene auto-starts when a player enters a radius of this size.",
+          ["name"] = "Trigger Radius",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "If true, plays at most once per player per session.",
+          ["name"] = "Once",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+      },
+    },
+    ["Cutscene Step"] = {
+      color = "#e5c07b",
+      category    = "gameplay",
+      description = "One action in a cutscene chain. Chain via Next Step; branch via Next N / Fail Next.",
+      members = {
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Which action this step performs.",
+          ["name"] = "Type",
+          ["propertyType"] = "CutsceneStepType",
+          ["required"] = true,
+          ["type"] = "string",
+          ["value"] = "Wait"
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Step to run after this one. Empty ends the cutscene (for branch types, this is the fallback).",
+          ["name"] = "Next Step",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Type == 'Ask Quiz'.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["description"] = "On Ask Quiz: step to run when option 1 is chosen.",
+          ["name"] = "Next 1",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Type == 'Ask Quiz'.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["name"] = "Next 2",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Type == 'Ask Quiz'.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["name"] = "Next 3",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Type == 'Prompt Player' with Expected set.",
+          ["dependsOn"] = {
+            ["equals"] = "Prompt Player",
+            ["property"] = "Type"
+          },
+          ["description"] = "Step to run when the prompt fails to match Expected.",
+          ["name"] = "Fail Next",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Type == 'Wait'.",
+          ["dependsOn"] = {
+            ["equals"] = "Wait",
+            ["property"] = "Type"
+          },
+          ["name"] = "Wait Seconds",
+          ["type"] = "number",
+          ["value"] = 1
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor and Set Pose.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Move Actor", "Set Pose" },
+            ["property"] = "Type"
+          },
+          ["description"] = "NPC placeholder whose bot moves or poses. Use 'trigger_npc' to reference the NPC that started the cutscene.",
+          ["name"] = "Actor",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor and Move Camera.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Move Actor", "Move Camera" },
+            ["property"] = "Type"
+          },
+          ["description"] = "Point object to move to. When set, Target X/Y/Z are ignored.",
+          ["name"] = "Target",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Move Actor", "Move Camera" },
+            ["property"] = "Type"
+          },
+          ["name"] = "Target X",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Move Actor", "Move Camera" },
+            ["property"] = "Type"
+          },
+          ["name"] = "Target Y",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Move Actor", "Move Camera" },
+            ["property"] = "Type"
+          },
+          ["name"] = "Target Z",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["description"] = "Animation played while moving (e.g. WALK_UR).",
+          ["name"] = "Move Animation",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["description"] = "Facing direction during movement.",
+          ["name"] = "Move Direction",
+          ["propertyType"] = "Direction",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["description"] = "Map units per second during movement.",
+          ["name"] = "Move Speed",
+          ["type"] = "number",
+          ["value"] = 3
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["description"] = "Pose held after reaching the target. Leave empty to keep the move animation.",
+          ["name"] = "End Animation",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["name"] = "End Direction",
+          ["propertyType"] = "Direction",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["description"] = "0 = hold indefinitely (until the next pose step). >0 = hold for that many seconds before the next step runs.",
+          ["name"] = "End Hold Seconds",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Move Actor.",
+          ["dependsOn"] = {
+            ["equals"] = "Move Actor",
+            ["property"] = "Type"
+          },
+          ["name"] = "End Loop",
+          ["type"] = "bool",
+          ["value"] = true
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Set Pose.",
+          ["dependsOn"] = {
+            ["equals"] = "Set Pose",
+            ["property"] = "Type"
+          },
+          ["description"] = "Pose animation to set (without moving).",
+          ["name"] = "Animation",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Set Pose.",
+          ["dependsOn"] = {
+            ["equals"] = "Set Pose",
+            ["property"] = "Type"
+          },
+          ["name"] = "Direction",
+          ["propertyType"] = "Direction",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Set Pose.",
+          ["dependsOn"] = {
+            ["equals"] = "Set Pose",
+            ["property"] = "Type"
+          },
+          ["name"] = "Loop",
+          ["type"] = "bool",
+          ["value"] = true
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Set Pose.",
+          ["dependsOn"] = {
+            ["equals"] = "Set Pose",
+            ["property"] = "Type"
+          },
+          ["description"] = "0 = indefinite; >0 = await that long before continuing.",
+          ["name"] = "Hold Seconds",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Show Message, Ask Quiz, and Prompt Player.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Show Message", "Ask Quiz", "Prompt Player" },
+            ["property"] = "Type"
+          },
+          ["description"] = "NPC whose mugshot appears with the message. Empty = the NPC that started the cutscene.",
+          ["name"] = "Speaker",
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used by Show Message, Ask Quiz, and Prompt Player.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Show Message", "Ask Quiz", "Prompt Player" },
+            ["property"] = "Type"
+          },
+          ["description"] = "'player' for the current player's mug, or a mug asset name to override the speaker's mug.",
+          ["name"] = "Mugshot Override",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Show Message.",
+          ["dependsOn"] = {
+            ["equals"] = "Show Message",
+            ["property"] = "Type"
+          },
+          ["name"] = "Text",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Ask Quiz.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["name"] = "Question",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Ask Quiz.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["name"] = "Option 1",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Ask Quiz.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["name"] = "Option 2",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Ask Quiz.",
+          ["dependsOn"] = {
+            ["equals"] = "Ask Quiz",
+            ["property"] = "Type"
+          },
+          ["description"] = "Optional third option; leave empty for a 2-option quiz.",
+          ["name"] = "Option 3",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Prompt Player.",
+          ["dependsOn"] = {
+            ["equals"] = "Prompt Player",
+            ["property"] = "Type"
+          },
+          ["description"] = "Text shown before the input field appears.",
+          ["name"] = "Message",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "dialogue",
+          ["conditional"] = "Only used by Prompt Player.",
+          ["dependsOn"] = {
+            ["equals"] = "Prompt Player",
+            ["property"] = "Type"
+          },
+          ["description"] = "If set, the input must match to route via Next Step; otherwise Fail Next runs. Empty accepts any input.",
+          ["name"] = "Expected",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used by Play Sound.",
+          ["dependsOn"] = {
+            ["equals"] = "Play Sound",
+            ["property"] = "Type"
+          },
+          ["name"] = "Sound Path",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used by Fade Camera.",
+          ["dependsOn"] = {
+            ["equals"] = "Fade Camera",
+            ["property"] = "Type"
+          },
+          ["name"] = "Color R",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used by Fade Camera.",
+          ["dependsOn"] = {
+            ["equals"] = "Fade Camera",
+            ["property"] = "Type"
+          },
+          ["name"] = "Color G",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used by Fade Camera.",
+          ["dependsOn"] = {
+            ["equals"] = "Fade Camera",
+            ["property"] = "Type"
+          },
+          ["name"] = "Color B",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used by Fade Camera.",
+          ["dependsOn"] = {
+            ["equals"] = "Fade Camera",
+            ["property"] = "Type"
+          },
+          ["name"] = "Color A",
+          ["type"] = "number",
+          ["value"] = 255
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used by Fade Camera and Move Camera.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Fade Camera", "Move Camera" },
+            ["property"] = "Type"
+          },
+          ["name"] = "Duration",
+          ["type"] = "number",
+          ["value"] = 0.8
+        },
+        {
+          ["category"] = "advanced",
+          ["conditional"] = "Only used by Emit Event.",
+          ["dependsOn"] = {
+            ["equals"] = "Emit Event",
+            ["property"] = "Type"
+          },
+          ["description"] = "ezbus event name to emit. Payload includes player_id, area_id, cutscene_name.",
+          ["name"] = "Event Name",
+          ["type"] = "string",
+          ["value"] = ""
         },
       },
     },

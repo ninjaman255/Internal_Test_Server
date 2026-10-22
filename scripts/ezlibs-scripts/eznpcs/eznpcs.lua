@@ -14,7 +14,7 @@ local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
 -- skipped silently so the module continues to load.
 local tiled_schema = nil
 do
-    local ok, mod = pcall(require, "scripts.ezlibs-scripts.ezlibs-tiled-schema")
+    local ok, mod = pcall(require, "scripts/ezlibs-scripts/ezlibs-tiled-schema")
     if ok and type(mod) == "table" and mod.classes then
         tiled_schema = mod
     end
@@ -238,14 +238,21 @@ function create_bot_from_object(area_id, object, player_id)
         local first_dialogue = ezcache.get_object_by_id_cached(area_id, first_dialogue_id)
         if first_dialogue and (first_dialogue.type == "Dialogue" or first_dialogue.class == "Dialogue") then
             npc.first_dialogue = first_dialogue
-            local chat_behaviour = chat_behaviour()
-            add_behaviour(npc, chat_behaviour)
         else
             printd("NPC " .. tostring(object.id)
                 .. " has an invalid First Dialogue reference: "
                 .. tostring(first_dialogue_id)
                 .. " (expected a Dialogue object in area " .. tostring(area_id) .. ")")
         end
+    end
+
+    -- Install the interaction handler whenever the NPC has either a
+    -- First Dialogue or a Cutscene property. Cutscene-only NPCs use the
+    -- same handler so the Once-consumed path has somewhere to fall through.
+    local cutscene_name = object.custom_properties["Cutscene"]
+    local has_cutscene = cutscene_name ~= nil and tostring(cutscene_name) ~= ""
+    if npc.first_dialogue or has_cutscene then
+        add_behaviour(npc, chat_behaviour())
     end
 
     if object.custom_properties["Next Waypoint 1"] then
@@ -342,6 +349,30 @@ function chat_behaviour()
         type='on_interact',
         action=function(npc,player_id,relay_object)
             return async(function ()
+                -- Optional cutscene prefix. If the NPC has a `Cutscene`
+                -- property set and the referenced cutscene has not already
+                -- been consumed (Once semantics), play it and skip the
+                -- dialogue for this interaction. Subsequent interactions
+                -- fall through to the normal dialogue flow.
+                local cutscene_name = npc.placeholder_custom_properties
+                    and npc.placeholder_custom_properties["Cutscene"]
+                if cutscene_name and cutscene_name ~= "" then
+                    local ezcutscenes = require('scripts/ezlibs-scripts/ezcutscenes')
+                    local cutscene_promise = ezcutscenes.start(
+                        player_id,
+                        npc.area_id,
+                        cutscene_name,
+                        {
+                            trigger_object_id = npc.placeholder_id,
+                            trigger_bot_id = npc.bot_id,
+                        })
+                    if cutscene_promise then
+                        await(cutscene_promise)
+                        return
+                    end
+                    -- Cutscene already played (Once consumed); continue below.
+                end
+
                 if current_player_conversation[player_id] == npc.bot_id then
                     return
                 end
@@ -356,6 +387,11 @@ function chat_behaviour()
                 end
 
                 local dialogue = npc.first_dialogue
+                if not dialogue then
+                    -- Cutscene-only NPC whose Once was already consumed.
+                    current_player_conversation[player_id] = nil
+                    return
+                end
                 Net.lock_player_input(player_id)
                 await(do_dialogue(npc,player_id,dialogue,relay_object))
                 clear_player_conversation(player_id)
@@ -846,5 +882,231 @@ ezbus:on("quest_event", function(event)
     -- (This covers state changes that happen through dialogue)
     update_quest_exclusive_for_player(player_id)
 end)
+
+-- =========================================================================
+-- Cutscene support: bot movement, pose hold, and bot resolution
+--
+-- These helpers generalize the movement-and-hold pattern used by
+-- net-game-footbomb so any module (ezcutscenes, custom map scripts) can
+-- drive NPC bots through animated sequences without reimplementing the
+-- animate_bot_properties keyframe plumbing.
+-- =========================================================================
+
+local function _resolve_bot_id(bot_or_npc)
+    if bot_or_npc == nil then return nil end
+    if type(bot_or_npc) == "string" or type(bot_or_npc) == "number" then
+        return bot_or_npc
+    end
+    if type(bot_or_npc) == "table" then
+        return bot_or_npc.bot_id or bot_or_npc.id
+    end
+    return nil
+end
+
+local function _apply_bot_animation(bot_id, state, loop)
+    if not bot_id or not state then return false end
+    if loop == nil then loop = true end
+    local ok, result = pcall(Net.animate_bot, bot_id, state, loop)
+    return ok and result ~= false
+end
+
+local function _apply_bot_direction(bot_id, direction)
+    if not bot_id or not direction then return true end
+    local ok, result = pcall(Net.set_bot_direction, bot_id, direction)
+    return ok and result ~= false
+end
+
+-- Public: get the internal npc record for a bot. Useful for cutscene steps
+-- that need mugshot info via get_dialogue_mugshot.
+function eznpcs.get_bot_record(bot_id)
+    if bot_id == nil then return nil end
+    return npcs[bot_id]
+end
+
+-- Public: resolve a bot_id given an area + object_id + optional player context.
+-- Tries per-player exclusive, quest-exclusive, then global bots.
+function eznpcs.resolve_bot(area_id, object_id, player_id)
+    if object_id == nil or area_id == nil then return nil end
+    local key = tostring(object_id)
+    if player_id then
+        if exclusive_npcs[player_id] and exclusive_npcs[player_id][key] then
+            return exclusive_npcs[player_id][key]
+        end
+        if quest_exclusive_npcs[player_id] and quest_exclusive_npcs[player_id][key] then
+            return quest_exclusive_npcs[player_id][key]
+        end
+    end
+    if placeholder_to_botid[area_id] and placeholder_to_botid[area_id][key] then
+        return placeholder_to_botid[area_id][key]
+    end
+    return nil
+end
+
+-- Public: cancel any active pose hold on this bot. Reassert loops check a
+-- monotonically increasing generation counter, so a cancelled hold exits
+-- without an extra sleep-and-poll cycle.
+function eznpcs.cancel_bot_hold(bot_or_npc)
+    local bot_id = _resolve_bot_id(bot_or_npc)
+    if not bot_id then return end
+    local npc = npcs[bot_id]
+    if npc then
+        npc._hold_generation = (npc._hold_generation or 0) + 1
+    end
+end
+
+-- Internal: set a pose and (optionally) reassert it every `reassert_interval`
+-- seconds. Returns the generation this pose was assigned, for coordinated
+-- cancellation by move_bot_to_spot / set_bot_pose.
+local function _apply_pose_with_reassert(bot_id, animation, loop, reassert_interval)
+    local npc = npcs[bot_id]
+    local my_generation = nil
+    if npc then
+        npc._hold_generation = (npc._hold_generation or 0) + 1
+        my_generation = npc._hold_generation
+    end
+    _apply_bot_animation(bot_id, animation, loop)
+    if reassert_interval and reassert_interval > 0 and npc then
+        async(function()
+            while true do
+                await(Async.sleep(reassert_interval))
+                if not npc then return end
+                if npc._hold_generation ~= my_generation then return end
+                if npc._removed then return end
+                _apply_bot_animation(bot_id, animation, loop)
+            end
+        end)
+    end
+    return my_generation
+end
+
+-- Move a bot to a target position with animation, then optionally hold a pose.
+--
+--   options.animation               (string)  animation during movement
+--   options.direction               (string)  facing during movement
+--   options.speed                   (number)  map units / second (default 3)
+--   options.hold_animation          (string)  pose applied on arrival
+--   options.hold_direction          (string)  facing applied on arrival
+--   options.hold_seconds            (number)  hold duration; 0/nil = indefinite
+--   options.hold_loop               (bool)    loop flag for hold (default true)
+--   options.hold_reassert           (bool)    reassert hold (default false)
+--   options.hold_reassert_interval  (number)  reassert period (default 0.2)
+--
+-- Returns an async promise resolving to `true` on success. If
+-- `hold_seconds` > 0, the promise resolves after that wait; if 0/nil, it
+-- resolves immediately after starting the hold. The hold persists until
+-- another move/pose call, eznpcs.cancel_bot_hold, or (for reassert=false
+-- with loop=false) the animation naturally ending.
+function eznpcs.move_bot_to_spot(bot_or_npc, target, options)
+    return async(function()
+        local bot_id = _resolve_bot_id(bot_or_npc)
+        if not bot_id or type(target) ~= "table" then return false end
+        options = options or {}
+
+        local start_ok, start = pcall(Net.get_bot_position, bot_id)
+        if not start_ok or type(start) ~= "table" then return false end
+
+        local sx = tonumber(start.x) or 0
+        local sy = tonumber(start.y) or 0
+        local sz = tonumber(start.z) or 0
+        local tx = tonumber(target.x) or sx
+        local ty = tonumber(target.y) or sy
+        local tz = tonumber(target.z) or sz
+
+        local dx, dy = tx - sx, ty - sy
+        local distance = math.sqrt(dx * dx + dy * dy)
+        local speed = math.max(0.1, tonumber(options.speed) or 3)
+        local duration = math.max(0.05, distance / speed)
+
+        -- Cancel any existing hold before the new pose sequence starts
+        eznpcs.cancel_bot_hold(bot_id)
+
+        if options.direction then _apply_bot_direction(bot_id, options.direction) end
+        if options.animation then _apply_bot_animation(bot_id, options.animation, true) end
+
+        local keyframes = {
+            {
+                properties = {
+                    { property = "X", value = sx },
+                    { property = "Y", value = sy },
+                    { property = "Z", value = sz },
+                },
+                duration = 0,
+            },
+            {
+                properties = {
+                    { property = "X", ease = "Linear", value = tx },
+                    { property = "Y", ease = "Linear", value = ty },
+                    { property = "Z", ease = "Linear", value = tz },
+                },
+                duration = duration,
+            },
+        }
+
+        local ok_move, move_result = pcall(Net.animate_bot_properties, bot_id, keyframes)
+        if not ok_move or move_result == false then return false end
+
+        await(Async.sleep(duration))
+
+        if not options.hold_animation then return true end
+
+        if options.hold_direction then
+            _apply_bot_direction(bot_id, options.hold_direction)
+        end
+        local reassert_interval = nil
+        if options.hold_reassert then
+            reassert_interval = math.max(0.05,
+                tonumber(options.hold_reassert_interval) or 0.2)
+        end
+        local hold_loop = options.hold_loop ~= false
+        local my_generation = _apply_pose_with_reassert(
+            bot_id, options.hold_animation, hold_loop, reassert_interval)
+
+        local hold_seconds = tonumber(options.hold_seconds) or 0
+        if hold_seconds > 0 then
+            await(Async.sleep(hold_seconds))
+            local npc = npcs[bot_id]
+            if npc and npc._hold_generation == my_generation then
+                npc._hold_generation = my_generation + 1
+            end
+        end
+        return true
+    end)
+end
+
+-- Set a pose on a bot without moving it.
+--
+--   options.animation     (string)  required
+--   options.direction     (string)  facing
+--   options.loop          (bool)    loop flag (default true)
+--   options.hold          (bool)    reassert the pose (default true)
+--   options.hold_seconds  (number)  0/nil = indefinite; >0 waits that long
+function eznpcs.set_bot_pose(bot_or_npc, options)
+    return async(function()
+        local bot_id = _resolve_bot_id(bot_or_npc)
+        if not bot_id or not options or not options.animation then return false end
+
+        eznpcs.cancel_bot_hold(bot_id)
+        if options.direction then _apply_bot_direction(bot_id, options.direction) end
+
+        local loop = options.loop ~= false
+        local reassert_interval = nil
+        if options.hold ~= false then
+            reassert_interval = math.max(0.05,
+                tonumber(options.hold_reassert_interval) or 0.2)
+        end
+        local my_generation = _apply_pose_with_reassert(
+            bot_id, options.animation, loop, reassert_interval)
+
+        local hold_seconds = tonumber(options.hold_seconds) or 0
+        if hold_seconds > 0 then
+            await(Async.sleep(hold_seconds))
+            local npc = npcs[bot_id]
+            if npc and npc._hold_generation == my_generation then
+                npc._hold_generation = my_generation + 1
+            end
+        end
+        return true
+    end)
+end
 
 return eznpcs

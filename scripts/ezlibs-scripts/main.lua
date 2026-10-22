@@ -25,6 +25,7 @@ local ezbbs = require('scripts/ezlibs-scripts/ezbbs')
 local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
 local ezpushback = require('scripts/ezlibs-scripts/eznpcs/ezpushback')
 local ezbottriggers = require('scripts/ezlibs-scripts/eztriggers/ezbottriggers')
+local ezcutscenes = require('scripts/ezlibs-scripts/ezcutscenes/ezcutscenes')
 
 local plugins = { 
     ezweather, 
@@ -43,7 +44,8 @@ local plugins = {
     ezbbs,
     ezbuttons,
     ezpushback,
-    ezbottriggers
+    ezbottriggers,
+    ezcutscenes
 }
 
 local sfx = {

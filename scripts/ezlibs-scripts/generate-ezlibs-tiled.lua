@@ -12,7 +12,14 @@
 --                                 conditional-properties section per class.
 --
 -- Run with: lua generate-ezlibs-tiled.lua [output_path_for_types_json]
--- All three files are written next to the JSON's directory.
+--
+-- Where each file goes:
+--   * types.json       — wherever output_path points (default: cwd).
+--   * schema.lua       — next to this generator script. The runtime
+--                        requires it from the fixed module path
+--                        scripts.ezlibs-scripts.ezlibs-tiled-schema, so its
+--                        location is effectively fixed by convention.
+--   * reference.md     — same as schema.lua.
 
 local json = require('scripts/ezlibs-scripts/json')
 
@@ -98,6 +105,12 @@ local Enums = {
         type = "string",
         values = {"None", "Fire", "Aqua", "Elec", "Wood", "Sword",
                   "Break", "Cursor", "Wind", "Summon", "Plus"}
+    },
+    CutsceneStepType = {
+        type = "string",
+        values = {"Wait", "Move Actor", "Set Pose", "Show Message",
+                  "Ask Quiz", "Prompt Player", "Play Sound",
+                  "Fade Camera", "Move Camera", "Emit Event"}
     },
 }
 
@@ -281,6 +294,7 @@ local object_types = {
             prop("Mug Animation Name", "string", ""),
             prop("Dont Face Player", "bool", false),
             prop("First Dialogue", "object", ""),
+            prop("Cutscene", "string", ""),
             prop("Next Waypoint 1", "object", ""),
             prop("Player Exclusive", "bool", false),
             prop("Quest NPC", "bool", false),
@@ -570,7 +584,78 @@ local object_types = {
             prop("Target Button", "object", ""),
             prop("Action", "string", "activate", "ButtonEffectAction")
         }
-    }
+    },
+    {
+        name = "Cutscene",
+        color = "#c678dd",
+        members = {
+            prop("Name", "string", ""),
+            prop("Start Step", "object", ""),
+            prop("Trigger Radius", "number", 0),
+            prop("Once", "bool", false),
+        }
+    },
+    {
+        name = "Cutscene Step",
+        color = "#e5c07b",
+        members = {
+            prop("Type", "string", "Wait", "CutsceneStepType"),
+            prop("Next Step", "object", ""),
+            prop("Next 1", "object", ""),
+            prop("Next 2", "object", ""),
+            prop("Next 3", "object", ""),
+            prop("Fail Next", "object", ""),
+
+            -- Wait
+            prop("Wait Seconds", "number", 1),
+
+            -- Move Actor / Set Pose / Move Camera
+            prop("Actor", "object", ""),
+            prop("Target", "object", ""),
+            prop("Target X", "number", 0),
+            prop("Target Y", "number", 0),
+            prop("Target Z", "number", 0),
+
+            -- Move Actor
+            prop("Move Animation", "string", ""),
+            prop("Move Direction", "string", "", "Direction"),
+            prop("Move Speed", "number", 3),
+            prop("End Animation", "string", ""),
+            prop("End Direction", "string", "", "Direction"),
+            prop("End Hold Seconds", "number", 0),
+            prop("End Loop", "bool", true),
+
+            -- Set Pose
+            prop("Animation", "string", ""),
+            prop("Direction", "string", "", "Direction"),
+            prop("Loop", "bool", true),
+            prop("Hold Seconds", "number", 0),
+
+            -- Show Message / Ask Quiz / Prompt Player
+            prop("Speaker", "object", ""),
+            prop("Mugshot Override", "string", ""),
+            prop("Text", "string", ""),
+            prop("Question", "string", ""),
+            prop("Option 1", "string", ""),
+            prop("Option 2", "string", ""),
+            prop("Option 3", "string", ""),
+            prop("Message", "string", ""),
+            prop("Expected", "string", ""),
+
+            -- Play Sound
+            prop("Sound Path", "string", ""),
+
+            -- Fade Camera / Move Camera
+            prop("Color R", "number", 0),
+            prop("Color G", "number", 0),
+            prop("Color B", "number", 0),
+            prop("Color A", "number", 255),
+            prop("Duration", "number", 0.8),
+
+            -- Emit Event
+            prop("Event Name", "string", ""),
+        }
+    },
 }
 
 -- ----------------------------------------------------------------------
@@ -631,6 +716,12 @@ local META = {
             description = "One button's state transition drives another button's action." },
         ["Button Group Effect"] = { category = "gameplay",
             description = "A group's completion transition drives another button's action." },
+
+        -- Cutscene system -----------------------------------------------
+        ["Cutscene"] = { category = "gameplay",
+            description = "Named cutscene definition. Trigger via radius or script." },
+        ["Cutscene Step"] = { category = "gameplay",
+            description = "One action in a cutscene chain. Chain via Next Step; branch via Next N / Fail Next." },
 
         ["Compression Tile"] = { category = "advanced",
             description = "Changes player or area scale while standing inside." },
@@ -701,6 +792,9 @@ local META = {
                 description = "If true, the NPC does not turn to face the player." },
             ["First Dialogue"] = { category = "dialogue",
                 description = "Reference to the root Dialogue object." },
+            ["Cutscene"] = { category = "gameplay",
+                description = "Optional cutscene name. Plays before First Dialogue on the first interaction; subsequent interactions go straight to dialogue.",
+                conditional = "Only used if a Cutscene with this Name exists in the area." },
             ["Next Waypoint 1"] = { category = "gameplay",
                 description = "First waypoint in the NPC's path." },
             ["Player Exclusive"] = { category = "advanced",
@@ -1028,6 +1122,174 @@ local META = {
                 required = true },
             ["Action"] = { category = "gameplay",
                 description = "What to do to the Target Button when the effect fires." },
+        },
+
+        -- Cutscene system -----------------------------------------------
+        ["Cutscene"] = {
+            ["Name"] = { category = "gameplay",
+                description = "Unique cutscene identifier within the area.",
+                required = true },
+            ["Start Step"] = { category = "gameplay",
+                description = "First step in the chain (Cutscene Step object).",
+                required = true },
+            ["Trigger Radius"] = { category = "gameplay",
+                description = "If > 0, the cutscene auto-starts when a player enters a radius of this size." },
+            ["Once"] = { category = "gameplay",
+                description = "If true, plays at most once per player per session." },
+        },
+        ["Cutscene Step"] = {
+            ["Type"] = { category = "gameplay",
+                description = "Which action this step performs.",
+                required = true },
+            ["Next Step"] = { category = "gameplay",
+                description = "Step to run after this one. Empty ends the cutscene (for branch types, this is the fallback)." },
+
+            ["Next 1"] = { category = "gameplay",
+                description = "On Ask Quiz: step to run when option 1 is chosen.",
+                conditional = "Only used when Type == 'Ask Quiz'.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Next 2"] = { category = "gameplay",
+                conditional = "Only used when Type == 'Ask Quiz'.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Next 3"] = { category = "gameplay",
+                conditional = "Only used when Type == 'Ask Quiz'.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Fail Next"] = { category = "gameplay",
+                description = "Step to run when the prompt fails to match Expected.",
+                conditional = "Only used when Type == 'Prompt Player' with Expected set.",
+                dependsOn = { property = "Type", equals = "Prompt Player" } },
+
+            ["Wait Seconds"] = { category = "gameplay",
+                conditional = "Only used when Type == 'Wait'.",
+                dependsOn = { property = "Type", equals = "Wait" } },
+
+            ["Actor"] = { category = "gameplay",
+                description = "NPC placeholder whose bot moves or poses. Use 'trigger_npc' to reference the NPC that started the cutscene.",
+                conditional = "Only used by Move Actor and Set Pose.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Move Actor", "Set Pose" } } },
+
+            ["Target"] = { category = "gameplay",
+                description = "Point object to move to. When set, Target X/Y/Z are ignored.",
+                conditional = "Only used by Move Actor and Move Camera.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Move Actor", "Move Camera" } } },
+            ["Target X"] = { category = "gameplay",
+                conditional = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Move Actor", "Move Camera" } } },
+            ["Target Y"] = { category = "gameplay",
+                conditional = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Move Actor", "Move Camera" } } },
+            ["Target Z"] = { category = "gameplay",
+                conditional = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Move Actor", "Move Camera" } } },
+
+            ["Move Animation"] = { category = "gameplay",
+                description = "Animation played while moving (e.g. WALK_UR).",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+            ["Move Direction"] = { category = "gameplay",
+                description = "Facing direction during movement.",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+            ["Move Speed"] = { category = "gameplay",
+                description = "Map units per second during movement.",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+            ["End Animation"] = { category = "gameplay",
+                description = "Pose held after reaching the target. Leave empty to keep the move animation.",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+            ["End Direction"] = { category = "gameplay",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+            ["End Hold Seconds"] = { category = "gameplay",
+                description = "0 = hold indefinitely (until the next pose step). >0 = hold for that many seconds before the next step runs.",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+            ["End Loop"] = { category = "gameplay",
+                conditional = "Only used by Move Actor.",
+                dependsOn = { property = "Type", equals = "Move Actor" } },
+
+            ["Animation"] = { category = "gameplay",
+                description = "Pose animation to set (without moving).",
+                conditional = "Only used by Set Pose.",
+                dependsOn = { property = "Type", equals = "Set Pose" } },
+            ["Direction"] = { category = "gameplay",
+                conditional = "Only used by Set Pose.",
+                dependsOn = { property = "Type", equals = "Set Pose" } },
+            ["Loop"] = { category = "gameplay",
+                conditional = "Only used by Set Pose.",
+                dependsOn = { property = "Type", equals = "Set Pose" } },
+            ["Hold Seconds"] = { category = "gameplay",
+                description = "0 = indefinite; >0 = await that long before continuing.",
+                conditional = "Only used by Set Pose.",
+                dependsOn = { property = "Type", equals = "Set Pose" } },
+
+            ["Speaker"] = { category = "dialogue",
+                description = "NPC whose mugshot appears with the message. Empty = the NPC that started the cutscene.",
+                conditional = "Only used by Show Message, Ask Quiz, and Prompt Player.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Show Message", "Ask Quiz", "Prompt Player" } } },
+            ["Mugshot Override"] = { category = "appearance",
+                description = "'player' for the current player's mug, or a mug asset name to override the speaker's mug.",
+                conditional = "Only used by Show Message, Ask Quiz, and Prompt Player.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Show Message", "Ask Quiz", "Prompt Player" } } },
+            ["Text"] = { category = "dialogue",
+                conditional = "Only used by Show Message.",
+                dependsOn = { property = "Type", equals = "Show Message" } },
+            ["Question"] = { category = "dialogue",
+                conditional = "Only used by Ask Quiz.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Option 1"] = { category = "dialogue",
+                conditional = "Only used by Ask Quiz.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Option 2"] = { category = "dialogue",
+                conditional = "Only used by Ask Quiz.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Option 3"] = { category = "dialogue",
+                description = "Optional third option; leave empty for a 2-option quiz.",
+                conditional = "Only used by Ask Quiz.",
+                dependsOn = { property = "Type", equals = "Ask Quiz" } },
+            ["Message"] = { category = "dialogue",
+                description = "Text shown before the input field appears.",
+                conditional = "Only used by Prompt Player.",
+                dependsOn = { property = "Type", equals = "Prompt Player" } },
+            ["Expected"] = { category = "dialogue",
+                description = "If set, the input must match to route via Next Step; otherwise Fail Next runs. Empty accepts any input.",
+                conditional = "Only used by Prompt Player.",
+                dependsOn = { property = "Type", equals = "Prompt Player" } },
+
+            ["Sound Path"] = { category = "appearance",
+                conditional = "Only used by Play Sound.",
+                dependsOn = { property = "Type", equals = "Play Sound" } },
+
+            ["Color R"] = { category = "appearance",
+                conditional = "Only used by Fade Camera.",
+                dependsOn = { property = "Type", equals = "Fade Camera" } },
+            ["Color G"] = { category = "appearance",
+                conditional = "Only used by Fade Camera.",
+                dependsOn = { property = "Type", equals = "Fade Camera" } },
+            ["Color B"] = { category = "appearance",
+                conditional = "Only used by Fade Camera.",
+                dependsOn = { property = "Type", equals = "Fade Camera" } },
+            ["Color A"] = { category = "appearance",
+                conditional = "Only used by Fade Camera.",
+                dependsOn = { property = "Type", equals = "Fade Camera" } },
+
+            ["Duration"] = { category = "gameplay",
+                conditional = "Only used by Fade Camera and Move Camera.",
+                dependsOn = { property = "Type",
+                              oneOf = { "Fade Camera", "Move Camera" } } },
+
+            ["Event Name"] = { category = "advanced",
+                description = "ezbus event name to emit. Payload includes player_id, area_id, cutscene_name.",
+                conditional = "Only used by Emit Event.",
+                dependsOn = { property = "Type", equals = "Emit Event" } },
         },
     }
 }
@@ -1386,8 +1648,35 @@ local function build_reference_md()
 end
 
 -- ----------------------------------------------------------------------
+-- Directory helpers
+--
+-- dirname("") returns "", so callers that pass a bare filename end up
+-- writing to the process's current directory. That was the source of the
+-- "schema in scripts/" bug: running the generator from scripts/ with a
+-- bare filename placed the schema there instead of next to the generator.
+--
+-- script_dirname returns the directory of the running script with a
+-- trailing separator, or "./" when there is no directory component (e.g.
+-- `lua generate-ezlibs-tiled.lua` from inside ezlibs-scripts/). It only
+-- treats the caller as "the generator" when arg[0] actually points at this
+-- file, so programmatic `require("...generate-ezlibs-tiled").generate(...)`
+-- from a host script doesn't accidentally write into the host's directory.
+-- ----------------------------------------------------------------------
 local function dirname(p)
     return p:match("^(.*[/\\])") or ""
+end
+
+local function script_dirname()
+    local a = arg and arg[0]
+    if type(a) == "string"
+        and (a:find("generate%-ezlibs%-tiled%.lua")
+             or a:find("generate_tiled_types_json.lua")) then
+        local d = a:match("^(.*[/\\])")
+        if d and d ~= "" then return d end
+        -- Running from within ezlibs-scripts/ with no path prefix.
+        return "./"
+    end
+    return nil
 end
 
 local function main(output_path, pretty)
@@ -1403,6 +1692,7 @@ local function main(output_path, pretty)
         error("aborting due to schema errors")
     end
 
+    -- types.json: Tiled-facing artifact, goes wherever the caller asked.
     local types = build_tiled_types()
     do
         local f, err = io.open(output_path, "w")
@@ -1414,10 +1704,16 @@ local function main(output_path, pretty)
         print("Generated Tiled types: " .. output_path)
     end
 
-    local dir = dirname(output_path)
+    -- schema.lua and reference.md: prefer the generator's own directory so
+    -- they always land next to the runtime's fixed require path
+    -- (scripts.ezlibs-scripts.ezlibs-tiled-schema). Fall back to the JSON's
+    -- directory when invoked programmatically (arg[0] is not this script).
+    local json_dir = dirname(output_path)
+    if json_dir == "" then json_dir = "./" end
+    local script_dir = script_dirname() or json_dir
 
     do
-        local path = dir .. "ezlibs-tiled-schema.lua"
+        local path = script_dir .. "ezlibs-tiled-schema.lua"
         local f = assert(io.open(path, "w"))
         f:write(build_schema_lua())
         f:write("\n")
@@ -1426,7 +1722,7 @@ local function main(output_path, pretty)
     end
 
     do
-        local path = dir .. "ezlibs-tiled-reference.md"
+        local path = script_dir .. "ezlibs-tiled-reference.md"
         local f = assert(io.open(path, "w"))
         f:write(build_reference_md())
         f:write("\n")
