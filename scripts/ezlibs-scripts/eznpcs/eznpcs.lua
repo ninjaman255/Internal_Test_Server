@@ -357,7 +357,7 @@ function chat_behaviour()
                 local cutscene_name = npc.placeholder_custom_properties
                     and npc.placeholder_custom_properties["Cutscene"]
                 if cutscene_name and cutscene_name ~= "" then
-                    local ezcutscenes = require('scripts/ezlibs-scripts/ezcutscenes')
+                    local ezcutscenes = require('scripts/ezlibs-scripts/ezcutscenes/ezcutscenes')
                     local cutscene_promise = ezcutscenes.start(
                         player_id,
                         npc.area_id,

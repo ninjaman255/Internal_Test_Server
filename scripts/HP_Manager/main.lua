@@ -8,15 +8,18 @@
 * ---------------------------------------------------------- *
 ]]
 
+--DEPENDENCES
 local games = require("scripts/net-games/main")
+local TextLayout = require("scripts/displayer/text-layout")
+--MANAGERS
 local WarpManage = require("scripts/HP_Manager/warp_manage")
 local BackgroundManage = require("scripts/HP_Manager/background_manage")
-local TextLayout = require("scripts/displayer/text-layout")
-
+local RealtimeManage = require("scripts/HP_Manager/realtime_manage")
+--CONFIG FILE
 local constants = require("scripts/HP_Manager/constants/constants")
---local AmbientManage = require("scripts/HP_Manager/ambient_manage")
 
 local hp_sessions = {}
+local jukebox_sessions = {}
 
 local desktop_options = {
   {
@@ -24,26 +27,70 @@ local desktop_options = {
     label = "Exit",
     x = 112,
     y = 145,
-    cursor_x = 110,
-    cursor_y = 152
   },
   {
     id = "warp",
     label = "Warp Manager",
-    x = 20,
+    x = 36,
     y = 30,
-    cursor_x = 18,
-    cursor_y = 38
   },
   {
     id = "background",
     label = "Background Manager",
-    x = 70,
+    x = 86,
     y = 30,
-    cursor_x = 68,
-    cursor_y = 38
   }
 }
+
+-- OPTIONAL DESKTOP ICONS
+local optional_icons = {
+  {
+    id = "real_daytime",
+    label = "Real Time Manager",
+    path = constants.real_day_time,
+    load_module = true,
+    icon = "/server/assets/HP_Manager/realtime_icon.png",
+    x = 136,
+    y = 30,
+  },
+  {
+    id = "jukebox",
+    label = "Music Manager",
+    path = constants.jukebox,
+    load_module = true,
+    icon = "/server/assets/HP_Manager/music_icon.png",
+    x = 186,
+    y = 30,
+  }
+}
+
+local extensions = {}
+
+-- ADD AVAILABLE EXTENSIONS
+local function add_desktop_icons()
+  for _, option in ipairs(optional_icons) do
+    option.enabled = type(option.path) == "string"
+        and option.path ~= ""
+        and file_exists(option.path)
+
+    if option.enabled then
+      desktop_options[#desktop_options + 1] = option
+
+      if option.load_module then
+        local path = option.path:gsub("%.lua$", "")
+        extensions[option.id] = require(path)
+      end
+    end
+  end
+end
+
+add_desktop_icons()
+
+-- CURSOR POSITION
+for _, option in ipairs(desktop_options) do
+  option.cursor_x = option.x - 2
+  option.cursor_y = option.y + 8
+end
 
 local desktop_options_by_id = {}
 local desktop_option_indexes = {}
@@ -75,6 +122,14 @@ local desktop_elements = {
   "hp_border",
   "hp_wallpaper",
 }
+
+-- REGISTER OPTIONAL ELEMENTS
+for _, option in ipairs(desktop_options) do
+  if option.icon then
+    desktop_elements[#desktop_elements + 1] =
+        "hp_" .. option.id .. "_icon"
+  end
+end
 
 -- SERVER OPERATIONAL SYSTEM GET + WALLPAPER CHOICE
 local function get_server_os()
@@ -119,6 +174,15 @@ local wallpaper = system_wallpaper[server_os] or system_wallpaper.windows
 
 --print("HP Manager:", server_os)
 
+--HP MANAGER CLOSE
+local function close_hp_manage(player_id)
+  for _, element in ipairs(desktop_elements) do
+    games.remove_ui_element(element, player_id)
+  end
+
+  games.remove_text("hp_option_name", player_id)
+end
+
 -- HP MANAGER OPEN
 local function open_hp_manager(player_id, selected_id)
   selected_id = selected_id or "exit"
@@ -144,6 +208,18 @@ local function open_hp_manager(player_id, selected_id)
     warp_option.y, 15, 2, 2)
   games.add_ui_element("hp_background_icon", player_id, "/server/assets/HP_Manager/background_icon.png", "", "",
     background_option.x, background_option.y, 15, 2, 2)
+
+  -- DRAW OPTIONAL ICONS
+  for _, option in ipairs(desktop_options) do
+    if option.icon then
+      games.add_ui_element(
+        "hp_" .. option.id .. "_icon",
+        player_id,
+        option.icon, "", "",
+        option.x, option.y, 15, 2, 2
+      )
+    end
+  end
 
   -- CURSOR
   games.add_ui_element("hp_selector", player_id, "/server/assets/net-games/cursors/text_cursor.png",
@@ -197,11 +273,7 @@ Net:on("virtual_input", function(event)
 
         -- ALREADY ON EXIT
         if session.selected == exit_index then
-          for _, element in ipairs(desktop_elements) do
-            games.remove_ui_element(element, player_id)
-          end
-
-          games.remove_text("hp_option_name", player_id)
+          close_hp_manage(player_id)
 
           hp_sessions[player_id] = nil
 
@@ -234,11 +306,7 @@ Net:on("virtual_input", function(event)
         if option ~= nil then
           -- EXIT
           if option.id == "exit" then
-            for _, element in ipairs(desktop_elements) do
-              games.remove_ui_element(element, player_id)
-            end
-
-            games.remove_text("hp_option_name", player_id)
+            close_hp_manage(player_id)
 
             hp_sessions[player_id] = nil
 
@@ -254,11 +322,7 @@ Net:on("virtual_input", function(event)
             Net.fade_player_camera(player_id, { r = 0, g = 0, b = 0, a = 255 }, 0.05)
 
             Async.sleep(0.05).and_then(function()
-              for _, element in ipairs(desktop_elements) do
-                games.remove_ui_element(element, player_id)
-              end
-
-              games.remove_text("hp_option_name", player_id)
+              close_hp_manage(player_id)
 
               WarpManage.open(player_id, function(player_id)
                 open_hp_manager(player_id, option.id)
@@ -275,17 +339,55 @@ Net:on("virtual_input", function(event)
             hp_sessions[player_id] = nil
 
             Async.sleep(0.05).and_then(function()
-              for _, element in ipairs(desktop_elements) do
-                games.remove_ui_element(element, player_id)
-              end
-
-              games.remove_text("hp_option_name", player_id)
+              close_hp_manage(player_id)
 
               BackgroundManage.open(player_id, function(player_id)
                 open_hp_manager(player_id, option.id)
               end)
             end)
 
+            return
+          end
+
+          -- REAL DAY TIME MANAGER
+          if option.id == "real_daytime" then
+            hp_sessions[player_id] = nil
+
+            Async.sleep(0.05).and_then(function()
+              close_hp_manage(player_id)
+
+              RealtimeManage.open(player_id, function(player_id)
+                open_hp_manager(player_id, option.id)
+              end, extensions.real_daytime)
+            end)
+
+            return
+          end
+          -- JUKEBOX / MUSIC MANAGER
+          if option.id == "jukebox" then
+            local area_id = Net.get_player_area(player_id)
+
+            local object_id = Net.create_object(area_id, {
+              name = "hp_jukebox_temp",
+              class = "Jukebox",
+              type = "Jukebox",
+              visible = false,
+              data = { type = "point" },
+              custom_properties = {}
+            })
+
+jukebox_sessions[player_id] = session
+hp_sessions[player_id] = nil
+
+            
+
+            Net:emit("object_interaction", {
+              player_id = player_id,
+              object_id = object_id,
+              button = 0
+            })
+
+            Net.remove_object(area_id, object_id)
             return
           end
         end
@@ -303,10 +405,30 @@ Net:on("object_interaction", function(event)
   local object = Net.get_object_by_id(area_id, event.object_id)
 
   if object == nil then return end
-  if object.name ~= "hp_manager" then return end
   if (object.type or object.class) ~= "HP_Manager" then return end
 
   open_hp_manager(player_id)
+end)
+
+-- JUKEBOX CLOSE
+Net:on("board_close", function(event)
+    local player_id = event.player_id
+    local session = jukebox_sessions[player_id]
+
+    if session == nil then return end
+
+    jukebox_sessions[player_id] = nil
+
+    Async.sleep(0.10).and_then(function()
+        hp_sessions[player_id] = session
+        Net.lock_player_input(player_id)
+    end)
+end)
+
+-- CLEANUP
+Net:on("player_disconnect", function(event)
+  hp_sessions[event.player_id] = nil
+  jukebox_sessions[event.player_id] = nil
 end)
 
 -- CURSOR ANIMATION

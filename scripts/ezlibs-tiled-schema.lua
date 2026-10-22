@@ -2069,7 +2069,7 @@ return {
         },
         {
           ["category"] = "gameplay",
-          ["description"] = "If > 0, the cutscene auto-starts when a player enters a radius of this size.",
+          ["description"] = "If > 0, auto-starts when a player enters a circle of this radius (in map pixels) centered on this Cutscene object's own position. Ignored when the Cutscene object is a rectangle. Small values (32–200) match the tile scale; larger values cover a wider area.",
           ["name"] = "Trigger Radius",
           ["type"] = "number",
           ["value"] = 0
@@ -2180,14 +2180,14 @@ return {
             ["oneOf"] = { "Move Actor", "Move Camera" },
             ["property"] = "Type"
           },
-          ["description"] = "Point object to move to. When set, Target X/Y/Z are ignored.",
+          ["description"] = "Point object to move to. When set, Target X/Y/Z are ignored. If Target, Target X/Y/Z, and the step's own placement are all empty, the step falls back to its own Tiled (x, y, z) as the destination.",
           ["name"] = "Target",
           ["type"] = "object",
           ["value"] = ""
         },
         {
           ["category"] = "gameplay",
-          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used.",
           ["dependsOn"] = {
             ["oneOf"] = { "Move Actor", "Move Camera" },
             ["property"] = "Type"
@@ -2198,7 +2198,7 @@ return {
         },
         {
           ["category"] = "gameplay",
-          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used.",
           ["dependsOn"] = {
             ["oneOf"] = { "Move Actor", "Move Camera" },
             ["property"] = "Type"
@@ -2209,7 +2209,7 @@ return {
         },
         {
           ["category"] = "gameplay",
-          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera.",
+          ["conditional"] = "Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used.",
           ["dependsOn"] = {
             ["oneOf"] = { "Move Actor", "Move Camera" },
             ["property"] = "Type"

@@ -310,7 +310,7 @@ end
     local new_address, new_port_text = new_destination:match("^(.+):(%d+)$")
 
     if new_address == nil or new_port_text == nil then
-      await(Async.message_player(player_id, "Invalid destination. Use ADDRESS:PORT, for example 64.23.226.84:8766."))
+      await(Async.message_player(player_id, "Invalid destination. Use ADDRESS:PORT, for example 11.11.111.11:1111."))
       WarpManage.open(player_id, return_to_hp)
       return
     end
@@ -388,17 +388,17 @@ Net:on("board_close", function(event)
   local player_id = event.player_id
   local session = warp_sessions[player_id]
 
-  if session == nil then
-    return
-  end
+  if session == nil then return end
 
   local return_to_hp = session.return_to_hp
 
   warp_sessions[player_id] = nil
 
-  if return_to_hp ~= nil then
-    return_to_hp(player_id)
-  end
+  Async.sleep(0.01).and_then(function()
+    if return_to_hp ~= nil then
+      return_to_hp(player_id)
+    end
+  end)
 end)
 
 -- CLEANUP

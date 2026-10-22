@@ -131,9 +131,27 @@ local function save_background_data()
     return true
 end
 
+-- CHECK BACKGROUND ASSET
+local function background_asset_exists(asset_path)
+    if type(asset_path) ~= "string" or asset_path == "" then
+        return false
+    end
+
+    local file_path = asset_path:gsub("^/server/", "")
+    local file = io.open(file_path, "rb")
+
+    if file == nil then
+        return false
+    end
+
+    file:close()
+    return true
+end
+
 -- APPLY SAVED BACKGROUNDS
 local function apply_background_data()
     local areas = {}
+    local data_changed = false
 
     for _, area_id in ipairs(Net.list_areas()) do
         areas[area_id] = true
@@ -141,8 +159,30 @@ local function apply_background_data()
 
     for area_id, data in pairs(background_data) do
         if areas[area_id] then
-            Net.set_background(area_id, data.texture_path, data.animation_path,
-                data.velocity_x, data.velocity_y, data.parallax)
+            local texture_exists = background_asset_exists(data.texture_path)
+
+            local animation_exists = data.animation_path == nil
+                or data.animation_path == ""
+                or background_asset_exists(data.animation_path)
+
+            if texture_exists and animation_exists then
+                Net.set_background(area_id, data.texture_path, data.animation_path,
+                    data.velocity_x, data.velocity_y, data.parallax)
+            else
+                -- REMOVE INVALID SAVED BACKGROUND
+                background_data[area_id] = nil
+                data_changed = true
+
+                print("[Background Manager] Missing background asset in area: " .. area_id)
+                print("[Background Manager] Keeping original map background.")
+            end
+        end
+    end
+
+    -- UPDATE DATA FILE ONLY WHEN NECESSARY
+    if data_changed then
+        if not save_background_data() then
+            print("[Background Manager] Failed to update background data.")
         end
     end
 end
@@ -191,25 +231,24 @@ local function find_backgrounds()
 
     if handle == nil then return backgrounds end
 
+    -- FIND VALID BACKGROUNDS
     for file_name in handle:lines() do
-        local lower_name = file_name:lower()
-
-        if lower_name:match("%.png$") or lower_name:match("%.bmp$") then
+        if file_name:lower():match("%.png$") then
             local name = file_name:gsub("%.[^%.]+$", "")
-            local animation_path = ""
-            local animation_file = io.open(constants.background_folder .. "/" .. name .. ".animation", "r")
+            local animation_name = name .. ".animation"
+            local animation_file = io.open(constants.background_folder .. "/" .. animation_name, "r")
 
+            -- REQUIRE MATCHING ANIMATION
             if animation_file ~= nil then
                 animation_file:close()
-                animation_path = constants.background_asset_folder .. name .. ".animation"
-            end
 
-            backgrounds[#backgrounds + 1] = {
-                name = name,
-                file_name = file_name,
-                texture_path = constants.background_asset_folder .. file_name,
-                animation_path = animation_path
-            }
+                backgrounds[#backgrounds + 1] = {
+                    name = name,
+                    file_name = file_name,
+                    texture_path = constants.background_asset_folder .. file_name,
+                    animation_path = constants.background_asset_folder .. animation_name
+                }
+            end
         end
     end
 
@@ -517,11 +556,13 @@ Net:on("virtual_input", function(event)
 
                     background_sessions[player_id] = nil
 
-                    if return_to_hp ~= nil then
-                        return_to_hp(player_id)
-                    else
-                        Net.unlock_player_input(player_id)
-                    end
+                    Async.sleep(0.01).and_then(function()
+                        if return_to_hp ~= nil then
+                            return_to_hp(player_id)
+                        else
+                            Net.unlock_player_input(player_id)
+                        end
+                    end)
 
                     return
                 end
@@ -563,7 +604,7 @@ Net:on("virtual_input", function(event)
 
                     background_sessions[player_id] = nil
 
-                    Async.sleep(0.10).and_then(function()
+                    Async.sleep(0.01).and_then(function()
                         if return_to_hp ~= nil then
                             return_to_hp(player_id)
                         else

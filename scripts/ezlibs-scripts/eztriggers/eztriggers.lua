@@ -17,6 +17,12 @@ eztriggers.radius_triggers = {}
 eztriggers.rectangle_triggers = {}
 eztriggers._event_table = {}
 
+-- Per-player last-position cache used by the movement tick below. Declared
+-- here (rather than near the tick handler) because handle_player_transfer
+-- and handle_player_disconnect also reset entries; if the local is declared
+-- after those functions, the name resolves to a nil global inside them.
+local last_player_positions = {}
+
 function eztriggers.add_location_event_trigger(area_id,object)
     local event_name = object.custom_properties["Event Name"]
     local emitter
@@ -104,10 +110,10 @@ function eztriggers.add_radius_trigger(area_id, trigger_object, diameter_x, diam
     local height = tonumber(diameter_y)
     local object_x = tonumber(trigger_object.x)
     local object_y = tonumber(trigger_object.y)
-    center_x = tonumber(center_x)
-    center_y = tonumber(center_y)
+    center_x = tonumber(center_x) or 0
+    center_y = tonumber(center_y) or 0
 
-    if not width or not height or not object_x or not object_y or not center_x or not center_y then
+    if not width or not height or not object_x or not object_y then
         logger:for_area(area_id):warn("[eztriggers] Invalid ellipse trigger geometry for object " .. tostring(trigger_object.id))
         return nil
     end
@@ -354,16 +360,76 @@ function eztriggers.handle_player_transfer(player_id)
     -- reconcile their state instead of being left active indefinitely.
     eztriggers.clear_radius_overlaps_for_player(player_id, "area_transfer")
     eztriggers.clear_rectangle_overlaps_for_player(player_id, "area_transfer")
+    -- Drop the cached position so the first tick in the new area performs a
+    -- fresh containment check instead of comparing against the old area.
+    if last_player_positions then
+        last_player_positions[player_id] = nil
+    end
 end
 
 function eztriggers.handle_player_disconnect(player_id)
     eztriggers.clear_radius_overlaps_for_player(player_id, "disconnect")
     eztriggers.clear_rectangle_overlaps_for_player(player_id, "disconnect")
+    if last_player_positions then
+        last_player_positions[player_id] = nil
+    end
 end
 
 -- Register handler for Location Trigger objects
 object_registry.register_handler("Location Trigger", function(area_id, object)
     eztriggers.add_location_event_trigger(area_id, object)
+end)
+
+-- =========================================================================
+-- Player movement tick
+--
+-- Historically the only caller of `handle_player_move` was
+-- `ezpushback.on_tick`, and only when a Pushback NPC moved. That meant no
+-- player triggers ever fired on maps without pushback NPCs.
+--
+-- This tick owns the check. To avoid iterating every trigger against every
+-- player every frame, we cache each player's last-seen position/area and
+-- skip the containment pass when nothing changed. A stationary player
+-- costs one `Net.get_player_position` and three comparisons per frame.
+-- =========================================================================
+local function tick_check_player_triggers()
+    for _, area_id in ipairs(Net.list_areas() or {}) do
+        local players_in_area = Net.list_players(area_id) or {}
+        for _, player_id in ipairs(players_in_area) do
+            local ok_pos, pos = pcall(Net.get_player_position, player_id)
+            if ok_pos
+                and type(pos) == "table"
+                and type(pos.x) == "number"
+                and type(pos.y) == "number" then
+                local z = tonumber(pos.z) or 0
+                local last = last_player_positions[player_id]
+                if not last
+                    or last.x ~= pos.x
+                    or last.y ~= pos.y
+                    or last.z ~= z
+                    or last.area ~= area_id then
+                    last_player_positions[player_id] = {
+                        x = pos.x, y = pos.y, z = z, area = area_id,
+                    }
+                    eztriggers.handle_player_move(player_id, pos.x, pos.y, z)
+                end
+            end
+        end
+    end
+end
+
+Net:on("tick", function()
+    -- pcall guards against a transient Net error taking down the whole tick
+    -- pipeline. Trigger checks are cheap on a healthy tick; a failing tick
+    -- is far worse than a missed frame of position updates.
+    pcall(tick_check_player_triggers)
+end)
+
+Net:on("player_disconnect", function(event)
+    local player_id = (type(event) == "table") and event.player_id or event
+    if player_id then
+        last_player_positions[player_id] = nil
+    end
 end)
 
 logger:info("[eztriggers] Loaded")

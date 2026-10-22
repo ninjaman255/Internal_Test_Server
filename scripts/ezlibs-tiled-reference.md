@@ -744,7 +744,7 @@ Named cutscene definition. Trigger via radius or script.
 | `Name` | string | yes | `""` | gameplay | Unique cutscene identifier within the area. |
 | `Once` | bool |  | false | gameplay | If true, plays at most once per player per session. |
 | `Start Step` | object | yes | `""` | gameplay | First step in the chain (Cutscene Step object). |
-| `Trigger Radius` | number |  | 0 | gameplay | If > 0, the cutscene auto-starts when a player enters a radius of this size. |
+| `Trigger Radius` | number |  | 0 | gameplay | If > 0, auto-starts when a player enters a circle of this radius (in map pixels) centered on this Cutscene object's own position. Ignored when the Cutscene object is a rectangle. Small values (32–200) match the tile scale; larger values cover a wider area. |
 
 ### Cutscene Step
 **Category:** gameplay
@@ -784,7 +784,7 @@ One action in a cutscene chain. Chain via Next Step; branch via Next N / Fail Ne
 | `Next 2` | object |  | `""` | gameplay |  |
 | `Next 3` | object |  | `""` | gameplay |  |
 | `Next Step` | object |  | `""` | gameplay | Step to run after this one. Empty ends the cutscene (for branch types, this is the fallback). |
-| `Target` | object |  | `""` | gameplay | Point object to move to. When set, Target X/Y/Z are ignored. |
+| `Target` | object |  | `""` | gameplay | Point object to move to. When set, Target X/Y/Z are ignored. If Target, Target X/Y/Z, and the step's own placement are all empty, the step falls back to its own Tiled (x, y, z) as the destination. |
 | `Target X` | number |  | 0 | gameplay |  |
 | `Target Y` | number |  | 0 | gameplay |  |
 | `Target Z` | number |  | 0 | gameplay |  |
@@ -826,9 +826,9 @@ One action in a cutscene chain. Chain via Next Step; branch via Next N / Fail Ne
 - `Next 2`: Only used when Type == 'Ask Quiz'. Only meaningful when `Type` == `Ask Quiz`.
 - `Next 3`: Only used when Type == 'Ask Quiz'. Only meaningful when `Type` == `Ask Quiz`.
 - `Target`: Only used by Move Actor and Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
-- `Target X`: Only used when Target is empty and Type is Move Actor or Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
-- `Target Y`: Only used when Target is empty and Type is Move Actor or Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
-- `Target Z`: Only used when Target is empty and Type is Move Actor or Move Camera. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Target X`: Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Target Y`: Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
+- `Target Z`: Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
 - `Wait Seconds`: Only used when Type == 'Wait'. Only meaningful when `Type` == `Wait`.
 - `Event Name`: Only used by Emit Event. Only meaningful when `Type` == `Emit Event`.
 

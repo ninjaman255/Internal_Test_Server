@@ -6,13 +6,28 @@
 -- Steps chain via `Next Step` refs; branching steps use `Next 1/2/3` and
 -- `Fail Next`.
 --
--- Triggers:
---   * `Trigger Radius > 0` on the Cutscene object — auto-start when a player
---     enters the radius.
---   * Manual via ezcutscenes.start(player_id, area_id, name_or_object).
+-- Interactive vs non-interactive:
+--   Show Message / Ask Quiz / Prompt Player are interactive. They run
+--   through Async.message_player / quiz_player / prompt_player, which are
+--   modal dialogs. Net.lock_player_input only blocks world interaction and
+--   movement; those dialog APIs run their own input path, so the cutscene
+--   works while input is locked.
 --
--- During a cutscene, player input is locked. The only interactions available
--- are the ones the message/quiz/prompt APIs handle internally.
+--   Wait / Set Pose / Move Actor / Play Sound / Fade Camera / Move Camera /
+--   Emit Event are non-interactive. They animate actors, play audio, or
+--   emit bus events without touching player input.
+--
+-- Player input is locked at cutscene start and unconditionally unlocked
+-- before the cutscene promise resolves. The chain runner is wrapped in
+-- pcall so an unexpected error mid-cutscene still reaches the unlock.
+--
+-- Movement targets:
+--   Move Actor / Move Camera resolve their destination in this order:
+--     1. `Target` (point object reference)
+--     2. `Target X/Y/Z` (explicit numbers)
+--     3. The Cutscene Step object's own (x, y, z) in Tiled
+--   The third option means map makers can place the step node at the
+--   destination and skip the separate target point.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezcutscenes')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
@@ -25,20 +40,11 @@ local StepTypes = require('scripts/ezlibs-scripts/ezcutscenes/step_types')
 
 local ezcutscenes = {}
 
--- area_id -> name -> { object = <cutscene object> }
 local registered_cutscenes = {}
-
--- player_id -> active context (with .cancelled flag)
 local active_cutscenes = {}
-
--- player_id -> { [cutscene_name] = true } for Once tracking (session-scoped)
 local once_state = {}
 
 local MAX_STEPS_PER_RUN = 250
-
--- --------------------------------------------------------------------------
--- Object resolution
--- --------------------------------------------------------------------------
 
 local function get_props(object)
     return object and object.custom_properties or {}
@@ -55,10 +61,6 @@ local function resolve_object_cached(area_id, object_id)
     end
     return nil
 end
-
--- --------------------------------------------------------------------------
--- Next-step selection
--- --------------------------------------------------------------------------
 
 local function choose_next_step_ref(step_props, step_type_name, result)
     if step_type_name == "Ask Quiz" then
@@ -80,10 +82,9 @@ local function choose_next_step_ref(step_props, step_type_name, result)
     return step_props["Next Step"]
 end
 
--- --------------------------------------------------------------------------
--- Step chain runner
--- --------------------------------------------------------------------------
-
+-- Step handlers receive (context, props, step_object). The third argument
+-- lets movement / camera steps fall back to the step node's own Tiled
+-- placement when no explicit target is configured.
 local function run_step_chain(context, first_step_ref)
     local current_ref = first_step_ref
     local count = 0
@@ -115,7 +116,7 @@ local function run_step_chain(context, first_step_ref)
         end
 
         local ok, result = pcall(function()
-            return Async.await(handler(context, props))
+            return Async.await(handler(context, props, step_object))
         end)
         if not ok then
             logger:for_player(context.player_id):warn(
@@ -127,10 +128,6 @@ local function run_step_chain(context, first_step_ref)
         current_ref = choose_next_step_ref(props, step_type, result)
     end
 end
-
--- --------------------------------------------------------------------------
--- Top-level cutscene runner
--- --------------------------------------------------------------------------
 
 local function run_cutscene(player_id, area_id, cutscene_object, trigger_context)
     local props = get_props(cutscene_object)
@@ -156,9 +153,6 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
     }
     active_cutscenes[player_id] = context
 
-    -- Track every actor referenced by the cutscene so we can clean up
-    -- holds when the cutscene ends. Actor refs are resolved lazily during
-    -- each step; we only collect the trigger NPC here for cleanup.
     local cleanup_bot_ids = {}
     if trigger_context and trigger_context.trigger_object_id then
         local bid = eznpcs.resolve_bot(area_id, trigger_context.trigger_object_id, player_id)
@@ -173,9 +167,15 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
             cutscene_name = cutscene_name,
         })
 
-        run_step_chain(context, start_step)
+        -- Guard the chain runner: an unexpected error inside the loop should
+        -- still reach the input unlock and cleanup below, not leave the
+        -- player permanently locked out of movement.
+        local ok_chain, err_chain = pcall(run_step_chain, context, start_step)
+        if not ok_chain then
+            logger:for_player(player_id):warn(
+                "[ezcutscenes] step chain crashed: " .. tostring(err_chain))
+        end
 
-        -- Cancel any holds that the cutscene left running.
         for _, bot_id in ipairs(cleanup_bot_ids) do
             eznpcs.cancel_bot_hold(bot_id)
         end
@@ -202,15 +202,6 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
     return promise
 end
 
--- --------------------------------------------------------------------------
--- Public API
--- --------------------------------------------------------------------------
-
--- start(player_id, area_id, cutscene_ref, trigger_context)
---   cutscene_ref  : object | string name
---   trigger_context : optional { trigger_object_id=, trigger_bot_id= }
---
--- Returns an async promise, or nil if the cutscene could not be started.
 function ezcutscenes.start(player_id, area_id, cutscene_ref, trigger_context)
     if not Net.is_player(player_id) then return nil end
     if active_cutscenes[player_id] then
@@ -260,10 +251,6 @@ function ezcutscenes.get_cutscene(area_id, name)
     return entry and entry.object or nil
 end
 
--- --------------------------------------------------------------------------
--- Object registry handlers
--- --------------------------------------------------------------------------
-
 object_registry.register_handler("Cutscene", function(area_id, object)
     local props = get_props(object)
     local name = tu.get_string_from(props, "Name", "")
@@ -278,44 +265,58 @@ object_registry.register_handler("Cutscene", function(area_id, object)
         "[ezcutscenes] Registered cutscene '" .. name
         .. "' in " .. tostring(area_id))
 
+    local width = tonumber(object.width) or 0
+    local height = tonumber(object.height) or 0
     local radius = tu.get_number_from(props, "Trigger Radius", 0)
-    if radius > 0 and eztriggers and eztriggers.add_radius_trigger then
-        local trigger_id = "ezcutscene_radius_"
-            .. tostring(area_id) .. "_" .. tostring(object.id)
-        local cx = (tonumber(object.x) or 0) + radius / 2
-        local cy = (tonumber(object.y) or 0) + radius / 2
-        local emitter = eztriggers.add_radius_trigger(
-            area_id, object, radius, radius, cx, cy, trigger_id)
+    local trigger_id = "ezcutscene_trigger_"
+        .. tostring(area_id) .. "_" .. tostring(object.id)
+
+    local emitter = nil
+    if width > 0 and height > 0 then
+        emitter = eztriggers.add_rectangle_trigger(
+            area_id, object, width, height, trigger_id)
         if emitter then
-            emitter:on("entered", function(event)
-                if event.player_id and Net.is_player(event.player_id) then
-                    ezcutscenes.start(event.player_id, area_id, name, {
-                        trigger_object_id = object.id,
-                    })
-                end
-            end)
+            logger:for_area(area_id):info(string.format(
+                "[ezcutscenes] Rectangle trigger registered for '%s' bounds=%dx%d origin=(%s,%s)",
+                name, width, height, tostring(object.x), tostring(object.y)))
+        else
+            logger:for_area(area_id):warn(
+                "[ezcutscenes] Rectangle trigger registration failed for '"
+                .. name .. "'")
+        end
+    elseif radius > 0 then
+        emitter = eztriggers.add_radius_trigger(
+            area_id, object, radius * 2, radius * 2, 0, 0, trigger_id)
+        if emitter then
             logger:for_area(area_id):info(
                 "[ezcutscenes] Radius trigger registered for '"
-                .. name .. "' radius=" .. tostring(radius))
+                .. name .. "' radius=" .. tostring(radius) .. " px")
         else
             logger:for_area(area_id):warn(
                 "[ezcutscenes] Radius trigger registration failed for '"
                 .. name .. "'")
         end
+    else
+        logger:for_area(area_id):info(
+            "[ezcutscenes] Cutscene '" .. name
+            .. "' has no auto-trigger (point with Trigger Radius = 0). "
+            .. "Start it via NPC interaction or script.")
+    end
+
+    if emitter then
+        emitter:on("entered", function(event)
+            if event.player_id and Net.is_player(event.player_id) then
+                ezcutscenes.start(event.player_id, area_id, name, {
+                    trigger_object_id = object.id,
+                })
+            end
+        end)
     end
 end)
 
--- Cutscene Step objects are pure data. They are resolved lazily by the
--- runner via `Next Step` / `Next N` / `Fail Next` refs, so no runtime
--- registration is required. Registering the handler here ensures that
--- object_registry logs them as handled rather than as unhandled objects.
 object_registry.register_handler("Cutscene Step", function(area_id, object)
     -- no-op; steps are data-only
 end)
-
--- --------------------------------------------------------------------------
--- Lifecycle
--- --------------------------------------------------------------------------
 
 Net:on("player_disconnect", function(event)
     local player_id = (type(event) == "table") and event.player_id or event
@@ -332,6 +333,16 @@ function ezcutscenes.handle_player_disconnect(player_id)
     if context then context.cancelled = true end
     active_cutscenes[player_id] = nil
     once_state[player_id] = nil
+end
+
+function ezcutscenes.handle_player_transfer(player_id)
+    if not player_id then return end
+    local context = active_cutscenes[player_id]
+    if context then
+        context.cancelled = true
+        active_cutscenes[player_id] = nil
+        pcall(Net.unlock_player_input, player_id)
+    end
 end
 
 logger:info("[ezcutscenes] Loaded")
