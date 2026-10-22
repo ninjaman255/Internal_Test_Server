@@ -275,6 +275,47 @@ local object_types = {
             prop("Quest State", "string", "active"),
         }
     },
+    -- Pushback NPC – a normal eznpcs NPC with a moving collision zone.
+    {
+        name = "Pushback NPC",
+        color = "#ff6666",
+        members = {
+            prop("Direction", "string", "Down", "Direction"),
+            prop("Asset Name", "string", "male-navi-exe6_teal"),
+            prop("Animation Name", "string", ""),
+            prop("Mug Animation Name", "string", ""),
+            prop("Dont Face Player", "bool", false),
+            prop("Next Waypoint 1", "object", ""),
+            prop("Dialogue Type", "string", "", "DialogueType"),
+            prop("Mugshot", "string", "male-navi-exe6_teal"),
+            prop("Text 1", "string", ""),
+            prop("Text 2", "string", ""),
+            prop("Text 3", "string", ""),
+            prop("Next 1", "object", ""),
+            prop("Next 2", "object", ""),
+            prop("Item 1", "object", ""),
+            prop("Item 2", "object", ""),
+            prop("Take Item", "bool", false),
+            prop("Date", "string", ""),
+            prop("Quest Name", "string", ""),
+            prop("Event Value", "string", ""),
+            prop("Dont Notify", "bool", false),
+            prop("Encounter Name", "string", ""),
+            prop("Failure Message", "string", ""),
+            prop("Player Exclusive", "bool", false),
+            prop("Quest NPC", "bool", false),
+            prop("Quest Exclusive", "string", ""),
+            prop("Quest State", "string", "active"),
+            prop("Collision Enabled", "bool", true),
+            prop("Collision Width", "number", 1.5),
+            prop("Collision Height", "number", 1.5),
+            prop("Push Distance", "number", 1.0),
+            prop("Push Duration", "number", 0.28),
+            prop("Push Cooldown", "number", 0.75),
+            prop("Move Animation State", "string", "MOVE"),
+        }
+    },
+
     -- FootBomb Ref – a custom NPC reference that starts a private FootBomb match.
     -- This intentionally includes the full NPC property set so Tiled can configure
     -- the reference as an NPC, plus the FootBomb instance/dialogue/spawn settings.

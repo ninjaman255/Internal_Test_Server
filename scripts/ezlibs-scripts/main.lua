@@ -22,6 +22,7 @@ local ezpress = require('scripts/ezlibs-scripts/ezpress')
 local ezusers = require('scripts/ezlibs-scripts/ezusers')
 local ezbbs = require('scripts/ezlibs-scripts/ezbbs')
 local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
+local ezpushback = require('scripts/ezlibs-scripts/ezpushback')
 
 local plugins = { 
     ezweather, 
@@ -39,9 +40,7 @@ local plugins = {
     ezusers,
     ezbbs,
     ezbuttons,
-    ezexplosions,
-    ezcache,
-    ezbus,
+    ezpushback
 }
 
 local sfx = {

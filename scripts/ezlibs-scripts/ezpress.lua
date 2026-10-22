@@ -1,210 +1,385 @@
 -- ezpress.lua
--- Compression/decompression using eztriggers and area property "Minish Mode".
--- Objects with "Compress" = true cause player to shrink on entry.
--- Objects with "Decompress" = true restore normal size on entry.
--- Areas with "Minish Mode" = true compress all players inside (overridden by tiles).
+-- Player compression/decompression driven by Tiled object properties and area
+-- properties. Uses eztriggers for transition events, ezemitter for module-local
+-- events, and ezbus for cross-module notifications.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpress')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
-local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
+local EventEmitter = require('scripts/ezlibs-scripts/ezemitter')
 
 local ezpress = {}
+ezpress.events = EventEmitter.new()
 
--- Persistent state per player
 local compressed_players = {}
-
--- Sound effect path (adjust if needed)
+local area_triggers = {}
+local active_tile_by_player = {}
 local compressSfx = "/server/assets/ezlibs-assets/sfx/compress.ogg"
 
--- Store trigger data per area for manual checks on join/transfer
-local area_triggers = {}
+local SCALE_COMPRESSED = 3 / 8
+local ANIMATION_DURATION = 0.15
 
--- ----------------------------------------------------------------------------
--- Public getter for area minish mode (live property lookup)
--- ----------------------------------------------------------------------------
-function ezpress.get_area_minish_mode(area_id)
-    local prop = Net.get_area_custom_property(area_id, "Minish Mode")
-    return (prop == "true" or prop == true)
+local function is_true(value)
+    if value == true or value == 1 then return true end
+    if type(value) == "string" then
+        value = string.lower(value)
+        return value == "true" or value == "1" or value == "yes"
+    end
+    return false
 end
 
--- ----------------------------------------------------------------------------
--- Compression / Decompression animations
--- ----------------------------------------------------------------------------
-function ezpress.compress(player_id, immediate)
-    logger:for_player(player_id):info("[ezpress] compress called; currently compressed =", compressed_players[player_id] or false, "immediate =", immediate)
-    if compressed_players[player_id] then
-        return  -- already compressed
-    end
+local function emit_event(name, payload)
+    -- Keep the local emitter useful for modules that want to subscribe directly,
+    -- while publishing the same event to the shared application-wide bus.
+    ezpress.events:emit(name, payload)
+    ezbus:emit(name, payload)
+end
 
-    local duration = immediate and 0 or 0.15
+function ezpress:on(event_name, callback)
+    ezpress.events:on(event_name, callback)
+    return ezpress
+end
+
+function ezpress:once(event_name, callback)
+    ezpress.events:once(event_name, callback)
+    return ezpress
+end
+
+function ezpress.get_area_minish_mode(area_id)
+    if area_id == nil then return false end
+    local ok, prop = pcall(Net.get_area_custom_property, area_id, "Minish Mode")
+    if not ok then
+        logger:warn("[ezpress] Could not read Minish Mode for area", tostring(area_id), prop)
+        return false
+    end
+    return is_true(prop)
+end
+
+local function animate_scale(player_id, scale, immediate)
+    local duration = immediate and 0 or ANIMATION_DURATION
     Net.animate_player_properties(player_id, {
         {
             properties = {
-                { property = "ScaleX", value = 3 / 8, ease = "Linear" },
-                { property = "ScaleY", value = 3 / 8, ease = "Linear" }
+                { property = "ScaleX", value = scale, ease = "Linear" },
+                { property = "ScaleY", value = scale, ease = "Linear" }
             },
             duration = duration
         }
     })
+end
 
+function ezpress.compress(player_id, immediate, metadata)
+    if player_id == nil then return false end
+    if compressed_players[player_id] then return false end
+
+    logger:for_player(player_id):info(
+        "[ezpress] Compressing player; immediate =", immediate == true,
+        "source =", metadata and metadata.source or "api")
+
+    animate_scale(player_id, SCALE_COMPRESSED, immediate)
     Net.play_sound_for_player(player_id, compressSfx)
     compressed_players[player_id] = true
 
-    ezbus:emit("player_compressed", { player_id = player_id })
+    emit_event("player_compressed", {
+        player_id = player_id,
+        area_id = metadata and metadata.area_id or Net.get_player_area(player_id),
+        source = metadata and metadata.source or "api",
+        object_id = metadata and metadata.object_id or nil,
+        trigger_type = metadata and metadata.trigger_type or nil,
+        immediate = immediate == true
+    })
+    return true
 end
 
-function ezpress.decompress(player_id, immediate)
-    logger:for_player(player_id):info("[ezpress] decompress called; currently compressed =", compressed_players[player_id] or false, "immediate =", immediate)
-    if not compressed_players[player_id] then
-        return  -- already normal size
-    end
+function ezpress.decompress(player_id, immediate, metadata)
+    if player_id == nil then return false end
+    if not compressed_players[player_id] then return false end
 
-    local duration = immediate and 0 or 0.15
-    Net.animate_player_properties(player_id, {
-        {
-            properties = {
-                { property = "ScaleX", value = 1, ease = "Linear" },
-                { property = "ScaleY", value = 1, ease = "Linear" }
-            },
-            duration = duration
-        }
-    })
+    logger:for_player(player_id):info(
+        "[ezpress] Decompressing player; immediate =", immediate == true,
+        "source =", metadata and metadata.source or "api")
 
+    animate_scale(player_id, 1, immediate)
     Net.play_sound_for_player(player_id, compressSfx)
     compressed_players[player_id] = nil
 
-    ezbus:emit("player_decompressed", { player_id = player_id })
+    emit_event("player_decompressed", {
+        player_id = player_id,
+        area_id = metadata and metadata.area_id or Net.get_player_area(player_id),
+        source = metadata and metadata.source or "api",
+        object_id = metadata and metadata.object_id or nil,
+        trigger_type = metadata and metadata.trigger_type or nil,
+        immediate = immediate == true
+    })
+    return true
 end
 
--- ----------------------------------------------------------------------------
--- Apply the area's minish mode property (live lookup)
--- ----------------------------------------------------------------------------
-function ezpress.apply_map_property(player_id, area_id, immediate)
+function ezpress.apply_map_property(player_id, area_id, immediate, extra_metadata)
     local minish = ezpress.get_area_minish_mode(area_id)
-    logger:for_player(player_id):info("[ezpress] apply_map_property: area", area_id, "minish_mode (live) =", minish, "immediate =", immediate)
     if minish then
-        ezpress.compress(player_id, immediate)
-    else
-        ezpress.decompress(player_id, immediate)
+        return ezpress.compress(player_id, immediate, {
+            area_id = area_id,
+            source = extra_metadata and extra_metadata.source or "area_property"
+        })
     end
+    return ezpress.decompress(player_id, immediate, {
+        area_id = area_id,
+        source = extra_metadata and extra_metadata.source or "area_property"
+    })
 end
 
--- ----------------------------------------------------------------------------
--- Manual check on player join/transfer (to catch spawns inside a tile)
--- ----------------------------------------------------------------------------
-function ezpress.check_and_apply(player_id, area_id, pos)
-    local triggers = area_triggers[area_id]
-    if not triggers then return end
+local function position_matches_trigger(pos, trigger)
+    if type(pos) ~= "table" or not trigger then return false end
+    local x, y = tonumber(pos.x), tonumber(pos.y)
+    local z = tonumber(pos.z) or 0
+    if not x or not y then return false end
+    if z ~= (tonumber(trigger.z) or 0) then return false end
 
-    for _, t in ipairs(triggers) do
-        if pos.z == t.z and
-           pos.x > t.x and pos.x < t.x + t.width and
-           pos.y > t.y and pos.y < t.y + t.height then
-            if t.type == "compress" then
-                ezpress.compress(player_id, false)   -- animated
-            else
-                ezpress.decompress(player_id, false) -- animated
-            end
-            break  -- apply first matching tile only (original behaviour)
+    -- Match eztriggers' AABB semantics, including the rectangle edges.
+    return x >= trigger.x and x <= trigger.x + trigger.width
+        and y >= trigger.y and y <= trigger.y + trigger.height
+end
+
+local function get_matching_tile(area_id, pos)
+    local triggers = area_triggers[area_id]
+    if not triggers then return nil end
+    for _, trigger in ipairs(triggers) do
+        if position_matches_trigger(pos, trigger) then
+            return trigger
         end
     end
+    return nil
 end
 
--- ----------------------------------------------------------------------------
--- Plugin hooks called from main.lua
--- ----------------------------------------------------------------------------
+-- Resolve the effective state from the player's actual position, rather than
+-- trusting a single enter/leave callback. This handles overlapping tiles,
+-- transfers, joins directly inside a tile, and missed/stale trigger transitions.
+function ezpress.check_and_apply(player_id, area_id, pos, immediate)
+    if player_id == nil or area_id == nil then return false end
+    pos = pos or Net.get_player_position(player_id)
+
+    local tile = get_matching_tile(area_id, pos)
+    if not tile then return false end
+
+    active_tile_by_player[player_id] = {
+        area_id = area_id,
+        object_id = tile.object_id,
+        type = tile.type
+    }
+
+    local metadata = {
+        area_id = area_id,
+        source = "tile_trigger",
+        object_id = tile.object_id,
+        trigger_type = tile.type
+    }
+    if tile.type == "compress" then
+        ezpress.compress(player_id, immediate, metadata)
+    else
+        ezpress.decompress(player_id, immediate, metadata)
+    end
+    return true
+end
+
+local function reconcile_from_current_position(player_id, source, immediate)
+    if player_id == nil then return end
+    local ok_area, area_id = pcall(Net.get_player_area, player_id)
+    if not ok_area or area_id == nil then return end
+    local ok_pos, pos = pcall(Net.get_player_position, player_id)
+    if not ok_pos or type(pos) ~= "table" then return end
+
+    if ezpress.check_and_apply(player_id, area_id, pos, immediate) then
+        return
+    end
+
+    local previous_tile = active_tile_by_player[player_id]
+    if previous_tile then
+        active_tile_by_player[player_id] = nil
+        ezpress.apply_map_property(player_id, area_id, immediate, {
+            source = source or "tile_departure"
+        })
+    end
+end
+
+local function on_trigger_transition(area_id, trigger, transition, event)
+    local player_id = type(event) == "table" and event.player_id or nil
+    if player_id == nil then return end
+
+    logger:for_player(player_id):debug(
+        "[ezpress] Tile", transition,
+        "type =", trigger.type,
+        "object =", tostring(trigger.object_id),
+        "area =", tostring(area_id))
+
+    emit_event("ezpress_tile_" .. transition, {
+        player_id = player_id,
+        area_id = area_id,
+        object_id = trigger.object_id,
+        trigger_type = trigger.type,
+        reason = event.reason
+    })
+
+    -- The position is authoritative. A departure should fall back to another
+    -- overlapping tile if present, otherwise to the area's Minish Mode property.
+    reconcile_from_current_position(player_id, "tile_" .. transition, false)
+end
+
+local function add_area_trigger(area_id, object_id, obj, trigger_type)
+    local trigger = {
+        area_id = area_id,
+        object_id = object_id,
+        x = tonumber(obj.x),
+        y = tonumber(obj.y),
+        z = tonumber(obj.z) or 0,
+        width = tonumber(obj.width),
+        height = tonumber(obj.height),
+        type = trigger_type
+    }
+
+    if not trigger.x or not trigger.y or not trigger.width or not trigger.height
+        or trigger.width < 0 or trigger.height < 0 then
+        logger:for_area(area_id):warn(
+            "[ezpress] Skipping tile with invalid geometry; object =", tostring(object_id))
+        return
+    end
+
+    area_triggers[area_id] = area_triggers[area_id] or {}
+    table.insert(area_triggers[area_id], trigger)
+
+    -- Give ezpress its own runtime trigger key. eztriggers otherwise keys by the
+    -- Tiled object ID, which can collide with another module using that object.
+    local runtime_trigger_id = "ezpress_" .. tostring(area_id) .. "_" .. tostring(object_id)
+    local ok, emitter = pcall(
+        eztriggers.add_rectangle_trigger,
+        area_id,
+        obj,
+        trigger.width,
+        trigger.height,
+        runtime_trigger_id
+    )
+
+    if ok and emitter then
+        emitter:on("entered", function(event)
+            on_trigger_transition(area_id, trigger, "entered", event)
+        end)
+        emitter:on("departed", function(event)
+            on_trigger_transition(area_id, trigger, "departed", event)
+        end)
+    else
+        logger:for_area(area_id):warn(
+            "[ezpress] Could not register eztriggers emitter for object", tostring(object_id),
+            "; position-based fallback remains enabled. Error/result =", tostring(emitter))
+    end
+
+    logger:for_area(area_id):info(string.format(
+        "[ezpress] Registered %s tile object=%s at (%.1f, %.1f, z=%d), size=(%.1f, %.1f)",
+        trigger_type, tostring(object_id), trigger.x, trigger.y, trigger.z,
+        trigger.width, trigger.height))
+end
+
 function ezpress.handle_player_join(player_id)
-    -- Provide sound asset for this player
-    Net.provide_asset_for_player(player_id, compressSfx)
+    if player_id == nil then return end
+    pcall(Net.provide_asset_for_player, player_id, compressSfx)
 
-    local area = Net.get_player_area(player_id)
+    local area_id = Net.get_player_area(player_id)
     local pos = Net.get_player_position(player_id)
+    logger:for_player(player_id):debug("[ezpress] Player joined in area", tostring(area_id))
 
-    -- Apply area minish mode immediately
-    ezpress.apply_map_property(player_id, area, true)
-
-    -- Then check if standing inside a compression/decompression tile (animated)
-    ezpress.check_and_apply(player_id, area, pos)
+    -- Preserve the original behavior: apply the area default immediately, then
+    -- animate a tile override if the player spawned directly on a tile.
+    active_tile_by_player[player_id] = nil
+    ezpress.apply_map_property(player_id, area_id, true)
+    local tile = get_matching_tile(area_id, pos)
+    if tile then
+        ezpress.check_and_apply(player_id, area_id, pos, false)
+    end
 end
 
 function ezpress.handle_player_transfer(player_id)
-    local area = Net.get_player_area(player_id)
+    if player_id == nil then return end
+    local area_id = Net.get_player_area(player_id)
     local pos = Net.get_player_position(player_id)
-    logger:for_player(player_id):info("[ezpress] handle_player_transfer to area", area)
+    logger:for_player(player_id):debug("[ezpress] Player transferred to area", tostring(area_id))
 
-    -- Apply area minish mode immediately before arrival animations
-    ezpress.apply_map_property(player_id, area, true)
+    active_tile_by_player[player_id] = nil
+    ezpress.apply_map_property(player_id, area_id, true)
+    local tile = get_matching_tile(area_id, pos)
+    if tile then
+        ezpress.check_and_apply(player_id, area_id, pos, false)
+    end
+end
 
-    -- Check tile overlap (animated)
-    ezpress.check_and_apply(player_id, area, pos)
+-- The central ezlibs main module dispatches player_move to plugin handlers.
+-- Reconcile on movement as a safety net if an eztriggers transition was missed.
+-- compress/decompress are idempotent, so this does not restart animations or SFX
+-- while the player's effective state remains unchanged.
+function ezpress.handle_player_move(player_id, x, y, z)
+    if player_id == nil then return end
+    local area_id = Net.get_player_area(player_id)
+    if area_id == nil then return end
+
+    local pos = {
+        x = tonumber(x),
+        y = tonumber(y),
+        z = tonumber(z) or 0
+    }
+    if not pos.x or not pos.y then
+        pos = Net.get_player_position(player_id)
+    end
+
+    -- Only impose the area's default when leaving a tile we were tracking.
+    -- This keeps an explicit ezpress.compress() call from being undone on every
+    -- ordinary movement in an area without Minish Mode.
+    local tile = get_matching_tile(area_id, pos)
+    if tile then
+        ezpress.check_and_apply(player_id, area_id, pos, false)
+    elseif active_tile_by_player[player_id] then
+        active_tile_by_player[player_id] = nil
+        ezpress.apply_map_property(player_id, area_id, false, { source = "tile_departure" })
+    end
 end
 
 function ezpress.handle_player_disconnect(player_id)
+    if player_id == nil then return end
     compressed_players[player_id] = nil
+    active_tile_by_player[player_id] = nil
+    -- Do not broadcast a decompression on disconnect; the player no longer exists.
+    emit_event("player_disconnected", { player_id = player_id })
 end
 
--- ----------------------------------------------------------------------------
--- Initialisation: scan all areas for compression tiles (Minish Mode not cached)
--- ----------------------------------------------------------------------------
-local function init()
-    logger:info("[ezpress] Scanning for compression tiles...")
+local function scan_areas()
+    logger:info("[ezpress] Scanning areas for Compress/Decompress objects...")
+    local ok_areas, areas = pcall(Net.list_areas)
+    if not ok_areas or type(areas) ~= "table" then
+        logger:warn("[ezpress] Could not list areas; tile trigger scan skipped.")
+        return
+    end
 
-    local areas = Net.list_areas()
     for _, area_id in ipairs(areas) do
-        -- Scan objects for compress/decompress tiles
-        local objects = Net.list_objects(area_id)
-        for _, object_id in ipairs(objects) do
-            local obj = Net.get_object_by_id(area_id, object_id)
-            if obj and obj.custom_properties then
-                local props = obj.custom_properties
-                local is_compress = props.Compress == "true" or props.Compress == true
-                local is_decompress = props.Decompress == "true" or props.Decompress == true
+        local ok_objects, objects = pcall(Net.list_objects, area_id)
+        if ok_objects and type(objects) == "table" then
+            for _, object_id in ipairs(objects) do
+                local ok_obj, obj = pcall(Net.get_object_by_id, area_id, object_id)
+                if ok_obj and type(obj) == "table" then
+                    local props = obj.custom_properties or {}
+                    local is_compress = is_true(props.Compress or props.compress)
+                    local is_decompress = is_true(props.Decompress or props.decompress)
 
-                if is_compress or is_decompress then
-                    local trigger_type = is_compress and "compress" or "decompress"
-
-                    -- Add rectangle trigger via eztriggers
-                    local emitter = eztriggers.add_rectangle_trigger(area_id, obj, obj.width, obj.height)
-                    if emitter then
-                        -- Entered: apply tile effect (animated)
-                        emitter:on("entered", function(event)
-                            if trigger_type == "compress" then
-                                ezpress.compress(event.player_id, false)
-                            else
-                                ezpress.decompress(event.player_id, false)
-                            end
-                        end)
-
-                        -- Departed: revert to area's default (animated)
-                        emitter:on("departed", function(event)
-                            ezpress.apply_map_property(event.player_id, area_id, false)
-                        end)
-                    else
-                        logger:warn("[ezpress] Warning: could not create trigger for object", object_id)
+                    if is_compress or is_decompress then
+                        -- If both are true, Compress wins, matching the previous script.
+                        add_area_trigger(area_id, object_id, obj,
+                            is_compress and "compress" or "decompress")
                     end
-
-                    -- Store for manual checks
-                    if not area_triggers[area_id] then
-                        area_triggers[area_id] = {}
-                    end
-                    table.insert(area_triggers[area_id], {
-                        x = obj.x, y = obj.y, z = obj.z,
-                        width = obj.width, height = obj.height,
-                        type = trigger_type
-                    })
-
-                    logger:info(string.format("[ezpress] Added %s tile at (%.1f,%.1f,z=%d) in %s",
-                        trigger_type, obj.x, obj.y, obj.z, area_id))
                 end
             end
+        else
+            logger:for_area(area_id):warn("[ezpress] Could not list objects in area", tostring(area_id))
         end
     end
 
-    logger:info("[ezpress] Initialisation complete.")
+    logger:info("[ezpress] Tile scan complete.")
 end
 
--- Run initialisation immediately when the module is loaded
-init()
+scan_areas()
 
 return ezpress

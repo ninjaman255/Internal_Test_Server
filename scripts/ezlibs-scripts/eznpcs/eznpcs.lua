@@ -425,33 +425,41 @@ local function update_quest_exclusive_for_player(player_id)
     end
 end
 
--- Register handler for NPC objects
-object_registry.register_handler("NPC", function(area_id, object)
+-- Register regular NPCs and the pushback-enabled NPC subtype through the same
+-- creation path, so dialogue, waypoints, quest rules, and exclusivity stay consistent.
+local function register_npc_object(area_id, object)
     local props = object.custom_properties or {}
     local is_quest = is_property_true(props["Quest NPC"])
     local is_exclusive = is_property_true(props["Player Exclusive"])
-    local quest_exclusive = props["Quest Exclusive"]   -- string (quest name) or nil
+    local quest_exclusive = props["Quest Exclusive"]
 
     if quest_exclusive then
-        -- This is a quest‑exclusive placeholder
-        local required_state = props["Quest State"] or "active"   -- default state
+        local required_state = props["Quest State"] or "active"
         table.insert(quest_exclusive_placeholders, {
             area_id = area_id,
             object_id = object.id,
             quest_name = quest_exclusive,
             required_state = required_state
         })
-        printd("Registered quest‑exclusive placeholder id "..object.id.." in "..area_id.." for quest "..quest_exclusive)
+        printd("Registered quest-exclusive NPC placeholder id "..object.id.." in "..area_id.." for quest "..quest_exclusive)
     elseif is_quest or is_exclusive then
         printd("Skipping quest/exclusive NPC placeholder id "..object.id.." in "..area_id)
         if is_exclusive then
-            -- Store exclusive placeholder for later use
             table.insert(exclusive_placeholders, {area_id = area_id, object_id = object.id})
         end
     else
         create_bot_from_object(area_id, object)
     end
-end)
+end
+
+object_registry.register_handler("NPC", register_npc_object)
+object_registry.register_handler("Pushback NPC", register_npc_object)
+
+-- Public lookup used by companion systems such as ezpushback.
+function eznpcs.get_bot_for_placeholder(area_id, object_id)
+    local by_area = placeholder_to_botid[area_id]
+    return by_area and by_area[tostring(object_id)] or nil
+end
 
 -- Public API
 function eznpcs.load_npcs()
@@ -466,7 +474,7 @@ function eznpcs.add_npcs_to_area(area_id)
     local objects = Net.list_objects(area_id)
     for i, object_id in next, objects do
         local object = ezcache.get_object_by_id_cached(area_id, object_id)
-        if object and object.type == "NPC" then
+        if object and (object.type == "NPC" or object.type == "Pushback NPC") then
             local props = object.custom_properties or {}
             local is_quest = is_property_true(props["Quest NPC"])
             local is_exclusive = is_property_true(props["Player Exclusive"])
@@ -482,7 +490,11 @@ function eznpcs.add_npcs_to_area(area_id)
                     required_state = required_state
                 })
             elseif not is_quest and not is_exclusive then
-                create_bot_from_object(area_id, object)
+                -- Registry handlers already created ordinary and Pushback NPC bots.
+                -- Avoid creating a duplicate during the legacy second scan.
+                if not eznpcs.get_bot_for_placeholder(area_id, object.id) then
+                    create_bot_from_object(area_id, object)
+                end
             elseif is_exclusive then
                 -- Also store in exclusive_placeholders in case area was added after startup
                 table.insert(exclusive_placeholders, {area_id = area_id, object_id = object.id})
@@ -603,7 +615,7 @@ function eznpcs.handle_object_interaction(player_id, object_id)
     end
 
     -- Check if it's an exclusive NPC placeholder
-    if object.type == "NPC" and object.custom_properties then
+    if (object.type == "NPC" or object.type == "Pushback NPC") and object.custom_properties then
         if is_property_true(object.custom_properties["Player Exclusive"]) then
             printd("Exclusive NPC interaction for player", player_id, "placeholder", object.id)
             if not exclusive_npcs[player_id] or not exclusive_npcs[player_id][tostring(object.id)] then
