@@ -4,7 +4,7 @@
 -- own avatar, plays a movement animation, and carries the player to its endpoint.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpushback')
-local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
+local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')

@@ -9,7 +9,7 @@ local ezrushroads = {}-- ezrushroads.lua
 
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
-local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
+local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 -- Define local async/await using the global Async object (for use in handle_object_interaction)

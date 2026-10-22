@@ -3,7 +3,7 @@ local startup_start = os.clock()
 
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')   -- central event bus
-local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
+local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
 eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
@@ -23,6 +23,7 @@ local ezusers = require('scripts/ezlibs-scripts/ezusers')
 local ezbbs = require('scripts/ezlibs-scripts/ezbbs')
 local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
 local ezpushback = require('scripts/ezlibs-scripts/ezpushback')
+local ezbottriggers = require('scripts/ezlibs-scripts/eztriggers/ezbottriggers')
 
 local plugins = { 
     ezweather, 
@@ -40,7 +41,8 @@ local plugins = {
     ezusers,
     ezbbs,
     ezbuttons,
-    ezpushback
+    ezpushback,
+    ezbottriggers
 }
 
 local sfx = {

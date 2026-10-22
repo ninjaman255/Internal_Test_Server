@@ -28,13 +28,13 @@
 -- re-checking the entity's current position, mirroring eztriggers/ezbottriggers.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpress')
-local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
+local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local EventEmitter = require('scripts/ezlibs-scripts/ezemitter')
 
 -- ezbottriggers is a hard requirement for the bot-side tile triggers. If it
 -- ever fails to load, keep player behavior working and disable bot tiles.
-local ok_bottriggers, ezbottriggers = pcall(require, 'scripts/ezlibs-scripts/ezbottriggers')
+local ok_bottriggers, ezbottriggers = pcall(require, 'scripts/ezlibs-scripts/eztriggers/ezbottriggers')
 if not ok_bottriggers then
     logger:warn("[ezpress] ezbottriggers could not be loaded; bot tile triggers disabled.", tostring(ezbottriggers))
     ezbottriggers = nil

@@ -300,7 +300,7 @@ end
 -- Admin Console object handler (exclusive to ezusers)
 -- ============================================================================
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
-local eztriggers = require('scripts/ezlibs-scripts/eztriggers')
+local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 
 object_registry.register_handler("Admin Console", function(area_id, object)
     -- Create an interact trigger for this object
