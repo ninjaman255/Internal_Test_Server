@@ -674,7 +674,9 @@
     <property name="Dialogue Type" value="battle_npc"/>
     <property name="Encounter Name" value="BossTest"/>
     <property name="Failure Message" value="Oh No you failed!"/>
+    <property name="Kick On Loss" type="bool" value="false"/>
     <property name="Mugshot" value="shademan-exe5"/>
+    <property name="Persist" type="bool" value="true"/>
     <property name="Text 1" value="Think you can take me?"/>
    </properties>
    <point/>

@@ -1381,6 +1381,18 @@ return {
           ["type"] = "string",
           ["value"] = ""
         },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Dialogue Type == 'battle_npc'.",
+          ["dependsOn"] = {
+            ["equals"] = "battle_npc",
+            ["property"] = "Dialogue Type"
+          },
+          ["description"] = "If true, kick the player when they lose. If false, leave them in place with input unlocked (useful for scripted losses where the player stays in the map).",
+          ["name"] = "Kick On Loss",
+          ["type"] = "bool",
+          ["value"] = true
+        },
       },
     },
     ["Explosion Trigger"] = {
@@ -1441,54 +1453,80 @@ return {
     },
     ["Button Bot Details"] = {
       color = "#99ddff",
+      category    = "appearance",
+      description = "Visual and animation configuration for an OW Button.",
       members = {
         {
+          ["category"] = "appearance",
+          ["description"] = "Sprite asset name (no extension).",
           ["name"] = "Asset Name",
+          ["required"] = true,
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Facing direction.",
           ["name"] = "Direction",
           ["propertyType"] = "Direction",
+          ["required"] = true,
           ["type"] = "string",
           ["value"] = "Down"
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Optional idle animation; falls back to the asset default.",
           ["name"] = "Animation Name",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Optional portrait animation used while talking.",
           ["name"] = "Mug Animation Name",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Looped animation while the button is active.",
           ["name"] = "Active Animation",
           ["type"] = "string",
           ["value"] = "ACTIVE"
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Looped animation while the button is inactive.",
           ["name"] = "Inactive Animation",
           ["type"] = "string",
           ["value"] = "INACTIVE"
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "One-shot animation played when the button activates. Empty = snap straight to Active Animation.",
           ["name"] = "Activated Animation",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "One-shot animation played when the button deactivates. Empty = snap straight to Inactive Animation.",
           ["name"] = "Deactivated Animation",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used when Activated Animation is set.",
+          ["description"] = "Seconds the Activated Animation plays before the button state changes.",
           ["name"] = "Activation Animation Duration",
           ["type"] = "number",
           ["value"] = 0.5
         },
         {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used when Deactivated Animation is set.",
+          ["description"] = "Seconds the Deactivated Animation plays before the button state changes.",
           ["name"] = "Deactivation Animation Duration",
           ["type"] = "number",
           ["value"] = 0.5
@@ -1498,10 +1536,13 @@ return {
     ["OW Button"] = {
       color = "#66ccff",
       category    = "gameplay",
-      description = "One button in the ezbuttons system.",
+      description = "A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.",
       members = {
         {
+          ["category"] = "appearance",
+          ["description"] = "Reference to the Button Bot Details object that configures this button's appearance.",
           ["name"] = "Bot Details",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
@@ -1511,54 +1552,92 @@ return {
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "How the button reacts to player presence:\
+• Pressure Plate — active while anyone stands on it.\
+• One-Time — activates once and stays active.\
+• Toggle — flips active/inactive each press.\
+• Custom — runs a map-specific Lua script.\
+• Timed — activates, then auto-deactivates after Activated Time.",
           ["name"] = "Button Behavior",
           ["propertyType"] = "ButtonBehavior",
           ["type"] = "string",
           ["value"] = "One-Time"
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Button Behavior == 'Custom'.",
+          ["dependsOn"] = {
+            ["equals"] = "Custom",
+            ["property"] = "Button Behavior"
+          },
+          ["description"] = "Lua module path providing on_enter / on_exit handlers.",
           ["name"] = "Script Path",
           ["type"] = "file",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Optional separate trigger object. When set, its bounds override the button's own rectangle and Trigger Type/Width/Height are ignored.",
           ["name"] = "Trigger Object",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Optional reference to an Unlock Behavior object that defines which checkpoint this button unlocks.",
           ["name"] = "Button Activated Behavior",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Optional reference to a Relock Behavior object that defines which checkpoint this button re-locks when it deactivates.",
           ["name"] = "Button Deactivated Behavior",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "advanced",
+          ["description"] = "Reserved for future use. Currently not consulted by the runtime.",
           ["name"] = "Button Chain Type",
           ["propertyType"] = "ButtonChainType",
           ["type"] = "string",
           ["value"] = "Any"
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Trigger Object is empty.",
+          ["description"] = "Rectangle vs ellipse detection shape.",
           ["name"] = "Trigger Type",
           ["propertyType"] = "TriggerShape",
           ["type"] = "string",
           ["value"] = "rect"
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Trigger Object is empty.",
+          ["description"] = "Trigger rectangle width in map tiles.",
           ["name"] = "Trigger Width",
           ["type"] = "number",
           ["value"] = 4
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Trigger Object is empty.",
+          ["description"] = "Trigger rectangle height in map tiles.",
           ["name"] = "Trigger Height",
           ["type"] = "number",
           ["value"] = 4
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Button Behavior == 'Timed'.",
+          ["dependsOn"] = {
+            ["equals"] = "Timed",
+            ["property"] = "Button Behavior"
+          },
+          ["description"] = "Seconds the button stays active before auto-deactivating.",
           ["name"] = "Activated Time",
           ["type"] = "number",
           ["value"] = 1
@@ -1568,46 +1647,75 @@ return {
     ["OW Button Group Member"] = {
       color = "#66ddbb",
       category    = "gameplay",
-      description = "Button participating in a Button Group.",
+      description = "Button that participates in a Button Group or Button Combo but never unlocks checkpoints on its own.",
       members = {
         {
+          ["category"] = "appearance",
+          ["description"] = "Reference to the Button Bot Details object that configures this button's appearance.",
           ["name"] = "Bot Details",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Same modes as OW Button. Group members never run their own checkpoint actions; their state feeds the parent group.",
           ["name"] = "Button Behavior",
           ["propertyType"] = "ButtonBehavior",
           ["type"] = "string",
           ["value"] = "One-Time"
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Button Behavior == 'Custom'.",
+          ["dependsOn"] = {
+            ["equals"] = "Custom",
+            ["property"] = "Button Behavior"
+          },
           ["name"] = "Script Path",
           ["type"] = "file",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Optional separate trigger object. When set, its bounds override the button's own rectangle.",
           ["name"] = "Trigger Object",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Trigger Object is empty.",
+          ["description"] = "Rectangle vs ellipse detection shape.",
           ["name"] = "Trigger Type",
           ["propertyType"] = "TriggerShape",
           ["type"] = "string",
           ["value"] = "rect"
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Trigger Object is empty.",
+          ["description"] = "Trigger rectangle width in map tiles.",
           ["name"] = "Trigger Width",
           ["type"] = "number",
           ["value"] = 4
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Trigger Object is empty.",
+          ["description"] = "Trigger rectangle height in map tiles.",
           ["name"] = "Trigger Height",
           ["type"] = "number",
           ["value"] = 4
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Button Behavior == 'Timed'.",
+          ["dependsOn"] = {
+            ["equals"] = "Timed",
+            ["property"] = "Button Behavior"
+          },
+          ["description"] = "Seconds the button stays active before auto-deactivating.",
           ["name"] = "Activated Time",
           ["type"] = "number",
           ["value"] = 1
@@ -1616,18 +1724,27 @@ return {
     },
     ["Unlock Behavior"] = {
       color = "#ffcc00",
+      category    = "gameplay",
+      description = "Defines which checkpoint a button unlocks when it becomes active.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Checkpoint reference this behavior unlocks.",
           ["name"] = "Unlock This",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "true = stays hidden across disconnects; false = re-locks automatically when the button deactivates (or on reconnect).",
           ["name"] = "Unlock Permanently",
           ["type"] = "bool",
           ["value"] = false
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, unlocks for every player currently in the area, and for players who enter later (while active).",
           ["name"] = "Area Wide",
           ["type"] = "bool",
           ["value"] = false
@@ -1636,13 +1753,20 @@ return {
     },
     ["Relock Behavior"] = {
       color = "#ff8888",
+      category    = "gameplay",
+      description = "Defines which checkpoint a button re-locks when it becomes inactive.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Checkpoint reference this behavior re-locks.",
           ["name"] = "Relock This",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, re-locks for every player currently in the area.",
           ["name"] = "Area Wide",
           ["type"] = "bool",
           ["value"] = false
@@ -1651,8 +1775,12 @@ return {
     },
     ["Button Trigger"] = {
       color = "#aaddff",
+      category    = "gameplay",
+      description = "Optional standalone trigger rectangle referenced by an OW Button.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Rectangle vs ellipse detection shape for the referenced trigger object.",
           ["name"] = "Trigger Type",
           ["propertyType"] = "TriggerShape",
           ["type"] = "string",
@@ -1663,50 +1791,78 @@ return {
     ["Button Group"] = {
       color = "#66dd99",
       category    = "gameplay",
-      description = "Group of OW Buttons that satisfy together.",
+      description = "Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Optional stable identifier. Falls back to the object's Tiled ID.",
           ["name"] = "Group ID",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "How members combine:\
+• all_active — every referenced Button is active.\
+• any_active — at least one is active.\
+• combination — every Button is active AND every Forbidden Button is inactive.",
           ["name"] = "Group Mode",
           ["propertyType"] = "ButtonGroupMode",
           ["type"] = "string",
           ["value"] = "all_active"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Reference to a required OW Button Group Member. Add Button 2..N as needed in Tiled.",
           ["name"] = "Button 1",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only meaningful when Group Mode == 'combination'.",
+          ["dependsOn"] = {
+            ["equals"] = "combination",
+            ["property"] = "Group Mode"
+          },
+          ["description"] = "Reference to a member that must be inactive for the group to satisfy.",
           ["name"] = "Forbidden Button 1",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Checkpoint to unlock when the group transitions to satisfied. Add Unlock Checkpoint 2..N as needed.",
           ["name"] = "Unlock Checkpoint 1",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Whether the group's unlocks are permanent or should be re-locked on group dissolution.",
           ["name"] = "Unlock Permanently",
           ["type"] = "bool",
           ["value"] = true
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, unlock applies to every player in the area.",
           ["name"] = "Unlock Area Wide",
           ["type"] = "bool",
           ["value"] = false
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only meaningful when at least one Unlock Checkpoint is configured.",
+          ["description"] = "Checkpoint to re-lock when the group becomes unsatisfied. Add Relock Checkpoint 2..N as needed.",
           ["name"] = "Relock Checkpoint 1",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, relock applies to every player in the area.",
           ["name"] = "Relock Area Wide",
           ["type"] = "bool",
           ["value"] = false
@@ -1716,39 +1872,55 @@ return {
     ["Button Combo"] = {
       color = "#66bbdd",
       category    = "gameplay",
-      description = "One button pattern with optional unlock/relock targets.",
+      description = "One specific button pattern; owns its own checkpoint unlocks.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Reference to a required OW Button Group Member. Add Button 2..N as needed.",
           ["name"] = "Button 1",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Reference to a member that must be inactive for this combo to satisfy.",
           ["name"] = "Forbidden Button 1",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Checkpoint to unlock when this combo becomes satisfied. Add Unlock Checkpoint 2..N as needed.",
           ["name"] = "Unlock Checkpoint 1",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Whether this combo's unlocks are permanent or should be re-locked when the combo breaks.",
           ["name"] = "Unlock Permanently",
           ["type"] = "bool",
           ["value"] = true
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, unlock applies to every player in the area.",
           ["name"] = "Unlock Area Wide",
           ["type"] = "bool",
           ["value"] = false
         },
         {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only meaningful when at least one Unlock Checkpoint is configured.",
+          ["description"] = "Checkpoint to re-lock when this combo becomes unsatisfied. Add Relock Checkpoint 2..N as needed.",
           ["name"] = "Relock Checkpoint 1",
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "If true, relock applies to every player in the area.",
           ["name"] = "Relock Area Wide",
           ["type"] = "bool",
           ["value"] = false
@@ -1758,21 +1930,30 @@ return {
     ["Combo Button Group"] = {
       color = "#44bb88",
       category    = "gameplay",
-      description = "Any referenced Button Combo satisfies the group.",
+      description = "A set of Button Combos; satisfying any one fires that combo's actions.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Optional stable identifier. Falls back to the object's Tiled ID.",
           ["name"] = "Group ID",
           ["type"] = "string",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "How each referenced combo's button matches are evaluated:\
+• Inclusive — required buttons active and forbidden inactive; other group-members may be active too.\
+• Exclusive — same, but no other group-member button may be active.",
           ["name"] = "Combo Mode",
           ["propertyType"] = "ButtonComboMode",
           ["type"] = "string",
           ["value"] = "Inclusive"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Reference to a Button Combo. Add Button Combo 2..N as needed — satisfying ANY one fires its actions.",
           ["name"] = "Button Combo 1",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
@@ -1780,24 +1961,36 @@ return {
     },
     ["Button Effect"] = {
       color = "#ffbb66",
+      category    = "gameplay",
+      description = "One button's state transition drives another button's action.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Button whose state transition triggers this effect.",
           ["name"] = "Source Button",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Which transition on Source Button triggers the effect.",
           ["name"] = "Event",
           ["propertyType"] = "ButtonEffectEvent",
           ["type"] = "string",
           ["value"] = "activated"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Button this effect acts on.",
           ["name"] = "Target Button",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "What to do to the Target Button when the effect fires.",
           ["name"] = "Action",
           ["propertyType"] = "ButtonEffectAction",
           ["type"] = "string",
@@ -1807,24 +2000,36 @@ return {
     },
     ["Button Group Effect"] = {
       color = "#ff9966",
+      category    = "gameplay",
+      description = "A group's completion transition drives another button's action.",
       members = {
         {
+          ["category"] = "gameplay",
+          ["description"] = "Button Group (or Combo Button Group) whose completion transition triggers this effect.",
           ["name"] = "Button Group",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Which group transition triggers the effect.",
           ["name"] = "Event",
           ["propertyType"] = "ButtonGroupEvent",
           ["type"] = "string",
           ["value"] = "completed"
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "Button this effect acts on.",
           ["name"] = "Target Button",
+          ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
         },
         {
+          ["category"] = "gameplay",
+          ["description"] = "What to do to the Target Button when the effect fires.",
           ["name"] = "Action",
           ["propertyType"] = "ButtonEffectAction",
           ["type"] = "string",

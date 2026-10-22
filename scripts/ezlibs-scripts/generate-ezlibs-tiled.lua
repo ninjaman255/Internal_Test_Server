@@ -94,8 +94,6 @@ local Enums = {
         type = "string",
         values = {"Player", "Area Wide"}
     },
-    -- Element taxonomy used by `Key Type = "navi_element"` checkpoints and
-    -- any future navi-property that needs to reference an element.
     NaviElement = {
         type = "string",
         values = {"None", "Fire", "Aqua", "Elec", "Wood", "Sword",
@@ -132,8 +130,6 @@ local object_types = {
             prop("Description", "string", "It's a Security Cube"),
             prop("Unlocked Message", "string", "The Security Cube was unlocked!"),
             prop("Unlock Failed Message", "string", "You were unable to unlock the Security Cube"),
-
-            -- Navi-based unlock methods (Key Type = navi_name / navi_element / navi_list).
             prop("Navi Name", "string", ""),
             prop("Navi Element", "string", "", "NaviElement"),
             prop("Navi 1", "string", ""),
@@ -414,6 +410,7 @@ local object_types = {
             prop("Persist", "bool", true),
             prop("Encounter Name", "string", ""),
             prop("Failure Message", "string", ""),
+            prop("Kick On Loss", "bool", true),
         }
     },
     {
@@ -579,13 +576,6 @@ local object_types = {
 -- ----------------------------------------------------------------------
 -- META — additive metadata (never emitted into types.json; drives schema.lua,
 -- reference.md, and runtime validation).
---
--- Fields:
---   classes[cname] = { category, description, numberedTemplates }
---   properties[cname][pname] = {
---       category, required, description, conditional, dependsOn
---   }
---   dependsOn = { property="X", equals=... | oneOf={...} }
 -- ----------------------------------------------------------------------
 local META = {
     classes = {
@@ -611,22 +601,37 @@ local META = {
         ["Waypoint"] = { category = "gameplay",
             description = "Navigation node for NPCs.",
             numberedTemplates = { "Next Waypoint " } },
+
+        -- Button system -------------------------------------------------
+        ["Button Bot Details"] = { category = "appearance",
+            description = "Visual and animation configuration for an OW Button." },
         ["OW Button"] = { category = "gameplay",
-            description = "One button in the ezbuttons system.",
+            description = "A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.",
             numberedTemplates = { "Next " } },
         ["OW Button Group Member"] = { category = "gameplay",
-            description = "Button participating in a Button Group." },
+            description = "Button that participates in a Button Group or Button Combo but never unlocks checkpoints on its own." },
+        ["Unlock Behavior"] = { category = "gameplay",
+            description = "Defines which checkpoint a button unlocks when it becomes active." },
+        ["Relock Behavior"] = { category = "gameplay",
+            description = "Defines which checkpoint a button re-locks when it becomes inactive." },
+        ["Button Trigger"] = { category = "gameplay",
+            description = "Optional standalone trigger rectangle referenced by an OW Button." },
         ["Button Group"] = { category = "gameplay",
-            description = "Group of OW Buttons that satisfy together.",
+            description = "Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks.",
             numberedTemplates = { "Button ", "Forbidden Button ",
                                   "Unlock Checkpoint ", "Relock Checkpoint " } },
         ["Button Combo"] = { category = "gameplay",
-            description = "One button pattern with optional unlock/relock targets.",
+            description = "One specific button pattern; owns its own checkpoint unlocks.",
             numberedTemplates = { "Button ", "Forbidden Button ",
                                   "Unlock Checkpoint ", "Relock Checkpoint " } },
         ["Combo Button Group"] = { category = "gameplay",
-            description = "Any referenced Button Combo satisfies the group.",
+            description = "A set of Button Combos; satisfying any one fires that combo's actions.",
             numberedTemplates = { "Button Combo " } },
+        ["Button Effect"] = { category = "gameplay",
+            description = "One button's state transition drives another button's action." },
+        ["Button Group Effect"] = { category = "gameplay",
+            description = "A group's completion transition drives another button's action." },
+
         ["Compression Tile"] = { category = "advanced",
             description = "Changes player or area scale while standing inside." },
         ["Item"] = { category = "gameplay",
@@ -636,132 +641,78 @@ local META = {
     },
 
     properties = {
+        -- Checkpoint ----------------------------------------------------
         ["Checkpoint"] = {
-            ["Password"] = {
-                category = "gameplay",
-                description = "If set, requires typing this password to unlock. Overrides Key Type.",
-            },
-            ["Key Type"] = {
-                category = "gameplay",
-                description = "How to unlock when Password is empty. Ignored when Password is set.",
-            },
-            ["Key Item Name"] = {
-                category = "gameplay",
+            ["Password"] = { category = "gameplay",
+                description = "If set, requires typing this password to unlock. Overrides Key Type." },
+            ["Key Type"] = { category = "gameplay",
+                description = "How to unlock when Password is empty. Ignored when Password is set." },
+            ["Key Item Name"] = { category = "gameplay",
                 description = "Item name required when Key Type == 'item'.",
                 conditional = "Only used when Key Type == 'item'.",
-                dependsOn = { property = "Key Type", equals = "item" },
-            },
-            ["Required Keys"] = {
-                category = "gameplay",
-                description = "Amount required for money / fragments / tokens / item.",
-            },
-            ["Consume"] = {
-                category = "gameplay",
-                description = "Whether to consume the key on unlock.",
-            },
-            ["Once"] = {
-                category = "gameplay",
-                description = "If true, stays hidden permanently; else hidden till disconnect.",
-            },
-            ["Unlocking Asset Name"] = {
-                category = "appearance",
-                description = "Asset played during the unlock animation.",
-            },
-            ["Unlocking Animation Time"] = {
-                category = "appearance",
-                description = "Seconds to play the unlock animation; 0 skips it.",
-            },
-            ["Unlocking Sound Path"] = {
-                category = "appearance",
-                description = "Sound asset to play when the checkpoint unlocks.",
-            },
-            ["Skip Prompt"] = {
-                category = "gameplay",
-                description = "If true, attempts the unlock without asking the player.",
-            },
-            ["Description"] = {
-                category = "gameplay",
-                description = "Shown to the player before the unlock check.",
-            },
-            ["Unlocked Message"] = {
-                category = "gameplay",
-                description = "Shown on successful unlock.",
-            },
-            ["Unlock Failed Message"] = {
-                category = "gameplay",
-                description = "Shown when the unlock check fails.",
-            },
-            ["Navi Name"] = {
-                category = "gameplay",
+                dependsOn = { property = "Key Type", equals = "item" } },
+            ["Required Keys"] = { category = "gameplay",
+                description = "Amount required for money / fragments / tokens / item." },
+            ["Consume"] = { category = "gameplay",
+                description = "Whether to consume the key on unlock." },
+            ["Once"] = { category = "gameplay",
+                description = "If true, stays hidden permanently; else hidden till disconnect." },
+            ["Unlocking Asset Name"] = { category = "appearance",
+                description = "Asset played during the unlock animation." },
+            ["Unlocking Animation Time"] = { category = "appearance",
+                description = "Seconds to play the unlock animation; 0 skips it." },
+            ["Unlocking Sound Path"] = { category = "appearance",
+                description = "Sound asset to play when the checkpoint unlocks." },
+            ["Skip Prompt"] = { category = "gameplay",
+                description = "If true, attempts the unlock without asking the player." },
+            ["Description"] = { category = "gameplay",
+                description = "Shown to the player before the unlock check." },
+            ["Unlocked Message"] = { category = "gameplay",
+                description = "Shown on successful unlock." },
+            ["Unlock Failed Message"] = { category = "gameplay",
+                description = "Shown when the unlock check fails." },
+            ["Navi Name"] = { category = "gameplay",
                 description = "Exact Navi name required to unlock (case-insensitive).",
                 conditional = "Only used when Key Type == 'navi_name'.",
-                dependsOn = { property = "Key Type", equals = "navi_name" },
-            },
-            ["Navi Element"] = {
-                category = "gameplay",
+                dependsOn = { property = "Key Type", equals = "navi_name" } },
+            ["Navi Element"] = { category = "gameplay",
                 description = "Navi element required to unlock (case-insensitive).",
                 conditional = "Only used when Key Type == 'navi_element'.",
-                dependsOn = { property = "Key Type", equals = "navi_element" },
-            },
-            ["Navi 1"] = {
-                category = "gameplay",
+                dependsOn = { property = "Key Type", equals = "navi_element" } },
+            ["Navi 1"] = { category = "gameplay",
                 description = "First entry in the approved-Navi list (any match unlocks).",
                 conditional = "Only used when Key Type == 'navi_list'.",
-                dependsOn = { property = "Key Type", equals = "navi_list" },
-            },
-            -- Navi 2..Navi 10 inherit Navi 1's category and description
-            -- conventions via the reference-doc fallback (no per-field entry
-            -- needed).
+                dependsOn = { property = "Key Type", equals = "navi_list" } },
         },
+
+        -- NPC / Pushback / FootBomb -------------------------------------
         ["NPC"] = {
-            ["Direction"] = {
-                category = "appearance",
+            ["Direction"] = { category = "appearance",
                 description = "Initial facing (Tiled default populates it).",
-                required = true,
-            },
-            ["Asset Name"] = {
-                category = "appearance",
+                required = true },
+            ["Asset Name"] = { category = "appearance",
                 description = "Sprite asset name (no extension).",
-                required = true,
-            },
-            ["Animation Name"] = {
-                category = "appearance",
-                description = "Idle animation; uses asset default if empty.",
-            },
-            ["Mug Animation Name"] = {
-                category = "appearance",
-                description = "Portrait animation used while talking.",
-            },
-            ["Dont Face Player"] = {
-                category = "appearance",
-                description = "If true, the NPC does not turn to face the player.",
-            },
-            ["First Dialogue"] = {
-                category = "dialogue",
-                description = "Reference to the root Dialogue object.",
-            },
-            ["Next Waypoint 1"] = {
-                category = "gameplay",
-                description = "First waypoint in the NPC's path.",
-            },
-            ["Player Exclusive"] = {
-                category = "advanced",
-                description = "Only spawned for the owning player.",
-            },
-            ["Quest NPC"] = {
-                category = "advanced",
-                description = "NPC is tied to quest state (see Quest Exclusive / Quest State).",
-            },
-            ["Quest Exclusive"] = {
-                category = "advanced",
-                description = "Quest name; when set, the NPC is created per-player for that quest.",
-            },
-            ["Quest State"] = {
-                category = "advanced",
+                required = true },
+            ["Animation Name"] = { category = "appearance",
+                description = "Idle animation; uses asset default if empty." },
+            ["Mug Animation Name"] = { category = "appearance",
+                description = "Portrait animation used while talking." },
+            ["Dont Face Player"] = { category = "appearance",
+                description = "If true, the NPC does not turn to face the player." },
+            ["First Dialogue"] = { category = "dialogue",
+                description = "Reference to the root Dialogue object." },
+            ["Next Waypoint 1"] = { category = "gameplay",
+                description = "First waypoint in the NPC's path." },
+            ["Player Exclusive"] = { category = "advanced",
+                description = "Only spawned for the owning player." },
+            ["Quest NPC"] = { category = "advanced",
+                description = "NPC is tied to quest state (see Quest Exclusive / Quest State)." },
+            ["Quest Exclusive"] = { category = "advanced",
+                description = "Quest name; when set, the NPC is created per-player for that quest." },
+            ["Quest State"] = { category = "advanced",
                 description = "Required quest state for the NPC to appear.",
                 conditional = "Only used when Quest Exclusive is set.",
-                dependsOn = { property = "Quest Exclusive" },
-            },
+                dependsOn = { property = "Quest Exclusive" } },
         },
         ["Pushback NPC"] = {
             ["Collision Enabled"] = { category = "gameplay",
@@ -786,49 +737,35 @@ local META = {
                 description = "Match target score.",
                 required = true },
         },
+
+        -- Mystery / Dialogue / Waypoint --------------------------------
         ["Mystery Data"] = {
             ["Type"] = { category = "gameplay",
                 description = "Selects the event flow." },
-            ["Quiz List"] = {
-                category = "dialogue",
+            ["Quiz List"] = { category = "dialogue",
                 description = "Root Quiz List object.",
                 conditional = "Only used when Type == 'quiz'.",
-                dependsOn = { property = "Type", equals = "quiz" },
-            },
-            ["Reward Type"] = {
-                category = "gameplay",
+                dependsOn = { property = "Type", equals = "quiz" } },
+            ["Reward Type"] = { category = "gameplay",
                 conditional = "Only used when Type == 'quiz'.",
-                dependsOn = { property = "Type", equals = "quiz" },
-            },
-            ["Reward Name"] = {
-                category = "gameplay",
+                dependsOn = { property = "Type", equals = "quiz" } },
+            ["Reward Name"] = { category = "gameplay",
                 conditional = "Only used when Type == 'quiz'.",
-                dependsOn = { property = "Type", equals = "quiz" },
-            },
-            ["Reward Amount"] = {
-                category = "gameplay",
+                dependsOn = { property = "Type", equals = "quiz" } },
+            ["Reward Amount"] = { category = "gameplay",
                 conditional = "Only used when Type == 'quiz'.",
-                dependsOn = { property = "Type", equals = "quiz" },
-            },
-            ["Reward Description"] = {
-                category = "gameplay",
+                dependsOn = { property = "Type", equals = "quiz" } },
+            ["Reward Description"] = { category = "gameplay",
                 conditional = "Only used when Type == 'quiz'.",
-                dependsOn = { property = "Type", equals = "quiz" },
-            },
-            ["Cost Type"] = {
-                category = "gameplay",
-                description = "If non-empty, the object charges this currency on use.",
-            },
-            ["Cost Amount"] = {
-                category = "gameplay",
+                dependsOn = { property = "Type", equals = "quiz" } },
+            ["Cost Type"] = { category = "gameplay",
+                description = "If non-empty, the object charges this currency on use." },
+            ["Cost Amount"] = { category = "gameplay",
                 conditional = "Only used when Cost Type is set.",
-                dependsOn = { property = "Cost Type" },
-            },
-            ["Cost Failure Message"] = {
-                category = "gameplay",
+                dependsOn = { property = "Cost Type" } },
+            ["Cost Failure Message"] = { category = "gameplay",
                 conditional = "Only used when Cost Type is set.",
-                dependsOn = { property = "Cost Type" },
-            },
+                dependsOn = { property = "Cost Type" } },
         },
         ["Dialogue"] = {
             ["Text 1"] = { category = "dialogue",
@@ -842,74 +779,255 @@ local META = {
                 conditional = "Only used by Dialogue Type 'item', 'itemcheck', or 'shop'.",
                 dependsOn = { property = "Dialogue Type",
                               oneOf = { "item", "itemcheck", "shop" } } },
-            ["Take Item"] = {
-                category = "dialogue",
+            ["Take Item"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'itemcheck'.",
                 dependsOn = { property = "Dialogue Type", equals = "itemcheck" } },
-            ["Date"] = {
-                category = "dialogue",
+            ["Date"] = { category = "dialogue",
                 conditional = "Only used by Dialogue Type 'before' or 'after'.",
                 dependsOn = { property = "Dialogue Type",
                               oneOf = { "before", "after" } } },
-            ["Quest Name"] = {
-                category = "dialogue",
+            ["Quest Name"] = { category = "dialogue",
                 conditional = "Only used by quest-related Dialogue Types.",
                 dependsOn = { property = "Dialogue Type",
                               oneOf = { "quest_switch", "quest_event", "questcheck" } } },
-            ["Event Value"] = {
-                category = "dialogue",
+            ["Event Value"] = { category = "dialogue",
                 conditional = "Only used by Dialogue Type 'quest_event'.",
                 dependsOn = { property = "Dialogue Type", equals = "quest_event" } },
-            ["Email Id"] = {
-                category = "dialogue",
+            ["Email Id"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Email Icon"] = {
-                category = "dialogue",
+            ["Email Icon"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Email Title"] = {
-                category = "dialogue",
+            ["Email Title"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Email From"] = {
-                category = "dialogue",
+            ["Email From"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Mug Texture Path"] = {
-                category = "appearance",
+            ["Mug Texture Path"] = { category = "appearance",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Mug Animation Path"] = {
-                category = "appearance",
+            ["Mug Animation Path"] = { category = "appearance",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Persist"] = {
-                category = "dialogue",
+            ["Persist"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'email'.",
                 dependsOn = { property = "Dialogue Type", equals = "email" } },
-            ["Dont Notify"] = {
-                category = "dialogue",
+            ["Dont Notify"] = { category = "dialogue",
                 conditional = "Only used by Dialogue Type 'item' or 'email'.",
                 dependsOn = { property = "Dialogue Type",
                               oneOf = { "item", "email" } } },
-            ["Encounter Name"] = {
-                category = "dialogue",
+            ["Encounter Name"] = { category = "dialogue",
                 conditional = "Only used when Dialogue Type == 'battle_npc'.",
                 dependsOn = { property = "Dialogue Type", equals = "battle_npc" } },
-            ["Failure Message"] = {
-                category = "dialogue",
+            ["Failure Message"] = { category = "dialogue",
+                conditional = "Only used when Dialogue Type == 'battle_npc'.",
+                dependsOn = { property = "Dialogue Type", equals = "battle_npc" } },
+            ["Kick On Loss"] = { category = "gameplay",
+                description = "If true, kick the player when they lose. " ..
+                              "If false, leave them in place with input unlocked " ..
+                              "(useful for scripted losses where the player stays in the map).",
                 conditional = "Only used when Dialogue Type == 'battle_npc'.",
                 dependsOn = { property = "Dialogue Type", equals = "battle_npc" } },
         },
         ["Waypoint"] = {
             ["Waypoint Type"] = { category = "gameplay",
                 description = "How the next waypoint is selected." },
-            ["Date"] = {
-                category = "gameplay",
+            ["Date"] = { category = "gameplay",
                 conditional = "Only used when Waypoint Type is 'before' or 'after'.",
                 dependsOn = { property = "Waypoint Type",
                               oneOf = { "before", "after" } } },
+        },
+
+        -- Button system -------------------------------------------------
+        ["Button Bot Details"] = {
+            ["Asset Name"] = { category = "appearance",
+                description = "Sprite asset name (no extension).",
+                required = true },
+            ["Direction"] = { category = "appearance",
+                description = "Facing direction.",
+                required = true },
+            ["Animation Name"] = { category = "appearance",
+                description = "Optional idle animation; falls back to the asset default." },
+            ["Mug Animation Name"] = { category = "appearance",
+                description = "Optional portrait animation used while talking." },
+            ["Active Animation"] = { category = "appearance",
+                description = "Looped animation while the button is active." },
+            ["Inactive Animation"] = { category = "appearance",
+                description = "Looped animation while the button is inactive." },
+            ["Activated Animation"] = { category = "appearance",
+                description = "One-shot animation played when the button activates. Empty = snap straight to Active Animation." },
+            ["Deactivated Animation"] = { category = "appearance",
+                description = "One-shot animation played when the button deactivates. Empty = snap straight to Inactive Animation." },
+            ["Activation Animation Duration"] = { category = "appearance",
+                description = "Seconds the Activated Animation plays before the button state changes.",
+                conditional = "Only used when Activated Animation is set." },
+            ["Deactivation Animation Duration"] = { category = "appearance",
+                description = "Seconds the Deactivated Animation plays before the button state changes.",
+                conditional = "Only used when Deactivated Animation is set." },
+        },
+        ["OW Button"] = {
+            ["Bot Details"] = { category = "appearance",
+                description = "Reference to the Button Bot Details object that configures this button's appearance.",
+                required = true },
+            ["Button Behavior"] = { category = "gameplay",
+                description = "How the button reacts to player presence:\n"
+                    .. "• Pressure Plate — active while anyone stands on it.\n"
+                    .. "• One-Time — activates once and stays active.\n"
+                    .. "• Toggle — flips active/inactive each press.\n"
+                    .. "• Custom — runs a map-specific Lua script.\n"
+                    .. "• Timed — activates, then auto-deactivates after Activated Time." },
+            ["Script Path"] = { category = "gameplay",
+                description = "Lua module path providing on_enter / on_exit handlers.",
+                conditional = "Only used when Button Behavior == 'Custom'.",
+                dependsOn = { property = "Button Behavior", equals = "Custom" } },
+            ["Trigger Object"] = { category = "gameplay",
+                description = "Optional separate trigger object. When set, its bounds override the button's own rectangle and Trigger Type/Width/Height are ignored." },
+            ["Button Activated Behavior"] = { category = "gameplay",
+                description = "Optional reference to an Unlock Behavior object that defines which checkpoint this button unlocks." },
+            ["Button Deactivated Behavior"] = { category = "gameplay",
+                description = "Optional reference to a Relock Behavior object that defines which checkpoint this button re-locks when it deactivates." },
+            ["Button Chain Type"] = { category = "advanced",
+                description = "Reserved for future use. Currently not consulted by the runtime." },
+            ["Trigger Type"] = { category = "gameplay",
+                description = "Rectangle vs ellipse detection shape.",
+                conditional = "Only used when Trigger Object is empty." },
+            ["Trigger Width"] = { category = "gameplay",
+                description = "Trigger rectangle width in map tiles.",
+                conditional = "Only used when Trigger Object is empty." },
+            ["Trigger Height"] = { category = "gameplay",
+                description = "Trigger rectangle height in map tiles.",
+                conditional = "Only used when Trigger Object is empty." },
+            ["Activated Time"] = { category = "gameplay",
+                description = "Seconds the button stays active before auto-deactivating.",
+                conditional = "Only used when Button Behavior == 'Timed'.",
+                dependsOn = { property = "Button Behavior", equals = "Timed" } },
+        },
+        ["OW Button Group Member"] = {
+            ["Bot Details"] = { category = "appearance",
+                description = "Reference to the Button Bot Details object that configures this button's appearance.",
+                required = true },
+            ["Button Behavior"] = { category = "gameplay",
+                description = "Same modes as OW Button. Group members never run their own checkpoint actions; their state feeds the parent group." },
+            ["Script Path"] = { category = "gameplay",
+                conditional = "Only used when Button Behavior == 'Custom'.",
+                dependsOn = { property = "Button Behavior", equals = "Custom" } },
+            ["Trigger Object"] = { category = "gameplay",
+                description = "Optional separate trigger object. When set, its bounds override the button's own rectangle." },
+            ["Trigger Type"] = { category = "gameplay",
+                description = "Rectangle vs ellipse detection shape.",
+                conditional = "Only used when Trigger Object is empty." },
+            ["Trigger Width"] = { category = "gameplay",
+                description = "Trigger rectangle width in map tiles.",
+                conditional = "Only used when Trigger Object is empty." },
+            ["Trigger Height"] = { category = "gameplay",
+                description = "Trigger rectangle height in map tiles.",
+                conditional = "Only used when Trigger Object is empty." },
+            ["Activated Time"] = { category = "gameplay",
+                description = "Seconds the button stays active before auto-deactivating.",
+                conditional = "Only used when Button Behavior == 'Timed'.",
+                dependsOn = { property = "Button Behavior", equals = "Timed" } },
+        },
+        ["Unlock Behavior"] = {
+            ["Unlock This"] = { category = "gameplay",
+                description = "Checkpoint reference this behavior unlocks.",
+                required = true },
+            ["Unlock Permanently"] = { category = "gameplay",
+                description = "true = stays hidden across disconnects; false = re-locks automatically when the button deactivates (or on reconnect)." },
+            ["Area Wide"] = { category = "gameplay",
+                description = "If true, unlocks for every player currently in the area, and for players who enter later (while active)." },
+        },
+        ["Relock Behavior"] = {
+            ["Relock This"] = { category = "gameplay",
+                description = "Checkpoint reference this behavior re-locks.",
+                required = true },
+            ["Area Wide"] = { category = "gameplay",
+                description = "If true, re-locks for every player currently in the area." },
+        },
+        ["Button Trigger"] = {
+            ["Trigger Type"] = { category = "gameplay",
+                description = "Rectangle vs ellipse detection shape for the referenced trigger object." },
+        },
+        ["Button Group"] = {
+            ["Group ID"] = { category = "gameplay",
+                description = "Optional stable identifier. Falls back to the object's Tiled ID." },
+            ["Group Mode"] = { category = "gameplay",
+                description = "How members combine:\n"
+                    .. "• all_active — every referenced Button is active.\n"
+                    .. "• any_active — at least one is active.\n"
+                    .. "• combination — every Button is active AND every Forbidden Button is inactive." },
+            ["Button 1"] = { category = "gameplay",
+                description = "Reference to a required OW Button Group Member. Add Button 2..N as needed in Tiled.",
+                required = true },
+            ["Forbidden Button 1"] = { category = "gameplay",
+                description = "Reference to a member that must be inactive for the group to satisfy.",
+                conditional = "Only meaningful when Group Mode == 'combination'.",
+                dependsOn = { property = "Group Mode", equals = "combination" } },
+            ["Unlock Checkpoint 1"] = { category = "gameplay",
+                description = "Checkpoint to unlock when the group transitions to satisfied. Add Unlock Checkpoint 2..N as needed." },
+            ["Unlock Permanently"] = { category = "gameplay",
+                description = "Whether the group's unlocks are permanent or should be re-locked on group dissolution." },
+            ["Unlock Area Wide"] = { category = "gameplay",
+                description = "If true, unlock applies to every player in the area." },
+            ["Relock Checkpoint 1"] = { category = "gameplay",
+                description = "Checkpoint to re-lock when the group becomes unsatisfied. Add Relock Checkpoint 2..N as needed.",
+                conditional = "Only meaningful when at least one Unlock Checkpoint is configured." },
+            ["Relock Area Wide"] = { category = "gameplay",
+                description = "If true, relock applies to every player in the area." },
+        },
+        ["Button Combo"] = {
+            ["Button 1"] = { category = "gameplay",
+                description = "Reference to a required OW Button Group Member. Add Button 2..N as needed.",
+                required = true },
+            ["Forbidden Button 1"] = { category = "gameplay",
+                description = "Reference to a member that must be inactive for this combo to satisfy." },
+            ["Unlock Checkpoint 1"] = { category = "gameplay",
+                description = "Checkpoint to unlock when this combo becomes satisfied. Add Unlock Checkpoint 2..N as needed." },
+            ["Unlock Permanently"] = { category = "gameplay",
+                description = "Whether this combo's unlocks are permanent or should be re-locked when the combo breaks." },
+            ["Unlock Area Wide"] = { category = "gameplay",
+                description = "If true, unlock applies to every player in the area." },
+            ["Relock Checkpoint 1"] = { category = "gameplay",
+                description = "Checkpoint to re-lock when this combo becomes unsatisfied. Add Relock Checkpoint 2..N as needed.",
+                conditional = "Only meaningful when at least one Unlock Checkpoint is configured." },
+            ["Relock Area Wide"] = { category = "gameplay",
+                description = "If true, relock applies to every player in the area." },
+        },
+        ["Combo Button Group"] = {
+            ["Group ID"] = { category = "gameplay",
+                description = "Optional stable identifier. Falls back to the object's Tiled ID." },
+            ["Combo Mode"] = { category = "gameplay",
+                description = "How each referenced combo's button matches are evaluated:\n"
+                    .. "• Inclusive — required buttons active and forbidden inactive; other group-members may be active too.\n"
+                    .. "• Exclusive — same, but no other group-member button may be active." },
+            ["Button Combo 1"] = { category = "gameplay",
+                description = "Reference to a Button Combo. Add Button Combo 2..N as needed — satisfying ANY one fires its actions.",
+                required = true },
+        },
+        ["Button Effect"] = {
+            ["Source Button"] = { category = "gameplay",
+                description = "Button whose state transition triggers this effect.",
+                required = true },
+            ["Event"] = { category = "gameplay",
+                description = "Which transition on Source Button triggers the effect." },
+            ["Target Button"] = { category = "gameplay",
+                description = "Button this effect acts on.",
+                required = true },
+            ["Action"] = { category = "gameplay",
+                description = "What to do to the Target Button when the effect fires." },
+        },
+        ["Button Group Effect"] = {
+            ["Button Group"] = { category = "gameplay",
+                description = "Button Group (or Combo Button Group) whose completion transition triggers this effect.",
+                required = true },
+            ["Event"] = { category = "gameplay",
+                description = "Which group transition triggers the effect." },
+            ["Target Button"] = { category = "gameplay",
+                description = "Button this effect acts on.",
+                required = true },
+            ["Action"] = { category = "gameplay",
+                description = "What to do to the Target Button when the effect fires." },
         },
     }
 }
@@ -923,7 +1041,6 @@ local function validate_schema()
         errors[#errors+1] = string.format(fmt, ...)
     end
 
-    -- 1. Duplicate class names
     local seen_classes = {}
     for _, ot in ipairs(object_types) do
         if seen_classes[ot.name] then
@@ -932,7 +1049,6 @@ local function validate_schema()
         seen_classes[ot.name] = true
     end
 
-    -- 2. Per-class property checks
     for _, ot in ipairs(object_types) do
         local seen = {}
         for i, p in ipairs(ot.members) do
@@ -943,7 +1059,6 @@ local function validate_schema()
                     err("%s: duplicate property '%s'", ot.name, p.name)
                 end
                 seen[p.name] = true
-
                 if p.propertyType and not Enums[p.propertyType] then
                     err("%s.%s: propertyType '%s' not declared in Enums",
                         ot.name, p.name, tostring(p.propertyType))
@@ -951,7 +1066,6 @@ local function validate_schema()
             end
         end
 
-        -- dependsOn targets
         local meta = META.properties[ot.name] or {}
         for pname, pm in pairs(meta) do
             local dep = pm.dependsOn
@@ -967,8 +1081,6 @@ local function validate_schema()
     return #errors == 0, errors
 end
 
--- ----------------------------------------------------------------------
--- Strip metadata for the Tiled types.json
 -- ----------------------------------------------------------------------
 local METADATA_FIELDS = {
     category = true, required = true, description = true,
@@ -991,9 +1103,6 @@ local function strip_class_members(members)
     return out
 end
 
--- ----------------------------------------------------------------------
--- Build types.json (unchanged shape from existing generator)
--- ----------------------------------------------------------------------
 local function build_tiled_types()
     local output = {}
     local id = 1
@@ -1031,8 +1140,6 @@ local function build_tiled_types()
     return output
 end
 
--- ----------------------------------------------------------------------
--- Build schema.lua
 -- ----------------------------------------------------------------------
 local function lua_quote(s)
     return string.format("%q", s)
@@ -1094,7 +1201,6 @@ local function build_schema_lua()
 
     w("-- Auto-generated by generate-ezlibs-tiled.lua. Do not edit by hand.")
     w("return {")
-
     w("  enums = {")
     local enum_names = {}
     for name in pairs(Enums) do enum_names[#enum_names+1] = name end
@@ -1124,12 +1230,9 @@ local function build_schema_lua()
     end
     w("  },")
     w("}")
-
     return table.concat(lines, "\n")
 end
 
--- ----------------------------------------------------------------------
--- Build reference.md
 -- ----------------------------------------------------------------------
 local CATEGORY_ORDER = {
     appearance = 1, dialogue = 2, gameplay = 3, advanced = 4,
@@ -1291,7 +1394,6 @@ local function main(output_path, pretty)
     output_path = output_path or "ezlibs-tiled-types.json"
     pretty = pretty or false
 
-    -- 1. Validate
     local ok, errors = validate_schema()
     if not ok then
         io.stderr:write("Schema validation failed:\n")
@@ -1301,7 +1403,6 @@ local function main(output_path, pretty)
         error("aborting due to schema errors")
     end
 
-    -- 2. types.json
     local types = build_tiled_types()
     do
         local f, err = io.open(output_path, "w")
@@ -1315,7 +1416,6 @@ local function main(output_path, pretty)
 
     local dir = dirname(output_path)
 
-    -- 3. schema.lua
     do
         local path = dir .. "ezlibs-tiled-schema.lua"
         local f = assert(io.open(path, "w"))
@@ -1325,7 +1425,6 @@ local function main(output_path, pretty)
         print("Generated runtime schema: " .. path)
     end
 
-    -- 4. reference.md
     do
         local path = dir .. "ezlibs-tiled-reference.md"
         local f = assert(io.open(path, "w"))

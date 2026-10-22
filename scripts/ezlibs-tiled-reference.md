@@ -489,6 +489,7 @@ Dialogue node. Many properties are type-specific; see the Conditional section.
 | `Text 1` | string |  | `""` | dialogue | Primary text; meaning varies by Dialogue Type. |
 | `Text 2` | string |  | `""` | dialogue |  |
 | `Text 3` | string |  | `""` | dialogue |  |
+| `Kick On Loss` | bool |  | true | gameplay | If true, kick the player when they lose. If false, leave them in place with input unlocked (useful for scripted losses where the player stays in the map). |
 
 **Template properties:** `Text N`, `Next N`, `Item N`, `Body N` — add additional numbered instances manually in Tiled.
 
@@ -509,6 +510,7 @@ Dialogue node. Many properties are type-specific; see the Conditional section.
 - `Persist`: Only used when Dialogue Type == 'email'. Only meaningful when `Dialogue Type` == `email`.
 - `Quest Name`: Only used by quest-related Dialogue Types. Only meaningful when `Dialogue Type` in {`quest_switch`, `quest_event`, `questcheck`}.
 - `Take Item`: Only used when Dialogue Type == 'itemcheck'. Only meaningful when `Dialogue Type` == `itemcheck`.
+- `Kick On Loss`: Only used when Dialogue Type == 'battle_npc'. Only meaningful when `Dialogue Type` == `battle_npc`.
 
 ### Explosion Trigger
 
@@ -541,138 +543,180 @@ Changes player or area scale while standing inside.
 |---|---|---|---|---|---|
 
 ### Button Bot Details
+**Category:** appearance
+Visual and animation configuration for an OW Button.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Activated Animation` | string |  | `""` |  |  |
-| `Activation Animation Duration` | number |  | 0.5 |  |  |
-| `Active Animation` | string |  | `ACTIVE` |  |  |
-| `Animation Name` | string |  | `""` |  |  |
-| `Asset Name` | string |  | `""` |  |  |
-| `Deactivated Animation` | string |  | `""` |  |  |
-| `Deactivation Animation Duration` | number |  | 0.5 |  |  |
-| `Direction` | string (Direction) |  | `Down` |  |  |
-| `Inactive Animation` | string |  | `INACTIVE` |  |  |
-| `Mug Animation Name` | string |  | `""` |  |  |
+| `Activated Animation` | string |  | `""` | appearance | One-shot animation played when the button activates. Empty = snap straight to Active Animation. |
+| `Activation Animation Duration` | number |  | 0.5 | appearance | Seconds the Activated Animation plays before the button state changes. |
+| `Active Animation` | string |  | `ACTIVE` | appearance | Looped animation while the button is active. |
+| `Animation Name` | string |  | `""` | appearance | Optional idle animation; falls back to the asset default. |
+| `Asset Name` | string | yes | `""` | appearance | Sprite asset name (no extension). |
+| `Deactivated Animation` | string |  | `""` | appearance | One-shot animation played when the button deactivates. Empty = snap straight to Inactive Animation. |
+| `Deactivation Animation Duration` | number |  | 0.5 | appearance | Seconds the Deactivated Animation plays before the button state changes. |
+| `Direction` | string (Direction) | yes | `Down` | appearance | Facing direction. |
+| `Inactive Animation` | string |  | `INACTIVE` | appearance | Looped animation while the button is inactive. |
+| `Mug Animation Name` | string |  | `""` | appearance | Optional portrait animation used while talking. |
+
+**Conditional properties**
+
+- `Activation Animation Duration`: Only used when Activated Animation is set.
+- `Deactivation Animation Duration`: Only used when Deactivated Animation is set.
 
 ### OW Button
 **Category:** gameplay
-One button in the ezbuttons system.
+A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Activated Time` | number |  | 1 | gameplay |  |
-| `Bot Details` | object |  | `""` | gameplay |  |
-| `Button Activated Behavior` | object |  | `""` | gameplay |  |
-| `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay |  |
-| `Button Chain Type` | string (ButtonChainType) |  | `Any` | gameplay |  |
-| `Button Deactivated Behavior` | object |  | `""` | gameplay |  |
+| `Bot Details` | object | yes | `""` | appearance | Reference to the Button Bot Details object that configures this button's appearance. |
+| `Activated Time` | number |  | 1 | gameplay | Seconds the button stays active before auto-deactivating. |
+| `Button Activated Behavior` | object |  | `""` | gameplay | Optional reference to an Unlock Behavior object that defines which checkpoint this button unlocks. |
+| `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay | How the button reacts to player presence:<br>• Pressure Plate — active while anyone stands on it.<br>• One-Time — activates once and stays active.<br>• Toggle — flips active/inactive each press.<br>• Custom — runs a map-specific Lua script.<br>• Timed — activates, then auto-deactivates after Activated Time. |
+| `Button Deactivated Behavior` | object |  | `""` | gameplay | Optional reference to a Relock Behavior object that defines which checkpoint this button re-locks when it deactivates. |
 | `Next 1` | object |  | `""` | gameplay |  |
-| `Script Path` | file |  | `""` | gameplay |  |
-| `Trigger Height` | number |  | 4 | gameplay |  |
-| `Trigger Object` | object |  | `""` | gameplay |  |
-| `Trigger Type` | string (TriggerShape) |  | `rect` | gameplay |  |
-| `Trigger Width` | number |  | 4 | gameplay |  |
+| `Script Path` | file |  | `""` | gameplay | Lua module path providing on_enter / on_exit handlers. |
+| `Trigger Height` | number |  | 4 | gameplay | Trigger rectangle height in map tiles. |
+| `Trigger Object` | object |  | `""` | gameplay | Optional separate trigger object. When set, its bounds override the button's own rectangle and Trigger Type/Width/Height are ignored. |
+| `Trigger Type` | string (TriggerShape) |  | `rect` | gameplay | Rectangle vs ellipse detection shape. |
+| `Trigger Width` | number |  | 4 | gameplay | Trigger rectangle width in map tiles. |
+| `Button Chain Type` | string (ButtonChainType) |  | `Any` | advanced | Reserved for future use. Currently not consulted by the runtime. |
 
 **Template properties:** `Next N` — add additional numbered instances manually in Tiled.
 
+**Conditional properties**
+
+- `Activated Time`: Only used when Button Behavior == 'Timed'. Only meaningful when `Button Behavior` == `Timed`.
+- `Script Path`: Only used when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` == `Custom`.
+- `Trigger Height`: Only used when Trigger Object is empty.
+- `Trigger Type`: Only used when Trigger Object is empty.
+- `Trigger Width`: Only used when Trigger Object is empty.
+
 ### OW Button Group Member
 **Category:** gameplay
-Button participating in a Button Group.
+Button that participates in a Button Group or Button Combo but never unlocks checkpoints on its own.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Activated Time` | number |  | 1 | gameplay |  |
-| `Bot Details` | object |  | `""` | gameplay |  |
-| `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay |  |
+| `Bot Details` | object | yes | `""` | appearance | Reference to the Button Bot Details object that configures this button's appearance. |
+| `Activated Time` | number |  | 1 | gameplay | Seconds the button stays active before auto-deactivating. |
+| `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay | Same modes as OW Button. Group members never run their own checkpoint actions; their state feeds the parent group. |
 | `Script Path` | file |  | `""` | gameplay |  |
-| `Trigger Height` | number |  | 4 | gameplay |  |
-| `Trigger Object` | object |  | `""` | gameplay |  |
-| `Trigger Type` | string (TriggerShape) |  | `rect` | gameplay |  |
-| `Trigger Width` | number |  | 4 | gameplay |  |
+| `Trigger Height` | number |  | 4 | gameplay | Trigger rectangle height in map tiles. |
+| `Trigger Object` | object |  | `""` | gameplay | Optional separate trigger object. When set, its bounds override the button's own rectangle. |
+| `Trigger Type` | string (TriggerShape) |  | `rect` | gameplay | Rectangle vs ellipse detection shape. |
+| `Trigger Width` | number |  | 4 | gameplay | Trigger rectangle width in map tiles. |
+
+**Conditional properties**
+
+- `Activated Time`: Only used when Button Behavior == 'Timed'. Only meaningful when `Button Behavior` == `Timed`.
+- `Script Path`: Only used when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` == `Custom`.
+- `Trigger Height`: Only used when Trigger Object is empty.
+- `Trigger Type`: Only used when Trigger Object is empty.
+- `Trigger Width`: Only used when Trigger Object is empty.
 
 ### Unlock Behavior
+**Category:** gameplay
+Defines which checkpoint a button unlocks when it becomes active.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Area Wide` | bool |  | false |  |  |
-| `Unlock Permanently` | bool |  | false |  |  |
-| `Unlock This` | object |  | `""` |  |  |
+| `Area Wide` | bool |  | false | gameplay | If true, unlocks for every player currently in the area, and for players who enter later (while active). |
+| `Unlock Permanently` | bool |  | false | gameplay | true = stays hidden across disconnects; false = re-locks automatically when the button deactivates (or on reconnect). |
+| `Unlock This` | object | yes | `""` | gameplay | Checkpoint reference this behavior unlocks. |
 
 ### Relock Behavior
+**Category:** gameplay
+Defines which checkpoint a button re-locks when it becomes inactive.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Area Wide` | bool |  | false |  |  |
-| `Relock This` | object |  | `""` |  |  |
+| `Area Wide` | bool |  | false | gameplay | If true, re-locks for every player currently in the area. |
+| `Relock This` | object | yes | `""` | gameplay | Checkpoint reference this behavior re-locks. |
 
 ### Button Trigger
+**Category:** gameplay
+Optional standalone trigger rectangle referenced by an OW Button.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Trigger Type` | string (TriggerShape) |  | `rect` |  |  |
+| `Trigger Type` | string (TriggerShape) |  | `rect` | gameplay | Rectangle vs ellipse detection shape for the referenced trigger object. |
 
 ### Button Group
 **Category:** gameplay
-Group of OW Buttons that satisfy together.
+Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Button 1` | object |  | `""` | gameplay |  |
-| `Forbidden Button 1` | object |  | `""` | gameplay |  |
-| `Group ID` | string |  | `""` | gameplay |  |
-| `Group Mode` | string (ButtonGroupMode) |  | `all_active` | gameplay |  |
-| `Relock Area Wide` | bool |  | false | gameplay |  |
-| `Relock Checkpoint 1` | object |  | `""` | gameplay |  |
-| `Unlock Area Wide` | bool |  | false | gameplay |  |
-| `Unlock Checkpoint 1` | object |  | `""` | gameplay |  |
-| `Unlock Permanently` | bool |  | true | gameplay |  |
+| `Button 1` | object | yes | `""` | gameplay | Reference to a required OW Button Group Member. Add Button 2..N as needed in Tiled. |
+| `Forbidden Button 1` | object |  | `""` | gameplay | Reference to a member that must be inactive for the group to satisfy. |
+| `Group ID` | string |  | `""` | gameplay | Optional stable identifier. Falls back to the object's Tiled ID. |
+| `Group Mode` | string (ButtonGroupMode) |  | `all_active` | gameplay | How members combine:<br>• all_active — every referenced Button is active.<br>• any_active — at least one is active.<br>• combination — every Button is active AND every Forbidden Button is inactive. |
+| `Relock Area Wide` | bool |  | false | gameplay | If true, relock applies to every player in the area. |
+| `Relock Checkpoint 1` | object |  | `""` | gameplay | Checkpoint to re-lock when the group becomes unsatisfied. Add Relock Checkpoint 2..N as needed. |
+| `Unlock Area Wide` | bool |  | false | gameplay | If true, unlock applies to every player in the area. |
+| `Unlock Checkpoint 1` | object |  | `""` | gameplay | Checkpoint to unlock when the group transitions to satisfied. Add Unlock Checkpoint 2..N as needed. |
+| `Unlock Permanently` | bool |  | true | gameplay | Whether the group's unlocks are permanent or should be re-locked on group dissolution. |
 
 **Template properties:** `Button N`, `Forbidden Button N`, `Unlock Checkpoint N`, `Relock Checkpoint N` — add additional numbered instances manually in Tiled.
+
+**Conditional properties**
+
+- `Forbidden Button 1`: Only meaningful when Group Mode == 'combination'. Only meaningful when `Group Mode` == `combination`.
+- `Relock Checkpoint 1`: Only meaningful when at least one Unlock Checkpoint is configured.
 
 ### Button Combo
 **Category:** gameplay
-One button pattern with optional unlock/relock targets.
+One specific button pattern; owns its own checkpoint unlocks.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Button 1` | object |  | `""` | gameplay |  |
-| `Forbidden Button 1` | object |  | `""` | gameplay |  |
-| `Relock Area Wide` | bool |  | false | gameplay |  |
-| `Relock Checkpoint 1` | object |  | `""` | gameplay |  |
-| `Unlock Area Wide` | bool |  | false | gameplay |  |
-| `Unlock Checkpoint 1` | object |  | `""` | gameplay |  |
-| `Unlock Permanently` | bool |  | true | gameplay |  |
+| `Button 1` | object | yes | `""` | gameplay | Reference to a required OW Button Group Member. Add Button 2..N as needed. |
+| `Forbidden Button 1` | object |  | `""` | gameplay | Reference to a member that must be inactive for this combo to satisfy. |
+| `Relock Area Wide` | bool |  | false | gameplay | If true, relock applies to every player in the area. |
+| `Relock Checkpoint 1` | object |  | `""` | gameplay | Checkpoint to re-lock when this combo becomes unsatisfied. Add Relock Checkpoint 2..N as needed. |
+| `Unlock Area Wide` | bool |  | false | gameplay | If true, unlock applies to every player in the area. |
+| `Unlock Checkpoint 1` | object |  | `""` | gameplay | Checkpoint to unlock when this combo becomes satisfied. Add Unlock Checkpoint 2..N as needed. |
+| `Unlock Permanently` | bool |  | true | gameplay | Whether this combo's unlocks are permanent or should be re-locked when the combo breaks. |
 
 **Template properties:** `Button N`, `Forbidden Button N`, `Unlock Checkpoint N`, `Relock Checkpoint N` — add additional numbered instances manually in Tiled.
 
+**Conditional properties**
+
+- `Relock Checkpoint 1`: Only meaningful when at least one Unlock Checkpoint is configured.
+
 ### Combo Button Group
 **Category:** gameplay
-Any referenced Button Combo satisfies the group.
+A set of Button Combos; satisfying any one fires that combo's actions.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Button Combo 1` | object |  | `""` | gameplay |  |
-| `Combo Mode` | string (ButtonComboMode) |  | `Inclusive` | gameplay |  |
-| `Group ID` | string |  | `""` | gameplay |  |
+| `Button Combo 1` | object | yes | `""` | gameplay | Reference to a Button Combo. Add Button Combo 2..N as needed — satisfying ANY one fires its actions. |
+| `Combo Mode` | string (ButtonComboMode) |  | `Inclusive` | gameplay | How each referenced combo's button matches are evaluated:<br>• Inclusive — required buttons active and forbidden inactive; other group-members may be active too.<br>• Exclusive — same, but no other group-member button may be active. |
+| `Group ID` | string |  | `""` | gameplay | Optional stable identifier. Falls back to the object's Tiled ID. |
 
 **Template properties:** `Button Combo N` — add additional numbered instances manually in Tiled.
 
 ### Button Effect
+**Category:** gameplay
+One button's state transition drives another button's action.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Action` | string (ButtonEffectAction) |  | `activate` |  |  |
-| `Event` | string (ButtonEffectEvent) |  | `activated` |  |  |
-| `Source Button` | object |  | `""` |  |  |
-| `Target Button` | object |  | `""` |  |  |
+| `Action` | string (ButtonEffectAction) |  | `activate` | gameplay | What to do to the Target Button when the effect fires. |
+| `Event` | string (ButtonEffectEvent) |  | `activated` | gameplay | Which transition on Source Button triggers the effect. |
+| `Source Button` | object | yes | `""` | gameplay | Button whose state transition triggers this effect. |
+| `Target Button` | object | yes | `""` | gameplay | Button this effect acts on. |
 
 ### Button Group Effect
+**Category:** gameplay
+A group's completion transition drives another button's action.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
-| `Action` | string (ButtonEffectAction) |  | `activate` |  |  |
-| `Button Group` | object |  | `""` |  |  |
-| `Event` | string (ButtonGroupEvent) |  | `completed` |  |  |
-| `Target Button` | object |  | `""` |  |  |
+| `Action` | string (ButtonEffectAction) |  | `activate` | gameplay | What to do to the Target Button when the effect fires. |
+| `Button Group` | object | yes | `""` | gameplay | Button Group (or Combo Button Group) whose completion transition triggers this effect. |
+| `Event` | string (ButtonGroupEvent) |  | `completed` | gameplay | Which group transition triggers the effect. |
+| `Target Button` | object | yes | `""` | gameplay | Button this effect acts on. |
 
