@@ -6,6 +6,8 @@
   <property name="Background Vel X" value="0.20"/>
   <property name="Background Vel Y" value=".1"/>
   <property name="Name" value="                  "/>
+  <property name="Size Mode" propertytype="CompressionMode" value="Enlarge"/>
+  <property name="Size Mode Scope" propertytype="SizeModeScope" value="Area Wide"/>
   <property name="Song" value="/server/assets/demo/space.ogg"/>
   <property name="Stasis" value="26,21,0"/>
  </properties>
@@ -626,19 +628,9 @@
    <point/>
   </object>
   <object id="185" name="hp_manager" type="HP_Manager" gid="73" x="624" y="624" width="64" height="64"/>
-  <object id="186" type="Compression Tile" x="784" y="664" width="48" height="24">
+  <object id="186" type="Compression Tile" x="896" y="664" width="176" height="160">
    <properties>
-    <property name="Compress" type="bool" value="true"/>
-   </properties>
-  </object>
-  <object id="189" type="Compression Tile" x="832" y="664" width="48" height="24">
-   <properties>
-    <property name="Compress" type="bool" value="true"/>
-   </properties>
-  </object>
-  <object id="190" type="Compression Tile" x="880" y="664" width="48" height="24">
-   <properties>
-    <property name="Compress" type="bool" value="true"/>
+    <property name="Mode" propertytype="CompressionMode" value="Compress"/>
    </properties>
   </object>
   <object id="191" type="Pushback NPC" x="992" y="752">
@@ -646,35 +638,35 @@
     <property name="Asset Name" value="male-navi-exe6_teal"/>
     <property name="Collision Height" type="float" value="1"/>
     <property name="Collision Width" type="float" value="1"/>
-    <property name="Dialogue Type" propertytype="DialogueType" value="first"/>
-    <property name="Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Dialogue Type" value="first"/>
+    <property name="Direction" value="Up Left"/>
     <property name="Move Animation State" value="WALK_UR"/>
     <property name="Mugshot" value="male-navi-exe6_teal"/>
     <property name="Next Waypoint 1" type="object" value="192"/>
     <property name="Player Exclusive" type="bool" value="false"/>
     <property name="Push Cooldown" type="float" value="0.1"/>
     <property name="Push Distance" value="0.1"/>
-    <property name="Push Duration" type="float" value="0.1"/>
+    <property name="Push Duration" type="float" value="0"/>
    </properties>
    <point/>
   </object>
   <object id="192" type="Waypoint" x="800" y="752">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Direction" value="Up Left"/>
     <property name="Next Waypoint 1" type="object" value="193"/>
    </properties>
    <point/>
   </object>
   <object id="193" type="Waypoint" x="800" y="752">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Direction" value="Down Right"/>
     <property name="Next Waypoint 1" type="object" value="194"/>
    </properties>
    <point/>
   </object>
   <object id="194" type="Waypoint" x="992" y="752">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Direction" value="Down Right"/>
     <property name="Next Waypoint 1" type="object" value="192"/>
    </properties>
    <point/>

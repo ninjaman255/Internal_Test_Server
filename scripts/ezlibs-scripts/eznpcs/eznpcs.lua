@@ -73,6 +73,34 @@ local function include_for_all(bot_id)
     end
 end
 
+-- Notify other modules when a bot lifecycle event occurs. Consumers such as
+-- ezpress (area-wide scaling) and ezbottriggers (bot enter/depart detection)
+-- subscribe to these on ezbus, so no Net polling is required elsewhere.
+local function emit_bot_created(bot_id, area_id, extra)
+    if bot_id == nil then return end
+    local payload = { bot_id = bot_id, area_id = area_id }
+    if type(extra) == "table" then
+        for k, v in pairs(extra) do payload[k] = v end
+    end
+    ezbus:emit("bot_created", payload)
+end
+
+local function emit_bot_removed(bot_id)
+    if bot_id == nil then return end
+    ezbus:emit("bot_removed", { bot_id = bot_id })
+end
+
+local function emit_bot_moved(bot_id, area_id, x, y, z)
+    if bot_id == nil then return end
+    ezbus:emit("bot_moved", {
+        bot_id = bot_id,
+        area_id = area_id,
+        x = x,
+        y = y,
+        z = z
+    })
+end
+
 
 function eznpcs.get_dialogue_mugshot(npc,player_id,dialogue)
     local mugshot_asset_name = npc.asset_name
@@ -226,6 +254,15 @@ function create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,m
     npc_data.bot_id = lastBotId
     npcs[lastBotId] = npc_data
     printd('created npc '..(name or "unnamed")..' id:'..lastBotId..' at ('..x..','..y..','..z..')')
+    -- Include position so ezbottriggers can immediately register an overlap
+    -- for bots spawned inside a trigger area (static NPCs included).
+    emit_bot_created(lastBotId, area_id, {
+        asset_name = asset_name,
+        name = name,
+        x = x,
+        y = y,
+        z = z
+    })
     return npc_data
 end
 
@@ -345,6 +382,8 @@ function move_npc(npc,delta_time)
     Net.move_bot(npc.bot_id, new_pos.x, new_pos.y, new_pos.z)
     npc.x = new_pos.x
     npc.y = new_pos.y
+    -- Broadcast the new position so ezbottriggers can reconcile overlaps.
+    emit_bot_moved(npc.bot_id, area_id, new_pos.x, new_pos.y, new_pos.z)
 end
 
 function on_npc_reached_waypoint(npc,waypoint)
@@ -400,6 +439,7 @@ local function update_quest_exclusive_for_player(player_id)
     -- Remove any existing quest exclusive NPCs for this player
     if quest_exclusive_npcs[player_id] then
         for placeholder_id, bot_id in pairs(quest_exclusive_npcs[player_id]) do
+            emit_bot_removed(bot_id)
             Net.remove_bot(bot_id)
             npcs[bot_id] = nil
         end
@@ -590,6 +630,7 @@ function eznpcs.handle_player_disconnect(player_id)
     -- Remove player‑exclusive NPCs
     if exclusive_npcs[player_id] then
         for placeholder_id, bot_id in pairs(exclusive_npcs[player_id]) do
+            emit_bot_removed(bot_id)
             Net.remove_bot(bot_id)
             npcs[bot_id] = nil
         end
@@ -599,6 +640,7 @@ function eznpcs.handle_player_disconnect(player_id)
     -- Remove quest‑exclusive NPCs
     if quest_exclusive_npcs[player_id] then
         for placeholder_id, bot_id in pairs(quest_exclusive_npcs[player_id]) do
+            emit_bot_removed(bot_id)
             Net.remove_bot(bot_id)
             npcs[bot_id] = nil
         end
@@ -672,6 +714,7 @@ function eznpcs.remove_exclusive_npc(player_id, placeholder_id)
     if exclusive_npcs[player_id] then
         local bot_id = exclusive_npcs[player_id][tostring(placeholder_id)]
         if bot_id then
+            emit_bot_removed(bot_id)
             Net.remove_bot(bot_id)
             npcs[bot_id] = nil
             exclusive_npcs[player_id][tostring(placeholder_id)] = nil
@@ -693,6 +736,7 @@ function eznpcs.remove_quest_exclusive_npc(player_id, placeholder_id)
     if quest_exclusive_npcs[player_id] then
         local bot_id = quest_exclusive_npcs[player_id][tostring(placeholder_id)]
         if bot_id then
+            emit_bot_removed(bot_id)
             Net.remove_bot(bot_id)
             npcs[bot_id] = nil
             quest_exclusive_npcs[player_id][tostring(placeholder_id)] = nil

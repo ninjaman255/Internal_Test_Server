@@ -239,16 +239,19 @@ function use_warp(player_id,warp_object,warp_meta)
         end
 
         -- ----------------------------------------------------------------------
-        -- Pre‑transfer Minish Mode adjustment (immediate)
+        -- Pre‑transfer Size Mode adjustment (immediate)
+        -- Apply the target area's Size Mode (Compress / Normalize / Enlarge) to
+        -- the player before the transfer so they arrive already at the correct
+        -- scale (no visible pop). When the target area's Size Mode Scope is
+        -- Area Wide, apply_map_property also re-syncs NPCs in that area; this
+        -- is idempotent with ezpress's bot_created handling and with the
+        -- arrival-time handle_player_transfer, so it is always safe to call.
         -- ----------------------------------------------------------------------
         if target_area and not is_remote_warp then
             local ezpress = require('scripts/ezlibs-scripts/ezpress')
-            local minish = ezpress.get_area_minish_mode(target_area)
-            if minish then
-                ezpress.compress(player_id, true)   -- immediate
-            else
-                ezpress.decompress(player_id, true) -- immediate
-            end
+            ezpress.apply_map_property(player_id, target_area, true, {
+                source = "warp_pretransfer"
+            })
         end
 
         -- Perform the warp

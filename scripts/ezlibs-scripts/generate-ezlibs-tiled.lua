@@ -1,5 +1,5 @@
 -- generate_tiled_types_json.lua
--- Generates a Tiled-compatible JSON file containing all custom object types used by ezlibs.
+-- Generates a Tiled-compatible JSON file containing all custom types used by ezlibs.
 -- Output file: ezlibs-tiled-types.json (or specify path as argument)
 -- Run with: lua generate_tiled_types_json.lua [output_path]
 
@@ -75,6 +75,26 @@ local Enums = {
     ButtonEffectAction = {
         type = "string",
         values = {"activate", "deactivate", "toggle", "reset"}
+    },
+
+    -- ezpress scale modes. Used by:
+    --   * Compression Tile object property "Mode"
+    --   * Map property "Size Mode" (add manually in Tiled: map -> Custom
+    --     Properties -> add new property "Size Mode", type = enum, then choose
+    --     "CompressionMode"; pick Compress / Normalize / Enlarge per area)
+    CompressionMode = {
+        type = "string",
+        values = {"Compress", "Normalize", "Enlarge"}
+    },
+
+    -- ezpress scope. Used by:
+    --   * Map property "Size Mode Scope" (add manually in Tiled: map -> Custom
+    --     Properties -> add new property "Size Mode Scope", type = enum, then
+    --     choose "SizeModeScope"). "Area Wide" also applies the area's Size
+    --     Mode to NPCs / bots in that area; "Player" limits it to players.
+    SizeModeScope = {
+        type = "string",
+        values = {"Player", "Area Wide"}
     }
 }
 
@@ -475,12 +495,14 @@ local object_types = {
     },
 
     -- Compression Tile (for ezpress)
+    -- A single enum selects the target scale state for any player entering the tile.
+    -- The legacy "Compress"/"Decompress" booleans are still honored by ezpress.lua
+    -- so existing maps keep working, but new maps should use Mode.
     {
         name = "Compression Tile",
         color = "#88aaff",
         members = {
-            prop("Compress", "bool", false),
-            prop("Decompress", "bool", false),
+            prop("Mode", "string", "Compress", "CompressionMode"),
         }
     },
 
