@@ -77,13 +77,15 @@ function Player:is_battling()
 end
 
 local function create_default_results()
-  -- { health: number, score: number, time: number, ran: bool, emotion: number }
   return {
+    reason = 1,
     health = 1,
-    score = 0,
     time = 0,
     ran = true,
-    emotion = 0
+    emotion = 0,
+    enemies = {},
+    turns = 3,
+    score = 0,
   }
 end
 

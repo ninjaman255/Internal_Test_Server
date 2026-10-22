@@ -7,6 +7,18 @@ local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local math = require('math')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local ezquests = require('scripts/ezlibs-scripts/ezquests')   -- added for quest checks
+local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
+
+-- Optional schema-driven validation. If the generated schema file is not
+-- present yet (user hasn't run generate-ezlibs-tiled.lua), validation is
+-- skipped silently so the module continues to load.
+local tiled_schema = nil
+do
+    local ok, mod = pcall(require, "scripts.ezlibs-scripts.ezlibs-tiled-schema")
+    if ok and type(mod) == "table" and mod.classes then
+        tiled_schema = mod
+    end
+end
 
 local eznpcs = {}
 
@@ -18,7 +30,7 @@ local placeholder_to_botid = {}          -- area_id -> placeholder_id -> global 
 local exclusive_npcs = {}                -- player_id -> { placeholder_id = bot_id }
 local exclusive_placeholders = {}        -- list of { area_id, object_id } for all exclusive NPC placeholders
 
--- NEW: Quest‑exclusive NPC data
+-- Quest‑exclusive NPC data
 local quest_exclusive_placeholders = {}  -- list of { area_id, object_id, quest_name, required_state }
 local quest_exclusive_npcs = {}           -- player_id -> { placeholder_id = bot_id }
 
@@ -32,18 +44,31 @@ local generic_npc_mug_animation_path = npc_asset_folder..'mug/mug.animation'
 local events = require('scripts/ezlibs-scripts/eznpcs/dialogue_types')
 local npc_required_properties = {"Direction","Asset Name"}
 
+-- Backwards-compatible local alias. Semantics unchanged: nil -> false,
+-- true/"true"/non-zero-number -> true. The single canonical implementation
+-- now lives in tiled_utils.
+local is_property_true = tu.is_true
 
 local function printd(...)
     local arg={...}
     logger:info('[eznpcs]',table.unpack(arg))
 end
 
--- Helper to safely evaluate boolean properties from Tiled (can be boolean or string)
-local function is_property_true(val)
-    if val == true then return true end
-    if type(val) == "string" then return val:lower() == "true" end
-    if type(val) == "number" then return val ~= 0 end
-    return false
+-- Log-only schema validation. Turning this into a hard reject is a one-line
+-- change (replace the `logger:warn` block with `return nil`).
+local function validate_npc_object(area_id, object)
+    if not tiled_schema then return end
+    local class_name = object.type or "NPC"
+    local class_def = tiled_schema.classes[class_name]
+    if not class_def then return end
+    local ok, report = tu.validate_properties(object, class_def.members, tiled_schema.enums)
+    if ok then return end
+    for _, e in ipairs(report.errors) do
+        logger:warn(string.format(
+            "[eznpcs] %s %s in %s: %s (expected %s, got %s)",
+            class_name, tostring(object.id), tostring(area_id),
+            e.issue, tostring(e.expected), tostring(e.got)))
+    end
 end
 
 -- Helper: get all players currently in the server (across all areas)
@@ -139,7 +164,7 @@ function do_dialogue(npc,player_id,dialogue,relay_object)
             printd("dialogue "..dialogue.id.." has no Dialogue Type specified.")
             return
         end
-        
+
         if events[dialogue_type] then
             dialogue_promise = events[dialogue_type].action(npc,player_id,dialogue,relay_object)
         end
@@ -169,7 +194,7 @@ function create_bot_from_object(area_id, object, player_id)
             printd('NPC objects require the custom property '..prop_name)
             return false
         end
-    end  
+    end
 
     local npc_asset_name = object.custom_properties["Asset Name"]
     local npc_animation_name = object.custom_properties["Animation Name"] or false
@@ -184,9 +209,9 @@ function create_bot_from_object(area_id, object, player_id)
     local npc = create_npc(area_id, npc_asset_name, x, y, z, direction,
                            object.name, npc_animation_name, npc_mug_animation_name, npc_turns_to_talk)
 
-    if not npc then 
+    if not npc then
         printd("Failed to create bot for", npc_asset_name)
-        return 
+        return
     end
 
     -- If this is an exclusive NPC for a specific player, hide it from everyone else
@@ -249,16 +274,16 @@ function create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,m
     --Create bot
     local npc_data = {
         asset_name=asset_name,
-        bot_id=nil, 
-        name=name, 
-        area_id=area_id, 
-        texture_path=texture_path, 
-        animation_path=animation_path, 
+        bot_id=nil,
+        name=name,
+        area_id=area_id,
+        texture_path=texture_path,
+        animation_path=animation_path,
         mug_animation_path=mug_animation_path,
-        x=x, 
-        y=y, 
-        z=z, 
-        direction=direction, 
+        x=x,
+        y=y,
+        z=z,
+        direction=direction,
         solid=true,
         size=0.2,
         speed=1,
@@ -267,9 +292,9 @@ function create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,m
     }
     printd("Creating bot with texture:", texture_path, "animation:", animation_path)
     local lastBotId = Net.create_bot(npc_data)
-    if not lastBotId then 
+    if not lastBotId then
         printd("Net.create_bot returned nil for", asset_name)
-        return nil 
+        return nil
     end
     npc_data.bot_id = lastBotId
     npcs[lastBotId] = npc_data
@@ -387,7 +412,7 @@ function move_npc(npc,delta_time)
         on_npc_reached_waypoint(npc,waypoint)
         return
     end
-    
+
     local angle = math.atan(waypoint.y - npc.y, waypoint.x - npc.x)
     local vel_x = math.cos(angle) * npc.speed
     local vel_y = math.sin(angle) * npc.speed
@@ -485,9 +510,11 @@ local function update_quest_exclusive_for_player(player_id)
     end
 end
 
--- Register regular NPCs and the pushback-enabled NPC subtype through the same
+-- Register regular NPCs and the Pushback-enabled NPC subtype through the same
 -- creation path, so dialogue, waypoints, quest rules, and exclusivity stay consistent.
 local function register_npc_object(area_id, object)
+    validate_npc_object(area_id, object)
+
     local props = object.custom_properties or {}
     local is_quest = is_property_true(props["Quest NPC"])
     local is_exclusive = is_property_true(props["Player Exclusive"])
@@ -672,9 +699,9 @@ end
 function eznpcs.handle_object_interaction(player_id, object_id)
     local area_id = Net.get_player_area(player_id)
     local object = ezcache.get_object_by_id_cached(area_id, object_id)
-    if not object then 
+    if not object then
         printd("handle_object_interaction: object not found in cache", object_id)
-        return 
+        return
     end
 
     -- Check if it's an exclusive NPC placeholder

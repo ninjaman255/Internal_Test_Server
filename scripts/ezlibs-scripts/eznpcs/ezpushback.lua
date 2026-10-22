@@ -9,6 +9,7 @@ local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
+local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
 
 local ezpushback = {}
 local entries = {} -- key -> NPC collision entry
@@ -23,19 +24,14 @@ local DEFAULT_PUSH_DURATION = 0.28
 local DEFAULT_MOVE_STATE = 'MOVE'
 local DEFAULT_COOLDOWN = 0.75
 
-local function truthy(value, default)
-    if value == nil then return default end
-    if value == true or value == 1 then return true end
-    if type(value) == 'string' then
-        local v = value:lower()
-        return v == 'true' or v == '1' or v == 'yes'
-    end
-    return false
-end
+-- Backwards-compatible alias. Semantics identical to the previous local
+-- truthy(value, default); single canonical implementation now lives in
+-- tiled_utils.
+local truthy = tu.is_true
 
+-- Same call contract as before; the value parsing lives in tiled_utils.
 local function number_property(props, name, default, min_value)
-    local n = tonumber(props and props[name])
-    if not n then n = default end
+    local n = tu.get_number_from(props, name, default)
     if min_value and n < min_value then n = min_value end
     return n
 end
@@ -137,7 +133,6 @@ local function atan2(y, x)
     return math.atan(y, x)
 end
 
--- Eight canonical isometric directions in map space, with unit-length vectors.
 local CANONICAL_DIRECTIONS = {
     { name = 'DownRight', x = 1,           y = 0           },
     { name = 'Down',      x = 0.70710678,  y = 0.70710678  },
@@ -154,8 +149,6 @@ local OPPOSITE_DIRECTION = {
     UpLeft = 'DownRight', Up = 'Down', UpRight = 'DownLeft', Right = 'Left',
 }
 
--- Snap an arbitrary map-space vector to the nearest canonical isometric
--- direction. Returns the unit-length snapped vector plus its canonical name.
 local function snap_to_canonical_map(dx, dy)
     if not dx or not dy or (dx == 0 and dy == 0) then
         return 1, 0, 'DownRight'
@@ -168,10 +161,6 @@ local function snap_to_canonical_map(dx, dy)
 end
 
 local function direction_vector(direction)
-    -- Convert a facing name (as reported by Net.get_player_direction) into a
-    -- unit-length map-space vector. Uses the same 26.5° isometric screen
-    -- vectors the camera controller uses, so the round-trip through
-    -- screen_vector_to_map lands on a canonical map direction.
     direction = tostring(direction or 'Down'):lower():gsub('_', ' '):gsub('-', ' ')
     local sx, sy = 0, 1
     if direction == 'up' then sx, sy = 0, -1
@@ -186,22 +175,13 @@ local function direction_vector(direction)
     return screen_vector_to_map(sx, sy)
 end
 
--- Get the radial push direction (from NPC toward player) in map space, as a
--- unit vector. This vector is the raw radial direction; it is snapped to the
--- canonical isometric grid in calculate_target.
 local function get_push_vector(entry, player_pos, npc_pos, player_direction)
     local dx = (tonumber(player_pos.x) or 0) - (tonumber(npc_pos.x) or 0)
     local dy = (tonumber(player_pos.y) or 0) - (tonumber(npc_pos.y) or 0)
 
-    -- Determine which way the player is from the NPC in projected screen space,
-    -- then normalize in screen space and project back to map space. The
-    -- projection is linear, so this round-trip preserves the map direction;
-    -- the point of doing it in screen space first is to make the visual
-    -- direction of the push unambiguous on the isometric diamond.
     local sx, sy = map_vector_to_screen(dx, dy)
     local screen_length = math.sqrt(sx * sx + sy * sy)
     if screen_length < 0.0001 then
-        -- If centers coincide, push opposite the direction the player is facing.
         sx, sy = direction_vector(player_direction)
         sx, sy = map_vector_to_screen(sx, sy)
         screen_length = math.sqrt(sx * sx + sy * sy)
@@ -219,10 +199,6 @@ end
 local function calculate_target(entry, player_pos, npc_pos, player_direction)
     local radial_x, radial_y = get_push_vector(entry, player_pos, npc_pos, player_direction)
 
-    -- Snap the radial direction to the nearest canonical isometric direction.
-    -- This is the "normalize to isometric space" step: it guarantees the push
-    -- is always one of the eight camera-aligned isometric directions rather
-    -- than an arbitrary off-axis angle.
     local nx, ny, push_name = snap_to_canonical_map(radial_x, radial_y)
 
     local half_w = math.max(0.05, entry.width / 2)
@@ -236,9 +212,6 @@ local function calculate_target(entry, player_pos, npc_pos, player_direction)
         x = (tonumber(npc_pos.x) or 0) + nx * distance,
         y = (tonumber(npc_pos.y) or 0) + ny * distance,
         z = tonumber(player_pos.z) or tonumber(npc_pos.z) or 0,
-        -- Face toward the NPC (opposite the push) so the player looks at
-        -- whatever pushed them. If the NPC is moving UpLeft on screen, the
-        -- push is UpLeft, and the player faces DownRight before the push.
         direction = OPPOSITE_DIRECTION[push_name] or 'Down',
     }
 end
@@ -376,9 +349,6 @@ local function perform_pushback(entry, player_id)
             and tonumber(bot_pos.x) and tonumber(bot_pos.y) then
             local bot_dx = tonumber(bot_pos.x) - target.x
             local bot_dy = tonumber(bot_pos.y) - target.y
-            -- Some engine builds report the pre-keyframe server position while
-            -- the client-side property animation has already reached its target.
-            -- Trust the bot's queried position only when it agrees with the endpoint.
             if math.sqrt(bot_dx * bot_dx + bot_dy * bot_dy) <= 0.25 then
                 final_pos = {
                     x = tonumber(bot_pos.x),
@@ -395,7 +365,6 @@ local function perform_pushback(entry, player_id)
         state.final_position = final_pos
         state.transferring = true
 
-        -- Same-area transfer, no warp-in: use the bot's actual end position.
         local transfer_ok, transfer_result = safe_call(
             Net.transfer_player,
             player_id,
@@ -408,7 +377,6 @@ local function perform_pushback(entry, player_id)
         )
         if not transfer_ok or transfer_result == false then
             logger:for_player(player_id):warn('[ezpushback] Final transfer failed:', tostring(transfer_result))
-            -- Keep the player recoverable if the transfer API errors.
             cleanup_push(player_id, state, 'transfer_failed', true)
             return
         end

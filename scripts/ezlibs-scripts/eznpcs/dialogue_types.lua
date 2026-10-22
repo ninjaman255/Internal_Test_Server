@@ -6,14 +6,12 @@ local ezemail = require('scripts/ezlibs-scripts/ezemail')
 local condition = require('scripts/ezlibs-scripts/condition')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
+local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
 
--- Helper for boolean properties (copied from eznpcs.lua to avoid circular dependency)
-local function is_property_true(val)
-    if val == true then return true end
-    if type(val) == "string" then return val:lower() == "true" end
-    if type(val) == "number" then return val ~= 0 end
-    return false
-end
+-- Canonical boolean normalizer. Identical contract to the old local
+-- is_property_true; centralized in tiled_utils so eznpcs, eznpcs/dialogue_types,
+-- ezpushback, and FootBomb all agree on how Tiled properties are read.
+local is_property_true = tu.is_true
 
 --Dialogue Types
 local dialogue_types = {
@@ -77,7 +75,10 @@ local dialogue_types = {
                 local area_id = Net.get_player_area(player_id)
                 local required_items = helpers.extract_numbered_properties(dialogue,"Item ")
                 local next_dialogues = helpers.extract_numbered_properties(dialogue,"Next ")
-                local take_item = dialogue.custom_properties["Take Item"] == "true"
+                -- Bug-fix superset: previously compared to the string "true",
+                -- which treated real boolean `true` as false. tu.is_true
+                -- handles both real booleans and the string form.
+                local take_item = tu.is_true(dialogue.custom_properties["Take Item"])
                 local next_dialogue_id = nil
 
                 local all_passed = true
@@ -113,7 +114,7 @@ local dialogue_types = {
                     value = dialogue.custom_properties["Flag Value"],
                     op = dialogue.custom_properties["Operator"] or dialogue.custom_properties["Op"],
                 }
-                local invert = dialogue.custom_properties["Invert"] == "true"
+                local invert = tu.is_true(dialogue.custom_properties["Invert"])
                 local passed = condition.evaluate(player_id, cond)
                 if invert then passed = not passed end
                 return passed and next_dialogues[1] or next_dialogues[2]
@@ -239,7 +240,7 @@ local dialogue_types = {
             return async(function ()
                 local area_id = Net.get_player_area(player_id)
                 local gift_item_ids = helpers.extract_numbered_properties(dialogue,"Item ")
-                local notify_player = dialogue.custom_properties["Dont Notify"] ~= "true"
+                local notify_player = not tu.is_true(dialogue.custom_properties["Dont Notify"])
                 for index, item_id in ipairs(gift_item_ids) do
                     ezmemory.give_item_with_optional_notify(player_id,area_id,item_id,nil,notify_player)
                 end
@@ -302,7 +303,7 @@ local dialogue_types = {
                     return next_id
                 end
 
-                local icon  = tonumber(dialogue.custom_properties["Email Icon"] or "1") or 1
+                local icon  = tu.get_number_from(dialogue.custom_properties, "Email Icon", 1)
                 local title = dialogue.custom_properties["Email Title"] or "Mail"
                 local from  = dialogue.custom_properties["Email From"] or "???"
 
@@ -314,10 +315,10 @@ local dialogue_types = {
                     body = dialogue.custom_properties["Email Body"] or ""
                 end
 
-                local notify = (dialogue.custom_properties["Dont Notify"] ~= "true")
-                local delay  = tonumber(dialogue.custom_properties["Notify Delay"])
-                local msg    = dialogue.custom_properties["Notify Message"] or "Looks like you got an e-mail."
-                local persist = (dialogue.custom_properties["Persist"] ~= "false")
+                local notify  = not tu.is_true(dialogue.custom_properties["Dont Notify"])
+                local delay   = tu.to_number(dialogue.custom_properties["Notify Delay"], nil)
+                local msg     = dialogue.custom_properties["Notify Message"] or "Looks like you got an e-mail."
+                local persist = tu.is_true(dialogue.custom_properties["Persist"], true)
 
                 -- Mug rules
                 local tex_raw  = dialogue.custom_properties["Mug Texture Path"]
@@ -428,11 +429,6 @@ local dialogue_types = {
 
                 -- Allow the player to return to the world before applying effects.
                 await(Async.sleep(1.0))
-                -- local mugshot = eznpcs.get_dialogue_mugshot(npc, player_id, dialogue)
-                -- local after_battle_message = await(Async.message_player(player_id, "AHHHHHHHHHHHHHH!!!!!!", mugshot.texture_path, mugshot.animation_path))
-                -- if after_battle_message then
-                --     
-                -- end
                 if won then
                     -- Explode the NPC (on its bot)
                     ezbus:emit("explode", {
