@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="211">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="214">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -801,6 +801,35 @@
     <property name="Wait Animation" value="FOOTBOMB_JUMP_RIGHT_END"/>
     <property name="Wait Time" value="2"/>
    </properties>
+   <point/>
+  </object>
+  <object id="211" type="NPC Spawner" x="544" y="416">
+   <properties>
+    <property name="NPC Template" type="object" value="212"/>
+    <property name="Spawn Interval" value="2"/>
+    <property name="Spawn Mode" propertytype="NPCSpawnMode" value="Interval"/>
+    <property name="Trigger Radius" value="5"/>
+    <property name="Warp Out At End" type="bool" value="true"/>
+    <property name="Warp Out Delay" value="0.5"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="212" type="Pushback NPC" x="544" y="448">
+   <properties>
+    <property name="Asset Name" value="prog"/>
+    <property name="Collision Enabled" type="bool" value="true"/>
+    <property name="Collision Height" type="float" value="1"/>
+    <property name="Collision Width" type="float" value="1"/>
+    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Next Waypoint 1" type="object" value="213"/>
+    <property name="Push Cooldown" type="float" value="0.1"/>
+    <property name="Push Distance" value="0.1"/>
+    <property name="Push Duration" type="float" value="0.1"/>
+    <property name="Template Only" type="bool" value="true"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="213" type="Waypoint" x="704" y="448">
    <point/>
   </object>
  </objectgroup>

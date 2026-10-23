@@ -34,6 +34,10 @@ local exclusive_placeholders = {}        -- list of { area_id, object_id } for a
 local quest_exclusive_placeholders = {}  -- list of { area_id, object_id, quest_name, required_state }
 local quest_exclusive_npcs = {}           -- player_id -> { placeholder_id = bot_id }
 
+-- NPC Spawner state:
+--   npc_spawners[area_id][object_id] = spawner_state (see register_npc_spawner)
+local npc_spawners = {}
+
 local npcs = {}                           -- global bot ID -> npc data (for all bots, including exclusive)
 local current_player_conversation = {}
 
@@ -216,9 +220,19 @@ function do_dialogue(npc,player_id,dialogue,relay_object)
     end)
 end
 
--- Creates a bot (global or per-player) and returns its npc_data
-function create_bot_from_object(area_id, object, player_id)
+-- Creates a bot (global or per-player) and returns its npc_data.
+--
+-- options (all optional):
+--   skip_placeholder_registration  (bool)  When true, does NOT register the
+--                                          bot in placeholder_to_botid. Used
+--                                          by spawners so multiple instances
+--                                          of the same template don't collide.
+--   on_path_complete               (func)  Passed to waypoint_follow_behaviour;
+--                                          fires when the NPC reaches a
+--                                          waypoint with no next waypoint.
+function create_bot_from_object(area_id, object, player_id, options)
     if not object then return end
+    options = options or {}
     local x = object.x
     local y = object.y
     local z = object.z
@@ -254,11 +268,13 @@ function create_bot_from_object(area_id, object, player_id)
         exclusive_npcs[player_id][tostring(object.id)] = npc.bot_id
         exclude_except_for(player_id, npc.bot_id)
         printd("Exclusive bot", npc.bot_id, "created for player", player_id)
-    else
+    elseif not options.skip_placeholder_registration then
         -- Global NPC: store in placeholder_to_botid and ensure visible to all
         if not placeholder_to_botid[area_id] then placeholder_to_botid[area_id] = {} end
         placeholder_to_botid[area_id][tostring(object.id)] = npc.bot_id
         printd("Global bot", npc.bot_id, "created for placeholder", object.id)
+    else
+        printd("Spawned bot", npc.bot_id, "created without placeholder registration")
     end
 
     -- New Tiled format: NPCs reference a separate Dialogue object.
@@ -290,8 +306,9 @@ function create_bot_from_object(area_id, object, player_id)
     end
 
     if object.custom_properties["Next Waypoint 1"] then
-        local waypoint_follow_behaviour = waypoint_follow_behaviour(object.custom_properties["Next Waypoint 1"])
-        add_behaviour(npc, waypoint_follow_behaviour)
+        local waypoint_follow = waypoint_follow_behaviour(
+            object.custom_properties["Next Waypoint 1"], options)
+        add_behaviour(npc, waypoint_follow)
     end
 
     return npc
@@ -445,10 +462,18 @@ function chat_behaviour()
     return behaviour
 end
 
-function waypoint_follow_behaviour(first_waypoint_id)
+-- waypoint_follow_behaviour(first_waypoint_id, options)
+--   options.on_path_complete  (func, optional)  Fires when the NPC reaches a
+--                                                 waypoint whose Next Waypoint
+--                                                 is nil (end of path). Used
+--                                                 by NPC Spawners to trigger
+--                                                 warp-out or cleanup.
+function waypoint_follow_behaviour(first_waypoint_id, options)
+    options = options or {}
     behaviour = {
         type='on_tick',
         initialize=function(npc)
+            npc._waypoint_path_complete_cb = options.on_path_complete
             local first_waypoint = ezcache.get_object_by_id_cached(npc.area_id, first_waypoint_id)
             if first_waypoint then
                 npc.next_waypoint = first_waypoint
@@ -723,6 +748,370 @@ function on_npc_reached_waypoint(npc,waypoint)
 
     if next_waypoint_id then
         npc.next_waypoint = ezcache.get_object_by_id_cached(npc.area_id,next_waypoint_id)
+    else
+        -- End of path: next_waypoint becomes nil, and the path-complete
+        -- callback (if any) fires exactly once. Spawners use this hook to
+        -- decide whether to warp out, warp out after a delay, or simply
+        -- leave the NPC parked at the last waypoint.
+        npc.next_waypoint = nil
+        if npc._waypoint_path_complete_cb then
+            local ok, err = pcall(npc._waypoint_path_complete_cb, npc)
+            if not ok then
+                printd("waypoint path-complete callback failed bot="
+                    .. tostring(npc.bot_id) .. " err=" .. tostring(err))
+            end
+        end
+    end
+end
+
+-- =========================================================================
+-- NPC Spawners
+--
+-- Two independent axes control spawning:
+--   * Spawn Mode (Once / Interval)
+--   * Trigger Radius (0 = immediate on load; > 0 = player presence gated)
+--
+-- State lives in npc_spawners[area_id][object_id]:
+--   live_bots             set of bot_ids currently alive from this spawner
+--   spawn_mode            "once" | "interval"
+--   spawn_interval        seconds between spawns (Interval mode)
+--   max_alive             0 = unlimited; else concurrent-bot cap
+--   once                  Once-mode per-session cap flag
+--   once_spawned          whether Once mode has already fired this session
+--   trigger_armed         Once mode: re-arm after player leaves radius
+--   was_player_inside     Interval mode: detect entry transitions
+--   time_since_last_spawn Interval mode: interval timer
+--
+-- Pruning: the `bot_removed` listener below prunes live_bots on any
+-- announcement. count_and_prune_live_bots() also defends against external
+-- Net.remove_bot calls that bypass the event bus.
+-- =========================================================================
+
+-- Clean up dead entries and return the live count.
+local function count_and_prune_live_bots(spawner)
+    local live_count = 0
+    local dead = nil
+    for bot_id in pairs(spawner.live_bots) do
+        if npcs[bot_id] then
+            live_count = live_count + 1
+        else
+            dead = dead or {}
+            dead[#dead + 1] = bot_id
+        end
+    end
+    if dead then
+        for _, bot_id in ipairs(dead) do
+            spawner.live_bots[bot_id] = nil
+        end
+    end
+    return live_count
+end
+
+-- Warp out a spawner-owned NPC. Called by the on_path_complete callback.
+local function warp_out_spawner_npc(spawner, npc)
+    if not spawner or not npc or not npc.bot_id then return end
+    local props = spawner.object.custom_properties or {}
+    local delay = tonumber(props["Warp Out Delay"]) or 0
+    local animation = props["Warp Out Animation"]
+    local duration = tonumber(props["Warp Out Animation Duration"]) or 0.5
+    if duration < 0 then duration = 0 end
+    local bot_id = npc.bot_id
+
+    async(function()
+        if delay > 0 then
+            await(Async.sleep(delay))
+        end
+        if not npcs[bot_id] then
+            spawner.live_bots[bot_id] = nil
+            return
+        end
+        if animation and animation ~= "" then
+            pcall(Net.animate_bot, bot_id, animation, false)
+            await(Async.sleep(duration))
+        end
+        if not npcs[bot_id] then
+            spawner.live_bots[bot_id] = nil
+            return
+        end
+        spawner.live_bots[bot_id] = nil
+        emit_bot_removed(bot_id)
+        pcall(Net.remove_bot, bot_id)
+        npcs[bot_id] = nil
+        printd("spawner warped out bot=" .. tostring(bot_id)
+            .. " spawner=" .. tostring(spawner.object.id)
+            .. " area=" .. tostring(spawner.area_id))
+    end)
+
+    printd("spawner warp-out scheduled bot=" .. tostring(bot_id)
+        .. " spawner=" .. tostring(spawner.object.id)
+        .. " delay=" .. tostring(delay)
+        .. " animation=" .. tostring(animation or "")
+        .. " duration=" .. tostring(duration))
+end
+
+-- Callback factory. Each spawner gets a closure that captures its own state.
+local function make_spawner_path_complete_cb(spawner)
+    return function(npc)
+        local props = spawner.object.custom_properties or {}
+        local warp_out = is_property_true(props["Warp Out At End"])
+        printd("spawner path complete bot=" .. tostring(npc.bot_id)
+            .. " spawner=" .. tostring(spawner.object.id)
+            .. " warp_out=" .. tostring(warp_out))
+        if not warp_out then
+            -- NPC stays at the last waypoint; spawner keeps the bot in
+            -- live_bots so Interval mode counts it toward Max Alive.
+            return
+        end
+        warp_out_spawner_npc(spawner, npc)
+    end
+end
+
+-- Spawn one NPC from this spawner. Returns true on success. Enforces:
+--   * Once mode: no live bot AND not once_spawned
+--   * Interval mode: live count under Max Alive (or unlimited)
+local function spawn_from_spawner(spawner)
+    if not spawner then return false end
+    local live_count = count_and_prune_live_bots(spawner)
+
+    if spawner.spawn_mode == "once" then
+        if spawner.once_spawned then return false end
+        if live_count > 0 then return false end
+    end
+    if spawner.max_alive > 0 and live_count >= spawner.max_alive then
+        return false
+    end
+
+    local npc = create_bot_from_object(spawner.area_id, spawner.template_object, nil, {
+        skip_placeholder_registration = true,
+        on_path_complete = make_spawner_path_complete_cb(spawner),
+    })
+    if not npc then
+        return false
+    end
+    spawner.live_bots[npc.bot_id] = true
+    if spawner.spawn_mode == "once" then
+        spawner.once_spawned = true
+    end
+    printd("spawner spawned bot=" .. tostring(npc.bot_id)
+        .. " spawner=" .. tostring(spawner.object.id)
+        .. " area=" .. tostring(spawner.area_id)
+        .. " mode=" .. tostring(spawner.spawn_mode)
+        .. " live_count=" .. tostring(live_count + 1))
+    return true
+end
+
+local function register_npc_spawner(area_id, object)
+    validate_npc_object(area_id, object)
+
+    local props = object.custom_properties or {}
+    local template_ref = props["NPC Template"]
+    if not template_ref or tostring(template_ref) == "" then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner missing NPC Template reference:",
+            tostring(object.id))
+        return
+    end
+
+    local template = ezcache.get_object_by_id_cached(area_id, tostring(template_ref))
+    if not template then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner template not found:",
+            tostring(object.id), "->", tostring(template_ref))
+        return
+    end
+    if template.type ~= "NPC" then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner NPC Template must reference an NPC object; got type:",
+            tostring(template.type))
+        return
+    end
+    if not is_property_true((template.custom_properties or {})["Template Only"]) then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner template is not marked 'Template Only'; a duplicate NPC may spawn.",
+            "spawner=", tostring(object.id),
+            "template=", tostring(template_ref))
+    end
+
+    local trigger_radius = tonumber(props["Trigger Radius"]) or 0
+    if trigger_radius < 0 then trigger_radius = 0 end
+    local once = is_property_true(props["Once"])
+
+    -- Spawn mode. Interval requires a trigger radius; with radius = 0 there
+    -- is nothing to gate on, so we fall back to Once and warn.
+    local spawn_mode_raw = props["Spawn Mode"]
+    local spawn_mode = "once"
+    if spawn_mode_raw and string.lower(tostring(spawn_mode_raw)) == "interval" then
+        spawn_mode = "interval"
+    end
+    if spawn_mode == "interval" and trigger_radius <= 0 then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner '", tostring(object.id),
+            "' has Spawn Mode = Interval but Trigger Radius = 0; ",
+            "falling back to Once (no trigger to gate spawning).")
+        spawn_mode = "once"
+    end
+    if spawn_mode == "interval" and once then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner '", tostring(object.id),
+            "' has Spawn Mode = Interval and Once = true; ",
+            "Once is ignored in Interval mode.")
+    end
+
+    local spawn_interval = tonumber(props["Spawn Interval"]) or 3
+    if spawn_interval <= 0 then spawn_interval = 0.1 end
+    local max_alive = tonumber(props["Max Alive"]) or 0
+    if max_alive < 0 then max_alive = 0 end
+
+    if spawn_mode == "interval"
+        and not is_property_true(props["Warp Out At End"])
+        and max_alive == 0 then
+        logger:for_area(area_id):warn(
+            "[eznpcs] NPC Spawner '", tostring(object.id),
+            "' is in Interval mode with Warp Out At End = false and Max Alive = 0; ",
+            "bots will accumulate indefinitely. Set Max Alive or enable Warp Out At End.")
+    end
+
+    local spawner = {
+        area_id = area_id,
+        object = object,
+        template_object = template,
+        live_bots = {},
+        trigger_radius = trigger_radius,
+        spawn_mode = spawn_mode,
+        spawn_interval = spawn_interval,
+        max_alive = max_alive,
+        once = once,
+        once_spawned = false,
+        trigger_armed = true,
+        was_player_inside = false,
+        time_since_last_spawn = 0,
+    }
+
+    npc_spawners[area_id] = npc_spawners[area_id] or {}
+    npc_spawners[area_id][tostring(object.id)] = spawner
+
+    logger:for_area(area_id):info(
+        "[eznpcs] Registered NPC Spawner:", tostring(object.id),
+        "template=", tostring(template_ref),
+        "radius=", tostring(trigger_radius),
+        "mode=", spawn_mode,
+        "interval=", tostring(spawn_interval),
+        "max_alive=", tostring(max_alive),
+        "once=", tostring(once),
+        "warp_out_at_end=", tostring(is_property_true(props["Warp Out At End"])))
+
+    if trigger_radius <= 0 then
+        -- Immediate mode: spawn once on area load. Always one-shot per
+        -- session, regardless of the Once flag (there's no trigger to
+        -- re-arm).
+        if spawn_from_spawner(spawner) then
+            spawner.once_spawned = true
+        else
+            logger:for_area(area_id):warn(
+                "[eznpcs] NPC Spawner immediate spawn failed:",
+                tostring(object.id), "(will not retry)")
+            spawner.once_spawned = true
+        end
+    end
+end
+
+object_registry.register_handler("NPC Spawner", register_npc_spawner)
+
+-- Prune dead bot_ids from spawner live_bots whenever any bot is removed.
+-- This catches removals triggered from external modules (or from
+-- disconnect cleanup) that would otherwise leave stale entries in the
+-- set until the next spawn attempt iterated it.
+ezbus:on("bot_removed", function(event)
+    if type(event) ~= "table" or not event.bot_id then return end
+    local bot_id = event.bot_id
+    for _, area_spawners in pairs(npc_spawners) do
+        for _, spawner in pairs(area_spawners) do
+            if spawner.live_bots[bot_id] then
+                spawner.live_bots[bot_id] = nil
+            end
+        end
+    end
+end)
+
+-- Called from eznpcs.on_tick. Handles both Once and Interval modes; only
+-- iterates spawners in radius mode (immediate mode is handled at registration).
+local function update_spawner_triggers(delta_time)
+    for area_id, area_spawners in pairs(npc_spawners) do
+        for _, spawner in pairs(area_spawners) do
+            if spawner.trigger_radius > 0 then
+                -- Player presence test.
+                local sx = tonumber(spawner.object.x) or 0
+                local sy = tonumber(spawner.object.y) or 0
+                local radius_sq = spawner.trigger_radius * spawner.trigger_radius
+                local any_in_radius = false
+                local players = Net.list_players(area_id) or {}
+                for _, pid in ipairs(players) do
+                    local ok, pos = pcall(Net.get_player_position, pid)
+                    if ok and type(pos) == "table" then
+                        local dx = (tonumber(pos.x) or 0) - sx
+                        local dy = (tonumber(pos.y) or 0) - sy
+                        if dx * dx + dy * dy <= radius_sq then
+                            any_in_radius = true
+                            break
+                        end
+                    end
+                end
+
+                if spawner.spawn_mode == "interval" then
+                    if any_in_radius then
+                        -- On entry, force an immediate spawn by setting the
+                        -- timer at the interval threshold. Subsequent ticks
+                        -- increment normally.
+                        if not spawner.was_player_inside then
+                            spawner.was_player_inside = true
+                            spawner.time_since_last_spawn = spawner.spawn_interval
+                        else
+                            spawner.time_since_last_spawn =
+                                spawner.time_since_last_spawn + delta_time
+                        end
+                        if spawner.time_since_last_spawn >= spawner.spawn_interval then
+                            local live_count = count_and_prune_live_bots(spawner)
+                            local at_cap = spawner.max_alive > 0
+                                and live_count >= spawner.max_alive
+                            if not at_cap then
+                                if spawn_from_spawner(spawner) then
+                                    spawner.time_since_last_spawn = 0
+                                    logger:for_area(area_id):info(
+                                        "[eznpcs] Interval spawner fired:",
+                                        tostring(spawner.object.id),
+                                        "live=", tostring(live_count + 1))
+                                else
+                                    -- Unexpected failure; back off to the next
+                                    -- interval so we don't spam every tick.
+                                    spawner.time_since_last_spawn = 0
+                                end
+                            end
+                            -- At cap: leave the timer past the threshold so
+                            -- the moment a slot frees we spawn immediately.
+                        end
+                    else
+                        spawner.was_player_inside = false
+                        spawner.time_since_last_spawn = 0
+                    end
+                else
+                    -- Once mode.
+                    if not spawner.once_spawned and spawner.trigger_armed then
+                        if any_in_radius then
+                            if spawn_from_spawner(spawner) then
+                                spawner.trigger_armed = false
+                                spawner.once_spawned = spawner.once
+                                logger:for_area(area_id):info(
+                                    "[eznpcs] Once spawner triggered:",
+                                    tostring(spawner.object.id))
+                            end
+                        end
+                    end
+                    if not any_in_radius then
+                        spawner.trigger_armed = true
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -763,6 +1152,12 @@ local function register_npc_object(area_id, object)
     validate_npc_object(area_id, object)
 
     local props = object.custom_properties or {}
+
+    if is_property_true(props["Template Only"]) then
+        printd("Skipping template-only NPC placeholder id "..object.id.." in "..area_id)
+        return
+    end
+
     local is_quest = is_property_true(props["Quest NPC"])
     local is_exclusive = is_property_true(props["Player Exclusive"])
     local quest_exclusive = props["Quest Exclusive"]
@@ -810,10 +1205,13 @@ function eznpcs.add_npcs_to_area(area_id)
         local object = ezcache.get_object_by_id_cached(area_id, object_id)
         if object and (object.type == "NPC" or object.type == "Pushback NPC") then
             local props = object.custom_properties or {}
+            local is_template_only = is_property_true(props["Template Only"])
             local is_quest = is_property_true(props["Quest NPC"])
             local is_exclusive = is_property_true(props["Player Exclusive"])
             local quest_exclusive = props["Quest Exclusive"]
-            if quest_exclusive then
+            if is_template_only then
+                -- Skip; used only as a spawner template.
+            elseif quest_exclusive then
                 -- Already handled by registry, but ensure it's stored (registry runs first)
                 -- (duplicate entries won't hurt)
                 local required_state = props["Quest State"] or "active"
@@ -863,6 +1261,7 @@ function eznpcs.on_tick(delta_time)
         custom_events_script_loaded = true
         helpers.safe_require(custom_events_script_path)
     end
+    update_spawner_triggers(delta_time)
     for bot_id, npc in pairs(npcs) do
         if npc.on_tick then
             npc.on_tick.action(npc,delta_time)

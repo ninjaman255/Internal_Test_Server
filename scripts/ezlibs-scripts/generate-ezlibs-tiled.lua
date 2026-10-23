@@ -112,6 +112,10 @@ local Enums = {
                   "Ask Quiz", "Prompt Player", "Play Sound",
                   "Fade Camera", "Move Camera", "Emit Event"}
     },
+    NPCSpawnMode = {
+        type = "string",
+        values = {"Once", "Interval"}
+    },
 }
 
 -- ----------------------------------------------------------------------
@@ -300,6 +304,7 @@ local object_types = {
             prop("Quest NPC", "bool", false),
             prop("Quest Exclusive", "string", ""),
             prop("Quest State", "string", "active"),
+            prop("Template Only", "bool", false),
         }
     },
     {
@@ -324,6 +329,23 @@ local object_types = {
             prop("Push Duration", "number", 0.28),
             prop("Push Cooldown", "number", 0.75),
             prop("Move Animation State", "string", "MOVE"),
+            prop("Template Only", "bool", false),
+        }
+    },
+    {
+        name = "NPC Spawner",
+        color = "#ffcc88",
+        members = {
+            prop("NPC Template", "object", ""),
+            prop("Trigger Radius", "number", 0),
+            prop("Spawn Mode", "string", "Once", "NPCSpawnMode"),
+            prop("Spawn Interval", "number", 3),
+            prop("Max Alive", "number", 0),
+            prop("Once", "bool", false),
+            prop("Warp Out At End", "bool", false),
+            prop("Warp Out Delay", "number", 0),
+            prop("Warp Out Animation", "string", ""),
+            prop("Warp Out Animation Duration", "number", 0.5),
         }
     },
     {
@@ -686,9 +708,11 @@ local META = {
             description = "Dialogue node. Many properties are type-specific; see the Conditional section.",
             numberedTemplates = { "Text ", "Next ", "Item ", "Body " } },
         ["NPC"] = { category = "gameplay",
-            description = "Placed non-player character." },
+            description = "Placed non-player character. Set `Template Only` to use an NPC purely as a reference target for NPC Spawners without spawning it as a standalone NPC." },
         ["Pushback NPC"] = { category = "gameplay",
             description = "NPC with a moving collision zone that pushes the player." },
+        ["NPC Spawner"] = { category = "gameplay",
+            description = "Spawns NPCs from a template object, lets them follow a waypoint path, and optionally warps them out when the path completes. Supports one-per-entry spawning (Once mode) and continuous spawning at an interval while a player stays inside (Interval mode)." },
         ["FootBomb Controller"] = { category = "gameplay",
             description = "Interaction actor for the FootBomb minigame." },
         ["Waypoint"] = { category = "gameplay",
@@ -784,7 +808,7 @@ local META = {
                 dependsOn = { property = "Key Type", equals = "navi_list" } },
         },
 
-        -- NPC / Pushback / FootBomb -------------------------------------
+        -- NPC / Pushback / FootBomb / Spawner ---------------------------
         ["NPC"] = {
             ["Direction"] = { category = "appearance",
                 description = "Initial facing (Tiled default populates it).",
@@ -815,6 +839,8 @@ local META = {
                 description = "Required quest state for the NPC to appear.",
                 conditional = "Only used when Quest Exclusive is set.",
                 dependsOn = { property = "Quest Exclusive" } },
+            ["Template Only"] = { category = "advanced",
+                description = "If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own. Properties (Asset Name, Direction, Next Waypoint 1, First Dialogue, Cutscene, etc.) are still read by the spawner when it creates a bot from this template." },
         },
         ["Pushback NPC"] = {
             ["Collision Enabled"] = { category = "gameplay",
@@ -831,6 +857,46 @@ local META = {
                 description = "Seconds before the same player can be pushed again." },
             ["Move Animation State"] = { category = "appearance",
                 description = "Bot animation state played during the push." },
+            ["Template Only"] = { category = "advanced",
+                description = "If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own.",
+                conditional = "Only meaningful if the referenced spawner does not also need collision push behaviour on the spawned bot." },
+        },
+        ["NPC Spawner"] = {
+            ["NPC Template"] = { category = "gameplay",
+                description = "Reference to an NPC object to spawn. The referenced NPC should have `Template Only` enabled so it doesn't also spawn as a regular NPC on map load.",
+                required = true },
+            ["Trigger Radius"] = { category = "gameplay",
+                description = "If > 0, spawning is gated on a player being within this radius (in tiles) around the spawner. 0 = spawn immediately on area load (Once mode only; Interval falls back to Once with a warning)." },
+            ["Spawn Mode"] = { category = "gameplay",
+                description = "How the spawner triggers:\n"
+                    .. "• Once — spawn one NPC per trigger entry (see Once).\n"
+                    .. "• Interval — spawn a new NPC every Spawn Interval seconds while a player stays inside Trigger Radius, up to Max Alive concurrent NPCs." },
+            ["Spawn Interval"] = { category = "gameplay",
+                description = "Seconds between spawns in Interval mode. The first NPC spawns immediately on entry; subsequent NPCs follow at this interval, subject to Max Alive. If Max Alive pauses spawning, the next spawn fires as soon as a slot opens.",
+                conditional = "Only used when Spawn Mode == 'Interval'.",
+                dependsOn = { property = "Spawn Mode", equals = "Interval" } },
+            ["Max Alive"] = { category = "gameplay",
+                description = "Cap on concurrently live NPCs. 0 = unlimited. While at cap, spawning pauses; when a slot frees (warp-out, external removal), the next spawn fires immediately rather than waiting for another interval.",
+                conditional = "Only used when Spawn Mode == 'Interval'; Once mode is implicitly limited to one NPC at a time.",
+                dependsOn = { property = "Spawn Mode", equals = "Interval" } },
+            ["Once"] = { category = "gameplay",
+                description = "If true, spawn at most one NPC per session. If false, Once-mode spawners re-arm when the player leaves and can spawn again on the next entry (immediate-mode spawners are always one-shot regardless of this flag). Ignored in Interval mode.",
+                conditional = "Only affects Once mode; Interval mode ignores it.",
+                dependsOn = { property = "Spawn Mode", equals = "Once" } },
+            ["Warp Out At End"] = { category = "gameplay",
+                description = "If true, each spawned NPC is removed after reaching the final waypoint in its path. If false, spawned NPCs stay at the last waypoint indefinitely (and, in Interval mode, count toward Max Alive)." },
+            ["Warp Out Delay"] = { category = "gameplay",
+                description = "Seconds to wait after the path completes before starting the warp-out animation.",
+                conditional = "Only used when Warp Out At End is true.",
+                dependsOn = { property = "Warp Out At End" } },
+            ["Warp Out Animation"] = { category = "appearance",
+                description = "Optional animation state to play before the NPC is removed (e.g. WARP_OUT). Empty = remove immediately after the delay with no animation.",
+                conditional = "Only used when Warp Out At End is true.",
+                dependsOn = { property = "Warp Out At End" } },
+            ["Warp Out Animation Duration"] = { category = "appearance",
+                description = "Seconds the Warp Out Animation plays before the NPC is removed. Should match the animation's total duration.",
+                conditional = "Only used when Warp Out At End and Warp Out Animation are both set.",
+                dependsOn = { property = "Warp Out At End" } },
         },
         ["FootBomb Controller"] = {
             ["Instance Map"] = { category = "gameplay",

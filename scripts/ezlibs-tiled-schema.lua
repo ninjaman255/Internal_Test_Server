@@ -16,6 +16,7 @@ return {
     ["ItemType"] = { type = "string", values = { "item", "keyitem", "money", "fragments", "tokens" } },
     ["KeyType"] = { type = "string", values = { "money", "fragments", "tokens", "item", "bossgate", "navi_name", "navi_element", "navi_list" } },
     ["MysteryType"] = { type = "string", values = { "keyitem", "item", "money", "random", "quiz", "fragments", "tokens", "encounter" } },
+    ["NPCSpawnMode"] = { type = "string", values = { "Once", "Interval" } },
     ["NaviElement"] = { type = "string", values = { "None", "Fire", "Aqua", "Elec", "Wood", "Sword", "Break", "Cursor", "Wind", "Summon", "Plus" } },
     ["QuizFailAction"] = { type = "string", values = { "retry", "hide_once", "hide_temp", "explode" } },
     ["SizeModeScope"] = { type = "string", values = { "Player", "Area Wide" } },
@@ -706,7 +707,7 @@ return {
     ["NPC"] = {
       color = "#aaaaaa",
       category    = "gameplay",
-      description = "Placed non-player character.",
+      description = "Placed non-player character. Set `Template Only` to use an NPC purely as a reference target for NPC Spawners without spawning it as a standalone NPC.",
       members = {
         {
           ["category"] = "appearance",
@@ -799,6 +800,13 @@ return {
           ["name"] = "Quest State",
           ["type"] = "string",
           ["value"] = "active"
+        },
+        {
+          ["category"] = "advanced",
+          ["description"] = "If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own. Properties (Asset Name, Direction, Next Waypoint 1, First Dialogue, Cutscene, etc.) are still read by the spawner when it creates a bot from this template.",
+          ["name"] = "Template Only",
+          ["type"] = "bool",
+          ["value"] = false
         },
       },
     },
@@ -911,6 +919,122 @@ return {
           ["name"] = "Move Animation State",
           ["type"] = "string",
           ["value"] = "MOVE"
+        },
+        {
+          ["category"] = "advanced",
+          ["conditional"] = "Only meaningful if the referenced spawner does not also need collision push behaviour on the spawned bot.",
+          ["description"] = "If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own.",
+          ["name"] = "Template Only",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+      },
+    },
+    ["NPC Spawner"] = {
+      color = "#ffcc88",
+      category    = "gameplay",
+      description = "Spawns NPCs from a template object, lets them follow a waypoint path, and optionally warps them out when the path completes. Supports one-per-entry spawning (Once mode) and continuous spawning at an interval while a player stays inside (Interval mode).",
+      members = {
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Reference to an NPC object to spawn. The referenced NPC should have `Template Only` enabled so it doesn't also spawn as a regular NPC on map load.",
+          ["name"] = "NPC Template",
+          ["required"] = true,
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "If > 0, spawning is gated on a player being within this radius (in tiles) around the spawner. 0 = spawn immediately on area load (Once mode only; Interval falls back to Once with a warning).",
+          ["name"] = "Trigger Radius",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "How the spawner triggers:\
+• Once — spawn one NPC per trigger entry (see Once).\
+• Interval — spawn a new NPC every Spawn Interval seconds while a player stays inside Trigger Radius, up to Max Alive concurrent NPCs.",
+          ["name"] = "Spawn Mode",
+          ["propertyType"] = "NPCSpawnMode",
+          ["type"] = "string",
+          ["value"] = "Once"
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Spawn Mode == 'Interval'.",
+          ["dependsOn"] = {
+            ["equals"] = "Interval",
+            ["property"] = "Spawn Mode"
+          },
+          ["description"] = "Seconds between spawns in Interval mode. The first NPC spawns immediately on entry; subsequent NPCs follow at this interval, subject to Max Alive. If Max Alive pauses spawning, the next spawn fires as soon as a slot opens.",
+          ["name"] = "Spawn Interval",
+          ["type"] = "number",
+          ["value"] = 3
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Spawn Mode == 'Interval'; Once mode is implicitly limited to one NPC at a time.",
+          ["dependsOn"] = {
+            ["equals"] = "Interval",
+            ["property"] = "Spawn Mode"
+          },
+          ["description"] = "Cap on concurrently live NPCs. 0 = unlimited. While at cap, spawning pauses; when a slot frees (warp-out, external removal), the next spawn fires immediately rather than waiting for another interval.",
+          ["name"] = "Max Alive",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only affects Once mode; Interval mode ignores it.",
+          ["dependsOn"] = {
+            ["equals"] = "Once",
+            ["property"] = "Spawn Mode"
+          },
+          ["description"] = "If true, spawn at most one NPC per session. If false, Once-mode spawners re-arm when the player leaves and can spawn again on the next entry (immediate-mode spawners are always one-shot regardless of this flag). Ignored in Interval mode.",
+          ["name"] = "Once",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "If true, each spawned NPC is removed after reaching the final waypoint in its path. If false, spawned NPCs stay at the last waypoint indefinitely (and, in Interval mode, count toward Max Alive).",
+          ["name"] = "Warp Out At End",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Warp Out At End is true.",
+          ["dependsOn"] = {
+            ["property"] = "Warp Out At End"
+          },
+          ["description"] = "Seconds to wait after the path completes before starting the warp-out animation.",
+          ["name"] = "Warp Out Delay",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used when Warp Out At End is true.",
+          ["dependsOn"] = {
+            ["property"] = "Warp Out At End"
+          },
+          ["description"] = "Optional animation state to play before the NPC is removed (e.g. WARP_OUT). Empty = remove immediately after the delay with no animation.",
+          ["name"] = "Warp Out Animation",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used when Warp Out At End and Warp Out Animation are both set.",
+          ["dependsOn"] = {
+            ["property"] = "Warp Out At End"
+          },
+          ["description"] = "Seconds the Warp Out Animation plays before the NPC is removed. Should match the animation's total duration.",
+          ["name"] = "Warp Out Animation Duration",
+          ["type"] = "number",
+          ["value"] = 0.5
         },
       },
     },

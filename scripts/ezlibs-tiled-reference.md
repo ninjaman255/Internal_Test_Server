@@ -129,6 +129,11 @@ Auto-generated from `generate-ezlibs-tiled.lua`. Do not edit by hand.
 - `tokens`
 - `encounter`
 
+### NPCSpawnMode
+
+- `Once`
+- `Interval`
+
 ### NaviElement
 
 - `None`
@@ -349,7 +354,7 @@ Single quiz entry.
 
 ### NPC
 **Category:** gameplay
-Placed non-player character.
+Placed non-player character. Set `Template Only` to use an NPC purely as a reference target for NPC Spawners without spawning it as a standalone NPC.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
@@ -365,6 +370,7 @@ Placed non-player character.
 | `Quest Exclusive` | string |  | `""` | advanced | Quest name; when set, the NPC is created per-player for that quest. |
 | `Quest NPC` | bool |  | false | advanced | NPC is tied to quest state (see Quest Exclusive / Quest State). |
 | `Quest State` | string |  | `active` | advanced | Required quest state for the NPC to appear. |
+| `Template Only` | bool |  | false | advanced | If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own. Properties (Asset Name, Direction, Next Waypoint 1, First Dialogue, Cutscene, etc.) are still read by the spawner when it creates a bot from this template. |
 
 **Conditional properties**
 
@@ -395,6 +401,37 @@ NPC with a moving collision zone that pushes the player.
 | `Quest Exclusive` | string |  | `""` | gameplay |  |
 | `Quest NPC` | bool |  | false | gameplay |  |
 | `Quest State` | string |  | `active` | gameplay |  |
+| `Template Only` | bool |  | false | advanced | If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own. |
+
+**Conditional properties**
+
+- `Template Only`: Only meaningful if the referenced spawner does not also need collision push behaviour on the spawned bot.
+
+### NPC Spawner
+**Category:** gameplay
+Spawns NPCs from a template object, lets them follow a waypoint path, and optionally warps them out when the path completes. Supports one-per-entry spawning (Once mode) and continuous spawning at an interval while a player stays inside (Interval mode).
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Warp Out Animation` | string |  | `""` | appearance | Optional animation state to play before the NPC is removed (e.g. WARP_OUT). Empty = remove immediately after the delay with no animation. |
+| `Warp Out Animation Duration` | number |  | 0.5 | appearance | Seconds the Warp Out Animation plays before the NPC is removed. Should match the animation's total duration. |
+| `Max Alive` | number |  | 0 | gameplay | Cap on concurrently live NPCs. 0 = unlimited. While at cap, spawning pauses; when a slot frees (warp-out, external removal), the next spawn fires immediately rather than waiting for another interval. |
+| `NPC Template` | object | yes | `""` | gameplay | Reference to an NPC object to spawn. The referenced NPC should have `Template Only` enabled so it doesn't also spawn as a regular NPC on map load. |
+| `Once` | bool |  | false | gameplay | If true, spawn at most one NPC per session. If false, Once-mode spawners re-arm when the player leaves and can spawn again on the next entry (immediate-mode spawners are always one-shot regardless of this flag). Ignored in Interval mode. |
+| `Spawn Interval` | number |  | 3 | gameplay | Seconds between spawns in Interval mode. The first NPC spawns immediately on entry; subsequent NPCs follow at this interval, subject to Max Alive. If Max Alive pauses spawning, the next spawn fires as soon as a slot opens. |
+| `Spawn Mode` | string (NPCSpawnMode) |  | `Once` | gameplay | How the spawner triggers:<br>• Once — spawn one NPC per trigger entry (see Once).<br>• Interval — spawn a new NPC every Spawn Interval seconds while a player stays inside Trigger Radius, up to Max Alive concurrent NPCs. |
+| `Trigger Radius` | number |  | 0 | gameplay | If > 0, spawning is gated on a player being within this radius (in tiles) around the spawner. 0 = spawn immediately on area load (Once mode only; Interval falls back to Once with a warning). |
+| `Warp Out At End` | bool |  | false | gameplay | If true, each spawned NPC is removed after reaching the final waypoint in its path. If false, spawned NPCs stay at the last waypoint indefinitely (and, in Interval mode, count toward Max Alive). |
+| `Warp Out Delay` | number |  | 0 | gameplay | Seconds to wait after the path completes before starting the warp-out animation. |
+
+**Conditional properties**
+
+- `Warp Out Animation`: Only used when Warp Out At End is true. Only meaningful when `Warp Out At End` is set.
+- `Warp Out Animation Duration`: Only used when Warp Out At End and Warp Out Animation are both set. Only meaningful when `Warp Out At End` is set.
+- `Max Alive`: Only used when Spawn Mode == 'Interval'; Once mode is implicitly limited to one NPC at a time. Only meaningful when `Spawn Mode` == `Interval`.
+- `Once`: Only affects Once mode; Interval mode ignores it. Only meaningful when `Spawn Mode` == `Once`.
+- `Spawn Interval`: Only used when Spawn Mode == 'Interval'. Only meaningful when `Spawn Mode` == `Interval`.
+- `Warp Out Delay`: Only used when Warp Out At End is true. Only meaningful when `Warp Out At End` is set.
 
 ### FootBomb Controller
 **Category:** gameplay
