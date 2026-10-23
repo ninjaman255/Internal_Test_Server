@@ -23,6 +23,7 @@
 - [Part 13 — Repository Cross-Check](#part-13)
 - [Part 14 — Async and Await Conventions](#part-14)
 - [Part 15 — Safe Usage Checklist](#part-15)
+- [Part 16 — API Ownership: Server vs. Repository Scripts](#part-16)
 
 <a id="part-1"></a>
 ## ⚙️ Part 1 — Runtime and Path Model
@@ -345,7 +346,7 @@ The archive contains **197 Lua files under `scripts/`**. The inventory below is 
 | Players | `is_player`, `get_player_area`, `get_player_position`, `get_player_name`, `get_player_mugshot`, `get_player_secret`, `transfer_player`, `lock_player_input`, `unlock_player_input` | Used throughout lifecycle, UI, instances, and games. Treat secrets/IP as sensitive. |
 | Widgets | `message_player`, `question_player`, `quiz_player`, `prompt_player`, `open_board`, `close_bbs`, `open_shop` | Async flows should use the documented `Async.*` versions when awaiting user response. |
 | Camera/audio | `move_player_camera`, `fade_player_camera`, `slide_player_camera`, `shake_player_camera`, `track_with_player_camera`, `unlock_player_camera`, `play_sound`, `play_sound_for_player`, `set_song_for_player`, `stop_song_for_player` | Used for scenes, selectors, transitions, and UI/game feedback. |
-| Assets/sprites | `has_asset`, `provide_asset`, `provide_asset_for_player`, `read_asset`, `update_asset`, `remove_asset`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `player_dealloc_sprite` | The sprite calls appear in repository code but are not included in the supplied server API excerpt; see unlisted symbols below. |
+| Assets/sprites | `has_asset`, `provide_asset`, `provide_asset_for_player`, `read_asset`, `update_asset`, `remove_asset`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `player_dealloc_sprite` | `player_*_sprite` and `provide_asset_for_player` are documented in root `API_CHANGES.md`; `read_asset`, `update_asset`, and `remove_asset` still require checking against the supplied server reference/runtime. |
 | Async | `Async.await`, `Async.promisify`, `Async.create_promise`, `Async.sleep`, `Async.read_file`, `Async.write_file`, `Async.message_player`, `Async.question_player`, `Async.quiz_player`, `Async.prompt_player`, `Async.initiate_encounter`, `Async.initiate_pvp` | Distinguish uppercase `Async` runtime APIs from lowercase `async` helpers defined locally or by `promise_api.lua`. |
 
 ### Net symbols observed in scripts
@@ -384,7 +385,7 @@ The archive contains **197 Lua files under `scripts/`**. The inventory below is 
 | `Net.get_player_area` | 34 | Documented in supplied server reference — `scripts/camera/main.lua`, `scripts/events/eznpcs_onceitem.lua`, and 32 more |
 | `Net.get_player_avatar` | 2 | Documented in supplied server reference — `scripts/avatar_utils/avatar_utils.lua`, `scripts/ezlibs-scripts/avatar_utils/avatar_utils.lua` |
 | `Net.get_player_direction` | 2 | Documented in supplied server reference — `scripts/events/eznpcs_onceitem.lua`, `scripts/ezlibs-scripts/ezmystery.lua` |
-| `Net.get_player_fragments` | 1 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/ezlibs-scripts/ezmemory.lua` |
+| `Net.get_player_fragments` | 1 | Server-provided in root `API_CHANGES.md` — `scripts/ezlibs-scripts/ezmemory.lua` |
 | `Net.get_player_health` | 2 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezmemory.lua`, `scripts/net-game-tourney/tournament-flow.lua` |
 | `Net.get_player_max_health` | 3 | Documented in supplied server reference — `scripts/ezlibs-custom/nebulous-liberations/liberations/instance.lua`, `scripts/ezlibs-scripts/ezmemory.lua`, and 1 more |
 | `Net.get_player_money` | 5 | Documented in supplied server reference — `scripts/events/eznpcs_onceitem.lua`, `scripts/ezlibs-custom/nebulous-liberations/liberations/player_session.lua`, and 3 more |
@@ -429,10 +430,10 @@ The archive contains **197 Lua files under `scripts/`**. The inventory below is 
 | `Net.open_shop` | 1 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezmemory.lua` |
 | `Net.play_sound` | 16 | Documented in supplied server reference — `scripts/ezlibs-custom/nebulous-liberations/utils/exploding_effect.lua`, `scripts/ezlibs-custom/nebulous-liberations/utils/paralyze_effect.lua`, and 14 more |
 | `Net.play_sound_for_player` | 21 | Documented in supplied server reference — `scripts/animation-engine/animation-sequences.lua`, `scripts/displayer/text-display.lua`, and 19 more |
-| `Net.player_alloc_sprite` | 13 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 11 more |
-| `Net.player_dealloc_sprite` | 7 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 5 more |
-| `Net.player_draw_sprite` | 13 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 11 more |
-| `Net.player_erase_sprite` | 13 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 11 more |
+| `Net.player_alloc_sprite` | 13 | Server-provided in root `API_CHANGES.md` — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 11 more |
+| `Net.player_dealloc_sprite` | 7 | Server-provided in root `API_CHANGES.md` — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 5 more |
+| `Net.player_draw_sprite` | 13 | Server-provided in root `API_CHANGES.md` — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 11 more |
+| `Net.player_erase_sprite` | 13 | Server-provided in root `API_CHANGES.md` — `scripts/displayer/font-system.lua`, `scripts/displayer/nameplate.lua`, and 11 more |
 | `Net.prepend_posts` | 1 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezbbs.lua` |
 | `Net.prompt_player` | 1 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezbbs.lua` |
 | `Net.provide_asset` | 6 | Documented in supplied server reference — `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader.lua`, `scripts/ezlibs-scripts/ezbuttons.lua`, and 4 more |
@@ -446,8 +447,8 @@ The archive contains **197 Lua files under `scripts/`**. The inventory below is 
 | `Net.remove_object` | 6 | Documented in supplied server reference — `scripts/events/eznpcs_onceitem.lua`, `scripts/ezlibs-custom/nebulous-liberations/liberations/instance.lua`, and 4 more |
 | `Net.remove_player_item` | 2 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezmemory.lua`, `scripts/ezlibs-scripts/ezrushroads.lua` |
 | `Net.remove_post` | 2 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezbbs.lua`, `scripts/ezlibs-scripts/ezfarms.lua` |
-| `Net.ring_player_hud` | 2 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/ezlibs-scripts/ezemail.lua`, `scripts/ezlibs-scripts/ezmail.lua` |
-| `Net.send_player_email` | 2 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/ezlibs-scripts/ezemail.lua`, `scripts/ezlibs-scripts/ezmail.lua` |
+| `Net.ring_player_hud` | 2 | Server-provided in root `API_CHANGES.md` — `scripts/ezlibs-scripts/ezemail.lua`, `scripts/ezlibs-scripts/ezmail.lua` |
+| `Net.send_player_email` | 2 | Server-provided in root `API_CHANGES.md` — `scripts/ezlibs-scripts/ezemail.lua`, `scripts/ezlibs-scripts/ezmail.lua` |
 | `Net.set_area_custom_property` | 1 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezweather.lua` |
 | `Net.set_area_name` | 1 | Documented in supplied server reference — `scripts/net-game-tourney/tournament-ui.lua` |
 | `Net.set_background` | 1 | Documented in supplied server reference — `scripts/ezlibs-custom/nebulous-liberations/liberations/instance.lua` |
@@ -468,7 +469,7 @@ The archive contains **197 Lua files under `scripts/`**. The inventory below is 
 | `Net.set_tile` | 1 | Documented in supplied server reference — `scripts/ezlibs-scripts/ezfarms.lua` |
 | `Net.shake_player_camera` | 8 | Documented in supplied server reference — `scripts/camera/camera-controller.lua`, `scripts/ezlibs-custom/nebulous-liberations/liberations/enemies/bigbrute.lua`, and 6 more |
 | `Net.slide_player_camera` | 7 | Documented in supplied server reference — `scripts/ezlibs-custom/nebulous-liberations/liberations/camera_sequence.lua`, `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy.lua`, and 5 more |
-| `Net.toggle_player_hud` | 4 | **Not listed in supplied API excerpt; verify runtime/source** — `scripts/ezlibs-custom/footbomb/main.lua`, `scripts/net-game-tourney/tournament-flow.lua`, and 2 more |
+| `Net.toggle_player_hud` | 4 | Server-provided in root `API_CHANGES.md` — `scripts/ezlibs-custom/footbomb/main.lua`, `scripts/net-game-tourney/tournament-flow.lua`, and 2 more |
 | `Net.track_with_player_camera` | 3 | Documented in supplied server reference — `scripts/camera/camera-controller.lua`, `scripts/events/eznpcs_onceitem.lua`, and 1 more |
 | `Net.transfer_bot` | 4 | Documented in supplied server reference — `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers.lua`, `scripts/ezlibs-custom/nebulous-liberations/utils/exploding_effect.lua`, and 2 more |
 | `Net.transfer_player` | 6 | Documented in supplied server reference — `scripts/ezlibs-custom/footbomb/main.lua`, `scripts/ezlibs-custom/nebulous-liberations/main.lua`, and 4 more |
@@ -538,17 +539,14 @@ The repository also subscribes to custom or module-level event names. The list b
 | `timer_global_update` | 1 | Repository-defined / not listed in supplied server event reference — `scripts/displayer/timer-display.lua` |
 | `timer_remove` | 1 | Repository-defined / not listed in supplied server event reference — `scripts/displayer/timer-display.lua` |
 | `timer_update` | 1 | Repository-defined / not listed in supplied server event reference — `scripts/displayer/timer-display.lua` |
-| `virtual_input` | 5 | Repository-defined / not listed in supplied server event reference — `scripts/events/eznpcs_onceitem.lua`, `scripts/input-controller/main.lua`, and 3 more |
+| `virtual_input` | 5 | Server-provided in root `API_CHANGES.md`; scripts consume/register handling for this event — `scripts/events/eznpcs_onceitem.lua`, `scripts/input-controller/main.lua`, and 3 more |
 
 ### Important repository-only symbols
 
-These are directly referenced by the codebase but are not present in the server API excerpt supplied for this task. They may be extensions, version-specific APIs, or functions added by a project module. Do not document them as guaranteed server built-ins without checking the matching server implementation/version.
+These are directly referenced by the codebase but are not present in the supplied server API reference **or** root `API_CHANGES.md`. They may be extensions, version-specific APIs, or functions added by a project module. Do not document them as guaranteed server built-ins without checking the matching server implementation/version.
 
-- Sprite/UI: `Net.player_alloc_sprite`, `Net.player_draw_sprite`, `Net.player_erase_sprite`, `Net.player_dealloc_sprite`.
 - Player positioning/animation aliases: `Net.move_player`, `Net.set_player_position`, `Net.set_player_animation`.
-- HUD / UI additions: `Net.toggle_player_hud`, `Net.ring_player_hud`.
-- Additional state: `Net.get_player_fragments`, `Net.set_player_fragments`, `Net.send_player_email`.
-- Other names discovered by the scanner are individually marked in the `Net` and `Async` tables above.
+- Other names discovered by the scanner are individually marked in the `Net` and `Async` tables above. APIs documented by `API_CHANGES.md` (including player sprite operations, HUD/email/fragments operations, `virtual_input`, and player-specific music) are server-provided and should not be listed as unverified merely because they are absent from the shorter server API excerpt.
 
 <a id="part-14"></a>
 ## ⏳ Part 14 — Async and Await Conventions
@@ -600,3 +598,97 @@ Prefer `Async.sleep(duration)` over busy loops or blocking delays. For long-live
 - Do not assume an API marked deprecated or unstable is safe for new features.
 - Clean up event listeners, emitters, timers, sprites, temporary bots/areas, input locks, and per-player UI when a session ends.
 - Keep the API reference versioned alongside the server version; the provided API excerpt may differ from the installed runtime.
+
+
+<a id="part-16"></a>
+## 🧭 Part 16 — API Ownership: Server vs. Repository Scripts
+
+Use this section to determine **where an API comes from before calling it**. The ownership distinction is important: server-provided APIs are injected by the OpenNetBattle runtime, while repository-provided APIs are Lua modules/functions loaded from this repository. Repository modules may themselves call server APIs, but that does not make the module's public functions part of `Net`.
+
+### Ownership labels used in this reference
+
+| Label | Meaning |
+|---|---|
+| **Server-provided** | Listed in the supplied server API reference or root `API_CHANGES.md`; exposed by the running server, not implemented by this repository's Lua scripts. |
+| **Repository-provided** | Defined by Lua source in `scripts/` (or loaded from a repository Lua dependency). Its availability depends on the relevant script/module being loaded. |
+| **Observed / verify** | A symbol is referenced by repository code but is not confirmed by the supplied server documentation. Code usage alone is not proof of server support. |
+| **Lua standard library** | Provided by Lua itself (for example `table`, `string`, `math`, `pairs`, `ipairs`, `pcall`, `require`), not by the game server or this repository. |
+
+### Server-provided globals and APIs
+
+These are runtime APIs, not repository helper modules:
+
+- `Net` and its documented methods, including event registration (`Net:on`), map/area/object APIs, player and bot APIs, widgets, battles, sound/music, camera and movement APIs, and asset operations.
+- `Async` and the documented asynchronous/promise helpers, including `Async.await`, `Async.await_all`, `Async.promisify`, `Async.create_promise`, `Async.sleep`, filesystem/network helpers, and asyncified player-widget/battle calls described in Parts 10–11.
+- `Net.EventEmitter`, as described in Part 12.
+- The APIs explicitly listed in the root `API_CHANGES.md`. That file is a server API changelog/reference; its listed `Net.*` functions and events are **server-provided**, not functions implemented by scripts in this archive.
+
+#### APIs listed in `API_CHANGES.md`
+
+| API | Owner | Notes |
+|---|---|---|
+| `Net.toggle_player_hud(player_id)` | Server | Toggle HUD visibility. |
+| `Net.set_player_hud_mode(player_id, mode)` | Server | `mode`: `health = 0`, `icon = 1`. |
+| `Net.send_player_battle_rewards(player_id, rewards)` | Server | Sends the documented reward list. |
+| `Net.ring_player_hud(player_id)` | Server | Triggers HUD ring feedback. |
+| `Net.get_player_fragments(player_id)` / `Net.set_player_fragments(player_id, count)` | Server | Read/set fragment count. |
+| `Net.send_player_email(player_id, mail)` | Server | Sends an email object using the fields documented in `API_CHANGES.md`. |
+| `Net:on("email_read", function(event) ... end)` | Server event | Event payload includes `player_id` and `email_id`. Register it through server-provided `Net:on`. |
+| `Net.player_alloc_sprite(player_id, sprite_id, params)` | Server | Allocates a client sprite resource for a player. |
+| `Net.player_draw_sprite(player_id, sprite_id, obj)` | Server | Draws/updates a player-specific sprite instance. |
+| `Net.player_erase_sprite(player_id, obj_id)` | Server | Erases a player-specific sprite instance. |
+| `Net.player_dealloc_sprite(player_id, sprite_id)` | Server | Deallocates a sprite resource and its instances. |
+| `Net.virtual_input(event)` | Server event/API | Virtual input events for locked-player custom input flows. |
+| `Net.provide_asset(area_id, asset_path, hint)` | Server | Provides an asset to an area; `hint` is optional metadata. |
+| `Net.provide_asset_for_player(player_id, asset_path, hint)` | Server | Provides an asset to one player; `hint` is optional metadata. |
+| `Net.set_song_for_player(player_id, path)` | Server | Changes music for one player, not the whole area. |
+| `Net.stop_song_for_player(player_id)` | Server | Stops music for one player. |
+
+`API_CHANGES.md` also records behavior changes: sprite objects cannot change their animation document via `anim_path` after creation (allocate/use a new `sprite_id` for a new texture/animation document); sprite draw color accepts `r`, `g`, `b`, and `color_mode`; `a` may be used as an alternative to `opacity`; and asset `hint` values use server-defined asset/package enums. These are server behavior/API notes, not script helpers.
+
+### Repository-provided Lua APIs and modules
+
+The following are examples of repository APIs. They are not built-in `Net` methods unless explicitly documented as such above.
+
+| Module / API family | Source area in this archive | What it provides |
+|---|---|---|
+| `ezlibs-scripts` | `scripts/ezlibs-scripts/` | Shared game helpers and feature modules such as `ezmemory`, `eznpcs`, `eztriggers`, `ezbuttons`, `ezmapinstance`, `ezcheckpoints`, `ezlogger`, and related utilities. Call the functions exported by each module, not as if they were server globals. |
+| `net-games` | `scripts/net-games/` | Shared minigame/gameplay, UI and presentation helpers. These are repository code that use the server API underneath. |
+| `displayer` | `scripts/displayer/` | Text/sprite presentation and display abstractions implemented by repository scripts. |
+| `input-controller` | `scripts/input-controller/` | Controller/input ownership, claims, consumption, and release behavior implemented by repository code. |
+| `camera` | `scripts/camera/` | Camera management/controllers layered on server camera APIs. |
+| `animation-engine` | `scripts/animation-engine/` | Script-side animation sequencing and interpolation helpers. |
+| `world-attachment` | `scripts/world-attachment.lua` (where present) | Script-side world attachment behavior; not a native server API. Confirm the exact path and exported functions in the current source before requiring it. |
+| `net-game-tourney` | `scripts/net-game-tourney/` | Tournament bracket, flow, UI, and match coordination implemented by scripts. |
+| Individual games/features | For example `scripts/ezlibs-custom/footbomb/`, `scripts/events/`, and other feature directories | Feature-specific logic and exports; not automatically available unless the relevant script is loaded. |
+| Lowercase `async` | Repository file(s), including `promise_api.lua` when included by the server setup | Distinct from uppercase server-provided `Async`. Do not assume their functions or calling conventions are interchangeable. |
+| `helpers`, `enums`, and other local utility modules | Their defining Lua files in the archive | Script-side utilities/constants, not server globals unless code explicitly installs them globally. |
+
+This list is a module-family map, not a guarantee that every module exports a particular function. For exact function names and signatures, inspect the module's current `main.lua` or entry file and its `_DOCUMENTATION` page. Use the module's documented `require`/loading convention from this repository.
+
+### Practical examples
+
+```lua
+-- Server-provided API: the runtime invokes this callback.
+Net:on("player_join", function(event)
+  local player_id = event.player_id
+end)
+
+-- Server-provided async widget API: use uppercase Async when awaiting a response.
+local choice = Async.await(Async.quiz_player(player_id, "Option A", "Option B", "Option C"))
+
+-- Repository-provided APIs: these names must be loaded from their Lua modules.
+-- Example only: use the actual module path and exported function documented by the repository.
+local module = require("path.to.repository.module")
+-- module.some_function(...)
+```
+
+The last example is intentionally schematic; `path.to.repository.module` and `some_function` are placeholders, not claimed exports. Do not copy them as working server code.
+
+### Classification rules for uncertain symbols
+
+- A `Net.*` or `Async.*` symbol documented in Parts 2–12 or the supplied root `API_CHANGES.md` is server-provided.
+- A function defined in a Lua source file under `scripts/` is repository-provided, unless the file is explicitly vendored as a dependency with its own documented origin; it is still not automatically a server API.
+- A symbol that appears only at call sites, and has no supplied server documentation or local definition, remains **observed / verify**. This applies to APIs listed in Part 13 as missing from the supplied API excerpt.
+- Do not infer support merely because a function is named `Net.*`; the server may inject undocumented methods, but this archive alone cannot establish that.
+- Check the current server build and current script source before using APIs whose signatures or availability are marked uncertain.
