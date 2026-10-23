@@ -785,7 +785,8 @@
    <properties>
     <property name="Move Animation" value="FOOTBOMB_JUMP_LEFT"/>
     <property name="Move Direction" value="Left"/>
-    <property name="Move Duration" value="5"/>
+    <property name="Move Duration" value="1"/>
+    <property name="Move Loop" type="bool" value="false"/>
     <property name="Next Waypoint 1" type="object" value="210"/>
     <property name="Wait Animation" value="FOOTBOMB_JUMP_LEFT_END"/>
     <property name="Wait Time" value="2"/>
