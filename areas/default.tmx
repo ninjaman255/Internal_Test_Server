@@ -810,7 +810,7 @@
     <property name="Spawn Mode" propertytype="NPCSpawnMode" value="Interval"/>
     <property name="Trigger Radius" value="5"/>
     <property name="Warp Out At End" type="bool" value="true"/>
-    <property name="Warp Out Delay" value="0.5"/>
+    <property name="Warp Out Delay" value="0.0"/>
    </properties>
    <point/>
   </object>

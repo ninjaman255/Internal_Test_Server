@@ -782,9 +782,10 @@ end
 --   was_player_inside     Interval mode: detect entry transitions
 --   time_since_last_spawn Interval mode: interval timer
 --
--- Pruning: the `bot_removed` listener below prunes live_bots on any
--- announcement. count_and_prune_live_bots() also defends against external
--- Net.remove_bot calls that bypass the event bus.
+-- Templates may be NPC or Pushback NPC. Pushback NPC templates produce a
+-- bot whose collision zone follows it; ezpushback subscribes to the
+-- npc_spawned_from_spawner event emitted below to attach the moving
+-- rectangle to each spawned bot.
 -- =========================================================================
 
 -- Clean up dead entries and return the live count.
@@ -869,6 +870,10 @@ end
 -- Spawn one NPC from this spawner. Returns true on success. Enforces:
 --   * Once mode: no live bot AND not once_spawned
 --   * Interval mode: live count under Max Alive (or unlimited)
+--
+-- After a successful spawn, emits npc_spawned_from_spawner so consumers
+-- (notably ezpushback for Pushback NPC templates) can attach per-bot
+-- behaviours that need the template's properties but a bot_id-scoped key.
 local function spawn_from_spawner(spawner)
     if not spawner then return false end
     local live_count = count_and_prune_live_bots(spawner)
@@ -897,6 +902,24 @@ local function spawn_from_spawner(spawner)
         .. " area=" .. tostring(spawner.area_id)
         .. " mode=" .. tostring(spawner.spawn_mode)
         .. " live_count=" .. tostring(live_count + 1))
+
+    -- Notify downstream modules. Payload carries everything needed to
+    -- build a bot-scoped entry: template properties (for e.g. Pushback NPC
+    -- collision dims), template type (for routing), and the spawn position
+    -- (so an attached collision zone starts at the bot rather than the
+    -- template's authored location).
+    ezbus:emit("npc_spawned_from_spawner", {
+        bot_id = npc.bot_id,
+        area_id = spawner.area_id,
+        spawner_id = spawner.object.id,
+        template_object_id = spawner.template_object.id,
+        template_type = spawner.template_object.type,
+        template_name = spawner.template_object.name,
+        template_custom_properties = spawner.template_object.custom_properties or {},
+        spawn_x = npc.x,
+        spawn_y = npc.y,
+        spawn_z = npc.z or 0,
+    })
     return true
 end
 
@@ -919,9 +942,9 @@ local function register_npc_spawner(area_id, object)
             tostring(object.id), "->", tostring(template_ref))
         return
     end
-    if template.type ~= "NPC" then
+    if template.type ~= "NPC" and template.type ~= "Pushback NPC" then
         logger:for_area(area_id):warn(
-            "[eznpcs] NPC Spawner NPC Template must reference an NPC object; got type:",
+            "[eznpcs] NPC Spawner NPC Template must reference an NPC or Pushback NPC object; got type:",
             tostring(template.type))
         return
     end
@@ -993,6 +1016,7 @@ local function register_npc_spawner(area_id, object)
     logger:for_area(area_id):info(
         "[eznpcs] Registered NPC Spawner:", tostring(object.id),
         "template=", tostring(template_ref),
+        "template_type=", tostring(template.type),
         "radius=", tostring(trigger_radius),
         "mode=", spawn_mode,
         "interval=", tostring(spawn_interval),

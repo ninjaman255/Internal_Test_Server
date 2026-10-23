@@ -2,6 +2,12 @@
 -- A Pushback NPC uses the regular eznpcs NPC pipeline, with a moving rectangle
 -- trigger that follows its bot. On collision, a temporary bot uses the player's
 -- own avatar, plays a movement animation, and carries the player to its endpoint.
+--
+-- Pushback NPCs may also be produced by an NPC Spawner. The spawner emits
+-- `npc_spawned_from_spawner` for each successful spawn; ezpushback listens
+-- for events whose template_type is "Pushback NPC" and attaches a bot-scoped
+-- moving collision zone to the new bot. Entries created this way are torn
+-- down automatically on `bot_removed`.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpushback')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
@@ -405,23 +411,23 @@ local function update_entry_geometry(entry)
     return moved
 end
 
-local function register_pushback_npc(area_id, object)
-    local props = object.custom_properties or {}
-    local bot_id = eznpcs.get_bot_for_placeholder(area_id, object.id)
-    if not bot_id then
-        logger:for_area(area_id):warn('[ezpushback] NPC bot was not registered before collision setup; object=', tostring(object.id))
-        return
-    end
-
+-- Shared entry builder. Used by both the map-loaded Pushback NPC path
+-- (register_pushback_npc) and the spawner-created path
+-- (npc_spawned_from_spawner). Callers choose the trigger_id and initial
+-- position; everything else (dimensions, timings, enabling, emitter wiring)
+-- comes from the props table.
+local function build_pushback_entry(area_id, object_id, props, bot_id, trigger_id,
+                                   template_name, initial_x, initial_y, initial_z)
+    if not bot_id then return nil end
+    props = props or {}
     local width = number_property(props, 'Collision Width', DEFAULT_WIDTH, 0.1)
     local height = number_property(props, 'Collision Height', DEFAULT_HEIGHT, 0.1)
-    local trigger_id = 'ezpushback_' .. tostring(area_id) .. '_' .. tostring(object.id)
     local trigger_object = {
         id = trigger_id,
-        name = object.name or ('Pushback NPC ' .. tostring(object.id)),
-        x = (tonumber(object.x) or 0) - width / 2,
-        y = (tonumber(object.y) or 0) - height / 2,
-        z = tonumber(object.z) or 0,
+        name = template_name or ('Pushback NPC ' .. tostring(object_id)),
+        x = (tonumber(initial_x) or 0) - width / 2,
+        y = (tonumber(initial_y) or 0) - height / 2,
+        z = tonumber(initial_z) or 0,
         width = width,
         height = height,
     }
@@ -431,7 +437,7 @@ local function register_pushback_npc(area_id, object)
         key = trigger_id,
         trigger_id = trigger_id,
         area_id = area_id,
-        object_id = object.id,
+        object_id = object_id,
         bot_id = bot_id,
         width = width,
         height = height,
@@ -448,8 +454,7 @@ local function register_pushback_npc(area_id, object)
     local trigger_emitter = eztriggers.add_rectangle_trigger(area_id, trigger_object, width, height, trigger_id)
     if not trigger_emitter then
         entries[entry.key] = nil
-        logger:for_area(area_id):warn('[ezpushback] Failed to register moving rectangle trigger for object', tostring(object.id))
-        return
+        return nil
     end
 
     trigger_emitter:on('entered', function(event)
@@ -462,16 +467,110 @@ local function register_pushback_npc(area_id, object)
         emit_entry(entry, 'collision_departed', event_for(entry, event.player_id, { reason = event.reason }))
     end)
 
+    return entry
+end
+
+local function register_pushback_npc(area_id, object)
+    local props = object.custom_properties or {}
+    local bot_id = eznpcs.get_bot_for_placeholder(area_id, object.id)
+    if not bot_id then
+        -- Either the NPC is template-only (ezpushback handles spawned bots
+        -- via the npc_spawned_from_spawner listener below) or ezpushback
+        -- loaded before eznpcs finished creating the bot. Either way, the
+        -- spawner path covers any bots that originate from a template.
+        return
+    end
+
+    local trigger_id = 'ezpushback_' .. tostring(area_id) .. '_' .. tostring(object.id)
+    local entry = build_pushback_entry(
+        area_id, object.id, props, bot_id, trigger_id, object.name,
+        tonumber(object.x) or 0, tonumber(object.y) or 0, tonumber(object.z) or 0
+    )
+    if not entry then
+        logger:for_area(area_id):warn('[ezpushback] Failed to register moving rectangle trigger for object', tostring(object.id))
+        return
+    end
+
     logger:for_area(area_id):info(string.format(
         '[ezpushback] Registered Pushback NPC object=%s bot=%s zone=%.2fx%.2f push=%.2f duration=%.2f',
-        tostring(object.id), tostring(bot_id), width, height, entry.push_distance, entry.push_duration))
+        tostring(object.id), tostring(bot_id), entry.width, entry.height, entry.push_distance, entry.push_duration))
 end
 
 object_registry.register_handler('Pushback NPC', register_pushback_npc, false)
 
+-- Spawner integration. Fires once per spawned bot, with the template's
+-- custom properties (for collision dims/timings) and the spawn position
+-- (so the collision zone starts aligned with the bot rather than at the
+-- template's authored location). Uses a bot-id-scoped trigger_id so
+-- multiple spawned instances never collide in the entries table or in
+-- eztriggers' registry.
+ezbus:on("npc_spawned_from_spawner", function(event)
+    if type(event) ~= "table" then return end
+    if event.template_type ~= "Pushback NPC" then return end
+    if not event.bot_id or not event.area_id then return end
+
+    local trigger_id = 'ezpushback_spawn_'
+        .. tostring(event.area_id) .. '_' .. tostring(event.bot_id)
+    local entry = build_pushback_entry(
+        event.area_id, event.template_object_id,
+        event.template_custom_properties or {},
+        event.bot_id, trigger_id, event.template_name,
+        event.spawn_x or 0, event.spawn_y or 0, event.spawn_z or 0
+    )
+    if not entry then
+        logger:for_area(event.area_id):warn(
+            '[ezpushback] Failed to build spawned pushback entry bot=',
+            tostring(event.bot_id),
+            'spawner=', tostring(event.spawner_id))
+        return
+    end
+    entry.spawned = true
+    entry.spawner_id = event.spawner_id
+    logger:for_area(event.area_id):info(string.format(
+        '[ezpushback] Spawned Pushback NPC bot=%s spawner=%s zone=%.2fx%.2f push=%.2f',
+        tostring(event.bot_id), tostring(event.spawner_id),
+        entry.width, entry.height, entry.push_distance))
+end)
+
+-- Tear down entries whose bot has been removed (warp-out, path-complete
+-- cleanup, external Net.remove_bot, disconnect, etc). We disable the entry
+-- first so any in-flight trigger event fired before the entry is removed
+-- from `entries` becomes a no-op, then drop the entry so on_tick stops
+-- iterating it. The underlying eztriggers registration stays until the
+-- area unloads, same as the map-loaded path.
+ezbus:on("bot_removed", function(event)
+    if type(event) ~= "table" or not event.bot_id then return end
+    local bot_id = event.bot_id
+    local dead = nil
+    for key, entry in pairs(entries) do
+        if entry.bot_id == bot_id then
+            dead = dead or {}
+            dead[#dead + 1] = { key = key, entry = entry }
+        end
+    end
+    if not dead then return end
+    for _, item in ipairs(dead) do
+        item.entry.enabled = false
+        entries[item.key] = nil
+    end
+    logger:info('[ezpushback] Cleaned up entries for removed bot', tostring(bot_id))
+end)
+
 function ezpushback.get_emitter(area_id, object_id)
     local key = 'ezpushback_' .. tostring(area_id) .. '_' .. tostring(object_id)
     return entries[key] and entries[key].emitter or nil
+end
+
+-- Look up the emitter for a spawner-created pushback entry by bot id.
+-- Handy for scripted reactions that already track a spawner's bots.
+function ezpushback.get_emitter_for_bot(bot_id)
+    if bot_id == nil then return nil end
+    for _, entry in pairs(entries) do
+        if entry.bot_id == bot_id then
+            return entry.emitter
+        end
+    end
+    return nil
 end
 
 function ezpushback.set_collision_enabled(area_id, object_id, enabled)
@@ -538,5 +637,5 @@ function ezpushback.handle_player_disconnect(player_id)
     end
 end
 
-logger:info('[ezpushback] Loaded; Pushback NPC custom type registered.')
+logger:info('[ezpushback] Loaded; Pushback NPC custom type registered, spawner-created pushback supported.')
 return ezpushback
