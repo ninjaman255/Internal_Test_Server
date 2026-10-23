@@ -10,6 +10,7 @@
 
 --DEPENDENCES
 local games = require("scripts/net-games/main")
+local InputAPI = require("scripts/input-controller/main")
 local TextLayout = require("scripts/displayer/text-layout")
 --MANAGERS
 local WarpManage = require("scripts/HP_Manager/warp_manage")
@@ -19,7 +20,7 @@ local RealtimeManage = require("scripts/HP_Manager/realtime_manage")
 local constants = require("scripts/HP_Manager/constants/constants")
 
 local hp_sessions = {}
-local jukebox_sessions = {}
+local manager_claimed_controllers = {}
 
 local desktop_options = {
   {
@@ -78,7 +79,14 @@ local function add_desktop_icons()
 
       if option.load_module then
         local path = option.path:gsub("%.lua$", "")
-        extensions[option.id] = require(path)
+        local ok, mod = pcall(require, path)
+        if ok then
+          extensions[option.id] = mod
+        else
+          print("[HP_Manager] failed to load module " ..
+            tostring(option.id) .. " at " .. tostring(path) ..
+            ": " .. tostring(mod))
+        end
       end
     end
   end
@@ -172,8 +180,6 @@ local system_wallpaper = {
 local server_os = get_server_os()
 local wallpaper = system_wallpaper[server_os] or system_wallpaper.windows
 
---print("HP Manager:", server_os)
-
 --HP MANAGER CLOSE
 local function close_hp_manage(player_id)
   for _, element in ipairs(desktop_elements) do
@@ -231,7 +237,7 @@ local function open_hp_manager(player_id, selected_id)
 end
 
 -- HP MANAGER INPUT
-Net:on("virtual_input", function(event)
+local function handle_manager_input(event)
   local player_id = event.player_id
   local session = hp_sessions[player_id]
 
@@ -240,7 +246,7 @@ Net:on("virtual_input", function(event)
   end
 
   for _, button in next, event.events do
-    if button.state == 1 then
+    if button.state == 1 or button.state == 2 then
       local new_selection = nil
 
       -- OPTION NAVIGATION
@@ -363,37 +369,134 @@ Net:on("virtual_input", function(event)
 
             return
           end
+
           -- JUKEBOX / MUSIC MANAGER
+          --
+          -- Uses the jukebox module's public open() API. The jukebox owns its
+          -- own UI (spawn, input loop, teardown) and calls back once the
+          -- player has closed it. HP_Manager never manipulates the jukebox
+          -- internals or creates fake objects.
           if option.id == "jukebox" then
-            local area_id = Net.get_player_area(player_id)
+            local jukebox_module = extensions.jukebox
+            if not jukebox_module or type(jukebox_module.open) ~= "function" then
+              print("[HP_Manager] jukebox extension loaded but has no open() function; " ..
+                "cannot open the music manager")
+              return
+            end
 
-            local object_id = Net.create_object(area_id, {
-              name = "hp_jukebox_temp",
-              class = "Jukebox",
-              type = "Jukebox",
-              visible = false,
-              data = { type = "point" },
-              custom_properties = {}
-            })
+            hp_sessions[player_id] = nil
 
-jukebox_sessions[player_id] = session
-hp_sessions[player_id] = nil
+            Async.sleep(0.05).and_then(function()
+              close_hp_manage(player_id)
 
-            
+              local opened_ok = jukebox_module.open(player_id, function(pid)
+                -- Jukebox UI closed. Reopen the desktop with the jukebox
+                -- option still selected so the player lands where they left.
+                open_hp_manager(pid, option.id)
+              end)
 
-            Net:emit("object_interaction", {
-              player_id = player_id,
-              object_id = object_id,
-              button = 0
-            })
+              if opened_ok == false then
+                -- Jukebox refused to open (player gone, area missing,
+                -- assets failed, etc.). Restore the desktop so the player
+                -- isn't stranded with no UI.
+                open_hp_manager(player_id, option.id)
+              end
+            end)
 
-            Net.remove_object(area_id, object_id)
             return
           end
         end
       end
     end
   end
+end
+
+
+
+-- InputController ownership/polling adapter. InputController owns the only
+-- virtual_input listener; HP_Manager reads logical actions from the shared API.
+local input_owner_prefix = "hp-manager:"
+local function input_owner(player_id)
+    return input_owner_prefix .. tostring(player_id)
+end
+
+local function release_manager_input(player_id)
+    local ctrl = manager_claimed_controllers[player_id]
+    if ctrl then
+        -- release_input only releases this manager's claim; it cannot release
+        -- a claim belonging to another module.
+        ctrl:release_input(input_owner(player_id))
+        manager_claimed_controllers[player_id] = nil
+    end
+end
+
+local function poll_manager_input(player_id, owner)
+    local ctrl = InputAPI.get_controller(player_id)
+    if not ctrl then
+        return nil
+    end
+
+    if not ctrl:has_input_control(owner) then
+        -- Do not steal input from another active UI/game.
+        if ctrl:get_input_owner() ~= nil then
+            return nil
+        end
+        if not ctrl:claim_input(owner) then
+            return nil
+        end
+        manager_claimed_controllers[player_id] = ctrl
+        ctrl:require_release({
+            "Up", "Down", "Left", "Right",
+            "Confirm", "Cancel", "ShoulderL", "ShoulderR"
+        }, owner)
+        return nil -- ignore the ownership handoff frame
+    end
+
+    manager_claimed_controllers[player_id] = ctrl
+
+    local events = {}
+    local function take(action, raw_name, allow_repeat)
+        if ctrl:is_action_pressed(action, owner) then
+            events[#events + 1] = { name = raw_name, state = 1 }
+        elseif allow_repeat and ctrl:is_action_repeated(action, owner) then
+            events[#events + 1] = { name = raw_name, state = 2 }
+        end
+    end
+
+    take("Up", "Move Up", true)
+    take("Down", "Move Down", true)
+    take("Left", "Move Left", true)
+    take("Right", "Move Right", true)
+    take("Confirm", "Confirm", false)
+    take("Cancel", "Cancel", false)
+    take("ShoulderL", "Shoulder L", false)
+    take("ShoulderR", "Shoulder R", false)
+
+    return { player_id = player_id, events = events }
+end
+
+Net:on("tick", function()
+    local active = {}
+    for player_id, session in pairs(hp_sessions) do
+        if session and not session.closing then
+            active[#active + 1] = player_id
+        end
+    end
+
+    for _, player_id in ipairs(active) do
+        local synthetic = poll_manager_input(player_id, input_owner(player_id))
+        if synthetic and #synthetic.events > 0 then
+            handle_manager_input(synthetic)
+        end
+    end
+
+    -- Release only controllers this module previously claimed, without reading
+    -- InputAPI's private _controllers registry.
+    for player_id in pairs(manager_claimed_controllers) do
+        if hp_sessions[player_id] == nil then
+            release_manager_input(player_id)
+        end
+    end
 end)
 
 -- HP MANAGER INTERACTION
@@ -410,25 +513,10 @@ Net:on("object_interaction", function(event)
   open_hp_manager(player_id)
 end)
 
--- JUKEBOX CLOSE
-Net:on("board_close", function(event)
-    local player_id = event.player_id
-    local session = jukebox_sessions[player_id]
-
-    if session == nil then return end
-
-    jukebox_sessions[player_id] = nil
-
-    Async.sleep(0.10).and_then(function()
-        hp_sessions[player_id] = session
-        Net.lock_player_input(player_id)
-    end)
-end)
-
 -- CLEANUP
 Net:on("player_disconnect", function(event)
+  release_manager_input(event.player_id)
   hp_sessions[event.player_id] = nil
-  jukebox_sessions[event.player_id] = nil
 end)
 
 -- CURSOR ANIMATION

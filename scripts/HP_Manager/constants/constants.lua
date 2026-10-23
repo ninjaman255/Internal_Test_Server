@@ -4,7 +4,7 @@ local constants = {
     background_asset_folder = "/server/assets/Backgrounds/",
     --OPTIONAL EXTENSIONS FILEPATH
     real_day_time = "scripts/real_daytime/main.lua",
-    jukebox = "scripts/Jukebox/main.lua"
+    jukebox = "scripts/jukebox/main.lua"
 }
 
 --CHECK IF HAS EXTENSIONS DOWNLOADED

@@ -5,6 +5,7 @@
 ]]
 
 local games = require("scripts/net-games/main")
+local InputAPI = require("scripts/input-controller/main")
 local TextLayout = require("scripts/displayer/text-layout")
 
 local RealtimeManage = {}
@@ -243,7 +244,7 @@ local function restore_original_settings(session)
 end
 
 -- REAL TIME MANAGER INPUT
-Net:on("virtual_input", function(event)
+local function handle_manager_input(event)
     local player_id = event.player_id
     local session = realtime_sessions[player_id]
 
@@ -414,8 +415,56 @@ for _, button in next, event.events do
             end
         end
     end
-end)
+end
 
+
+
+-- InputController ownership/polling adapter. The shared controller is the only
+-- source of gameplay input; this module never consumes raw virtual_input events.
+local input_owner_prefix = "hp-realtime-manager:"
+local function input_owner(player_id) return input_owner_prefix .. tostring(player_id) end
+local function poll_manager_input(player_id, owner)
+    local ctrl = InputAPI.get_controller(player_id)
+    if not ctrl then return nil end
+    if not ctrl:has_input_control(owner) then
+        if ctrl:get_input_owner() ~= nil or not ctrl:claim_input(owner) then return nil end
+        ctrl:require_release({"Up", "Down", "Left", "Right", "Confirm", "Cancel", "ShoulderL", "ShoulderR"}, owner)
+        return nil -- ignore the handoff frame
+    end
+    local events = {}
+    local function take(action, raw_name, allow_repeat)
+        if ctrl:is_action_pressed(action, owner) then
+            events[#events + 1] = {name = raw_name, state = 1}
+        elseif allow_repeat and ctrl:is_action_repeated(action, owner) then
+            events[#events + 1] = {name = raw_name, state = 2}
+        end
+    end
+    take("Up", "Move Up", false)
+    take("Down", "Move Down", false)
+    take("Left", "Move Left", true)
+    take("Right", "Move Right", true)
+    take("Confirm", "Confirm", false)
+    take("Cancel", "Cancel", false)
+    take("ShoulderL", "Shoulder L", false)
+    take("ShoulderR", "Shoulder R", false)
+    return {player_id = player_id, events = events}
+end
+
+Net:on("tick", function()
+    local active = {}
+    for player_id, session in pairs(realtime_sessions) do
+        if session and not session.closing then active[#active + 1] = player_id end
+    end
+    for _, player_id in ipairs(active) do
+        local owner = input_owner(player_id)
+        local synthetic = poll_manager_input(player_id, owner)
+        if synthetic and #synthetic.events > 0 then handle_manager_input(synthetic) end
+    end
+    -- Release only this manager's claim when it no longer has an active session.
+    for player_id, ctrl in pairs(InputAPI._controllers or {}) do
+        if realtime_sessions[player_id] == nil then ctrl:release_input(input_owner(player_id)) end
+    end
+end)
 
 -- CLEANUP
 Net:on("player_disconnect", function(event)
