@@ -561,7 +561,7 @@
   </object>
   <object id="164" type="Checkpoint" gid="68" x="848" y="560" width="34" height="52">
    <properties>
-    <property name="Key Type" propertytype="KeyType" value="navi_name"/>
+    <property name="Key Type" value="navi_name"/>
     <property name="Navi 1" value=""/>
     <property name="Navi Name" value="Snakeman"/>
     <property name="Skip Prompt" type="bool" value="true"/>
@@ -713,7 +713,7 @@
   <object id="199" type="Waypoint" x="848" y="592">
    <properties>
     <property name="Move Animation" value="WALK_UL"/>
-    <property name="Move Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Move Direction" value="Down Right"/>
     <property name="Move Duration" value="5"/>
     <property name="Move Loop" type="bool" value="true"/>
     <property name="Next Waypoint 1" type="object" value="200"/>
@@ -731,42 +731,42 @@
   </object>
   <object id="201" type="Waypoint" x="880" y="592">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Direction" value="Down Right"/>
     <property name="Next Waypoint 1" type="object" value="203"/>
    </properties>
    <point/>
   </object>
   <object id="203" type="Waypoint" x="880" y="592">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Down Left"/>
+    <property name="Direction" value="Down Left"/>
     <property name="Next Waypoint 1" type="object" value="204"/>
    </properties>
    <point/>
   </object>
   <object id="204" type="Waypoint" x="880" y="688">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Down Left"/>
+    <property name="Direction" value="Down Left"/>
     <property name="Next Waypoint 1" type="object" value="205"/>
    </properties>
    <point/>
   </object>
   <object id="205" type="Waypoint" x="880" y="688">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Direction" value="Up Left"/>
     <property name="Next Waypoint 1" type="object" value="206"/>
    </properties>
    <point/>
   </object>
   <object id="206" type="Waypoint" x="848" y="688">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Direction" value="Up Left"/>
     <property name="Next Waypoint 1" type="object" value="207"/>
    </properties>
    <point/>
   </object>
   <object id="207" type="Waypoint" x="848" y="688">
    <properties>
-    <property name="Direction" propertytype="Direction" value="Up Right"/>
+    <property name="Direction" value="Up Right"/>
     <property name="Next Waypoint 1" type="object" value="199"/>
    </properties>
    <point/>
@@ -784,7 +784,7 @@
   <object id="209" type="Waypoint" x="544" y="544">
    <properties>
     <property name="Move Animation" value="FOOTBOMB_JUMP_LEFT"/>
-    <property name="Move Direction" propertytype="Direction" value="Left"/>
+    <property name="Move Direction" value="Left"/>
     <property name="Move Duration" value="5"/>
     <property name="Next Waypoint 1" type="object" value="210"/>
     <property name="Wait Animation" value="FOOTBOMB_JUMP_LEFT_END"/>
@@ -795,7 +795,7 @@
   <object id="210" type="Waypoint" x="608" y="480">
    <properties>
     <property name="Move Animation" value="FOOTBOMB_JUMP_RIGHT"/>
-    <property name="Move Direction" propertytype="Direction" value="Right"/>
+    <property name="Move Direction" value="Right"/>
     <property name="Move Duration" value="5"/>
     <property name="Next Waypoint 1" type="object" value="209"/>
     <property name="Wait Animation" value="FOOTBOMB_JUMP_RIGHT_END"/>
@@ -807,7 +807,7 @@
    <properties>
     <property name="NPC Template" type="object" value="212"/>
     <property name="Spawn Interval" value="2"/>
-    <property name="Spawn Mode" propertytype="NPCSpawnMode" value="Interval"/>
+    <property name="Spawn Mode" value="Interval"/>
     <property name="Trigger Radius" value="5"/>
     <property name="Warp Out At End" type="bool" value="true"/>
     <property name="Warp Out Delay" value="0.0"/>
@@ -820,11 +820,11 @@
     <property name="Collision Enabled" type="bool" value="true"/>
     <property name="Collision Height" type="float" value="1"/>
     <property name="Collision Width" type="float" value="1"/>
-    <property name="Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Direction" value="Down Right"/>
     <property name="Next Waypoint 1" type="object" value="213"/>
-    <property name="Push Cooldown" type="float" value="0.1"/>
+    <property name="Push Cooldown" type="float" value="0"/>
     <property name="Push Distance" value="0.1"/>
-    <property name="Push Duration" type="float" value="0.1"/>
+    <property name="Push Duration" type="float" value="0"/>
     <property name="Template Only" type="bool" value="true"/>
    </properties>
    <point/>

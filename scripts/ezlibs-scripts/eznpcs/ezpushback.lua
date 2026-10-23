@@ -3,6 +3,23 @@
 -- trigger that follows its bot. On collision, a temporary bot uses the player's
 -- own avatar, plays a movement animation, and carries the player to its endpoint.
 --
+-- Visibility during pushback: the real player's scale is set to (0, 0) with
+-- Net.animate_player_properties (duration 0). The engine exposes no reader for
+-- player scale, so on cleanup we do NOT restore a saved snapshot — instead we
+-- recompute the correct scale from world state at that moment:
+--
+--   1. Compression Tile at the player's current position (ezpress.get_tile_state_at)
+--   2. Area "Size Mode" (ezpress.get_area_scale_state, or direct read)
+--   3. Normal (1, 1) as a final fallback
+--
+-- We attempt ezpress.set_scale_state(target_state) first — if it returns true,
+-- it wrote the physical scale AND updated its own tracked state in one step.
+-- If it returns false (no-op) or ezpress is absent, we force-write the target
+-- scale directly via Net.animate_player_properties. This bypass is REQUIRED
+-- because ezpress's tracked state is stale after our shrink (it thinks the
+-- player is at e.g. "normal" while they are physically at 0), so its no-op
+-- would otherwise leave the player invisible.
+--
 -- Pushback NPCs may also be produced by an NPC Spawner. The spawner emits
 -- `npc_spawned_from_spawner` for each successful spawn; ezpushback listens
 -- for events whose template_type is "Pushback NPC" and attaches a bot-scoped
@@ -29,6 +46,14 @@ local DEFAULT_PUSH_DISTANCE = 1.0
 local DEFAULT_PUSH_DURATION = 0.28
 local DEFAULT_MOVE_STATE = 'MOVE'
 local DEFAULT_COOLDOWN = 0.75
+
+-- Numeric scale per state. Kept here so we can force-write even without
+-- ezpress loaded; also used to label the source in the finished event.
+local SCALE_STATES = {
+    normal = 1,
+    compressed = 3 / 8,
+    enlarged = 2,
+}
 
 -- Backwards-compatible alias. Semantics identical to the previous local
 -- truthy(value, default); single canonical implementation now lives in
@@ -61,16 +86,6 @@ local function provide_avatar_to_area(area_id, avatar)
     end
 end
 
-local function set_player_actor_hidden(player_id, area_id, hidden)
-    for _, viewer_id in ipairs(get_area_players(area_id)) do
-        if hidden then
-            pcall(Net.exclude_actor_for_player, viewer_id, player_id)
-        else
-            pcall(Net.include_actor_for_player, viewer_id, player_id)
-        end
-    end
-end
-
 local function remove_bot(bot_id)
     if bot_id then pcall(Net.remove_bot, bot_id, false) end
 end
@@ -95,6 +110,159 @@ local function emit_entry(entry, name, event)
 end
 
 -- --------------------------------------------------------------------------
+-- Player scale write / restore
+--
+-- The engine exposes only Net.animate_player_properties for player scale, so
+-- we can set it but never read it back. Cleanup therefore recomputes the
+-- correct scale from world state (tile > area > normal) and writes that. The
+-- write path has two branches:
+--
+--   * ezpress present + set_scale_state returns true  → ezpress wrote physical
+--     scale AND updated its tracked state in one step.
+--   * ezpress absent OR set_scale_state returned false (no-op because its
+--     tracked state matched the target — possible after our shrink left
+--     tracked stale) → force-write directly via Net.animate_player_properties.
+--
+-- The force-write branch is essential: without it, a shrink-to-0 followed by
+-- restore-to-normal would no-op inside ezpress and leave the player stuck at
+-- scale 0 forever.
+-- --------------------------------------------------------------------------
+local ezpress_module = nil
+local ezpress_lookup_done = false
+
+local function get_ezpress()
+    if ezpress_lookup_done then return ezpress_module end
+    ezpress_lookup_done = true
+    -- Both common layouts are tried so a folder/file move doesn't silently
+    -- break the fallback path.
+    for _, path in ipairs({
+        "scripts/ezlibs-scripts/ezpress",
+        "scripts/ezlibs-scripts/ezpress/ezpress",
+    }) do
+        local ok, mod = pcall(require, path)
+        if ok and type(mod) == "table"
+            and type(mod.set_scale_state) == "function" then
+            ezpress_module = mod
+            return ezpress_module
+        end
+    end
+    return nil
+end
+
+-- Write the player's scale immediately (duration 0). Returns false if the
+-- underlying Net.animate_player_properties API is unavailable or fails, so
+-- callers can decide whether to abort an in-progress interaction.
+local function set_player_scale_immediate(player_id, sx, sy)
+    if player_id == nil then return false end
+    if type(Net.animate_player_properties) ~= "function" then
+        return false
+    end
+    if sx == nil then sx = 1 end
+    if sy == nil then sy = sx end
+    local ok, result = pcall(Net.animate_player_properties, player_id, {
+        {
+            properties = {
+                { property = "ScaleX", value = sx, ease = "Linear" },
+                { property = "ScaleY", value = sy, ease = "Linear" },
+            },
+            duration = 0,
+        },
+    })
+    return ok and result ~= false
+end
+
+-- Direct Size Mode read used only when ezpress is missing (Compression Tiles
+-- are an ezpress feature, so without ezpress there is nothing else to check).
+local function read_area_size_mode_state(area_id)
+    if area_id == nil then return nil end
+    if type(Net.get_area_custom_property) ~= "function" then return nil end
+    local ok, prop = pcall(Net.get_area_custom_property, area_id, "Size Mode")
+    if not ok or type(prop) ~= "string" or prop == "" then return nil end
+    local m = string.lower(prop)
+    if m == "compress" or m == "compressed" then return "compressed" end
+    if m == "normalize" or m == "normal" or m == "normalized" then return "normal" end
+    if m == "enlarge" or m == "enlarged" or m == "giant" then return "enlarged" end
+    return nil
+end
+
+-- Determine the scale state the player should be at, given their current
+-- world position. Preference: Compression Tile → Area Size Mode → normal.
+-- Returns (state, source_label).
+local function resolve_target_scale_state(area_id, pos)
+    local ezpress = get_ezpress()
+    if ezpress then
+        if pos and type(ezpress.get_tile_state_at) == "function" then
+            local ok, tile_state = pcall(ezpress.get_tile_state_at, area_id, pos)
+            if ok and tile_state then
+                return tile_state, "compression_tile"
+            end
+        end
+        if type(ezpress.get_area_scale_state) == "function" then
+            local ok, area_state = pcall(ezpress.get_area_scale_state, area_id)
+            if ok and area_state then
+                return area_state, "area_size_mode"
+            end
+        end
+    end
+    local direct = read_area_size_mode_state(area_id)
+    if direct then
+        return direct, "area_size_mode_direct"
+    end
+    return "normal", "fallback_normal"
+end
+
+-- Recompute and apply the player's scale from current world state. Resolves
+-- area and position fresh so an area transfer mid-cleanup restores against
+-- the new area, not the one captured at push start.
+--
+-- Returns (ok, source) where source is one of:
+--   "compression_tile" | "area_size_mode" | "area_size_mode_direct"
+--   "fallback_normal" | "no_player" | "failed"
+local function restore_player_scale(player_id, area_id)
+    if player_id == nil then return false, "no_player" end
+
+    local ok_area, current_area = pcall(Net.get_player_area, player_id)
+    if ok_area and current_area then area_id = current_area end
+    if area_id == nil then
+        local ok = set_player_scale_immediate(player_id, 1, 1)
+        return ok, "fallback_normal"
+    end
+
+    local ok_pos, pos = pcall(Net.get_player_position, player_id)
+    if not ok_pos or type(pos) ~= "table" then pos = nil end
+
+    local target_state, source = resolve_target_scale_state(area_id, pos)
+    local scale = SCALE_STATES[target_state] or 1
+
+    -- Try ezpress first: if it wrote, physical and tracked state both match,
+    -- and the sound / scale_changed event fired naturally.
+    local ezpress = get_ezpress()
+    if ezpress and type(ezpress.set_scale_state) == "function" then
+        local ok, wrote = pcall(ezpress.set_scale_state, player_id, target_state, true, {
+            area_id = area_id,
+            source = "ezpushback_restore",
+        })
+        if ok and wrote then
+            logger:for_player(player_id):info(
+                "[ezpushback] Restored scale via ezpress; source=" .. tostring(source))
+            return true, source
+        end
+        -- Either the call errored or it no-op'd (tracked state already
+        -- equals target while physical is still 0 from the shrink). Fall
+        -- through to force-write.
+    end
+
+    local ok = set_player_scale_immediate(player_id, scale, scale)
+    if ok then
+        logger:for_player(player_id):info(
+            "[ezpushback] Force-wrote scale; source=" .. tostring(source)
+            .. " state=" .. tostring(target_state))
+        return true, source
+    end
+    return false, "failed"
+end
+
+-- --------------------------------------------------------------------------
 -- Isometric projection
 --
 -- The map is a 64x32 isometric diamond. The camera controller moves the
@@ -116,10 +284,7 @@ end
 --
 -- The pushback vector is computed radially from the NPC toward the player in
 -- map space, and then snapped to the nearest of these eight directions so the
--- push always aligns with the camera's isometric vocabulary. This is what
--- "normalize to isometric space" means here: the radial direction is
--- projected and quantized into the same eight canonical directions the
--- camera controller uses, rather than being pushed at an arbitrary angle.
+-- push always aligns with the camera's isometric vocabulary.
 -- --------------------------------------------------------------------------
 local ISO_TILE_WIDTH = 64
 local ISO_TILE_HEIGHT = 32
@@ -229,8 +394,17 @@ local function cleanup_push(player_id, state, reason, restore_player)
 
     if state.bot_id then remove_bot(state.bot_id) end
 
+    local restored_scale_source = nil
     if restore_player and type(Net.is_player) == 'function' and Net.is_player(player_id) then
-        if state.area_id then set_player_actor_hidden(player_id, state.area_id, false) end
+        -- Only recompute scale if we actually shrank the player. If the
+        -- shrink aborted (missing API, engine failure) the player was never
+        -- touched and there's nothing to restore.
+        if state.shrunk then
+            local _, source = restore_player_scale(player_id, state.area_id)
+            restored_scale_source = source
+        end
+        -- Unlock input regardless: we locked it before the shrink attempt,
+        -- and a failed shrink doesn't undo that lock.
         if not state.was_input_locked then
             pcall(Net.unlock_player_input, player_id)
         end
@@ -241,6 +415,7 @@ local function cleanup_push(player_id, state, reason, restore_player)
             reason = reason,
             bot_id = state.bot_id,
             final_position = state.final_position,
+            restored_scale_source = restored_scale_source,
         }))
     end
 end
@@ -288,12 +463,23 @@ local function perform_pushback(entry, player_id)
         avatar = avatar,
         cleaned = false,
         transferring = false,
+        shrunk = false,
     }
     active_by_player[player_id] = state
 
-    -- Lock and hide the real player before introducing the visual replacement.
+    -- Lock input so the player cannot walk around while the bot carries
+    -- them, then shrink the real player to (0, 0) so the avatar replacement
+    -- is not visible. If shrinking fails (missing API, engine rejection),
+    -- abort the pushback — a visible player plus a visible bot moving
+    -- together looks broken, which is worse than skipping one push.
     pcall(Net.lock_player_input, player_id)
-    set_player_actor_hidden(player_id, entry.area_id, true)
+    if not set_player_scale_immediate(player_id, 0, 0) then
+        logger:for_player(player_id):warn(
+            '[ezpushback] Could not shrink player scale; pushback aborted.')
+        cleanup_push(player_id, state, 'player_scale_unavailable', true)
+        return
+    end
+    state.shrunk = true
     provide_avatar_to_area(entry.area_id, avatar)
 
     local name_ok, player_name = safe_call(Net.get_player_name, player_id)
@@ -609,15 +795,10 @@ function ezpushback.on_tick(delta_time)
 end
 
 function ezpushback.handle_player_join(player_id)
-    -- If a player joins while another player's real actor is hidden, apply the
-    -- same per-viewer exclusion to the newly connected client.
-    local area_id = Net.get_player_area(player_id)
-    if not area_id then return end
-    for hidden_player_id, state in pairs(active_by_player) do
-        if state.area_id == area_id and not state.cleaned then
-            pcall(Net.exclude_actor_for_player, player_id, hidden_player_id)
-        end
-    end
+    -- No-op: shrinking the real player to (0, 0) is the visibility mechanism
+    -- now, so newly-joined viewers have nothing to hide. A player actively
+    -- being pushed is at scale 0 and therefore visually absent for everyone,
+    -- old and new viewers alike.
 end
 
 function ezpushback.handle_player_transfer(player_id)
@@ -629,6 +810,10 @@ end
 
 function ezpushback.handle_player_disconnect(player_id)
     local state = active_by_player[player_id]
+    -- On disconnect we can't (and shouldn't) animate the player's scale —
+    -- they're gone. If they reconnect, the engine default (1) applies, and
+    -- ezpress's handle_player_join reconciles them against the area/tile
+    -- they land in.
     if state then cleanup_push(player_id, state, 'player_disconnected', false) end
     for key in pairs(cooldowns) do
         if key:sub(-#tostring(player_id) - 1) == ':' .. tostring(player_id) then
@@ -637,5 +822,5 @@ function ezpushback.handle_player_disconnect(player_id)
     end
 end
 
-logger:info('[ezpushback] Loaded; Pushback NPC custom type registered, spawner-created pushback supported.')
+logger:info('[ezpushback] Loaded; Pushback NPC custom type registered, spawner-created pushback supported, player shrink-to-zero with world-state scale restore.')
 return ezpushback
