@@ -1205,3 +1205,9 @@ These are source-level corrections. They still require validation in the target 
 | Explosion/paralysis/recovery effects | `utils/*_effect.lua` |
 | Shared player memory and health | `scripts/ezlibs-scripts/ezmemory.lua` |
 | Shared helper functions | `scripts/ezlibs-scripts/helpers.lua` |
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

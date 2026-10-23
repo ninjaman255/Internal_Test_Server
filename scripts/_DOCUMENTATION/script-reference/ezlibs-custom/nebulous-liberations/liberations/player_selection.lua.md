@@ -1,0 +1,47 @@
+# `ezlibs-custom/nebulous-liberations/liberations/player_selection.lua`
+
+> **Source reference**
+>
+> Generated from `ezlibs-custom/nebulous-liberations/liberations/player_selection.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+
+## Module location
+
+- **Source:** `ezlibs-custom/nebulous-liberations/liberations/player_selection.lua`
+- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/player_selection.lua.md`
+
+## Direct `require` dependencies
+
+| Import path | Notes |
+|---|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/selection` | Import string found in source; runtime resolution depends on the server package layout. |
+| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
+
+## Functions defined in this file
+
+| Function | Notes |
+|---|---|
+| `PlayerSelection:clear` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `PlayerSelection:count_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `PlayerSelection:get_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `PlayerSelection:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `PlayerSelection:select_panel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `PlayerSelection:set_shape` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `filter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `includes` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `resolve_selection_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+
+## Uppercase constants
+
+`LIBERATING_PANEL_GID`, `SELECTED_PANEL_GID`
+
+## Source notes
+
+- Approximate source size: 115 lines.
+- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
+- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+
+## Related documentation
+
+- [Documentation index](../index.md)
+- [Scripts tree reference](../scripts-tree.md)
+- [Assets and file paths](../assets-and-file-paths.md)

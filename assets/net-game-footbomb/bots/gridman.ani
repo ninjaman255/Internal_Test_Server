@@ -1,0 +1,43 @@
+!frame_rate 60
+!image_path "D:/im not gonna update  year/Navis/TheBlock/gridball.png"
+
+anim WALK_UR
+frame dur=5f x=39 y=42 w=40 h=39 originx=17 originy=38
+frame dur=5f x=79 y=42 w=40 h=39 originx=16 originy=38
+frame dur=5f x=119 y=42 w=35 h=39 originx=12 originy=38
+frame dur=5f x=155 y=42 w=35 h=39 originx=12 originy=38
+
+anim WALK_U
+frame dur=5f x=39 y=82 w=35 h=39 originx=17 originy=38
+frame dur=5f x=141 y=82 w=35 h=39 originx=17 originy=38
+frame dur=5f x=107 y=82 w=34 h=39 originx=17 originy=38
+frame dur=5f x=74 y=82 w=33 h=39 originx=16 originy=38
+
+anim IDLE_UR
+frame dur=5f x=1 y=42 w=35 h=39 originx=12 originy=38
+
+anim IDLE_U
+frame dur=5f x=1 y=82 w=38 h=39 originx=18 originy=38
+
+anim IDLE_D
+frame dur=5f x=1 y=2 w=37 h=39 originx=18 originy=38
+
+anim FOOTBOMB_READY_DEFENSE
+frame dur=5f x=42 y=2 w=47 h=39 originx=23 originy=38
+
+anim FOOTBOMB_JUMP_LEFT
+frame dur=5f x=90 y=1 w=48 h=40 originx=20 originy=39 flipx=1
+frame dur=5f x=139 y=1 w=48 h=40 originx=20 originy=39 flipx=1
+frame dur=5f x=188 y=1 w=48 h=40 originx=20 originy=39 flipx=1
+frame dur=5f x=237 y=1 w=48 h=40 originx=20 originy=39 flipx=1
+frame dur=5f x=286 y=1 w=48 h=42 originx=20 originy=39 flipx=1
+
+anim FOOTBOMB_JUMP_RIGHT
+frame dur=5f x=90 y=1 w=48 h=40 originx=20 originy=39
+frame dur=5f x=139 y=1 w=48 h=40 originx=20 originy=39
+frame dur=5f x=188 y=1 w=48 h=40 originx=20 originy=39
+frame dur=5f x=237 y=1 w=48 h=40 originx=20 originy=39
+frame dur=5f x=286 y=1 w=48 h=42 originx=20 originy=39
+
+anim FOOTBOMB_IDLE_DEFENSE
+frame dur=5f x=1 y=2 w=37 h=39 originx=18 originy=38

@@ -1016,3 +1016,9 @@ Maps and Tiled object definitions may reference `../assets/objects/*.tsx` and ot
 4. Preserve spaces, case, punctuation, and encoded avatar filenames exactly.
 5. For relative `.tsx` references, verify paths relative to the map or tileset that declares them.
 6. Do not assume every packaged asset is actively used: this archive includes demo, test, vendored, and git metadata files as well as runtime resources.
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

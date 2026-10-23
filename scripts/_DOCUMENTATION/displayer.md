@@ -393,3 +393,9 @@ Displayer.ScrollingText.createList("player-id", "announcements", 16, 24, 200, 10
 ```
 
 Use the exact option keys accepted by the implementation version in the archive; the builder is available when you want defaults merged with overrides.
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

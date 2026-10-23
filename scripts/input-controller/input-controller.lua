@@ -326,13 +326,13 @@ end
 -- explicit context transition (for example, entering a minigame) and not for
 -- competing systems to repeatedly steal control from each other.
 function InputController:claim_input(owner, force)
-    if self.destroyed or owner == nil then
+    if (self.destroyed or owner == nil) and InputController.DEBUG then
         print("[InputController] claim denied player=" .. tostring(self.player_id)
             .. " instance=" .. tostring(self) .. " reason=destroyed_or_nil_owner")
         return false
     end
     if self.input_owner == owner then return true end
-    if self.input_owner ~= nil and force ~= true then
+    if (self.input_owner ~= nil and force ~= true)  and InputController.DEBUG then
         print("[InputController] claim denied player=" .. tostring(self.player_id)
             .. " instance=" .. tostring(self) .. " current_owner=" .. tostring(self.input_owner)
             .. " requested_owner=" .. tostring(owner))
@@ -341,10 +341,11 @@ function InputController:claim_input(owner, force)
 
     local previous_owner = self.input_owner
     self.input_owner = owner
+    if InputController.DEBUG then
     print("[InputController] ownership changed player=" .. tostring(self.player_id)
         .. " instance=" .. tostring(self) .. " previous_owner=" .. tostring(previous_owner)
         .. " new_owner=" .. tostring(owner) .. " forced=" .. tostring(force == true))
-
+    end
     -- Discard edge flags from the previous owner and require currently-held
     -- actions to be released before the new owner can act on them.
     for action, state in pairs(self.logical) do

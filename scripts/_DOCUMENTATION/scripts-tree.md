@@ -2,7 +2,7 @@
 
 > **Scope and accuracy**
 
-> This reference is based on the `scripts/` tree in `internal_test_server.zip` from the Library (archive inspected 2026-10-16). Directory and file roles are described from filenames, source comments, imports, and included READMEs. It does not claim live runtime testing.
+> This reference is based on the `scripts/` tree in `internal_test_server.zip` from the Library (archive inspected 2026-10-23). Directory and file roles are described from filenames, source comments, imports, and included READMEs. It does not claim live runtime testing.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@
 - Paths are relative to `scripts/` unless shown with a leading `/server/assets/` or another explicit root.
 - `README.md`/`readme.md` files inside a module are its local guide; `scripts/_DOCUMENTATION/` is the consolidated documentation bundle.
 - A folder can contain source, vendored code, examples, generated diagnostics, backups, or assets. The reference calls those out separately where identifiable.
-- Existing subsystem references remain authoritative for deeper API details: [Animation Engine](animation-engine.md), [Displayer](displayer.md), [Enum](enum.md), [ezlibs Custom](ezlibs-custom.md), [ezlibs Scripts](ezlibs-scripts.md), [Net Games Tournament](net-games-tourney.md), and [Net Games](net-games.md).
+- Every Lua file now also has an individual page in the [Per-Script Reference Library](script-reference/README.md). Existing subsystem references remain authoritative for deeper API details: [Animation Engine](animation-engine.md), [Displayer](displayer.md), [Enum](enum.md), [ezlibs Custom](ezlibs-custom.md), [ezlibs Scripts](ezlibs-scripts.md), [Net Games Tournament](net-games-tourney.md), and [Net Games](net-games.md).
 
 ## Top-level scripts
 
@@ -884,3 +884,9 @@ Parser helper functions.
 2. Keep API claims grounded in the current Lua implementation and local README files.
 3. Keep asset details in [Assets and File Paths](assets-and-file-paths.md), rather than duplicating path inventories throughout subsystem documents.
 4. Do not treat backups, vendored libraries, or `.zip` files as active runtime modules unless a caller actually loads them.
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

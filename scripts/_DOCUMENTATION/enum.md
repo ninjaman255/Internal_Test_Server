@@ -80,3 +80,9 @@ local original = set:getOriginal("Color") -- shared original; use carefully
 - The core modules use Lua tables, metatables, and standard Lua features; they do not call server-specific `Net` or `Async` APIs.
 - Ordinary `EnumSet` access returns copies, so edits do not change stored definitions. `getOriginal` is the explicit exception.
 - Adapt the included example definitions to the consuming application's domain.
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

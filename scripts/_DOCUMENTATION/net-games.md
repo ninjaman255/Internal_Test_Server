@@ -522,3 +522,9 @@ end
 - The demo NPC scripts can expect particular map object names, area IDs, and assets. These are not automatically valid on every map.
 - Some functions accept long positional argument lists, especially `frame.add_ui_element` and animation helpers. Use the source declaration as the definitive signature rather than guessing the meaning/order of arguments.
 - Only standard Lua 5.2 behavior should be assumed for language features. `Net`, `Async`, `Input`, `AnimationEngine`, `boom`, and the repository's other modules are project/runtime APIs.
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

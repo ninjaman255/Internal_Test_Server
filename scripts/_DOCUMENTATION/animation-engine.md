@@ -486,3 +486,9 @@ Its documented capabilities include:
 It is designed to reduce repetitive animation code and make effects easier to reuse across game interfaces and sprite-based systems.
 
 ---
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

@@ -6,7 +6,7 @@
   <property name="Background Vel X" value="0.20"/>
   <property name="Background Vel Y" value=".1"/>
   <property name="Name" value="                  "/>
-  <property name="Size Mode" value="Enlarge"/>
+  <property name="Size Mode" value="Normal"/>
   <property name="Size Mode Scope" value="Area Wide"/>
   <property name="Song" value="/server/assets/demo/space.ogg"/>
   <property name="Stasis" value="26,21,0"/>

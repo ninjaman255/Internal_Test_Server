@@ -11,4 +11,5 @@ return {
     { name = "Glyde", texture = root .. "glyde.png", animation = root .. "glyde.animation", animation_state = States.FOOTBOMB_IDLE_DEFENSE },
     { name = "GutsMan", texture = root .. "gutsman.png", animation = root .. "gutsman.animation", animation_state = States.FOOTBOMB_IDLE_DEFENSE },
     { name = "Prog", texture = root .. "prog.png", animation = root .. "prog.animation", animation_state = States.FOOTBOMB_IDLE_DEFENSE },
+    { name = "GridMan", texture = root .. "gridman.png", animation = root .. "gridman.animation", animation_state = States.FOOTBOMB_IDLE_DEFENSE },
 }

@@ -4976,3 +4976,9 @@ Then all Net:on handlers are wired up and [main] ezlibs loaded in <seconds>s is 
 - Persist a player value → store it in ezmemory.get_player_memory(safe_secret) under a unique key and call ezmemory.save_player_memory(safe_secret).
 - Persist an area value → ezmemory.get_area_memory(area_id) + ezmemory.save_area_memory(area_id).
 - Hide/show an object for a player → ezmemory.hide_object_from_player / unhide_object_from_player (permanent) or ..._till_disconnect (session).
+
+---
+
+## Current archive coverage (2026-10-23)
+
+This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.
