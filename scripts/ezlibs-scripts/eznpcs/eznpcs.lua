@@ -49,6 +49,40 @@ local npc_required_properties = {"Direction","Asset Name"}
 -- now lives in tiled_utils.
 local is_property_true = tu.is_true
 
+-- ---------------------------------------------------------------------------
+-- NPC animation state tracking
+--
+-- Waypoints and cutscene pose holds both need to drive bot animation state.
+-- Tracking the "current" animation + who owns it lets waypoint movement skip
+-- redundant Net.animate_bot calls every tick, and lets a cutscene pose hold
+-- block waypoint ticks from clobbering it (see move_npc's pose bail-out).
+--
+-- Ownership values:
+--   nil       - no explicit animation tracked (engine picks).
+--   "move"    - waypoint travel animation, applied by move_npc and by
+--               start_scripted_waypoint_move for keyframe-driven movement.
+--   "wait"    - waypoint Wait Animation, applied by on_npc_reached_waypoint
+--               and waypoint_follow_behaviour.initialize.
+--   "pose"    - cutscene / API pose hold, applied by move_bot_to_spot /
+--               set_bot_pose. move_npc bails out while this owns the state.
+-- ---------------------------------------------------------------------------
+local function set_npc_animation(npc, animation, loop, source)
+    if not npc or not npc.bot_id then return false end
+    if not animation or animation == "" then return false end
+    if loop == nil then loop = true end
+    if npc.current_animation == animation
+        and npc._animation_source == source then
+        return true
+    end
+    local ok, result = pcall(Net.animate_bot, npc.bot_id, animation, loop)
+    if ok and result ~= false then
+        npc.current_animation = animation
+        npc._animation_source = source
+        return true
+    end
+    return false
+end
+
 local function printd(...)
     local arg={...}
     logger:info('[eznpcs]',table.unpack(arg))
@@ -296,6 +330,16 @@ function create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,m
         speed=1,
         dont_face_player=npc_turns_to_talk,
         warp_in = true,  -- Explicitly set warp_in to ensure visibility
+        -- Animation ownership tracking (see set_npc_animation above).
+        current_animation = nil,
+        _animation_source = nil,
+        _hold_generation = 0,
+        -- Scripted movement ownership. When a scripted waypoint move is in
+        -- flight (Move Duration > 0), _scripted_move_generation is bumped so
+        -- any stale async completion can detect it lost ownership. See
+        -- start_scripted_waypoint_move.
+        _scripted_move_generation = 0,
+        _scripted_move_active = false,
     }
     printd("Creating bot with texture:", texture_path, "animation:", animation_path)
     local lastBotId = Net.create_bot(npc_data)
@@ -408,6 +452,17 @@ function waypoint_follow_behaviour(first_waypoint_id)
             local first_waypoint = ezcache.get_object_by_id_cached(npc.area_id, first_waypoint_id)
             if first_waypoint then
                 npc.next_waypoint = first_waypoint
+                -- Seed the initial pose from the first waypoint's Wait
+                -- Animation, so the NPC spawns in the correct state instead
+                -- of whatever Net.create_bot defaulted to.
+                local props = first_waypoint.custom_properties or {}
+                local wait_anim = props["Wait Animation"]
+                if wait_anim and wait_anim ~= "" then
+                    local wait_loop_prop = props["Wait Loop"]
+                    local wait_loop = (wait_loop_prop == nil) and true
+                        or is_property_true(wait_loop_prop)
+                    set_npc_animation(npc, wait_anim, wait_loop, "wait")
+                end
             else
                 printd('invalid Next Waypoint '..first_waypoint_id)
             end
@@ -433,8 +488,126 @@ function is_anyone_talking_to_npc(npc_id)
     return false
 end
 
+-- =========================================================================
+-- Scripted waypoint movement
+--
+-- Footbomb-style jumps are multi-frame animations where the position must
+-- track the animation's intrinsic timing (a 0.5s jump arc, for example).
+-- Per-tick Net.move_bot can't express that: the animation and position drift
+-- apart. When a waypoint sets Move Duration > 0, we switch into scripted mode:
+--
+--   1. Apply the Move Animation once (respecting Move Loop).
+--   2. Queue keyframes with Net.animate_bot_properties from the current
+--      position to the waypoint position over exactly Move Duration seconds.
+--   3. On completion, call on_npc_reached_waypoint — which applies the Wait
+--      Animation (the END hold pose) and advances npc.next_waypoint.
+--
+-- A generation counter invalidates in-flight scripted moves when a cutscene
+-- pose claims the animation state, or when a new scripted move starts.
+-- =========================================================================
+local function start_scripted_waypoint_move(npc, waypoint, move_anim, move_loop, move_duration)
+    if not npc or not npc.bot_id then return false end
+    if type(move_duration) ~= "number" or move_duration <= 0 then return false end
+
+    local sx = tonumber(npc.x) or 0
+    local sy = tonumber(npc.y) or 0
+    local sz = tonumber(npc.z) or 0
+    local tx = tonumber(waypoint.x) or sx
+    local ty = tonumber(waypoint.y) or sy
+    local tz = tonumber(waypoint.z) or sz
+
+    -- Claim ownership: bump generation, mark in flight. Any older scripted
+    -- completion will see a generation mismatch and bail out cleanly.
+    npc._scripted_move_generation = (npc._scripted_move_generation or 0) + 1
+    local my_generation = npc._scripted_move_generation
+    npc._scripted_move_active = true
+
+    -- Apply the Move Animation once (non-looping for jumps, looping for
+    -- cycles). set_npc_animation short-circuits if already current so
+    -- replays inside the same source never double-fire.
+    if move_anim and move_anim ~= "" then
+        set_npc_animation(npc, move_anim, move_loop, "move")
+    end
+
+    -- Queue position keyframes matching the animation timing.
+    local keyframes = {
+        {
+            properties = {
+                { property = "X", value = sx },
+                { property = "Y", value = sy },
+                { property = "Z", value = sz },
+            },
+            duration = 0,
+        },
+        {
+            properties = {
+                { property = "X", ease = "Linear", value = tx },
+                { property = "Y", ease = "Linear", value = ty },
+                { property = "Z", ease = "InOut",  value = tz },
+            },
+            duration = move_duration,
+        },
+    }
+    local ok, result = pcall(Net.animate_bot_properties, npc.bot_id, keyframes)
+    if not ok or result == false then
+        npc._scripted_move_active = false
+        printd("scripted waypoint move failed bot=" .. tostring(npc.bot_id)
+            .. " error=" .. tostring(result))
+        return false
+    end
+
+    -- Local cache of the final position so subsequent ticks (and
+    -- on_npc_reached_waypoint) see the correct endpoint even before the
+    -- engine has finished interpolating.
+    npc.x, npc.y, npc.z = tx, ty, tz
+
+    async(function()
+        await(Async.sleep(move_duration))
+        -- Lost ownership? A cutscene pose or another scripted move took over.
+        if npc._scripted_move_generation ~= my_generation then return end
+        if not npc._scripted_move_active then return end
+        if npc._removed then return end
+        -- Pose holds override everything, including waypoint arrival.
+        if npc._animation_source == "pose" then return end
+        -- The next_waypoint may have changed if someone intervened.
+        if npc.next_waypoint ~= waypoint then
+            npc._scripted_move_active = false
+            return
+        end
+        npc._scripted_move_active = false
+        -- Broadcast the arrival so ezbottriggers reconciles overlaps at the
+        -- exact waypoint position.
+        local area_id = npc.area_id
+        if type(Net.get_bot_area) == "function" then
+            local ok_area, found = pcall(Net.get_bot_area, npc.bot_id)
+            if ok_area and found then area_id = found end
+        end
+        if area_id then
+            emit_bot_moved(npc.bot_id, area_id, tx, ty, tz)
+        end
+        on_npc_reached_waypoint(npc, waypoint)
+    end)
+
+    printd("scripted waypoint move started bot=" .. tostring(npc.bot_id)
+        .. " waypoint=" .. tostring(waypoint.id)
+        .. " animation=" .. tostring(move_anim or "")
+        .. " loop=" .. tostring(move_loop)
+        .. " duration=" .. tostring(move_duration)
+        .. " generation=" .. tostring(my_generation)
+        .. " target=(" .. tostring(tx) .. "," .. tostring(ty) .. "," .. tostring(tz) .. ")")
+    return true
+end
+
 function move_npc(npc,delta_time)
     if is_anyone_talking_to_npc(npc.bot_id) then return end
+    -- A cutscene / API pose hold owns the animation state. Bail out so
+    -- waypoint ticks don't fight the pose and don't re-enable movement
+    -- while the pose is being held.
+    if npc._animation_source == "pose" then return end
+    -- A scripted waypoint move is in flight. Its async completion owns the
+    -- transition to on_npc_reached_waypoint, so per-tick movement must not
+    -- interleave with the keyframes.
+    if npc._scripted_move_active then return end
     if npc.wait_time and npc.wait_time > 0 then
         npc.wait_time = npc.wait_time - delta_time
         return
@@ -442,11 +615,37 @@ function move_npc(npc,delta_time)
 
     local area_id = Net.get_bot_area(npc.bot_id)
     local waypoint = npc.next_waypoint
+    if not waypoint then return end
 
     local distance = math.sqrt((waypoint.x - npc.x) ^ 2 + (waypoint.y - npc.y) ^ 2)
     if distance < npc.size then
         on_npc_reached_waypoint(npc,waypoint)
         return
+    end
+
+    local wp_props = waypoint.custom_properties or {}
+    local move_anim = wp_props["Move Animation"]
+    local move_loop_prop = wp_props["Move Loop"]
+    local move_loop = (move_loop_prop == nil) and true or is_property_true(move_loop_prop)
+    local move_duration = tonumber(wp_props["Move Duration"]) or 0
+
+    -- Scripted mode: Move Duration > 0 means the author authored a
+    -- time-synced animation (like a jump arc). Switch to keyframe movement
+    -- so position and animation stay glued together.
+    if move_anim and move_anim ~= "" and move_duration > 0 then
+        start_scripted_waypoint_move(npc, waypoint, move_anim, move_loop, move_duration)
+        return
+    end
+
+    -- Walk mode: apply travel animation/direction, advance per-tick.
+    if move_anim and move_anim ~= "" then
+        set_npc_animation(npc, move_anim, move_loop, "move")
+    else
+        local move_dir = wp_props["Move Direction"]
+        if move_dir and move_dir ~= "" and npc.direction ~= move_dir then
+            Net.set_bot_direction(npc.bot_id, move_dir)
+            npc.direction = move_dir
+        end
     end
 
     local angle = math.atan(waypoint.y - npc.y, waypoint.x - npc.x)
@@ -477,6 +676,18 @@ function on_npc_reached_waypoint(npc,waypoint)
         if waypoint.custom_properties['Direction'] ~= nil then
             npc.direction = waypoint.custom_properties['Direction']
             Net.set_bot_direction(npc.bot_id, waypoint.custom_properties['Direction'])
+        end
+        -- Apply the arrival pose inside the same Wait Time guard, so we
+        -- only overwrite travel animation when there's a wait to hold it.
+        -- Wait Animation is typically an END / hold state (e.g.
+        -- FOOTBOMB_JUMP_LEFT_END); Wait Loop defaults to true so the
+        -- engine keeps showing it rather than reverting to idle.
+        local wait_anim = waypoint.custom_properties['Wait Animation']
+        if wait_anim and wait_anim ~= "" then
+            local wait_loop_prop = waypoint.custom_properties['Wait Loop']
+            local wait_loop = (wait_loop_prop == nil) and true
+                or is_property_true(wait_loop_prop)
+            set_npc_animation(npc, wait_anim, wait_loop, "wait")
         end
     end
     local waypoint_type = "first"
@@ -916,6 +1127,43 @@ local function _apply_bot_direction(bot_id, direction)
     return ok and result ~= false
 end
 
+-- Bump the hold generation on this bot. Any in-flight reassert loop compares
+-- the current generation against its captured generation and exits on
+-- mismatch, so bumping invalidates any stale loop.
+local function _bump_hold_generation(bot_id)
+    local npc = npcs[bot_id]
+    if not npc then return nil end
+    npc._hold_generation = (npc._hold_generation or 0) + 1
+    return npc._hold_generation
+end
+
+-- Claim pose ownership: bump generation and mark the source as "pose".
+-- Called at the very start of move_bot_to_spot / set_bot_pose so move_npc
+-- bails out during the movement keyframes (before _apply_pose_with_reassert
+-- would otherwise take ownership after the move).
+--
+-- Also invalidates any in-flight scripted waypoint move: a cutscene pose
+-- always takes precedence over pending waypoint travel.
+local function _claim_pose(bot_id)
+    local npc = npcs[bot_id]
+    if not npc then return end
+    npc._hold_generation = (npc._hold_generation or 0) + 1
+    npc._scripted_move_generation = (npc._scripted_move_generation or 0) + 1
+    npc._scripted_move_active = false
+    npc._animation_source = "pose"
+end
+
+-- Release pose ownership. Called from cancel_bot_hold (explicit release),
+-- and from the pose functions when a hold naturally expires (hold_seconds
+-- elapsed) or no hold was requested at all.
+local function _release_pose(bot_id)
+    local npc = npcs[bot_id]
+    if npc and npc._animation_source == "pose" then
+        npc._animation_source = nil
+        npc.current_animation = nil
+    end
+end
+
 -- Public: get the internal npc record for a bot. Useful for cutscene steps
 -- that need mugshot info via get_dialogue_mugshot.
 function eznpcs.get_bot_record(bot_id)
@@ -944,14 +1192,13 @@ end
 
 -- Public: cancel any active pose hold on this bot. Reassert loops check a
 -- monotonically increasing generation counter, so a cancelled hold exits
--- without an extra sleep-and-poll cycle.
+-- without an extra sleep-and-poll cycle. Also releases pose ownership so
+-- waypoint movement can resume.
 function eznpcs.cancel_bot_hold(bot_or_npc)
     local bot_id = _resolve_bot_id(bot_or_npc)
     if not bot_id then return end
-    local npc = npcs[bot_id]
-    if npc then
-        npc._hold_generation = (npc._hold_generation or 0) + 1
-    end
+    _bump_hold_generation(bot_id)
+    _release_pose(bot_id)
 end
 
 -- Internal: set a pose and (optionally) reassert it every `reassert_interval`
@@ -963,6 +1210,8 @@ local function _apply_pose_with_reassert(bot_id, animation, loop, reassert_inter
     if npc then
         npc._hold_generation = (npc._hold_generation or 0) + 1
         my_generation = npc._hold_generation
+        npc._animation_source = "pose"
+        npc.current_animation = animation
     end
     _apply_bot_animation(bot_id, animation, loop)
     if reassert_interval and reassert_interval > 0 and npc then
@@ -1017,8 +1266,10 @@ function eznpcs.move_bot_to_spot(bot_or_npc, target, options)
         local speed = math.max(0.1, tonumber(options.speed) or 3)
         local duration = math.max(0.05, distance / speed)
 
-        -- Cancel any existing hold before the new pose sequence starts
-        eznpcs.cancel_bot_hold(bot_id)
+        -- Claim pose ownership immediately: waypoint ticks must not fight
+        -- the movement keyframes we're about to send, and any in-flight
+        -- reassert loop or scripted waypoint move must be invalidated.
+        _claim_pose(bot_id)
 
         if options.direction then _apply_bot_direction(bot_id, options.direction) end
         if options.animation then _apply_bot_animation(bot_id, options.animation, true) end
@@ -1043,11 +1294,19 @@ function eznpcs.move_bot_to_spot(bot_or_npc, target, options)
         }
 
         local ok_move, move_result = pcall(Net.animate_bot_properties, bot_id, keyframes)
-        if not ok_move or move_result == false then return false end
+        if not ok_move or move_result == false then
+            _release_pose(bot_id)
+            return false
+        end
 
         await(Async.sleep(duration))
 
-        if not options.hold_animation then return true end
+        if not options.hold_animation then
+            -- No hold requested; release ownership so waypoint movement
+            -- (or whatever was happening before) can resume.
+            _release_pose(bot_id)
+            return true
+        end
 
         if options.hold_direction then
             _apply_bot_direction(bot_id, options.hold_direction)
@@ -1066,7 +1325,8 @@ function eznpcs.move_bot_to_spot(bot_or_npc, target, options)
             await(Async.sleep(hold_seconds))
             local npc = npcs[bot_id]
             if npc and npc._hold_generation == my_generation then
-                npc._hold_generation = my_generation + 1
+                _bump_hold_generation(bot_id)
+                _release_pose(bot_id)
             end
         end
         return true
@@ -1085,12 +1345,21 @@ function eznpcs.set_bot_pose(bot_or_npc, options)
         local bot_id = _resolve_bot_id(bot_or_npc)
         if not bot_id or not options or not options.animation then return false end
 
-        eznpcs.cancel_bot_hold(bot_id)
+        -- Default is to claim pose ownership; explicit hold = false means
+        -- "apply once, don't block waypoints". In that case we still bump
+        -- the generation to invalidate any in-flight reassert loop.
+        local claims_pose = options.hold ~= false
+        if claims_pose then
+            _claim_pose(bot_id)
+        else
+            _bump_hold_generation(bot_id)
+        end
+
         if options.direction then _apply_bot_direction(bot_id, options.direction) end
 
         local loop = options.loop ~= false
         local reassert_interval = nil
-        if options.hold ~= false then
+        if claims_pose then
             reassert_interval = math.max(0.05,
                 tonumber(options.hold_reassert_interval) or 0.2)
         end
@@ -1102,8 +1371,14 @@ function eznpcs.set_bot_pose(bot_or_npc, options)
             await(Async.sleep(hold_seconds))
             local npc = npcs[bot_id]
             if npc and npc._hold_generation == my_generation then
-                npc._hold_generation = my_generation + 1
+                _bump_hold_generation(bot_id)
+                _release_pose(bot_id)
             end
+        elseif not claims_pose then
+            -- hold = false with no hold_seconds: fire-and-forget pose.
+            -- Release immediately so a subsequent waypoint tick can
+            -- re-apply travel animation on the next frame.
+            _release_pose(bot_id)
         end
         return true
     end)

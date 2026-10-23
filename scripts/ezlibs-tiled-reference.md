@@ -413,12 +413,18 @@ Interaction actor for the FootBomb minigame.
 
 ### Waypoint
 **Category:** gameplay
-Navigation node for NPCs.
+Navigation node for NPCs. Move Animation handles travel; Wait Animation handles the arrival hold. Set Move Duration > 0 for scripted (jump-style) movement where the animation has intrinsic timing.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
+| `Direction` | string (Direction) |  | `""` | appearance | Facing applied when the NPC arrives at this waypoint (and during Wait Time). |
+| `Move Animation` | string |  | `""` | appearance | Animation state played while travelling toward this waypoint (e.g. WALK_UR, RUN, FOOTBOMB_JUMP_LEFT). When set, the animation itself encodes facing; Move Direction is ignored during travel. |
+| `Move Direction` | string (Direction) |  | `""` | appearance | Direction to face while travelling toward this waypoint. Empty = keep whatever direction the NPC was already facing. |
+| `Move Duration` | number |  | 0 | appearance | If > 0, switches to scripted movement: the NPC's position is animated over exactly this many seconds via keyframes, matching the animation's intrinsic timing. Required for jump-style animations to stay in sync with the sprite. Leave at 0 for normal walking. |
+| `Move Loop` | bool |  | true | appearance | Whether Move Animation loops. Set false for one-shot animations like jump arcs; the final frame holds until movement completes. |
+| `Wait Animation` | string |  | `""` | appearance | Animation state held while the NPC waits at this waypoint during Wait Time. Use for END/hold poses (e.g. FOOTBOMB_JUMP_LEFT_END) that should persist after arrival. Empty = keep whatever the Move Animation ended on. |
+| `Wait Loop` | bool |  | true | appearance | Whether Wait Animation loops. Keep true for single-frame holds so the engine doesn't revert to the default idle. |
 | `Date` | string |  | `""` | gameplay |  |
-| `Direction` | string (Direction) |  | `""` | gameplay |  |
 | `Next Waypoint 1` | object |  | `""` | gameplay |  |
 | `Next Waypoint 2` | object |  | `""` | gameplay |  |
 | `Next Waypoint 3` | object |  | `""` | gameplay |  |
@@ -431,6 +437,12 @@ Navigation node for NPCs.
 
 **Conditional properties**
 
+- `Move Animation`: Move Loop controls whether it restarts each cycle. For animations with intrinsic timing (jumps), also set Move Duration > 0 to sync position with the animation.
+- `Move Direction`: Ignored when Move Animation is set; the animation's encoded facing wins.
+- `Move Duration`: Only meaningful when Move Animation is set. Leave 0 for walk cycles; set to the animation's total duration for one-shot arcs. Only meaningful when `Move Animation` is set.
+- `Move Loop`: Only meaningful when Move Animation is set. Only meaningful when `Move Animation` is set.
+- `Wait Animation`: Only visible when Wait Time > 0 (the pose is applied on arrival and immediately overridden once travel resumes).
+- `Wait Loop`: Only used when Wait Animation is set. Only meaningful when `Wait Animation` is set.
 - `Date`: Only used when Waypoint Type is 'before' or 'after'. Only meaningful when `Waypoint Type` in {`before`, `after`}.
 
 ### Radius Encounter

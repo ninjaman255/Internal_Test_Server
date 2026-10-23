@@ -970,7 +970,7 @@ return {
     ["Waypoint"] = {
       color = "#55ff55",
       category    = "gameplay",
-      description = "Navigation node for NPCs.",
+      description = "Navigation node for NPCs. Move Animation handles travel; Wait Animation handles the arrival hold. Set Move Duration > 0 for scripted (jump-style) movement where the animation has intrinsic timing.",
       members = {
         {
           ["name"] = "Wait Time",
@@ -978,6 +978,8 @@ return {
           ["value"] = 0
         },
         {
+          ["category"] = "appearance",
+          ["description"] = "Facing applied when the NPC arrives at this waypoint (and during Wait Time).",
           ["name"] = "Direction",
           ["propertyType"] = "Direction",
           ["type"] = "string",
@@ -1001,6 +1003,64 @@ return {
           ["name"] = "Date",
           ["type"] = "string",
           ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Move Loop controls whether it restarts each cycle. For animations with intrinsic timing (jumps), also set Move Duration > 0 to sync position with the animation.",
+          ["description"] = "Animation state played while travelling toward this waypoint (e.g. WALK_UR, RUN, FOOTBOMB_JUMP_LEFT). When set, the animation itself encodes facing; Move Direction is ignored during travel.",
+          ["name"] = "Move Animation",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only meaningful when Move Animation is set.",
+          ["dependsOn"] = {
+            ["property"] = "Move Animation"
+          },
+          ["description"] = "Whether Move Animation loops. Set false for one-shot animations like jump arcs; the final frame holds until movement completes.",
+          ["name"] = "Move Loop",
+          ["type"] = "bool",
+          ["value"] = true
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only meaningful when Move Animation is set. Leave 0 for walk cycles; set to the animation's total duration for one-shot arcs.",
+          ["dependsOn"] = {
+            ["property"] = "Move Animation"
+          },
+          ["description"] = "If > 0, switches to scripted movement: the NPC's position is animated over exactly this many seconds via keyframes, matching the animation's intrinsic timing. Required for jump-style animations to stay in sync with the sprite. Leave at 0 for normal walking.",
+          ["name"] = "Move Duration",
+          ["type"] = "number",
+          ["value"] = 0
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Ignored when Move Animation is set; the animation's encoded facing wins.",
+          ["description"] = "Direction to face while travelling toward this waypoint. Empty = keep whatever direction the NPC was already facing.",
+          ["name"] = "Move Direction",
+          ["propertyType"] = "Direction",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only visible when Wait Time > 0 (the pose is applied on arrival and immediately overridden once travel resumes).",
+          ["description"] = "Animation state held while the NPC waits at this waypoint during Wait Time. Use for END/hold poses (e.g. FOOTBOMB_JUMP_LEFT_END) that should persist after arrival. Empty = keep whatever the Move Animation ended on.",
+          ["name"] = "Wait Animation",
+          ["type"] = "string",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Only used when Wait Animation is set.",
+          ["dependsOn"] = {
+            ["property"] = "Wait Animation"
+          },
+          ["description"] = "Whether Wait Animation loops. Keep true for single-frame holds so the engine doesn't revert to the default idle.",
+          ["name"] = "Wait Loop",
+          ["type"] = "bool",
+          ["value"] = true
         },
         {
           ["name"] = "Next Waypoint 1",
