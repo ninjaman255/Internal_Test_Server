@@ -38,7 +38,10 @@ end
 
 function ResultTimeline.shared_response_duration(options)
     options = options or {}
-    local jump_duration = math.max(0, tonumber(options.jump_movement_duration) or 0)
+    -- The response waits for the authored jump animation to finish, while
+    -- the defender's movement ends at the movement-frame boundary.
+    local jump_duration = math.max(0, tonumber(options.jump_animation_duration)
+        or tonumber(options.jump_movement_duration) or 0)
     local defender_duration = math.max(0, tonumber(options.defender_travel_duration) or 0)
     local bomb_duration = math.max(0, tonumber(options.bomb_travel_duration) or 0)
     local matching_jump = options.matching_jump == true

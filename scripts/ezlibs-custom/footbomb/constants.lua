@@ -78,11 +78,12 @@ local constants = {
     },
 
     GAMEPLAY = {
-        -- Result phase movement tuning (map-coordinate units per second).
+        -- Result phase movement tuning. Defender jump speed shapes progress
+        -- within the authored movement window; it does not alter animation time.
         RESULT_KICKER_WALK_UR_SPEED = 3,
         RESULT_KICKER_WALK_U_SPEED = 3,
         RESULT_BOMB_MOVE_SPEED = 3,
-        RESULT_DEFENDER_JUMP_SPEED = 5,
+        RESULT_DEFENDER_JUMP_SPEED = 3,
         -- Render the attached ball in front of the defender using bot depth.
         RESULT_BALL_Z_LIFT = 4,
         -- Duration for the settled round-result pose before the transition wash.

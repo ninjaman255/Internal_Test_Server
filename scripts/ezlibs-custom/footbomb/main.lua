@@ -105,6 +105,28 @@ local function async(p)
 end
 local function await(v) return Async.await(v) end
 
+-- FootBomb parses each Navi animation once and reuses the parsed result across
+-- rounds. This cache is populated eagerly during round setup (see
+-- prime_round_bot_animations) so the result-planning block never stalls on a
+-- cold Boom.load. That keeps the BOMB_LAUNCHED THUD in the same server tick as
+-- the bomb's first movement keyframe instead of trailing behind a parse.
+local footbomb_animation_cache = {}
+local function get_footbomb_animation(path)
+    if type(path) ~= "string" or path == "" then
+        return nil, "animation path is missing"
+    end
+    local cached = footbomb_animation_cache[path]
+    if cached then return cached end
+    local ok, animation, load_error = pcall(Boom.load, path)
+    if not ok or type(animation) ~= "table" then
+        return nil, tostring(load_error or animation)
+    end
+    if animation.version ~= "2.0" then
+        return nil, "expected v2.0 animation, detected v" .. tostring(animation.version)
+    end
+    footbomb_animation_cache[path] = animation
+    return animation
+end
 
 -- ---------------------------------------------------------------------------
 -- Semantic round-phase events
@@ -206,9 +228,11 @@ EzMapInstance.events:on("host_changed", function(instance_id, new_host_id, old_h
 end)
 
 local AnimationDiagnostics = require("scripts/ezlibs-custom/footbomb/animation_diagnostics")
-local diagnostics_ok, diagnostics_error = pcall(AnimationDiagnostics.run, NAVI_OPTIONS, log)
-if not diagnostics_ok then
-    log("ANIM_DIAGNOSTICS: unexpected diagnostic failure: " .. tostring(diagnostics_error))
+if Config.DIAGNOSTICS.RUN_ANIMATION_DIAGNOSTICS then
+    local diagnostics_ok, diagnostics_error = pcall(AnimationDiagnostics.run, NAVI_OPTIONS, log)
+    if not diagnostics_ok then
+        log("ANIM_DIAGNOSTICS: unexpected diagnostic failure: " .. tostring(diagnostics_error))
+    end
 end
 
 local RESULT_TARGET_BY_DIRECTION = {
@@ -245,7 +269,9 @@ local function run_direction_mapping_test()
     log("RESULT_FLOW: direction mapping test complete instance=" .. instance_id)
 end
 
-run_direction_mapping_test()
+if Config.DIAGNOSTICS.RUN_DIRECTION_MAPPING_TEST then
+    run_direction_mapping_test()
+end
 
 local function draw_confirm_prompt(player_id, text_id)
     local prompt_width = TextLayout.measureLine(
@@ -1053,7 +1079,7 @@ local DIRECTION_CURSOR_DIRECTIONS = { "Left", "Up", "Right" }
 
 local function direction_cursor_id(rep, direction)
     if direction == "Left" then return rep.direction_cursor_left end
-    if direction == ("Up" or "Down") then return rep.direction_cursor_up end
+    if direction == "Up" then return rep.direction_cursor_up end
     if direction == "Right" then return rep.direction_cursor_right end
     return nil
 end
@@ -1683,12 +1709,27 @@ local function spawn_bomb_bot_for_round(instance_id, human_reps)
             .. tostring(instance_id))
         return false
     end
+    -- Prefer the kicker's own bomb-skin choice. If the kicker is an NPC
+    -- (VS NPC rounds where the bot slot has no human rep), fall back to the
+    -- (single) human player's choice so the selected skin stays consistent
+    -- across rounds instead of snapping back to BOMB_OPTIONS[1].
     local bomb_skin_index = 1
+    local kicker_is_human = false
     for _, entry in ipairs(human_reps or {}) do
         local rep = entry.rep
         if rep and rep.slot == kicker.slot then
             bomb_skin_index = tonumber(rep.bomb_skin_index) or 1
+            kicker_is_human = true
             break
+        end
+    end
+    if not kicker_is_human then
+        for _, entry in ipairs(human_reps or {}) do
+            local rep = entry.rep
+            if rep then
+                bomb_skin_index = tonumber(rep.bomb_skin_index) or 1
+                break
+            end
         end
     end
     if bomb_skin_index < 1 or bomb_skin_index > #BOMB_OPTIONS then
@@ -1769,21 +1810,31 @@ local function set_defender_animation_for_round(instance_id, animation_state, ph
             .. tostring(instance_id) .. " phase=" .. tostring(phase))
         return false
     end
-    if not ensure_role_events then
-        return set_bot_animation_state(
-            defender.id,
-            animation_state or AnimationStates.FOOTBOMB_IDLE_DEFENSE, true
-        )
+    -- Apply the pose directly instead of emitting assert_idle through the role
+    -- bus. During role swaps, queued defender events can otherwise race the
+    -- round transition and leave the bot displaying a stale state.
+    cancel_hold(defender, "defender-round-idle-" .. tostring(phase))
+    -- Normalize facing explicitly: the defender bot inherits its direction
+    -- from whichever role/state it ended the previous round in. Round 1
+    -- starts at "Down" (creation default), but after round 1 the bot is left
+    -- at "Up" by the previous Kicker's assert_idle_u. That made the first-
+    -- round IDLE_DEFENSE render with a different facing than subsequent
+    -- rounds.
+    ensure_bot_direction(defender, "Up")
+    local state = animation_state or AnimationStates.FOOTBOMB_IDLE_DEFENSE
+    local ok, result = set_bot_animation_state(defender.id, state, true)
+    -- Keep the bot record's bookkeeping in sync with the last accepted state
+    -- so downstream code that reads bot.animation_state (e.g. hold_pose_for,
+    -- assert_looping) never acts on a stale value.
+    if ok and result ~= false then
+        defender.animation_state = state
     end
-    local events = ensure_role_events(instance_id)
-    events.defender:emit(
-        "assert_idle",
-        animation_state or AnimationStates.FOOTBOMB_IDLE_DEFENSE
-    )
-    log("ANIM_FLOW: defender assert_idle emitted bot=" .. tostring(defender.id)
+    log("ANIM_FLOW: defender round idle applied bot=" .. tostring(defender.id)
         .. " phase=" .. tostring(phase)
-        .. " state=" .. tostring(animation_state or AnimationStates.FOOTBOMB_IDLE_DEFENSE))
-    return true
+        .. " state=" .. tostring(state)
+        .. " success=" .. tostring(ok)
+        .. " detail=" .. tostring(result))
+    return ok and result ~= false
 end
 
 local function set_kicker_pose_for_round(instance_id)
@@ -1798,16 +1849,79 @@ local function set_kicker_pose_for_round(instance_id)
             .. tostring(instance_id))
         return false
     end
-    if not ensure_role_events then
-        cancel_hold(kicker, "kicker-fallback-assert-ready")
-        ensure_bot_direction(kicker, "Up Right")
-        local animation_ok, animation_result =
-            set_bot_animation_state(kicker.id, AnimationStates.IDLE_UR, true)
-        return animation_ok and animation_result ~= false
+    -- Set the actual bot state directly at round setup. Routing this through
+    -- the role event bus allowed other queued role actions to briefly leave
+    -- the kicker in a previous state during the round-start reveal.
+    cancel_hold(kicker, "kicker-round-start-idle-ur")
+    ensure_bot_direction(kicker, "Up Right")
+    local animation_ok, animation_result =
+        set_bot_animation_state(kicker.id, AnimationStates.IDLE_UR, true)
+    -- Keep bot.animation_state in sync with the applied state so reassertions
+    -- and post-fade repeats use the correct value.
+    if animation_ok and animation_result ~= false then
+        kicker.animation_state = AnimationStates.IDLE_UR
     end
-    local events = ensure_role_events(instance_id)
-    events.kicker:emit("assert_ready")
-    return true
+    log("KICKER_FLOW: round-start IDLE_UR bot=" .. tostring(kicker.id)
+        .. " instance=" .. tostring(instance_id)
+        .. " success=" .. tostring(animation_ok)
+        .. " detail=" .. tostring(animation_result))
+    return animation_ok and animation_result ~= false
+end
+
+local function apply_round_role_poses(instance_id, phase)
+    -- This is the single pose checkpoint for both first-round setup and every
+    -- role swap. Call it only while participant cameras are fully black.
+    local defender_ok = set_defender_animation_for_round(
+        instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE,
+        tostring(phase) .. "-defender")
+    local kicker_ok, kicker_result = pcall(set_kicker_pose_for_round, instance_id)
+    local kicker_success = kicker_ok and kicker_result ~= false
+    log("ROUND_SETUP: role poses checked/applied instance=" .. tostring(instance_id)
+        .. " phase=" .. tostring(phase)
+        .. " defender_success=" .. tostring(defender_ok)
+        .. " kicker_success=" .. tostring(kicker_success)
+        .. " kicker_detail=" .. tostring(kicker_result))
+    return defender_ok and kicker_success
+end
+
+-- Re-apply the round-start poses after fade-in has completed. Some clients
+-- drop animation writes that arrive during the black-screen transition, so
+-- the Kicker occasionally keeps its previous state (typically
+-- FOOTBOMB_IDLE_DEFENSE from the skin-selection bot creation) even though
+-- the server accepted IDLE_UR. Re-issuing the same write while the bot is
+-- visible resolves it without touching gameplay logic.
+local function reassert_round_start_poses(instance_id)
+    local bots = State.instance_bots[instance_id]
+    if not bots then return end
+    for _, bot in ipairs(bots) do
+        if bot._removed then
+            -- skip
+        elseif bot._hold_token then
+            -- an in-progress hold owns this bot; do not fight it
+        elseif bot.role == "Kicker" then
+            ensure_bot_direction(bot, "Up Right")
+            local ok, detail = set_bot_animation_state(
+                bot.id, AnimationStates.IDLE_UR, true
+            )
+            if ok and detail ~= false then
+                bot.animation_state = AnimationStates.IDLE_UR
+            end
+            log("KICKER_FLOW: post-fade reassertion bot=" .. tostring(bot.id)
+                .. " state=IDLE_UR success=" .. tostring(ok)
+                .. " detail=" .. tostring(detail))
+        elseif bot.role == "Defender" then
+            ensure_bot_direction(bot, "Up")
+            local ok, detail = set_bot_animation_state(
+                bot.id, AnimationStates.FOOTBOMB_IDLE_DEFENSE, true
+            )
+            if ok and detail ~= false then
+                bot.animation_state = AnimationStates.FOOTBOMB_IDLE_DEFENSE
+            end
+            log("DEFENDER_FLOW: post-fade reassertion bot=" .. tostring(bot.id)
+                .. " state=FOOTBOMB_IDLE_DEFENSE success=" .. tostring(ok)
+                .. " detail=" .. tostring(detail))
+        end
+    end
 end
 
 local function prime_round_bot_animations(instance_id)
@@ -1844,6 +1958,11 @@ local function prime_round_bot_animations(instance_id)
                     .. tostring(bot.id) .. " error=" .. tostring(detail))
                 return false
             end
+            -- Prewarm the parsed-animation cache so the result-planning block
+            -- never has to do a cold Boom.load during a live round. This keeps
+            -- the BOMB_LAUNCHED THUD in the same server tick as the bomb's
+            -- first movement keyframe.
+            get_footbomb_animation(bot.animation_path)
             checked = checked + 1
         end
     end
@@ -2139,18 +2258,44 @@ local function hold_pose_for(bot, state, direction, hold_seconds, phase, should_
     hold_seconds = math.max(0.5, tonumber(hold_seconds) or 2.5)
     if should_loop == nil then should_loop = true end
     if direction then ensure_bot_direction(bot, direction) end
-    set_bot_animation_state(bot.id, state, should_loop)
+
+    -- Match ezcutscenes' pose-hold strategy: apply the state immediately, then
+    -- reassert it at a modest interval while this hold owns the bot. The jump
+    -- animation is non-looping and its last frame is only 0.1-0.2s, so the END
+    -- state can race the animation boundary on some clients. Reasserting every
+    -- 0.2s for this short hold repairs a missed transition without coupling
+    -- movement timing to animation timing. END states are single-frame poses.
     local token = {}
     bot._hold_token = token
-    -- Patch 5: reassert interval reduced from 0.15s to 0.10s.
-    local interval = 0.1
-    local num_reasserts = math.max(1, math.ceil(hold_seconds / interval))
+    local animation_ok, animation_result = set_bot_animation_state(
+        bot.id, state, should_loop
+    )
+    if not animation_ok then
+        if bot._hold_token == token then bot._hold_token = nil end
+        log("DEFENDER_FLOW: hold_pose_for failed bot=" .. tostring(bot.id)
+            .. " state=" .. tostring(state) .. " phase=" .. tostring(phase)
+            .. " detail=" .. tostring(animation_result))
+        return false
+    end
+    bot.animation_state = state
+
+    local interval = 0.2
+    local reassert_count = math.max(1, math.floor(hold_seconds / interval))
     async(function()
-        for _ = 1, num_reasserts do
+        for _ = 1, reassert_count do
             await(Async.sleep(interval))
-            if bot._removed then return end
-            if bot._hold_token ~= token then return end
-            set_bot_animation_state(bot.id, state, should_loop)
+            if bot._removed or bot._hold_token ~= token then return end
+            local reassert_ok, reassert_result = set_bot_animation_state(
+                bot.id, state, should_loop
+            )
+            if reassert_ok then
+                bot.animation_state = state
+            else
+                log("DEFENDER_FLOW: hold_pose_for reassert failed bot="
+                    .. tostring(bot.id) .. " state=" .. tostring(state)
+                    .. " phase=" .. tostring(phase)
+                    .. " detail=" .. tostring(reassert_result))
+            end
         end
     end)
     log("DEFENDER_FLOW: hold_pose_for started bot=" .. tostring(bot.id)
@@ -2158,7 +2303,8 @@ local function hold_pose_for(bot, state, direction, hold_seconds, phase, should_
         .. " phase=" .. tostring(phase)
         .. " duration=" .. tostring(hold_seconds)
         .. " should_loop=" .. tostring(should_loop)
-        .. " reasserts=" .. tostring(num_reasserts))
+        .. " reassert_interval=" .. tostring(interval)
+        .. " reasserts=" .. tostring(reassert_count))
     return true
 end
 
@@ -2321,24 +2467,6 @@ end
 
 local begin_next_round
 
-local footbomb_animation_cache = {}
-local function get_footbomb_animation(path)
-    if type(path) ~= "string" or path == "" then
-        return nil, "animation path is missing"
-    end
-    local cached = footbomb_animation_cache[path]
-    if cached then return cached end
-    local ok, animation, load_error = pcall(Boom.load, path)
-    if not ok or type(animation) ~= "table" then
-        return nil, tostring(load_error or animation)
-    end
-    if animation.version ~= "2.0" then
-        return nil, "expected v2.0 animation, detected v" .. tostring(animation.version)
-    end
-    footbomb_animation_cache[path] = animation
-    return animation
-end
-
 local function get_animation_state_duration(bot, state_name)
     local animation, animation_error = get_footbomb_animation(bot and bot.animation_path)
     if not animation then return nil, animation_error end
@@ -2387,8 +2515,16 @@ end
 
 local read_bot_position
 
-local function defender_jump_position_at(start_position, target_position, ratio)
+local function defender_jump_position_at(start_position, target_position, ratio, movement_speed)
     ratio = math.max(0, math.min(1, tonumber(ratio) or 0))
+    -- Speed shapes how progress is distributed across the fixed animation
+    -- movement window; it never changes the window duration or endpoint.
+    -- 5 is the neutral profile (linear progress), higher values front-load
+    -- travel, and lower values ease into the movement more gradually.
+    local speed = math.max(0.1, tonumber(movement_speed)
+        or tonumber(Gameplay.RESULT_DEFENDER_JUMP_SPEED) or 5)
+    local profile = math.max(0.5, math.min(2.0, speed / 5))
+    ratio = 1 - ((1 - ratio) ^ profile)
     local sx, sy = tonumber(start_position and start_position.x) or 0,
         tonumber(start_position and start_position.y) or 0
     local tx, ty = tonumber(target_position and target_position.x) or sx,
@@ -2446,7 +2582,9 @@ local function move_defender_jump_arc(bot, target, duration, phase)
     }
     local previous_ratio = 0
     for _, ratio in ipairs({ 0.2, 0.4, 0.6, 0.8, 1 }) do
-        local position = defender_jump_position_at(start_position, target_position, ratio)
+        local position = defender_jump_position_at(
+            start_position, target_position, ratio, Gameplay.RESULT_DEFENDER_JUMP_SPEED
+        )
         keyframes[#keyframes + 1] = {
             properties = {
                 { property = "X", ease = "Linear", value = position.x },
@@ -2644,6 +2782,7 @@ local function subscribe_kicker_handlers(bot, emitter, on)
         ensure_bot_direction(bot, "Up Right")
         local anim_ok, anim_err =
             set_bot_animation_state(bot.id, AnimationStates.IDLE_UR, true)
+        if anim_ok then bot.animation_state = AnimationStates.IDLE_UR end
         log("KICKER_FLOW: assert_ready bot=" .. tostring(bot.id)
             .. " success=" .. tostring(anim_ok) .. " detail=" .. tostring(anim_err))
     end)
@@ -2714,7 +2853,7 @@ local function subscribe_defender_handlers(bot, emitter, on)
             "defender-assert-ready"
         )
     end)
-    on(emitter, "play_jump", function(direction, target, duration, resolve)
+    on(emitter, "play_jump", function(direction, target, movement_duration, animation_duration, final_frame_start, resolve)
         async(function()
             local function run()
                 if bot._removed then return false end
@@ -2741,6 +2880,34 @@ local function subscribe_defender_handlers(bot, emitter, on)
                     bot, jump_state, nil,
                     "defender-play-jump-launch", false
                 )
+
+                -- Switch to the matching single-frame END pose at the authored
+                -- start of the jump state's final frame, not after the whole
+                -- non-looping animation expires. The END frame matches that
+                -- final jump frame, so this preserves the visual pose while
+                -- preventing the engine's post-animation fallback from flashing.
+                -- Transition exactly at the authored final-frame boundary.
+                -- The END state's single frame matches the jump's final frame,
+                -- so there is no visual pose change, only a persistent state.
+                local end_state = direction == "Left"
+                    and AnimationStates.FOOTBOMB_JUMP_LEFT_END
+                    or AnimationStates.FOOTBOMB_JUMP_RIGHT_END
+                local transition_at = math.max(0,
+                    tonumber(final_frame_start) or movement_duration)
+                async(function()
+                    if transition_at > 0 then await(Async.sleep(transition_at)) end
+                    if bot._removed then return end
+                    hold_pose_for(
+                        bot, end_state, nil, 2.5,
+                        "defender-jump-final-frame-transition", true
+                    )
+                    log("DEFENDER_FLOW: jump-to-END transition bot=" .. tostring(bot.id)
+                        .. " direction=" .. tostring(direction)
+                        .. " jump_state=" .. tostring(jump_state)
+                        .. " end_state=" .. tostring(end_state)
+                        .. " final_frame_start=" .. tostring(final_frame_start)
+                        .. " transition_at=" .. tostring(transition_at))
+                end)
                 if round_events then
                     round_events:emit(ROUND_EVENT.DEFENDER_JUMP_LAUNCHED, {
                         bot_id = bot.id,
@@ -2748,21 +2915,25 @@ local function subscribe_defender_handlers(bot, emitter, on)
                         state = jump_state,
                     })
                 end
-                if round_events and duration and duration > 0 then
-                    local scheduled_direction = direction
-                    async(function()
-                        await(Async.sleep(duration))
-                        if bot._removed then return end
-                        round_events:emit(ROUND_EVENT.DEFENDER_LANDING_FRAME, {
-                            bot_id = bot.id,
-                            direction = scheduled_direction,
-                            state = jump_state,
-                        })
-                    end)
-                end
+                movement_duration = math.max(0.12, tonumber(movement_duration) or 0.12)
+                animation_duration = math.max(movement_duration,
+                    tonumber(animation_duration) or movement_duration)
                 local arc_ok = move_defender_jump_arc(
-                    bot, target, duration, "defender-play-jump-arc"
+                    bot, target, movement_duration, "defender-play-jump-arc"
                 )
+                -- Keep the authored animation running through its final frame.
+                -- The bot reaches its destination at movement_duration, but the
+                -- result actor does not complete until the animation boundary.
+                if arc_ok and animation_duration > movement_duration then
+                    await(Async.sleep(animation_duration - movement_duration))
+                end
+                if round_events and not bot._removed then
+                    round_events:emit(ROUND_EVENT.DEFENDER_LANDING_FRAME, {
+                        bot_id = bot.id,
+                        direction = direction,
+                        state = jump_state,
+                    })
+                end
                 if round_events then
                     round_events:emit(ROUND_EVENT.DEFENDER_ARC_COMPLETE, {
                         bot_id = bot.id,
@@ -2839,6 +3010,9 @@ assign_bot_role = function(bot, new_role, instance_id)
     elseif new_role == "Defender" then
         subscribe_defender_handlers(bot, events.defender, on)
     end
+    -- Do not change the visible pose while the selection/result screen is
+    -- still visible. The round setup applies role poses after the camera has
+    -- fully faded to black, then reveals them together on fade-in.
     log("ROLE_FLOW: assigned bot=" .. tostring(bot.id)
         .. " role=" .. tostring(new_role)
         .. " instance=" .. tostring(instance_id)
@@ -2895,8 +3069,8 @@ local function move_bot_follow_keyframe(bot, position, phase, duration)
 end
 
 local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
-                                          animation_state, initial_elapsed, shared_duration,
-                                          start_position, target_position)
+                                          animation_state, initial_elapsed, movement_duration,
+                                          animation_duration, start_position, target_position)
     if not bots.ball_follow_active or State.instance_bots[instance_id] ~= bots then
         return
     end
@@ -2907,7 +3081,9 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
         return
     end
     local elapsed = math.max(0, tonumber(initial_elapsed) or 0)
-    local finish = math.max(elapsed, tonumber(shared_duration) or elapsed)
+    local finish = math.max(elapsed, tonumber(animation_duration)
+        or tonumber(movement_duration) or elapsed)
+    movement_duration = math.max(0.001, tonumber(movement_duration) or finish)
     local animation, animation_error =
         get_footbomb_animation(defender and defender.animation_path)
     local state = animation and animation.states and animation.states[animation_state]
@@ -2920,9 +3096,11 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
         return
     end
     local function defender_position_at(t)
-        if start_position and target_position and shared_duration and shared_duration > 0 then
-            local ratio = math.max(0, math.min(1, t / shared_duration))
-            return defender_jump_position_at(start_position, target_position, ratio)
+        if start_position and target_position and movement_duration > 0 then
+            local ratio = math.max(0, math.min(1, t / movement_duration))
+            return defender_jump_position_at(
+                start_position, target_position, ratio, Gameplay.RESULT_DEFENDER_JUMP_SPEED
+            )
         end
         return read_bot_position(defender) or defender.position
     end
@@ -3083,16 +3261,15 @@ local function resolve_round_winner(instance_id)
         })
 
         if kicker_ok then
-            -- The kicker's walk-to-bomb just finished. Emit BOMB_LAUNCHED
-            -- here so THUD_SFX is dispatched in step with the kicker's
-            -- arrival, before the planning block runs. Planning can take
-            -- tens to hundreds of milliseconds (animation parsing,
-            -- tile-size lookups, 8-iteration catch probe), so emitting at
-            -- the end of the block visibly lags the kick.
-            round_events:emit(ROUND_EVENT.BOMB_LAUNCHED, {
-                kicker_direction = kicker.direction_choice,
-                defender_direction = defender.direction_choice,
-            })
+            -- The kicker's walk-to-bomb just finished. All of the response
+            -- planning below reads only static geometry (points), the current
+            -- defender position (unchanged during the kicker walk), and the
+            -- parsed animation data (prewarmed in prime_round_bot_animations).
+            -- We defer the BOMB_LAUNCHED emit until after planning so the
+            -- THUD and the bomb's first movement keyframe are dispatched in
+            -- the same server tick — previously the THUD fired before the
+            -- planning block and the bomb launched tens to hundreds of ms
+            -- later, which made the SFX feel out of sync with the animation.
 
             -- Hoisted so catch planning, catch execution, and follow all use
             -- the same lift, keeping the ball visually attached without a
@@ -3129,10 +3306,32 @@ local function resolve_round_winner(instance_id)
                     and AnimationStates.FOOTBOMB_JUMP_RIGHT)
                 or nil
             local jump_movement_duration = 0
+            local jump_animation_duration = 0
+            local jump_final_frame_start = 0
             if jump_state then
-                jump_movement_duration = get_animation_movement_end(defender, jump_state)
-                    or get_animation_state_duration(defender, jump_state)
-                    or 0
+                local animation = get_footbomb_animation(defender.animation_path)
+                local state = animation and animation.states and animation.states[jump_state]
+                local timing = ResultTimeline.state_timing(state)
+                if timing then
+                    jump_movement_duration = timing.movement_duration
+                    jump_animation_duration = timing.total_duration
+                    jump_final_frame_start = timing.final_frame_start
+                    log("ANIM_DIAG: jump clocks bot=" .. tostring(defender.id)
+                        .. " state=" .. tostring(jump_state)
+                        .. " movement_duration=" .. tostring(jump_movement_duration)
+                        .. " animation_duration=" .. tostring(jump_animation_duration)
+                        .. " final_frame_start=" .. tostring(jump_final_frame_start)
+                        .. " speed_profile=" .. tostring(Gameplay.RESULT_DEFENDER_JUMP_SPEED))
+                else
+                    jump_movement_duration = get_animation_movement_end(defender, jump_state) or 0
+                    jump_animation_duration = get_animation_state_duration(defender, jump_state)
+                        or jump_movement_duration
+                    local animation = get_footbomb_animation(defender.animation_path)
+                    local state = animation and animation.states and animation.states[jump_state]
+                    local timing = ResultTimeline.state_timing(state)
+                    jump_final_frame_start = timing and timing.final_frame_start
+                        or jump_movement_duration
+                end
             end
 
             local base_bomb_speed = math.max(1, tonumber(Gameplay.RESULT_BOMB_MOVE_SPEED)
@@ -3150,6 +3349,7 @@ local function resolve_round_winner(instance_id)
 
             local shared_duration = ResultTimeline.shared_response_duration({
                 jump_movement_duration = jump_movement_duration,
+                jump_animation_duration = jump_animation_duration,
                 defender_travel_duration = 0,
                 bomb_travel_duration = bomb_target_travel_duration,
                 matching_jump = is_matching_jump,
@@ -3179,7 +3379,8 @@ local function resolve_round_winner(instance_id)
                         contact_elapsed / (jump_movement_duration > 0
                             and jump_movement_duration or shared_duration)))
                     local midpoint = defender_jump_position_at(
-                        start_position, target_position, ratio
+                        start_position, target_position, ratio,
+                        Gameplay.RESULT_DEFENDER_JUMP_SPEED
                     )
                     -- Lift is the DELTA above the defender, not midpoint.z
                     -- (which is an absolute z). This matches the follow
@@ -3232,6 +3433,7 @@ local function resolve_round_winner(instance_id)
             log("RESULT_FLOW: planned shared response timing instance=" .. tostring(instance_id)
                 .. " direction=" .. tostring(defender.direction_choice)
                 .. " jump_movement_duration=" .. tostring(jump_movement_duration)
+                .. " jump_animation_duration=" .. tostring(jump_animation_duration)
                 .. " defender_move_duration=" .. tostring(defender_move_duration)
                 .. " catch_duration=" .. tostring(catch_duration)
                 .. " bomb_target_distance=" .. tostring(bomb_target_distance)
@@ -3241,6 +3443,16 @@ local function resolve_round_winner(instance_id)
                 .. " matching_jump=" .. tostring(is_matching_jump)
                 .. " center_catch=" .. tostring(is_center_catch)
                 .. " ball_lift=" .. tostring(ball_lift))
+
+            -- Planning is complete and all inputs for the launch are frozen.
+            -- Dispatch the THUD in the same tick as the movement keyframes
+            -- below so the SFX lines up with the bomb leaving its start
+            -- position, not with the kicker's arrival (which can be followed
+            -- by a variable planning delay on slower servers).
+            round_events:emit(ROUND_EVENT.BOMB_LAUNCHED, {
+                kicker_direction = kicker.direction_choice,
+                defender_direction = defender.direction_choice,
+            })
 
             log("RESULT_FLOW: launching bomb and defender response together instance="
                 .. tostring(instance_id) .. " bomb_target=" .. tostring(target_name)
@@ -3295,7 +3507,9 @@ local function resolve_round_winner(instance_id)
                 local ratio = jump_movement_duration > 0
                     and (catch_duration / jump_movement_duration) or 0.5
                 ratio = math.max(0, math.min(1, ratio))
-                local midpoint = defender_jump_position_at(start_position, target_position, ratio)
+                local midpoint = defender_jump_position_at(
+                    start_position, target_position, ratio, Gameplay.RESULT_DEFENDER_JUMP_SPEED
+                )
                 -- Same delta-based values as the planning block above.
                 local catch_offset, catch_point_error = get_navi_ball_point_offset(
                     defender, jump_state, catch_duration, ball_lift
@@ -3339,7 +3553,7 @@ local function resolve_round_winner(instance_id)
                                 follow_defender_ball_point(
                                     instance_id, bots, bots.bomb_bot, defender,
                                     jump_state, catch_duration, jump_movement_duration,
-                                    start_position, target_position
+                                    jump_animation_duration, start_position, target_position
                                 )
                             end)
                         end
@@ -3418,7 +3632,8 @@ local function resolve_round_winner(instance_id)
                             follow_defender_ball_point(
                                 instance_id, bots, bots.bomb_bot, defender,
                                 AnimationStates.FOOTBOMB_READY_DEFENSE, 0,
-                                shared_duration / 2, defender_position, defender_position
+                                shared_duration / 2, shared_duration / 2,
+                                defender_position, defender_position
                             )
                         end)
                         await(Async.sleep(math.max(0, shared_duration - bomb_move_duration)))
@@ -3433,7 +3648,11 @@ local function resolve_round_winner(instance_id)
                 async(function()
                     defender_ok = await(emit_async(
                         instance_id, "defender", "play_jump",
-                        defender_direction, defender_target, defender_move_duration
+                        defender_direction, defender_target, defender_move_duration,
+                        jump_animation_duration > 0 and jump_animation_duration
+                            or defender_move_duration,
+                        jump_final_frame_start > 0 and jump_final_frame_start
+                            or defender_move_duration
                     ))
                     mark_response_actor_done("defender", defender_ok)
                 end)
@@ -3720,6 +3939,14 @@ begin_next_round = function(instance_id)
     end
     bots.round_transition_active = true
     bots.round_number = (tonumber(bots.round_number) or 1) + 1
+    -- Hide the role swap and repositioning. Fade-out duration is 0.8s, so
+    -- wait slightly longer before touching the bots' round-start poses.
+    for _, entry in ipairs(humans) do
+        if State.player_representations[entry.player_id] == entry.rep then
+            fade_player_to_black(entry.player_id)
+        end
+    end
+    await(Async.sleep(0.9))
     for _, bot in ipairs(bots) do
         local new_role = (bot.role == "Kicker") and "Defender" or "Kicker"
         assign_bot_role(bot, new_role, instance_id)
@@ -3735,6 +3962,8 @@ begin_next_round = function(instance_id)
         rep.selected_direction = nil
         rep.confirming = false
     end
+    log("ROUND_SETUP: next-round fade-out complete; applying positions and poses under black screen instance="
+        .. tostring(instance_id))
     log("ROUND_FLOW: preparing next round instance=" .. tostring(instance_id)
         .. " round=" .. tostring(bots.round_number)
         .. " player_one_role=" .. tostring(bots[1] and bots[1].role)
@@ -3746,14 +3975,13 @@ begin_next_round = function(instance_id)
     log("ROUND_SETUP: next-round bomb spawn instance="
         .. tostring(instance_id) .. " success=" .. tostring(bomb_spawned))
     await(Async.sleep(0.25))
-    local defender_idle_set = set_defender_animation_for_round(
-        instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE, "next-round-idle")
-    local kicker_pose_set, kicker_pose_result = pcall(
-        set_kicker_pose_for_round, instance_id)
-    log("ROUND_SETUP: next-round initial poses instance=" .. tostring(instance_id)
-        .. " defender_idle=" .. tostring(defender_idle_set)
-        .. " kicker_pcall_ok=" .. tostring(kicker_pose_set)
-        .. " kicker_result=" .. tostring(kicker_pose_result))
+    local poses_applied = apply_round_role_poses(instance_id, "next-round")
+    if not poses_applied then
+        -- Retry once while the cameras are still black; never reveal the bots
+        -- after a failed role-pose request without checking both roles again.
+        await(Async.sleep(0.15))
+        poses_applied = apply_round_role_poses(instance_id, "next-round-retry")
+    end
     hide_scoreboard_for_instance(instance_id)
     for _, entry in ipairs(humans) do
         local role_bot = bots[entry.rep.slot]
@@ -3770,16 +3998,14 @@ begin_next_round = function(instance_id)
         end
     end
     log("ROUND_FLOW: next-round fade-in started instance=" .. tostring(instance_id))
-    await(Async.sleep(0.15))
-    local reveal_kicker_ok, reveal_kicker_result = pcall(
-        set_kicker_pose_for_round, instance_id
-    )
-    log("ROUND_SETUP: kicker pose reasserted after next-round fade-in instance="
-        .. tostring(instance_id)
-        .. " pcall_ok=" .. tostring(reveal_kicker_ok)
-        .. " result=" .. tostring(reveal_kicker_result))
-    await(Async.sleep(0.70))
+    await(Async.sleep(0.85))
     bots.round_transition_active = false
+    -- The client may have dropped the round-setup animation writes that
+    -- arrived during the black-screen transition, leaving the Kicker stuck
+    -- on its pre-round state (typically FOOTBOMB_IDLE_DEFENSE from the
+    -- skin-selection bot creation). Re-issue the pose now that the bot is
+    -- visible so the client applies it. See reassert_round_start_poses.
+    reassert_round_start_poses(instance_id)
     start_direction_selection(instance_id, humans)
     log("ROUND_FLOW: next round ready for direction selection instance="
         .. tostring(instance_id) .. " round=" .. tostring(bots.round_number))
@@ -3951,32 +4177,16 @@ local function try_begin_match(instance_id)
                 log("ROUND_SETUP: bomb bot spawn complete instance="
                     .. tostring(instance_id) .. " success=" .. tostring(bomb_spawned))
                 await(Async.sleep(0.35))
-                log("ROUND_SETUP: applying defender idle animation instance="
-                    .. tostring(instance_id))
-                local defender_idle_set = set_defender_animation_for_round(
-                    instance_id, AnimationStates.FOOTBOMB_IDLE_DEFENSE, "idle"
-                )
-                log("ROUND_SETUP: defender idle animation call complete instance="
-                    .. tostring(instance_id) .. " success="
-                    .. tostring(defender_idle_set))
-                log("ROUND_SETUP: applying kicker direction/animation instance="
-                    .. tostring(instance_id))
-                local kicker_pose_set = set_kicker_pose_for_round(instance_id)
-                log("ROUND_SETUP: kicker pose calls complete instance="
-                    .. tostring(instance_id) .. " success=" .. tostring(kicker_pose_set))
                 local animations_primed = prime_round_bot_animations(instance_id)
                 log("ROUND_SETUP: bot animation priming returned instance="
                     .. tostring(instance_id) .. " success="
                     .. tostring(animations_primed))
-                await(Async.sleep(0.15))
-                local kicker = nil
-                for _, bot in ipairs(State.instance_bots[instance_id] or {}) do
-                    if bot.role == "Kicker" then kicker = bot; break end
-                end
-                if kicker then
-                    log("ROUND_SETUP: reapplying kicker animation before fade-in bot="
-                        .. tostring(kicker.id))
-                    set_kicker_pose_for_round(instance_id)
+                -- Always check and apply both role poses together after the
+                -- screen is black, including the very first round.
+                local poses_applied = apply_round_role_poses(instance_id, "first-round")
+                if not poses_applied then
+                    await(Async.sleep(0.15))
+                    poses_applied = apply_round_role_poses(instance_id, "first-round-retry")
                 end
                 log("ROUND_SETUP: fading cameras in instance="
                     .. tostring(instance_id))
@@ -3991,14 +4201,6 @@ local function try_begin_match(instance_id)
                 end
                 log("CAMERA_FLOW: keeping Camera Focus locked after fade-in instance="
                     .. tostring(instance_id))
-                await(Async.sleep(0.15))
-                local reveal_kicker_ok, reveal_kicker_result = pcall(
-                    set_kicker_pose_for_round, instance_id
-                )
-                log("ROUND_SETUP: kicker pose reasserted after initial fade-in instance="
-                    .. tostring(instance_id)
-                    .. " pcall_ok=" .. tostring(reveal_kicker_ok)
-                    .. " result=" .. tostring(reveal_kicker_result))
                 hide_scoreboard_for_instance(instance_id)
                 for _, participant in ipairs(human_reps) do
                     local player_id, rep = participant.player_id, participant.rep
@@ -4008,6 +4210,11 @@ local function try_begin_match(instance_id)
                         draw_role_text(player_id, rep, role_bot.role)
                     end
                 end
+                -- Match the next-round path: reassert after fade-in so clients
+                -- that dropped the black-screen writes still show the correct
+                -- round-start pose. See reassert_round_start_poses.
+                await(Async.sleep(0.85))
+                reassert_round_start_poses(instance_id)
                 start_direction_selection(instance_id, human_reps)
             end
         end)

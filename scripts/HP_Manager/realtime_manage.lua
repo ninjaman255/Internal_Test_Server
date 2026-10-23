@@ -462,7 +462,13 @@ Net:on("tick", function()
     end
     -- Release only this manager's claim when it no longer has an active session.
     for player_id, ctrl in pairs(InputAPI._controllers or {}) do
-        if realtime_sessions[player_id] == nil then ctrl:release_input(input_owner(player_id)) end
+        -- Only release when this manager actually owns the controller. Calling
+        -- release_input for unrelated owners is rejected and used to spam the
+        -- InputController console diagnostics every tick.
+        if realtime_sessions[player_id] == nil
+            and ctrl:has_input_control(input_owner(player_id)) then
+            ctrl:release_input(input_owner(player_id))
+        end
     end
 end)
 
