@@ -1651,6 +1651,18 @@ return {
           ["type"] = "number",
           ["value"] = 1
         },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Ignored when Button Behavior == 'Custom'.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Pressure Plate", "One-Time", "Toggle", "Timed" },
+            ["property"] = "Button Behavior"
+          },
+          ["description"] = "If true, NPCs (bots) entering or leaving this button's trigger also affect its state, using the same Pressure Plate / One-Time / Toggle / Timed rules as players. Ignored for Custom behavior.",
+          ["name"] = "Bots Can Trigger",
+          ["type"] = "bool",
+          ["value"] = false
+        },
       },
     },
     ["OW Button Group Member"] = {
@@ -1728,6 +1740,18 @@ return {
           ["name"] = "Activated Time",
           ["type"] = "number",
           ["value"] = 1
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Ignored when Button Behavior == 'Custom'.",
+          ["dependsOn"] = {
+            ["oneOf"] = { "Pressure Plate", "One-Time", "Toggle", "Timed" },
+            ["property"] = "Button Behavior"
+          },
+          ["description"] = "If true, NPCs (bots) entering or leaving this member's trigger also affect its state, which propagates to the parent group.",
+          ["name"] = "Bots Can Trigger",
+          ["type"] = "bool",
+          ["value"] = false
         },
       },
     },

@@ -3,6 +3,17 @@
 -- Logical relationships are defined with groups and button/group effects.
 -- Supports five interaction behaviors: Pressure Plate, One-Time, Toggle, Custom, Timed.
 -- Supports area-wide unlock/relock via "Area Wide" flag on Unlock/Relock Behavior objects.
+--
+-- Optional per-button flag "Bots Can Trigger" (bool, default false) causes the
+-- button to register a parallel ezbottriggers rectangle/ellipse in addition to
+-- its eztriggers one, so NPCs entering or leaving can drive the same
+-- Pressure Plate / One-Time / Toggle / Timed state machine. Custom behavior is
+-- excluded because custom scripts receive a player_id.
+--
+-- Bot-triggered activations pass nil as the activator, so per-player
+-- checkpoint unlocks and relocks have no target. When that happens, the
+-- deactivation path falls back to area-wide so the button's state change is
+-- fully reversed - matching player behavior as closely as possible.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbuttons')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
@@ -13,6 +24,14 @@ local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezcheckpoints = require('scripts/ezlibs-scripts/ezcheckpoints')
 local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
+
+-- Optional: bot triggers back NPC entries on buttons flagged "Bots Can Trigger".
+-- If this fails to load, buttons behave exactly as before (player-only).
+local ok_bottriggers, ezbottriggers = pcall(require, 'scripts/ezlibs-scripts/eztriggers/ezbottriggers')
+if not ok_bottriggers then
+    logger:warn("[ezbuttons] ezbottriggers could not be loaded; NPC button triggers disabled.", tostring(ezbottriggers))
+    ezbottriggers = nil
+end
 
 local tiled_schema = nil
 do
@@ -120,21 +139,23 @@ end
 -- ==========================================================================
 -- Live-contributor resolution for group state transitions
 --
--- When a group becomes satisfied, the callback normally fires with the
--- player whose action triggered the transition. If that player has
--- disconnected (typical when a pressure plate releases during cleanup),
--- we search the group's required buttons for a live contributor. The
--- contributor is whoever last activated one of the required buttons and
+-- When a group changes state, the callback normally fires with the player
+-- whose action triggered the transition. If that player has disconnected
+-- (typical when a pressure plate releases during cleanup) or is nil (bot
+-- triggered), we search the group's required buttons for a live contributor.
+-- The contributor is whoever last activated one of the required buttons and
 -- is still connected - they're the one who "owns" the current combo state.
 --
 -- If no contributor is alive but there ARE live players in the area, fall
--- back to area-wide so the achievement isn't silently lost. If nobody is
+-- back to area-wide so the state change isn't silently lost. If nobody is
 -- alive, skip (nothing to apply to).
 --
--- This helper is only consulted on the SATISFIED direction. The relock
--- direction uses the triggerer as before - if that's a dead player, the
--- existing skip-with-log behavior is correct (their per-player checkpoint
--- state persists across reconnects via memory).
+-- This helper is consulted on BOTH directions:
+--   * SATISFIED (unlock):  recovers achievements lost to a disconnected
+--                          triggerer.
+--   * INCOMPLETE (relock): ensures bot-triggered (or disconnected-triggered)
+--                          deactivations still reverse the effect for
+--                          someone, matching player behavior.
 -- ==========================================================================
 
 local function find_live_contributor(area_id, group)
@@ -161,10 +182,10 @@ local function find_live_contributor(area_id, group)
 end
 
 -- Resolve the effective player (and possibly area-wide fallback) for a
--- satisfied transition. Returns (player_id, use_area_wide, reason).
+-- transition. Returns (player_id, use_area_wide, reason).
 --
 --   player_id      - may be nil if no contributor and no fallback
---   use_area_wide  - true if we should apply the unlock to every live player
+--   use_area_wide  - true if we should apply the action to every live player
 --                    in the area
 --   reason         - human-readable for logging
 local function resolve_transition_player(area_id, group, event_player_id)
@@ -438,6 +459,10 @@ end)
 -- Phase 2: deactivate those plates. last_activator for every button is still
 --          intact, so any transition fires with full context.
 -- Phase 3: clear last_activator for the departing player on every button.
+--
+-- Note: a Pressure Plate is only released when NO player AND NO bot is
+-- still inside. Bots (when "Bots Can Trigger" is enabled) participate in
+-- the same occupancy bookkeeping.
 -- ==========================================================================
 local function cleanup_player_state(player_id)
     if not player_id then return end
@@ -452,6 +477,7 @@ local function cleanup_player_state(player_id)
             if info.behavior == "Pressure Plate"
                 and info.trigger_players
                 and next(info.trigger_players) == nil
+                and (not info.trigger_bots or next(info.trigger_bots) == nil)
                 and is_button_active(area_id, object_id) then
                 plates_to_deactivate[#plates_to_deactivate + 1] = { area_id, object_id }
             end
@@ -677,22 +703,33 @@ perform_deactivation = function(area_id, object_id, info)
         end
 
         if info.relock_target then
-            if info.relock_area_wide then
+            -- Three cases:
+            --   * Area Wide set         -> relock for every live player.
+            --   * last_activator == nil -> the button was activated by a bot
+            --                              (or some other non-player actor),
+            --                              so there is no specific player to
+            --                              target. Fall back to area-wide so
+            --                              the reversal still happens.
+            --   * last_activator set    -> relock for that player if still
+            --                              connected; skip otherwise (their
+            --                              per-player state persists via
+            --                              memory, matching the original
+            --                              disconnect design).
+            local use_area_wide_relock = info.relock_area_wide or (info.last_activator == nil)
+            if use_area_wide_relock then
                 local players = Net.list_players(info.area_id) or {}
                 for _, pid in ipairs(players) do
                     pcall(ezcheckpoints.relock_checkpoint, pid, info.area_id, info.relock_target)
                 end
-                logger:info("[ezbuttons] Explicit area‑wide relock for checkpoint " .. info.relock_target .. " in area " .. info.area_id)
+                local reason = info.relock_area_wide and "" or " (fallback: no per-player target)"
+                logger:info("[ezbuttons] Area-wide relock for checkpoint " .. info.relock_target
+                    .. " in area " .. info.area_id .. reason)
+            elseif player_is_alive(info.last_activator) then
+                logger:info("[ezbuttons] Explicit Relock Behavior: relocking " .. info.relock_target .. " for player " .. info.last_activator)
+                pcall(ezcheckpoints.relock_checkpoint, info.last_activator, info.area_id, info.relock_target)
             else
-                if info.last_activator and player_is_alive(info.last_activator) then
-                    logger:info("[ezbuttons] Explicit Relock Behavior: relocking " .. info.relock_target .. " for player " .. info.last_activator)
-                    pcall(ezcheckpoints.relock_checkpoint, info.last_activator, info.area_id, info.relock_target)
-                elseif info.last_activator then
-                    logger:info("[ezbuttons] Skipping explicit relock for checkpoint " .. info.relock_target
-                        .. ": last activator is no longer connected")
-                else
-                    logger:warn("[ezbuttons] No last_activator for explicit relock; cannot relock")
-                end
+                logger:info("[ezbuttons] Skipping explicit relock for checkpoint " .. info.relock_target
+                    .. ": last activator is no longer connected")
             end
         end
     end
@@ -1006,6 +1043,7 @@ local function register_button_object(area_id, object, group_member)
         pending_state = nil,
         pending_player_id = nil,
         trigger_players = {},
+        trigger_bots = {},
         trigger_x = trigger_source_obj.x,
         trigger_y = trigger_source_obj.y,
         trigger_z = trigger_source_obj.z or 0,
@@ -1031,6 +1069,24 @@ local function register_button_object(area_id, object, group_member)
     end
 
     local trigger_id = "button_" .. area_id .. "_" .. tostring(object.id)
+
+    -- Resolve custom handlers up-front so `behavior` reflects the
+    -- post-fallback value when we decide whether to install a bot trigger.
+    local custom_handlers = nil
+    if behavior == "Custom" then
+        local mod, err = load_custom_script(script_path)
+        if not mod then
+            logger:info("[ezbuttons] Custom script error for button", object.id, ":", err, "- falling back to One-Time")
+            behavior = "One-Time"
+        else
+            custom_handlers = mod
+        end
+    end
+    info.behavior = behavior
+    info.custom_handlers = custom_handlers
+
+    local bots_can_trigger = read_bool(props["Bots Can Trigger"]) and ezbottriggers ~= nil
+
     local emitter
     if trigger_type == "ellipse" then
         local center_x = trigger_width_px / 2
@@ -1046,41 +1102,88 @@ local function register_button_object(area_id, object, group_member)
         return
     end
 
-    local custom_handlers = nil
-    if behavior == "Custom" then
-        local mod, err = load_custom_script(script_path)
-        if not mod then
-            logger:info("[ezbuttons] Custom script error for button", object.id, ":", err, "- falling back to One-Time")
-            behavior = "One-Time"
+    -- Optional bot trigger. Same rectangle / ellipse as the player trigger,
+    -- but registered against ezbottriggers so NPC movement is tracked
+    -- independently. `Custom` behavior is excluded because custom handlers
+    -- receive a player_id and are not designed for bots.
+    local bot_emitter = nil
+    if bots_can_trigger then
+        if behavior == "Custom" then
+            logger:for_area(area_id):warn("[ezbuttons] Button", tostring(object.id),
+                "has Bots Can Trigger=true but behavior is Custom; NPC triggers disabled for this button.")
         else
-            custom_handlers = mod
+            local bot_trigger_id = "button_bot_" .. area_id .. "_" .. tostring(object.id)
+            local ok_bot, result
+            if trigger_type == "ellipse" then
+                local center_x = trigger_width_px / 2
+                local center_y = trigger_height_px / 2
+                ok_bot, result = pcall(ezbottriggers.add_radius_trigger, area_id, trigger_source_obj,
+                    trigger_width_px, trigger_height_px, center_x, center_y, bot_trigger_id)
+            else
+                ok_bot, result = pcall(ezbottriggers.add_rectangle_trigger, area_id, trigger_source_obj,
+                    trigger_width_px, trigger_height_px, bot_trigger_id)
+            end
+            if ok_bot and result then
+                bot_emitter = result
+                logger:for_area(area_id):info("[ezbuttons] 🟢 NPC trigger registered for button", tostring(object.id))
+            else
+                logger:for_area(area_id):warn("[ezbuttons] ❌ Failed to register NPC trigger for button",
+                    tostring(object.id), tostring(result))
+            end
         end
     end
 
-    info.behavior = behavior
-    info.custom_handlers = custom_handlers
+    -- Shared handler dispatch. `actor_type` is "player" or "bot"; the emitted
+    -- event payloads differ (player_id vs bot_id) but the behavior rules and
+    -- overlap bookkeeping are identical.
+    local function resolve_actor_id(event, actor_type)
+        if actor_type == "bot" then return event.bot_id end
+        return event.player_id
+    end
 
-    emitter:on("entered", function(event)
+    local function mark_actor_present(actor_id, actor_type)
+        if actor_type == "bot" then
+            info.trigger_bots[actor_id] = true
+        else
+            info.trigger_players[actor_id] = true
+        end
+    end
+
+    local function clear_actor_present(actor_id, actor_type)
+        if actor_type == "bot" then
+            info.trigger_bots[actor_id] = nil
+        else
+            info.trigger_players[actor_id] = nil
+        end
+    end
+
+    local function on_button_entered(event, actor_type)
         if type(event) ~= "table" or not event.object
             or tostring(event.object.id) ~= tostring(trigger_source_obj.id) then
             logger:info("[ezbuttons] Ignoring enter event for mismatched trigger on button", tostring(object.id))
             return
         end
-        local player_id = event.player_id
-        if player_id == nil then return end
-        info.trigger_players[player_id] = true
-        logger:info("[ezbuttons] 🟢 TRIGGER ENTERED: button=", tostring(object.id), " player=", tostring(player_id), " behavior=", behavior)
+        local actor_id = resolve_actor_id(event, actor_type)
+        if actor_id == nil then return end
+        mark_actor_present(actor_id, actor_type)
+
+        -- Bots never own per-player checkpoint unlocks or relocks, so they
+        -- pass nil where the player's ID would normally flow through.
+        local activator_player_id = (actor_type == "player") and actor_id or nil
+
+        logger:info("[ezbuttons] 🟢 TRIGGER ENTERED:", actor_type, "button=", tostring(object.id),
+            tostring(actor_type).."=", tostring(actor_id), "behavior=", behavior)
 
         if behavior == "Pressure Plate" then
             if not is_button_active(area_id, object.id) then
-                activate_button(area_id, object.id, player_id)
+                activate_button(area_id, object.id, activator_player_id)
             elseif info.is_animating then
                 info.pending_state = true
-                info.pending_player_id = player_id
+                info.pending_player_id = activator_player_id
             end
         elseif behavior == "One-Time" then
             if not is_button_active(area_id, object.id) then
-                activate_button(area_id, object.id, player_id)
+                activate_button(area_id, object.id, activator_player_id)
             end
         elseif behavior == "Toggle" then
             if info.is_animating then
@@ -1089,37 +1192,39 @@ local function register_button_object(area_id, object, group_member)
                     current_target = is_button_active(area_id, object.id)
                 end
                 info.pending_state = not current_target
-                info.pending_player_id = info.pending_state and player_id or nil
+                info.pending_player_id = info.pending_state and activator_player_id or nil
                 logger:info("[ezbuttons] Toggle requested during animation; queued state:", tostring(info.pending_state))
             elseif is_button_active(area_id, object.id) then
                 deactivate_button(area_id, object.id)
             else
-                activate_button(area_id, object.id, player_id)
+                activate_button(area_id, object.id, activator_player_id)
             end
         elseif behavior == "Timed" then
             if not is_button_active(area_id, object.id) then
-                if activate_button(area_id, object.id, player_id) then
+                if activate_button(area_id, object.id, activator_player_id) then
                     start_timed_deactivation(area_id, object.id, info)
                 end
             end
-        elseif behavior == "Custom" and custom_handlers and custom_handlers.on_enter then
-            custom_handlers.on_enter(player_id, info)
+        elseif behavior == "Custom" and actor_type == "player" and custom_handlers and custom_handlers.on_enter then
+            custom_handlers.on_enter(actor_id, info)
         end
-    end)
+    end
 
-    emitter:on("departed", function(event)
+    local function on_button_departed(event, actor_type)
         if type(event) ~= "table" or not event.object
             or tostring(event.object.id) ~= tostring(trigger_source_obj.id) then
             logger:info("[ezbuttons] Ignoring depart event for mismatched trigger on button", tostring(object.id))
             return
         end
-        local player_id = event.player_id
-        if player_id == nil then return end
-        info.trigger_players[player_id] = nil
-        logger:info("[ezbuttons] 🔴 TRIGGER DEPARTED: button=", tostring(object.id), " player=", tostring(player_id), " behavior=", behavior)
+        local actor_id = resolve_actor_id(event, actor_type)
+        if actor_id == nil then return end
+        clear_actor_present(actor_id, actor_type)
+
+        logger:info("[ezbuttons] 🔴 TRIGGER DEPARTED:", actor_type, "button=", tostring(object.id),
+            tostring(actor_type).."=", tostring(actor_id), "behavior=", behavior)
 
         if behavior == "Pressure Plate" then
-            local someone_inside = next(info.trigger_players) ~= nil
+            local someone_inside = next(info.trigger_players) ~= nil or next(info.trigger_bots) ~= nil
             if not someone_inside and is_button_active(area_id, object.id) then
                 deactivate_button(area_id, object.id)
             elseif not someone_inside and info.is_animating then
@@ -1132,13 +1237,23 @@ local function register_button_object(area_id, object, group_member)
             -- do nothing
         elseif behavior == "Timed" then
             -- Timer handles deactivation
-        elseif behavior == "Custom" and custom_handlers and custom_handlers.on_exit then
-            custom_handlers.on_exit(player_id, info)
+        elseif behavior == "Custom" and actor_type == "player" and custom_handlers and custom_handlers.on_exit then
+            custom_handlers.on_exit(actor_id, info)
         end
-    end)
+    end
+
+    emitter:on("entered", function(event) on_button_entered(event, "player") end)
+    emitter:on("departed", function(event) on_button_departed(event, "player") end)
+
+    if bot_emitter then
+        bot_emitter:on("entered", function(event) on_button_entered(event, "bot") end)
+        bot_emitter:on("departed", function(event) on_button_departed(event, "bot") end)
+    end
 
     info.trigger_info = emitter
-    logger:for_area(area_id):info("[ezbuttons] ✅ OW Button fully initialized:", object.id, "behavior=", behavior, "trigger size=", trigger_width_px, "x", trigger_height_px)
+    info.bot_trigger_info = bot_emitter
+    logger:for_area(area_id):info("[ezbuttons] ✅ OW Button fully initialized:", object.id, "behavior=", behavior, "trigger size=", trigger_width_px, "x", trigger_height_px,
+        "bots_can_trigger=", tostring(bot_emitter ~= nil))
 
     if not group_member and unlock_checkpoint_obj and unlock_checkpoint_obj ~= "" then
         logger:info("[ezbuttons] Button", object.id, "will unlock checkpoint", unlock_checkpoint_obj,
@@ -1350,19 +1465,27 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
     end
 end
 
--- Resolve-and-route wrapper used by every group/combo callback. If the
--- triggerer is dead, route to a live contributor or fall back to area-wide.
+-- Resolve-and-route wrapper used by every group/combo callback. Resolves a
+-- concrete player (or forces area-wide) when the triggerer can't be targeted,
+-- on BOTH directions:
+--
+--   * unlock (satisfied):   previously only resolved here, to recover
+--                           achievements lost to a disconnected triggerer.
+--   * relock (incomplete):  resolves here too, so a bot clearing a pressure
+--                           plate (or a disconnected triggerer) still reverses
+--                           the checkpoint rather than silently skipping.
 local function route_group_callback(area_id, group_ref, event_player_id,
                                     checkpoint_ids, area_wide, unlock, permanent, group_id, log_tag)
     local effective_player = event_player_id
     local force_area_wide = false
 
-    if unlock and (not effective_player or not player_is_alive(effective_player)) then
+    if not effective_player or not player_is_alive(effective_player) then
         local resolved_player, use_area_wide, reason =
             resolve_transition_player(area_id, group_ref, effective_player)
         effective_player = resolved_player
         force_area_wide = use_area_wide
-        logger:info("[ezbuttons]", log_tag, "satisfied; routing via", reason)
+        logger:info("[ezbuttons]", log_tag,
+            unlock and "satisfied" or "incomplete", "routing via", reason)
     end
 
     apply_group_checkpoint_action(area_id, effective_player, checkpoint_ids,
@@ -1409,8 +1532,9 @@ local function configure_group_object(area_id, object)
                     unlock_checkpoints, unlock_area_wide, true, unlock_permanently,
                     changed_group_id, "Button Group " .. tostring(changed_group_id))
             elseif #relock_checkpoints > 0 then
-                apply_group_checkpoint_action(changed_area_id, player_id, relock_checkpoints,
-                    relock_area_wide, false, false, changed_group_id)
+                route_group_callback(changed_area_id, group_ref, player_id,
+                    relock_checkpoints, relock_area_wide, false, false,
+                    changed_group_id, "Button Group " .. tostring(changed_group_id))
             end
         end
     })
@@ -1566,9 +1690,10 @@ local function configure_combo_button_group_object(area_id, object)
                         true, definition.unlock_permanently,
                         combo_runtime_id, "Button Combo " .. tostring(definition.object_id))
                 elseif #definition.relock_checkpoints > 0 then
-                    apply_group_checkpoint_action(changed_area_id, player_id,
+                    route_group_callback(changed_area_id, group_ref, player_id,
                         definition.relock_checkpoints, definition.relock_area_wide,
-                        false, false, combo_runtime_id)
+                        false, false,
+                        combo_runtime_id, "Button Combo " .. tostring(definition.object_id))
                 end
             end,
             last_satisfied = nil,
@@ -1657,5 +1782,5 @@ object_registry.register_handler("Button Group Effect", function(area_id, object
     end
 end)
 
-logger:info("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects)")
+logger:info("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects, optional NPC triggers via ezbottriggers)")
 return ezbuttons

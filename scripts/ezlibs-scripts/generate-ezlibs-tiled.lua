@@ -488,6 +488,7 @@ local object_types = {
             prop("Trigger Width", "number", 4),
             prop("Trigger Height", "number", 4),
             prop("Activated Time", "number", 1),
+            prop("Bots Can Trigger", "bool", false),
         }
     },
     {
@@ -502,6 +503,7 @@ local object_types = {
             prop("Trigger Width", "number", 4),
             prop("Trigger Height", "number", 4),
             prop("Activated Time", "number", 1),
+            prop("Bots Can Trigger", "bool", false),
         }
     },
     {
@@ -997,6 +999,11 @@ local META = {
                 description = "Seconds the button stays active before auto-deactivating.",
                 conditional = "Only used when Button Behavior == 'Timed'.",
                 dependsOn = { property = "Button Behavior", equals = "Timed" } },
+            ["Bots Can Trigger"] = { category = "gameplay",
+                description = "If true, NPCs (bots) entering or leaving this button's trigger also affect its state, using the same Pressure Plate / One-Time / Toggle / Timed rules as players. Ignored for Custom behavior.",
+                conditional = "Ignored when Button Behavior == 'Custom'.",
+                dependsOn = { property = "Button Behavior",
+                              oneOf = { "Pressure Plate", "One-Time", "Toggle", "Timed" } } },
         },
         ["OW Button Group Member"] = {
             ["Bot Details"] = { category = "appearance",
@@ -1022,6 +1029,11 @@ local META = {
                 description = "Seconds the button stays active before auto-deactivating.",
                 conditional = "Only used when Button Behavior == 'Timed'.",
                 dependsOn = { property = "Button Behavior", equals = "Timed" } },
+            ["Bots Can Trigger"] = { category = "gameplay",
+                description = "If true, NPCs (bots) entering or leaving this member's trigger also affect its state, which propagates to the parent group.",
+                conditional = "Ignored when Button Behavior == 'Custom'.",
+                dependsOn = { property = "Button Behavior",
+                              oneOf = { "Pressure Plate", "One-Time", "Toggle", "Timed" } } },
         },
         ["Unlock Behavior"] = {
             ["Unlock This"] = { category = "gameplay",

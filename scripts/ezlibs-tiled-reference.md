@@ -587,6 +587,7 @@ A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.
 |---|---|---|---|---|---|
 | `Bot Details` | object | yes | `""` | appearance | Reference to the Button Bot Details object that configures this button's appearance. |
 | `Activated Time` | number |  | 1 | gameplay | Seconds the button stays active before auto-deactivating. |
+| `Bots Can Trigger` | bool |  | false | gameplay | If true, NPCs (bots) entering or leaving this button's trigger also affect its state, using the same Pressure Plate / One-Time / Toggle / Timed rules as players. Ignored for Custom behavior. |
 | `Button Activated Behavior` | object |  | `""` | gameplay | Optional reference to an Unlock Behavior object that defines which checkpoint this button unlocks. |
 | `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay | How the button reacts to player presence:<br>• Pressure Plate — active while anyone stands on it.<br>• One-Time — activates once and stays active.<br>• Toggle — flips active/inactive each press.<br>• Custom — runs a map-specific Lua script.<br>• Timed — activates, then auto-deactivates after Activated Time. |
 | `Button Deactivated Behavior` | object |  | `""` | gameplay | Optional reference to a Relock Behavior object that defines which checkpoint this button re-locks when it deactivates. |
@@ -603,6 +604,7 @@ A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.
 **Conditional properties**
 
 - `Activated Time`: Only used when Button Behavior == 'Timed'. Only meaningful when `Button Behavior` == `Timed`.
+- `Bots Can Trigger`: Ignored when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` in {`Pressure Plate`, `One-Time`, `Toggle`, `Timed`}.
 - `Script Path`: Only used when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` == `Custom`.
 - `Trigger Height`: Only used when Trigger Object is empty.
 - `Trigger Type`: Only used when Trigger Object is empty.
@@ -616,6 +618,7 @@ Button that participates in a Button Group or Button Combo but never unlocks che
 |---|---|---|---|---|---|
 | `Bot Details` | object | yes | `""` | appearance | Reference to the Button Bot Details object that configures this button's appearance. |
 | `Activated Time` | number |  | 1 | gameplay | Seconds the button stays active before auto-deactivating. |
+| `Bots Can Trigger` | bool |  | false | gameplay | If true, NPCs (bots) entering or leaving this member's trigger also affect its state, which propagates to the parent group. |
 | `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay | Same modes as OW Button. Group members never run their own checkpoint actions; their state feeds the parent group. |
 | `Script Path` | file |  | `""` | gameplay |  |
 | `Trigger Height` | number |  | 4 | gameplay | Trigger rectangle height in map tiles. |
@@ -626,6 +629,7 @@ Button that participates in a Button Group or Button Combo but never unlocks che
 **Conditional properties**
 
 - `Activated Time`: Only used when Button Behavior == 'Timed'. Only meaningful when `Button Behavior` == `Timed`.
+- `Bots Can Trigger`: Ignored when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` in {`Pressure Plate`, `One-Time`, `Toggle`, `Timed`}.
 - `Script Path`: Only used when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` == `Custom`.
 - `Trigger Height`: Only used when Trigger Object is empty.
 - `Trigger Type`: Only used when Trigger Object is empty.
