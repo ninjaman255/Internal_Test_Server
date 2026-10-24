@@ -1,10 +1,8 @@
 -- scripts/displayer/sliced-sprite.lua
 --
 -- Reusable 3-slice, configurable 5-slice, and 9-slice sprite rendering.
--- Also provides a text panel that combines slices with automatic text layout.
---
--- This module only relies on sprite fields already used/documented in this
--- server source and on scripts/boom/main for reading .animation files.
+-- Also provides a text panel that combines slices with automatic mixed
+-- text + sprite layout (vertical stacking or horizontal row).
 --
 -- IMPORTANT:
 --   Net.player_draw_sprite has no source-rectangle / UV / crop fields here.
@@ -108,16 +106,12 @@ local function animation_state_metrics(anim_path, anim_state)
         return nil, "invalid frame dimensions for state: " .. tostring(anim_state)
     end
 
-    -- The repository API notes say animation data overrides draw-time ox/oy.
-    -- Requiring a zero origin makes x/y unambiguous for sliced layout math.
     if origin_x ~= 0 or origin_y ~= 0 then
         return nil, "slice animation state must use origin 0,0: "
             .. tostring(anim_state) .. " has origin "
             .. tostring(origin_x) .. "," .. tostring(origin_y)
     end
 
-    -- A looping animation is allowed only when every frame keeps identical
-    -- geometry. Otherwise the panel layout could visibly jump between frames.
     for i = 2, #frames do
         local frame = frames[i]
         local frame_width = tonumber(frame.w)
@@ -234,6 +228,96 @@ local function erase_object_ids(player_id, object_ids)
         pcall(Net.player_erase_sprite, player_id, object_id)
     end
 end
+
+-- =========================================================================
+-- Sprite child helpers
+-- =========================================================================
+
+local function sprite_native_dimensions(def)
+    local w = tonumber(def.width)
+    local h = tonumber(def.height)
+    if w and h and w > 0 and h > 0 then
+        return w, h
+    end
+    local anim_path = def.anim_path
+    local anim_state = def.anim_state
+    if anim_path and anim_path ~= "" and anim_state and anim_state ~= "" then
+        local metrics = animation_state_metrics(anim_path, anim_state)
+        if metrics then
+            return metrics.width, metrics.height
+        end
+    end
+    return 16, 16
+end
+
+local function sprite_rendered_dimensions(def, sprite_scale)
+    local nw, nh = sprite_native_dimensions(def)
+    local sx = (tonumber(def.sx) or 1) * (sprite_scale or 1)
+    local sy = (tonumber(def.sy) or 1) * (sprite_scale or 1)
+    return nw * sx, nh * sy
+end
+
+local function draw_sprite_instance(player_id, object_id, def, x, y, sprite_scale, options)
+    if type(def.texture_path) ~= "string" or def.texture_path == "" then
+        return nil, "sprite has no texture_path"
+    end
+
+    local native_w, native_h = sprite_native_dimensions(def)
+    if native_w <= 0 or native_h <= 0 then
+        return nil, "sprite has invalid native dimensions"
+    end
+
+    local anim_path = def.anim_path or ""
+    local part = {
+        texture_path = def.texture_path,
+        anim_path = anim_path,
+        anim_state = def.anim_state,
+        width = native_w,
+        height = native_h,
+        asset_key = def.texture_path .. "|" .. anim_path,
+    }
+
+    local sprite_id, err = ensure_asset(player_id, part)
+    if not sprite_id then
+        return nil, err
+    end
+
+    local final_sx = (tonumber(def.sx) or 1) * (sprite_scale or 1)
+    local final_sy = (tonumber(def.sy) or 1) * (sprite_scale or 1)
+
+    local draw = {
+        id = object_id,
+        x = round(x),
+        y = round(y),
+        z = tonumber(options and options.z) or 100,
+        sx = final_sx,
+        sy = final_sy,
+        r = tonumber(def.r) or 255,
+        g = tonumber(def.g) or 255,
+        b = tonumber(def.b) or 255,
+        opacity = tonumber(def.opacity) or 255,
+        a = tonumber(def.a) or 255,
+        ro = tonumber(def.ro) or 0,
+        color_mode = tonumber(def.color_mode) or 0,
+    }
+
+    if def.anim_state and def.anim_state ~= "" then
+        draw.anim_state = def.anim_state
+    else
+        draw.ox = 0
+        draw.oy = 0
+    end
+
+    local ok, draw_err = pcall(Net.player_draw_sprite, player_id, sprite_id, draw)
+    if not ok then
+        return nil, "could not draw sprite " .. tostring(object_id) .. ": " .. tostring(draw_err)
+    end
+    return true
+end
+
+-- =========================================================================
+-- Strip / nine-slice primitives
+-- =========================================================================
 
 local function begin_instance(player_id, logical_id, signature, suffixes)
     local state = player_state(player_id)
@@ -446,18 +530,10 @@ local function draw_strip(player_id, logical_id, x, y, width, height, style, opt
     return true
 end
 
---- Draw a conventional 3-slice strip.
---- The second part defaults to stretchable; parts 1 and 3 default to fixed.
---- style.orientation: "horizontal" or "vertical" (default horizontal)
---- style.parts: { part1, part2, part3 }
 function SlicedSprite.draw3(player_id, logical_id, x, y, width, height, style, options)
     return draw_strip(player_id, logical_id, x, y, width, height, style, options, 3, "3-slice", true)
 end
 
---- Draw a configurable five-piece strip.
---- No five-piece topology exists in the inspected server source, so callers
---- explicitly mark one or more parts with stretch=true.
---- Optional part.weight controls how leftover length is shared by stretch parts.
 function SlicedSprite.draw5(player_id, logical_id, x, y, width, height, style, options)
     return draw_strip(player_id, logical_id, x, y, width, height, style, options, 5, "5-slice", false)
 end
@@ -495,8 +571,6 @@ local function same_number(a, b)
     return tonumber(a) == tonumber(b)
 end
 
---- Draw a 9-slice panel.
---- options.scale controls the fixed border/corner scale (default 1).
 function SlicedSprite.draw9(player_id, logical_id, x, y, width, height, style, options)
     options = options or {}
     x = tonumber(x)
@@ -512,7 +586,6 @@ function SlicedSprite.draw9(player_id, logical_id, x, y, width, height, style, o
         return fail(err)
     end
 
-    -- Column widths must agree where they meet fixed corners/edges.
     if not same_number(parts.top_left.width, parts.left.width)
         or not same_number(parts.top_left.width, parts.bottom_left.width) then
         return fail("top_left, left, and bottom_left must have the same native width")
@@ -522,7 +595,6 @@ function SlicedSprite.draw9(player_id, logical_id, x, y, width, height, style, o
         return fail("top_right, right, and bottom_right must have the same native width")
     end
 
-    -- Row heights must agree where they meet fixed corners/edges.
     if not same_number(parts.top_left.height, parts.top.height)
         or not same_number(parts.top_left.height, parts.top_right.height) then
         return fail("top_left, top, and top_right must have the same native height")
@@ -606,7 +678,6 @@ function SlicedSprite.cleanupPlayer(player_id)
     local state = players[player_id]
     if not state then return end
 
-    -- Erase any panels for this player
     if panels[player_id] then
         for panel_id, panel in pairs(panels[player_id]) do
             pcall(function() panel:destroy() end)
@@ -614,7 +685,6 @@ function SlicedSprite.cleanupPlayer(player_id)
         panels[player_id] = nil
     end
 
-    -- Deallocate all sprite assets
     for _, sprite_id in pairs(state.assets) do
         pcall(Net.player_dealloc_sprite, player_id, sprite_id)
     end
@@ -629,11 +699,9 @@ Net:on("player_disconnect", function(event)
 end)
 
 -- =========================================================================
--- NEW: Text Panel functionality
+-- Text Panel (vertical stacking OR horizontal row of mixed text/sprite children)
 -- =========================================================================
 
---- Internal panel object.
---- @class TextPanel
 local TextPanel = {}
 TextPanel.__index = TextPanel
 
@@ -647,101 +715,293 @@ function TextPanel:new(player_id, logical_id, x, y, text, style, options)
     o._style = style
     o._options = options or {}
     o._glyph_ids = {}
+    o._sprite_ids = {}
     o._slice_logical_id = logical_id .. "_slice"
     o._panel_width = 0
     o._panel_height = 0
     o._layout = nil
     o._destroyed = false
+    o._children = o._options.children
 
-    -- Normalise padding
     local pad = o._options.padding or 8
     if type(pad) == "number" then
         pad = { left = pad, right = pad, top = pad, bottom = pad }
     end
     o._padding = pad
 
-    -- Perform initial draw
     o:_redraw()
     return o
+end
+
+function TextPanel:_measure_child(child, inner_max_width)
+    if child.kind == "text" then
+        local opts = self._options
+        local font = child.font or opts.font or "THICK"
+        local scale = child.scale or opts.scale or 2.0
+        local halign = child.halign or "left"
+        local valign = child.valign or "top"
+        local line_spacing = child.line_spacing or opts.line_spacing or 0
+
+        -- Panel/sprite coordinates are physical 480x320 pixels, while
+        -- TextLayout measures in virtual 240x160 coordinates. Convert the
+        -- available width before layout, then convert measured dimensions
+        -- back to physical pixels for panel sizing and child alignment.
+        local max_w = inner_max_width / 2
+        if child.max_width then
+            max_w = math.min(max_w, child.max_width / 2)
+        end
+
+        -- An auto-sized panel has no wrapping limit. Do not pass math.huge
+        -- into TextLayout: its center/right alignment math subtracts the line
+        -- width from this value and can produce infinite glyph coordinates.
+        -- With no width constraint, layout naturally measures the text and
+        -- starts glyphs at virtual x=0; the panel positions the child itself.
+        local layout_width = max_w
+        if layout_width == math.huge then
+            layout_width = nil
+        end
+
+        local layout_opts = {
+            font = font,
+            scale = scale,
+            halign = halign,
+            valign = valign,
+            line_spacing = line_spacing,
+            width = layout_width,
+            -- Leave height unconstrained. TextLayout uses a finite height to
+            -- calculate middle/bottom vertical alignment; math.huge here
+            -- makes page_y (and therefore every glyph y) infinite. The panel
+            -- performs the child's vertical alignment in physical pixels.
+            height = nil,
+        }
+        local layout = TextLayout.layout(child.text or "", layout_opts)
+        return {
+            kind = "text",
+            width = layout.total_width * 2,
+            height = layout.total_height * 2,
+            layout = layout,
+            layout_opts = layout_opts,
+        }
+    elseif child.kind == "sprites" then
+        local sprites = child.sprites or {}
+        if #sprites == 0 then
+            return {
+                kind = "sprites",
+                width = 0, height = 0, sprites = {}, sizes = {},
+                columns = 1, rows = 0, cell_w = 0, cell_h = 0,
+                col_spacing = 0, row_spacing = 0, sprite_scale = 1.0,
+            }
+        end
+
+        local sprite_scale = child.sprite_scale or 1.0
+        local columns = math.max(1, math.floor(child.columns or 1))
+        local col_spacing = child.column_spacing or 5
+        local row_spacing = child.row_spacing or 5
+
+        local max_cell_w, max_cell_h = 0, 0
+        local sizes = {}
+        for i, def in ipairs(sprites) do
+            local w, h = sprite_rendered_dimensions(def, sprite_scale)
+            sizes[i] = { w = w, h = h }
+            if w > max_cell_w then max_cell_w = w end
+            if h > max_cell_h then max_cell_h = h end
+        end
+
+        local rows = math.ceil(#sprites / columns)
+        local total_w = columns * max_cell_w + (columns - 1) * col_spacing
+        local total_h = rows * max_cell_h + (rows - 1) * row_spacing
+
+        return {
+            kind = "sprites",
+            width = total_w, height = total_h,
+            sprites = sprites, sizes = sizes,
+            columns = columns, rows = rows,
+            cell_w = max_cell_w, cell_h = max_cell_h,
+            col_spacing = col_spacing, row_spacing = row_spacing,
+            sprite_scale = sprite_scale,
+        }
+    else
+        return { kind = "unknown", width = 0, height = 0 }
+    end
+end
+
+function TextPanel:_draw_text_child(player_id, child, m, base_x, base_y, z, glyph_ids)
+    local layout = m.layout
+    local layout_opts = m.layout_opts
+    local font = layout_opts.font
+    local scale = layout_opts.scale
+
+    local color = child.color or self._options.color or { r = 255, g = 255, b = 255, a = 255 }
+    local color_mode = child.color_mode or self._options.color_mode or 0
+
+    for _, glyph in ipairs(layout.flat_glyphs) do
+        if glyph.char ~= " " then
+            -- base_x/base_y are physical pixels, but glyph positions
+            -- from TextLayout are virtual pixels. FontSystem accepts virtual
+            -- coordinates and doubles them internally, so convert only the
+            -- panel origin and leave glyph offsets in virtual space.
+            local gx = base_x / 2 + glyph.x
+            local gy = base_y / 2 + glyph.y
+            local id = fontSystem:drawGlyph(
+                player_id,
+                font,
+                glyph.char,
+                gx,
+                gy,
+                {
+                    scale = scale,
+                    z = z,
+                    r = color.r or 255,
+                    g = color.g or 255,
+                    b = color.b or 255,
+                    a = color.a or 255,
+                    color_mode = color_mode,
+                }
+            )
+            if id then table.insert(glyph_ids, id) end
+        end
+    end
+end
+
+function TextPanel:_draw_sprites_child(player_id, child, m, base_x, base_y, z, sprite_ids, child_idx)
+    local sprites = m.sprites
+    local sprite_scale = m.sprite_scale
+    local columns = m.columns
+    local cell_w = m.cell_w
+    local cell_h = m.cell_h
+    local col_spacing = m.col_spacing
+    local row_spacing = m.row_spacing
+    local sprite_align = child.sprite_align or "center"
+
+    for i, def in ipairs(sprites) do
+        local col = (i - 1) % columns
+        local row = math.floor((i - 1) / columns)
+        local cell_x = base_x + col * (cell_w + col_spacing)
+        local cell_y = base_y + row * (cell_h + row_spacing)
+
+        local sprite_w = m.sizes[i].w
+        local sprite_h = m.sizes[i].h
+
+        local sprite_x = cell_x
+        local sprite_y = cell_y
+        if sprite_align == "center" then
+            sprite_x = cell_x + (cell_w - sprite_w) / 2
+            sprite_y = cell_y + (cell_h - sprite_h) / 2
+        elseif sprite_align == "right" then
+            sprite_x = cell_x + (cell_w - sprite_w)
+        end
+
+        local object_id = self._logical_id .. "_sp_" .. tostring(child_idx) .. "_" .. tostring(i)
+        local ok, err = draw_sprite_instance(
+            player_id, object_id, def, sprite_x, sprite_y, sprite_scale, { z = z }
+        )
+        if ok then
+            table.insert(sprite_ids, object_id)
+        else
+            print("TextPanel sprite drawing failed:", err)
+        end
+    end
 end
 
 function TextPanel:_redraw()
     if self._destroyed then return end
     local player_id = self._player_id
-    local logical_id = self._logical_id
     local x, y = self._x, self._y
-    local text = self._text
     local style = self._style
     local options = self._options
 
-    -- 1. Erase any existing slice instance and glyphs
+    -- 1. Erase existing
     SlicedSprite.erase(player_id, self._slice_logical_id)
     for _, id in ipairs(self._glyph_ids) do
         fontSystem:eraseGlyph(player_id, id)
     end
     self._glyph_ids = {}
+    for _, id in ipairs(self._sprite_ids) do
+        pcall(Net.player_erase_sprite, player_id, id)
+    end
+    self._sprite_ids = {}
 
-    -- 2. Prepare text layout options
+    -- 2. Children
+    local children = self._children
+    if not children or #children == 0 then
+        children = {
+            {
+                kind = "text",
+                text = self._text or "",
+                font = options.font,
+                scale = options.scale,
+                color = options.color,
+                halign = options.halign,
+                valign = options.valign,
+                line_spacing = options.line_spacing,
+            }
+        }
+    end
+
     local auto_size = options.auto_size ~= false
     local pad = self._padding
-    local font = options.font or "THICK"
-    local scale = options.scale or 2.0
-    local color = options.color or { r = 255, g = 255, b = 255, a = 255 }
-    local halign = options.halign or "left"
-    local valign = options.valign or "top"
-    local line_spacing = options.line_spacing or 0
     local max_width = options.max_width
     local max_height = options.max_height
-    local overflow = options.overflow or "wrap"
+    local layout_mode = options.layout or "vertical"
+    local is_horizontal = layout_mode == "horizontal"
 
-    local layout_opts = {
-        font = font,
-        scale = scale,
-        halign = halign,
-        valign = valign,
-        line_spacing = line_spacing,
-    }
+    local inner_max_width = math.huge
+    if max_width then
+        inner_max_width = max_width - pad.left - pad.right
+    end
+    if not auto_size and options.width then
+        inner_max_width = math.min(inner_max_width, options.width - pad.left - pad.right)
+    end
 
-    if auto_size then
-        -- We'll compute with max_width/height constraints if provided
-        layout_opts.width = max_width or math.huge
-        layout_opts.height = max_height or math.huge
-    else
-        -- Explicit width/height; subtract padding
-        local panel_width = options.width
-        local panel_height = options.height
-        if not panel_width or panel_width <= 0 or not panel_height or panel_height <= 0 then
-            -- Fallback: treat as auto
-            layout_opts.width = math.huge
-            layout_opts.height = math.huge
-            auto_size = true
-        else
-            layout_opts.width = panel_width - pad.left - pad.right
-            layout_opts.height = panel_height - pad.top - pad.bottom
-            if layout_opts.width <= 0 or layout_opts.height <= 0 then
-                return fail("panel size too small for padding")
-            end
+    -- 3. Measure
+    local measured = {}
+    local max_child_width, max_child_height = 0, 0
+    local total_child_width, total_child_height = 0, 0
+
+    for i, child in ipairs(children) do
+        local m = self:_measure_child(child, inner_max_width)
+        m.child = child
+        m.index = i
+        measured[i] = m
+        if m.width > max_child_width then max_child_width = m.width end
+        if m.height > max_child_height then max_child_height = m.height end
+        total_child_width = total_child_width + m.width
+        total_child_height = total_child_height + m.height
+        if i > 1 then
+            local gap = child.gap_before or 0
+            total_child_width = total_child_width + gap
+            total_child_height = total_child_height + gap
         end
     end
 
-    -- 3. Perform layout
-    local layout = TextLayout.layout(text, layout_opts)
-    local text_width = layout.total_width
-    local text_height = layout.total_height
-
-    -- 4. Determine panel size
+    -- 4. Panel size
     local panel_width, panel_height
     if auto_size then
-        panel_width = text_width + pad.left + pad.right
-        panel_height = text_height + pad.top + pad.bottom
+        if is_horizontal then
+            panel_width = total_child_width + pad.left + pad.right
+            panel_height = max_child_height + pad.top + pad.bottom
+        else
+            panel_width = max_child_width + pad.left + pad.right
+            panel_height = total_child_height + pad.top + pad.bottom
+        end
         if max_width then panel_width = math.min(panel_width, max_width) end
         if max_height then panel_height = math.min(panel_height, max_height) end
-        -- Ensure at least minimum size (to avoid zero)
         panel_width = math.max(panel_width, 1)
         panel_height = math.max(panel_height, 1)
     else
         panel_width = options.width
         panel_height = options.height
+        if not panel_width or panel_width <= 0 or not panel_height or panel_height <= 0 then
+            if is_horizontal then
+                panel_width = total_child_width + pad.left + pad.right
+                panel_height = max_child_height + pad.top + pad.bottom
+            else
+                panel_width = max_child_width + pad.left + pad.right
+                panel_height = total_child_height + pad.top + pad.bottom
+            end
+            panel_width = math.max(panel_width, 1)
+            panel_height = math.max(panel_height, 1)
+        end
     end
 
     -- 5. Draw slices
@@ -749,72 +1009,105 @@ function TextPanel:_redraw()
     local draw_fn = slice_kind == "3" and SlicedSprite.draw3 or
                     slice_kind == "5" and SlicedSprite.draw5 or
                     SlicedSprite.draw9
-    local slice_options = options.slice_options or {}
+    local slice_options = {}
+    for k, v in pairs(options.slice_options or {}) do slice_options[k] = v end
     slice_options.z = options.z or 100
     if options.slice_scale then slice_options.scale = options.slice_scale end
 
-    local ok, err = draw_fn(player_id, self._slice_logical_id, x, y, panel_width, panel_height, style, slice_options)
+    local ok, err = draw_fn(
+        player_id, self._slice_logical_id, x, y, panel_width, panel_height, style, slice_options
+    )
     if not ok then
         print("TextPanel slice drawing failed:", err)
+        self._glyph_ids = {}
+        self._sprite_ids = {}
         return
     end
 
-    -- 6. Draw text
-    local text_x = x + pad.left
-    local text_y = y + pad.top
-    if halign == "center" then
-        text_x = x + (panel_width - text_width) / 2
-    elseif halign == "right" then
-        text_x = x + panel_width - pad.right - text_width
-    end
-    if valign == "middle" then
-        text_y = y + (panel_height - text_height) / 2
-    elseif valign == "bottom" then
-        text_y = y + panel_height - pad.bottom - text_height
-    end
+    -- 6. Draw children
+    local inner_x = x + pad.left
+    local inner_y = y + pad.top
+    local inner_width = panel_width - pad.left - pad.right
+    local inner_height = panel_height - pad.top - pad.bottom
 
-    -- Draw each glyph
+    local cursor_x = inner_x
+    local cursor_y = inner_y
     local glyph_ids = {}
-    for _, glyph in ipairs(layout.flat_glyphs) do
-        if glyph.char ~= " " then
-            local gx = text_x + glyph.x
-            local gy = text_y + glyph.y
-            -- Convert to virtual (divide by 2) because fontSystem expects virtual coords
-            local virtual_x = gx / 2
-            local virtual_y = gy / 2
-            local id = fontSystem:drawGlyph(
-                player_id,
-                font,
-                glyph.char,
-                virtual_x,
-                virtual_y,
-                {
-                    scale = scale,
-                    z = (options.z or 100) + 1,
-                    r = color.r or 255,
-                    g = color.g or 255,
-                    b = color.b or 255,
-                    a = color.a or 255,
-                    color_mode = options.color_mode or 0,
-                }
-            )
-            if id then table.insert(glyph_ids, id) end
+    local sprite_ids = {}
+
+    for i, m in ipairs(measured) do
+        local child = m.child
+        if i > 1 then
+            local gap = child.gap_before or 0
+            if is_horizontal then
+                cursor_x = cursor_x + gap
+            else
+                cursor_y = cursor_y + gap
+            end
+        end
+
+        local child_x, child_y
+        if is_horizontal then
+            child_x = cursor_x
+            local child_valign = child.valign or "middle"
+            if child_valign == "top" then
+                child_y = inner_y
+            elseif child_valign == "bottom" then
+                child_y = inner_y + inner_height - m.height
+            else
+                child_y = inner_y + (inner_height - m.height) / 2
+            end
+        else
+            child_y = cursor_y
+            local child_align = child.align or "left"
+            if child_align == "center" then
+                child_x = inner_x + (inner_width - m.width) / 2
+            elseif child_align == "right" then
+                child_x = inner_x + inner_width - m.width
+            else
+                child_x = inner_x
+            end
+        end
+
+        local z = (options.z or 100) + (child.z_offset or 0) + 1
+
+        if child.kind == "text" then
+            self:_draw_text_child(player_id, child, m, child_x, child_y, z, glyph_ids)
+        elseif child.kind == "sprites" then
+            self:_draw_sprites_child(player_id, child, m, child_x, child_y, z, sprite_ids, i)
+        end
+
+        if is_horizontal then
+            cursor_x = cursor_x + m.width
+        else
+            cursor_y = cursor_y + m.height
         end
     end
 
     self._glyph_ids = glyph_ids
-    self._layout = layout
+    self._sprite_ids = sprite_ids
     self._panel_width = panel_width
     self._panel_height = panel_height
+    self._measured = measured
 
-    -- Store in registry for cleanup
     if not panels[player_id] then panels[player_id] = {} end
-    panels[player_id][logical_id] = self
+    panels[player_id][self._logical_id] = self
+end
+
+function TextPanel:getSize()
+    return self._panel_width, self._panel_height
 end
 
 function TextPanel:setText(new_text)
     if self._destroyed then return end
     self._text = new_text
+    self._children = nil
+    self:_redraw()
+end
+
+function TextPanel:setChildren(children)
+    if self._destroyed then return end
+    self._children = children
     self:_redraw()
 end
 
@@ -827,7 +1120,6 @@ end
 
 function TextPanel:setOptions(new_options)
     if self._destroyed then return end
-    -- Merge options (shallow)
     for k, v in pairs(new_options) do
         if k == "padding" and type(v) == "number" then
             self._options.padding = { left = v, right = v, top = v, bottom = v }
@@ -837,12 +1129,12 @@ function TextPanel:setOptions(new_options)
             self._options[k] = v
         end
     end
-    -- Normalise padding again
     local pad = self._options.padding or 8
     if type(pad) == "number" then
         pad = { left = pad, right = pad, top = pad, bottom = pad }
     end
     self._padding = pad
+    self._children = self._options.children
     self:_redraw()
 end
 
@@ -857,29 +1149,21 @@ function TextPanel:destroy()
         fontSystem:eraseGlyph(player_id, id)
     end
     self._glyph_ids = {}
+    for _, id in ipairs(self._sprite_ids) do
+        pcall(Net.player_erase_sprite, player_id, id)
+    end
+    self._sprite_ids = {}
 
     if panels[player_id] then
         panels[player_id][logical_id] = nil
     end
 end
 
--- Public function to create a text panel.
----@param player_id string
----@param logical_id string
----@param x number          # virtual top-left
----@param y number          # virtual top-left
----@param text string|table # single string or array of lines
----@param style table       # same as for draw3/draw5/draw9, plus "kind" and "orientation"
----@param options table     # text options (font, scale, color, padding, auto_size, etc.)
----@return table|nil panel_object, string|nil error
 function SlicedSprite.drawTextPanel(player_id, logical_id, x, y, text, style, options)
     if not player_id or not logical_id then
         return fail("player_id and logical_id required")
     end
-    -- Ensure player state exists (for assets)
     player_state(player_id)
-
-    -- Create panel object
     local panel, err = TextPanel:new(player_id, logical_id, x, y, text, style, options)
     if not panel then
         return fail(err or "failed to create text panel")

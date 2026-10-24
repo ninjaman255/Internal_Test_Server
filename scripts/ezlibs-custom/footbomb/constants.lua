@@ -31,6 +31,12 @@ local constants = {
         CURSOR_SFX = "/server/assets/net-games/sfx/cursor_move.ogg",
         SCOREBOARD_TEXTURE = ASSET_ROOT .. "ui/score-board.png",
         SCOREBOARD_ANIMATION = ASSET_ROOT .. "ui/score-board.animation",
+        FINAL_SCORE_SFX = ASSET_ROOT .. "sfx/winner.ogg",
+        THUD_SFX = ASSET_ROOT .. "sfx/item-thud.ogg",
+        ROLE_PANEL_TEXTURE = ASSET_ROOT .. "ui/role-box-9slice.png",
+        ROLE_PANEL_ANIMATION = ASSET_ROOT .. "ui/role-box-9slice.animation",
+        ROLE_ICONS_TEXTURE = ASSET_ROOT .. "ui/role-icons.png",
+        ROLE_ICONS_ANIMATION = ASSET_ROOT .. "ui/role-icons.animation",
     },
 
     UI = {
@@ -41,16 +47,24 @@ local constants = {
         NAVI_NAME_SCALE = 1.5,
         SCREEN_WIDTH = 240,
         SCREEN_HEIGHT = 160,
-        SCREEN_CENTER = SCREEN_CENTER,
         SCOREBOARD_X = SCREEN_CENTER.x - 100,
         SCOREBOARD_Y = SCREEN_CENTER.y - 50,
         SCOREBOARD_SCALE = 2.0,
-        SCORE_PLAYER_ONE_X = 94,
-        SCORE_PLAYER_TWO_X = 132,
-        SCORE_TEXT_Y = SCREEN_CENTER.y - 8,
+        SCORE_BOX_PLAYER_ONE_X = 67,
+        SCORE_BOX_PLAYER_TWO_X = 122,
+        SCORE_BOX_Y = 54,
+        SCORE_BOX_WIDTH = 52,
+        SCORE_BOX_HEIGHT = 55,
         SCORE_TEXT_SCALE = 4.0,
         ROLE_TEXT_Y = 142,
         ROLE_TEXT_SCALE = 2.0,
+        ROLE_PANEL_Y = 260,
+        ROLE_PANEL_PADDING = 6,
+        ROLE_PANEL_SLICE_SCALE = 2.0,
+        ROLE_ICON_SCALE = 1.0,
+        ROLE_ICON_GAP = 8,
+        ROLE_ICON_STATE_KICKER = "KICKER",
+        ROLE_ICON_STATE_DEFENDER = "DEFENSE",
         -- Character mug portraits sit on the matching score side.
         SCORE_PLAYER_ONE_MUG_X = 24,
         SCORE_PLAYER_TWO_MUG_X = 176,
@@ -86,8 +100,6 @@ local constants = {
         RESULT_DEFENDER_JUMP_SPEED = 3,
         -- Render the attached ball in front of the defender using bot depth.
         RESULT_BALL_Z_LIFT = 4,
-        -- Duration for the settled round-result pose before the transition wash.
-        RESULT_HOLD_SECONDS = 1.5,
     },
 }
 

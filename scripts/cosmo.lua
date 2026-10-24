@@ -27,7 +27,7 @@ local COSMO_ANIMATION = "/server/assets/demo/roll.animation"
 
 local COSMETIC_ID = "confetti"
 local COSMETIC_TEXTURE = "/server/assets/demo/shock.png"
-local COSMETIC_ANIMATION = "/server/assets/demo/shock.animation"
+local COSMETIC_ANIMATION = "/server/assets/demo/shock.anim"
 local COSMETIC_STATE = "cosmetic"
 
 -- Values retained from the original demo:
@@ -107,7 +107,8 @@ local function enable_cosmetic(player_id)
         COSMETIC_SCREEN_X,
         COSMETIC_SCREEN_Y,
         COSMETIC_VISIBLE,
-        COSMETIC_PLAYER_XOFFSET
+        COSMETIC_PLAYER_XOFFSET,
+        COSMETIC_PLAYER_YOFFSET
     )
 
     cosmo_enabled[player_id] = true

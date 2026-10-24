@@ -9,7 +9,6 @@ local UISafe = require("scripts/net-games/ui-safe")
 local EzExplosions = require("scripts/ezlibs-scripts/ezexplosions")
 local TextLayout = require("scripts/displayer/text-layout")
 local InputAPI = require("scripts/input-controller/main")
-local CameraManager = require("scripts/camera/camera-manager")
 local Boom = require("scripts/boom/main")
 local EzBus = require("scripts/ezlibs-scripts/ezbus")
 local EventEmitter = require("scripts/ezlibs-scripts/ezemitter")
@@ -21,78 +20,34 @@ local BOMB_OPTIONS = require("scripts/ezlibs-custom/footbomb/bomb_options")
 local WorldAttachment = require("scripts/world-attachment")
 local ResultTimeline = require("scripts/ezlibs-custom/footbomb/result_timeline")
 local SfxDriver = require("scripts/ezlibs-custom/footbomb/sfx_driver")
+local Displayer = require("scripts/displayer/displayer")
 
 local FootBomb = {}
 local State = require("scripts/ezlibs-custom/footbomb/state")
 
-local Defaults = Config.DEFAULTS
-local Assets = Config.ASSETS
-local UI = Config.UI
-local Input = Config.INPUT
-local Gameplay = Config.GAMEPLAY
-local Directions = Config.DIRECTIONS
 
-local DEFAULT_SOURCE_AREA = Defaults.SOURCE_AREA
-local DEFAULT_POINTS_TO_WIN = Defaults.POINTS_TO_WIN
-local MUG_FOLDER = Assets.MUG_FOLDER
-local DEFAULT_ASSET_NAME = Defaults.ASSET_NAME
-local DEFAULT_MUG_ANIMATION = Assets.DEFAULT_MUG_ANIMATION
-local DEFAULT_MUGSHOT_NAME = Defaults.MUGSHOT_NAME
 
-local BOT_ASSET_FOLDER = Assets.BOT_FOLDER
-local BOMB_ASSET_FOLDER = Assets.BOMB_FOLDER
 
 local BOMB_PREVIEW_ANIMATION = AnimationStates.BOMB_PREVIEW
 
-local MEGAMAN_TEXTURE = NAVI_OPTIONS[1].texture
-local MEGAMAN_ANIMATION = NAVI_OPTIONS[1].animation
 
-local CURSOR_TEXTURE = Assets.CURSOR_TEXTURE
-local VIBRANT_CURSOR_TEXTURE = Assets.VIBRANT_CURSOR_TEXTURE
-local CURSOR_ANIMATION = Assets.CURSOR_ANIMATION
-local CURSOR_SFX = Assets.CURSOR_SFX
 
-local OFF_MAP_POSITION = UI.OFF_MAP_POSITION
 
-local CONFIRM_PROMPT = UI.CONFIRM_PROMPT
-local CONFIRM_PROMPT_SCALE = UI.CONFIRM_PROMPT_SCALE
-local CONFIRM_PROMPT_Y = UI.CONFIRM_PROMPT_Y
-local NAVI_NAME_SCALE = UI.NAVI_NAME_SCALE
 
-local SCREEN_WIDTH = UI.SCREEN_WIDTH
-local SCREEN_HEIGHT = UI.SCREEN_HEIGHT
-local SCREEN_CENTER = UI.SCREEN_CENTER
-local SCOREBOARD_TEXTURE = Assets.SCOREBOARD_TEXTURE
-local SCOREBOARD_ANIMATION = Assets.SCOREBOARD_ANIMATION
-local SCOREBOARD_X = UI.SCOREBOARD_X
-local SCOREBOARD_Y = UI.SCOREBOARD_Y
-local SCOREBOARD_SCALE = UI.SCOREBOARD_SCALE
-local SCORE_BOX_PLAYER_ONE_X = 67
-local SCORE_BOX_PLAYER_TWO_X = 122
-local SCORE_BOX_Y = 54
-local SCORE_BOX_WIDTH = 52
-local SCORE_BOX_HEIGHT = 55
-local SCORE_TEXT_SCALE = UI.SCORE_TEXT_SCALE
-local FINAL_SCORE_SFX = "/server/assets/net-game-footbomb/sfx/winner.ogg"
-local THUD_SFX = "/server/assets/net-game-footbomb/sfx/item-thud.ogg"
-local ROLE_TEXT_Y = UI.ROLE_TEXT_Y
-local ROLE_TEXT_SCALE = UI.ROLE_TEXT_SCALE
-local SCORE_PLAYER_ONE_MUG_X = UI.SCORE_PLAYER_ONE_MUG_X
-local SCORE_PLAYER_TWO_MUG_X = UI.SCORE_PLAYER_TWO_MUG_X
-local SCORE_MUG_Y = UI.SCORE_MUG_Y
-local SCORE_MUG_SCALE = UI.SCORE_MUG_SCALE
+-- Role panel (9-slice box + icons + text). Coordinates are in the same raw
+-- pixel space used by Net.player_draw_sprite (480x320), which matches the
+-- displayer's getScreenDimensions(). The current role text was at Y≈142 in
+-- the 240x160 logical space used by games.draw_text, so the equivalent raw
+-- pixel Y is near the bottom of the 320-tall raw screen.
 
-local BOMB_CURSOR_LEFT_X = UI.BOMB_CURSOR_LEFT_X
-local BOMB_CURSOR_RIGHT_X = UI.BOMB_CURSOR_RIGHT_X
-local BOMB_CURSOR_Y = UI.BOMB_CURSOR_Y
-local BOMB_PREVIEW_X = UI.BOMB_PREVIEW_X
-local BOMB_PREVIEW_Y = UI.BOMB_PREVIEW_Y
-local BOMB_SELECTOR_SCALE = UI.BOMB_SELECTOR_SCALE
-local DIRECTION_CURSOR_X = UI.DIRECTION_CURSOR_X
-local DIRECTION_CURSOR_Y = UI.DIRECTION_CURSOR_Y
-local DIRECTION_CURSOR_SCALE = UI.DIRECTION_CURSOR_SCALE
-local DIRECTION_CURSOR_BOB_OFFSET = UI.DIRECTION_CURSOR_BOB_OFFSET
-local DIRECTION_CURSOR_BOB_TICKS = UI.DIRECTION_CURSOR_BOB_TICKS
+-- Built once at module load. sliceStyle9 only builds a table; asset loading
+-- happens lazily on first draw inside sliced-sprite.lua.
+local role_panel_style = Displayer.Builder.sliceStyle9(
+    Config.ASSETS.ROLE_PANEL_TEXTURE,
+    Config.ASSETS.ROLE_PANEL_ANIMATION
+)
+
+
 
 local function log(message)
     logger:info("[footbomb] " .. tostring(message))
@@ -275,24 +230,115 @@ end
 
 local function draw_confirm_prompt(player_id, text_id)
     local prompt_width = TextLayout.measureLine(
-        CONFIRM_PROMPT,
-        { font = "THICK", scale = CONFIRM_PROMPT_SCALE }
+        Config.UI.CONFIRM_PROMPT,
+        { font = "THICK", scale = Config.UI.CONFIRM_PROMPT_SCALE }
     )
     local prompt_x = math.max(
-        0, math.floor((SCREEN_WIDTH - prompt_width) / 2)
+        0, math.floor((Config.UI.SCREEN_WIDTH - prompt_width) / 2)
     )
     pcall(
         games.draw_text,
-        text_id, player_id, CONFIRM_PROMPT,
-        prompt_x, CONFIRM_PROMPT_Y, 100, "THICK", CONFIRM_PROMPT_SCALE
+        text_id, player_id, Config.UI.CONFIRM_PROMPT,
+        prompt_x, Config.UI.CONFIRM_PROMPT_Y, 100, "THICK", Config.UI.CONFIRM_PROMPT_SCALE
     )
 end
 
 local function hide_role_text(player_id, rep)
     if not rep then return end
     rep.role_text_enabled = false
-    if not rep.role_text_id then return end
-    pcall(games.remove_text, rep.role_text_id, player_id)
+    rep.role_panel_role = nil
+    if rep.role_panel_id then
+        pcall(Displayer.SlicedPanel.remove, player_id, rep.role_panel_id)
+    end
+    if rep.role_text_id then
+        pcall(games.remove_text, rep.role_text_id, player_id)
+    end
+end
+
+-- Build the role panel from a sprite+text+sprite row. Returns the panel
+-- object on success, nil on failure. Does NOT touch rep.role_panel_role;
+-- that is managed by draw_role_text.
+local function build_role_panel(player_id, rep, role)
+    if not rep or not role or not rep.role_panel_id then
+        return nil
+    end
+    local icon_state = (role == "Kicker")
+        and Config.UI.ROLE_ICON_STATE_KICKER
+        or  Config.UI.ROLE_ICON_STATE_DEFENDER
+
+    -- Same sprite def used for both left and right icons.
+    local icon_sprite = Displayer.Builder.spriteDef(
+        Config.ASSETS.ROLE_ICONS_TEXTURE, Config.ASSETS.ROLE_ICONS_ANIMATION, icon_state,
+        { sx = 1, sy = 1 }
+    )
+
+    local function make_icon_child(extra)
+        local c = {
+            kind = "sprites",
+            sprites = { icon_sprite },
+            sprite_scale = Config.UI.ROLE_ICON_SCALE,
+            columns = 1,
+            column_spacing = 0,
+            row_spacing = 0,
+            sprite_align = "center",
+            valign = "middle",
+        }
+        if extra then for k, v in pairs(extra) do c[k] = v end end
+        return c
+    end
+
+    local children = {
+        make_icon_child(nil),
+        {
+            kind = "text",
+            text = tostring(role),
+            font = "THICK",
+            scale = Config.UI.ROLE_TEXT_SCALE,
+            color = { r = 255, g = 255, b = 255, a = 255 },
+            halign = "center",
+            valign = "middle",
+            gap_before = Config.UI.ROLE_ICON_GAP,
+        },
+        make_icon_child({ gap_before = Config.UI.ROLE_ICON_GAP }),
+    }
+
+    local options = Displayer.Builder.textPanelOptions({
+        auto_size = true,
+        padding = Config.UI.ROLE_PANEL_PADDING,
+        layout = "horizontal",
+        z = 101,
+        slice_scale = Config.UI.ROLE_PANEL_SLICE_SCALE,
+        children = children,
+    })
+
+    -- Create at x=0 first; auto_size must run once to know our width, then
+    -- we reposition to the centered X. This is two redraws on the same
+    -- logical_id, but only happens at round start / role swap.
+    local panel, err = Displayer.SlicedPanel.createWithChildren(
+        player_id, rep.role_panel_id,
+        0, Config.UI.ROLE_PANEL_Y,
+        role_panel_style,
+        options
+    )
+    if not panel then
+        log("ROLE_FLOW: role panel build failed player=" .. tostring(player_id)
+            .. " role=" .. tostring(role) .. " error=" .. tostring(err))
+        return nil
+    end
+
+    local panel_width, panel_height = panel:getSize()
+    if not panel_width or panel_width <= 0 or not panel_height or panel_height <= 0 then
+        log("ROLE_FLOW: role panel has invalid size player=" .. tostring(player_id)
+            .. " role=" .. tostring(role)
+            .. " w=" .. tostring(panel_width) .. " h=" .. tostring(panel_height))
+        Displayer.SlicedPanel.remove(player_id, rep.role_panel_id)
+        return nil
+    end
+
+    local screen_w = Displayer:getScreenDimensions()  -- 480, 320
+    local panel_x = math.max(0, math.floor((screen_w - panel_width) / 2))
+    panel:setPosition(panel_x, Config.UI.ROLE_PANEL_Y)
+    return panel
 end
 
 local function draw_role_text(player_id, rep, role)
@@ -300,20 +346,41 @@ local function draw_role_text(player_id, rep, role)
         return false
     end
     if rep.role_text_suppressed then
+        if rep.role_panel_id then
+            pcall(Displayer.SlicedPanel.remove, player_id, rep.role_panel_id)
+        end
         if rep.role_text_id then
             pcall(games.remove_text, rep.role_text_id, player_id)
         end
+        rep.role_panel_role = nil
         return false
     end
+    if rep.role_panel_role == role and rep.role_text_enabled then
+        return true
+    end
+
+    -- Preferred path: sprite+text sprite panel.
+    local panel = build_role_panel(player_id, rep, role)
+    if panel then
+        rep.role_text_enabled = true
+        rep.role_panel_role = role
+        return true
+    end
+
+    -- Fallback: old text drawing. Keeps the match playable if the panel
+    -- assets (role-box-9slice / role-icons) are missing or malformed, so
+    -- broken UI assets cannot block gameplay.
+    log("ROLE_FLOW: falling back to text role indicator player=" .. tostring(player_id)
+        .. " role=" .. tostring(role))
     local label = tostring(role)
     local width = TextLayout.measureLine(label, {
-        font = "THICK", scale = ROLE_TEXT_SCALE
+        font = "THICK", scale = Config.UI.ROLE_TEXT_SCALE
     })
-    local x = math.max(0, math.floor((SCREEN_WIDTH - width) / 2))
+    local x = math.max(0, math.floor((Config.UI.SCREEN_WIDTH - width) / 2))
     local ok, err = pcall(
         games.draw_text,
         rep.role_text_id, player_id, label,
-        x, ROLE_TEXT_Y, 101, "THICK", ROLE_TEXT_SCALE
+        x, Config.UI.ROLE_TEXT_Y, 101, "THICK", Config.UI.ROLE_TEXT_SCALE
     )
     if not ok then
         log("ROLE_FLOW: role text draw failed player="
@@ -322,6 +389,7 @@ local function draw_role_text(player_id, rep, role)
         return false
     end
     rep.role_text_enabled = true
+    rep.role_panel_role = nil
     return true
 end
 
@@ -330,6 +398,10 @@ local function begin_role_text_suppression(player_id)
     if not rep then return nil end
     rep.role_text_suppression_count = (rep.role_text_suppression_count or 0) + 1
     rep.role_text_suppressed = true
+    if rep.role_panel_id then
+        pcall(Displayer.SlicedPanel.remove, player_id, rep.role_panel_id)
+    end
+    rep.role_panel_role = nil
     if rep.role_text_id then
         pcall(games.remove_text, rep.role_text_id, player_id)
     end
@@ -367,12 +439,12 @@ end
 
 local function draw_navi_name(player_id, rep, name)
     local width = TextLayout.measureLine(name, {
-        font = "THICK", scale = NAVI_NAME_SCALE
+        font = "THICK", scale = Config.UI.NAVI_NAME_SCALE
     })
-    local x = math.max(0, math.floor((SCREEN_WIDTH - width) / 2))
+    local x = math.max(0, math.floor((Config.UI.SCREEN_WIDTH - width) / 2))
     pcall(
         games.draw_text, rep.skin_text_id, player_id, name,
-        x, ((SCREEN_HEIGHT / 2) + 4), 100, "THICK", NAVI_NAME_SCALE
+        x, ((Config.UI.SCREEN_HEIGHT / 2) + 4), 100, "THICK", Config.UI.NAVI_NAME_SCALE
     )
 end
 
@@ -395,21 +467,21 @@ end
 local function create_ref_npc(area_id, object)
     if not object then return nil end
     local properties = object.custom_properties or {}
-    local asset_name = as_string(properties["Asset Name"], DEFAULT_ASSET_NAME)
+    local asset_name = as_string(properties["Asset Name"], Config.DEFAULTS.ASSET_NAME)
     local animation_name = as_string(properties["Animation Name"], asset_name)
-    local mugshot_name = as_string(properties.Mugshot, DEFAULT_MUGSHOT_NAME)
+    local mugshot_name = as_string(properties.Mugshot, Config.DEFAULTS.MUGSHOT_NAME)
     local mug_animation_name = as_string(properties["Mug Animation Name"], nil)
     local actor_id = "footbomb-ref-" .. tostring(area_id)
         .. "-" .. tostring(object.id)
-    local animation_path = BOT_ASSET_FOLDER .. animation_name .. ".animation"
+    local animation_path = Config.ASSETS.BOT_FOLDER .. animation_name .. ".animation"
     local mug_animation_path =
         mug_animation_name
-        and (MUG_FOLDER .. mug_animation_name .. ".animation")
-        or DEFAULT_MUG_ANIMATION
+        and (Config.ASSETS.MUG_FOLDER .. mug_animation_name .. ".animation")
+        or Config.ASSETS.DEFAULT_MUG_ANIMATION
     local bot_id = Net.create_bot(actor_id, {
         name = as_string(object.name, "FootBomb Controller"),
         area_id = area_id,
-        texture_path = BOT_ASSET_FOLDER .. asset_name .. ".png",
+        texture_path = Config.ASSETS.BOT_FOLDER .. asset_name .. ".png",
         animation_path = animation_path,
         animation = AnimationStates.IDLE_DR,
         x = as_number(object.x, 0),
@@ -428,7 +500,7 @@ local function create_ref_npc(area_id, object)
         npc = {
             bot_id = bot_id,
             actor_id = actor_id,
-            mug_texture_path = MUG_FOLDER .. mugshot_name .. ".png",
+            mug_texture_path = Config.ASSETS.MUG_FOLDER .. mugshot_name .. ".png",
             mug_animation_path = mug_animation_path
         }
     }
@@ -599,7 +671,7 @@ local function create_match_bots(instance, spawn_points, vs_npc)
             texture_path = skin.texture,
             animation_path = skin.animation,
             mug_texture_path = skin.texture:gsub("%.png$", "-mug.png"),
-            mug_animation_path = DEFAULT_MUG_ANIMATION
+            mug_animation_path = Config.ASSETS.DEFAULT_MUG_ANIMATION
         }
     end
     State.instance_bots[instance.id] = created
@@ -630,15 +702,19 @@ local function provide_match_assets(player_id)
         provide(option.animation)
         provide(option.texture:gsub("%.png$", "-mug.png"))
     end
-    provide(DEFAULT_MUG_ANIMATION)
+    provide(Config.ASSETS.DEFAULT_MUG_ANIMATION)
     for _, option in ipairs(BOMB_OPTIONS) do
-        provide(BOMB_ASSET_FOLDER .. option.asset_name .. ".png")
-        provide(BOMB_ASSET_FOLDER .. option.asset_name .. ".animation")
+        provide(Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".png")
+        provide(Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".animation")
     end
-    provide(CURSOR_SFX)
-    provide(CURSOR_TEXTURE)
-    provide(CURSOR_ANIMATION)
-    provide(THUD_SFX)
+    provide(Config.ASSETS.CURSOR_SFX)
+    provide(Config.ASSETS.CURSOR_TEXTURE)
+    provide(Config.ASSETS.CURSOR_ANIMATION)
+    provide(Config.ASSETS.THUD_SFX)
+    provide(Config.ASSETS.ROLE_PANEL_TEXTURE)
+    provide(Config.ASSETS.ROLE_PANEL_ANIMATION)
+    provide(Config.ASSETS.ROLE_ICONS_TEXTURE)
+    provide(Config.ASSETS.ROLE_ICONS_ANIMATION)
     log("Match assets provided for " .. tostring(player_id)
         .. ": success=" .. tostring(provided) .. " failed=" .. tostring(failed))
     return failed == 0
@@ -911,16 +987,23 @@ local function provide_instance_bot_assets(area_id)
         add(option.animation)
         add(option.texture:gsub("%.png$", "-mug.png"))
     end
-    add(DEFAULT_MUG_ANIMATION)
+    add(Config.ASSETS.DEFAULT_MUG_ANIMATION)
     for _, option in ipairs(BOMB_OPTIONS) do
-        local texture = BOMB_ASSET_FOLDER .. option.asset_name .. ".png"
-        local animation_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".animation"
+        local texture = Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".png"
+        local animation_path = Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".animation"
         local valid, detail = validate_animation_states(
             animation_path, required_bomb_states, "bomb " .. tostring(option.name))
         if not valid then return false, detail end
         add(texture)
         add(animation_path)
     end
+    -- Role panel + role icon UI assets. Provided without hard validation
+    -- because draw_role_text() already falls back to plain text if the panel
+    -- cannot be built at runtime.
+    add(Config.ASSETS.ROLE_PANEL_TEXTURE)
+    add(Config.ASSETS.ROLE_PANEL_ANIMATION)
+    add(Config.ASSETS.ROLE_ICONS_TEXTURE)
+    add(Config.ASSETS.ROLE_ICONS_ANIMATION)
     local provided = 0
     for _, path in ipairs(paths) do
         local ok, detail = provide_instance_asset(area_id, path)
@@ -937,7 +1020,7 @@ end
 local source_area_assets_ready = {}
 
 local function provide_source_area_assets(area_id, reason)
-    area_id = area_id or DEFAULT_SOURCE_AREA
+    area_id = area_id or Config.DEFAULTS.SOURCE_AREA
     log("ASSET_FLOW: source-area preload starting area=" .. tostring(area_id)
         .. " reason=" .. tostring(reason or "unspecified"))
     if source_area_assets_ready[area_id] then
@@ -951,8 +1034,8 @@ local function provide_source_area_assets(area_id, reason)
         return false, detail
     end
     local ui_paths = {
-        CURSOR_TEXTURE, VIBRANT_CURSOR_TEXTURE, CURSOR_ANIMATION,
-        CURSOR_SFX, THUD_SFX, SCOREBOARD_TEXTURE, SCOREBOARD_ANIMATION,
+        Config.ASSETS.CURSOR_TEXTURE, Config.ASSETS.VIBRANT_CURSOR_TEXTURE, Config.ASSETS.CURSOR_ANIMATION,
+        Config.ASSETS.CURSOR_SFX, Config.ASSETS.THUD_SFX, Config.ASSETS.SCOREBOARD_TEXTURE, Config.ASSETS.SCOREBOARD_ANIMATION,
     }
     for _, path in ipairs(ui_paths) do
         local provided, provision_error = provide_instance_asset(area_id, path)
@@ -978,11 +1061,11 @@ local function make_instance(player_id, source_area_id, object, mode)
         .. tostring(player_id):gsub("[^%w_%-]", "_")
         .. "_" .. tostring(os.time())
     local configured_points = math.floor(as_number(
-        props["Points to Win"], DEFAULT_POINTS_TO_WIN
+        props["Points to Win"], Config.DEFAULTS.POINTS_TO_WIN
     ))
-    if configured_points < 1 then configured_points = DEFAULT_POINTS_TO_WIN end
+    if configured_points < 1 then configured_points = Config.DEFAULTS.POINTS_TO_WIN end
     local instance, err = EzMapInstance.create(
-        as_string(props["Instance Map"], DEFAULT_SOURCE_AREA),
+        as_string(props["Instance Map"], Config.DEFAULTS.SOURCE_AREA),
         instance_id,
         {
             host_id = player_id,
@@ -1045,14 +1128,14 @@ local function move_player_off_map(player_id, area_id)
     if type(Net.move_player) == "function" then
         local ok, result = pcall(
             Net.move_player, player_id,
-            OFF_MAP_POSITION.x, OFF_MAP_POSITION.y, OFF_MAP_POSITION.z
+            Config.UI.OFF_MAP_POSITION.x, Config.UI.OFF_MAP_POSITION.y, Config.UI.OFF_MAP_POSITION.z
         )
         if ok and result ~= false then return true end
     end
     if type(Net.transfer_player) == "function" then
         local ok, result = pcall(
             Net.transfer_player, player_id, area_id, false,
-            OFF_MAP_POSITION.x, OFF_MAP_POSITION.y, OFF_MAP_POSITION.z
+            Config.UI.OFF_MAP_POSITION.x, Config.UI.OFF_MAP_POSITION.y, Config.UI.OFF_MAP_POSITION.z
         )
         if ok and result ~= false then return true end
     end
@@ -1104,9 +1187,9 @@ local function draw_direction_cursor(player_id, rep, direction, y)
     pcall(
         games.add_ui_element,
         cursor_id, player_id,
-        VIBRANT_CURSOR_TEXTURE, CURSOR_ANIMATION,
-        arrow_state, DIRECTION_CURSOR_X[x_index], y, 100,
-        DIRECTION_CURSOR_SCALE, DIRECTION_CURSOR_SCALE
+        Config.ASSETS.VIBRANT_CURSOR_TEXTURE, Config.ASSETS.CURSOR_ANIMATION,
+        arrow_state, Config.UI.DIRECTION_CURSOR_X[x_index], y, 100,
+        Config.UI.DIRECTION_CURSOR_SCALE, Config.UI.DIRECTION_CURSOR_SCALE
     )
     pcall(games.update_ui_element, cursor_id, player_id, arrow_color)
 end
@@ -1116,7 +1199,7 @@ local function show_direction_selector_ui(player_id, rep)
     rep.direction_cursor_bob_tick = 0
     rep.direction_cursor_bob_offset = 0
     for _, direction in ipairs(DIRECTION_CURSOR_DIRECTIONS) do
-        draw_direction_cursor(player_id, rep, direction, DIRECTION_CURSOR_Y)
+        draw_direction_cursor(player_id, rep, direction, Config.UI.DIRECTION_CURSOR_Y)
     end
     rep.direction_cursor_ui_visible = true
 end
@@ -1139,13 +1222,13 @@ local function update_direction_selector_bob(player_id, rep)
     local selected = rep.selected_direction
     if selected ~= "Left" and selected ~= "Up" and selected ~= "Right" then return end
     rep.direction_cursor_bob_tick = (rep.direction_cursor_bob_tick or 0) + 1
-    if rep.direction_cursor_bob_tick < DIRECTION_CURSOR_BOB_TICKS then return end
+    if rep.direction_cursor_bob_tick < Config.UI.DIRECTION_CURSOR_BOB_TICKS then return end
     rep.direction_cursor_bob_tick = 0
     rep.direction_cursor_bob_offset = (rep.direction_cursor_bob_offset or 0) == 0
-        and -DIRECTION_CURSOR_BOB_OFFSET or 0
+        and -Config.UI.DIRECTION_CURSOR_BOB_OFFSET or 0
     draw_direction_cursor(
         player_id, rep, selected,
-        DIRECTION_CURSOR_Y + rep.direction_cursor_bob_offset
+        Config.UI.DIRECTION_CURSOR_Y + rep.direction_cursor_bob_offset
     )
 end
 
@@ -1170,27 +1253,27 @@ local function show_bomb_selector_ui(player_id, rep)
     if Net.get_player_area(player_id) ~= rep.area_id then return end
     local option = BOMB_OPTIONS[rep.bomb_skin_index]
     if not option then return end
-    local texture_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".png"
-    local animation_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".animation"
+    local texture_path = Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".png"
+    local animation_path = Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".animation"
     pcall(
         games.add_ui_element,
-        rep.cursor_left, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION,
-        "CURSOR_LEFT", BOMB_CURSOR_LEFT_X, BOMB_CURSOR_Y, 100,
-        BOMB_SELECTOR_SCALE, BOMB_SELECTOR_SCALE
+        rep.cursor_left, player_id, Config.ASSETS.CURSOR_TEXTURE, Config.ASSETS.CURSOR_ANIMATION,
+        "CURSOR_LEFT", Config.UI.BOMB_CURSOR_LEFT_X, Config.UI.BOMB_CURSOR_Y, 100,
+        Config.UI.BOMB_SELECTOR_SCALE, Config.UI.BOMB_SELECTOR_SCALE
     )
     pcall(
         games.add_ui_element,
-        rep.cursor_right, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION,
-        "CURSOR_RIGHT", BOMB_CURSOR_RIGHT_X, BOMB_CURSOR_Y, 100,
-        BOMB_SELECTOR_SCALE, BOMB_SELECTOR_SCALE
+        rep.cursor_right, player_id, Config.ASSETS.CURSOR_TEXTURE, Config.ASSETS.CURSOR_ANIMATION,
+        "CURSOR_RIGHT", Config.UI.BOMB_CURSOR_RIGHT_X, Config.UI.BOMB_CURSOR_Y, 100,
+        Config.UI.BOMB_SELECTOR_SCALE, Config.UI.BOMB_SELECTOR_SCALE
     )
     local drawn = UISafe.draw(
         player_id, rep.bomb_preview, texture_path,
         {
             anim_path = animation_path,
             anim_state = BOMB_PREVIEW_ANIMATION,
-            x = BOMB_PREVIEW_X, y = BOMB_PREVIEW_Y, z = 100,
-            sx = BOMB_SELECTOR_SCALE, sy = BOMB_SELECTOR_SCALE
+            x = Config.UI.BOMB_PREVIEW_X, y = Config.UI.BOMB_PREVIEW_Y, z = 100,
+            sx = Config.UI.BOMB_SELECTOR_SCALE, sy = Config.UI.BOMB_SELECTOR_SCALE
         }
     )
     if not drawn then
@@ -1210,16 +1293,16 @@ local function show_selector_ui(player_id, rep)
         rep.selector_ui_visible = true
         return
     end
-    local bot_x = math.floor(SCREEN_WIDTH / 2)
-    local bot_y = math.floor(SCREEN_HEIGHT / 2)
+    local bot_x = math.floor(Config.UI.SCREEN_WIDTH / 2)
+    local bot_y = math.floor(Config.UI.SCREEN_HEIGHT / 2)
     pcall(
         games.add_ui_element,
-        rep.cursor_top, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION,
+        rep.cursor_top, player_id, Config.ASSETS.CURSOR_TEXTURE, Config.ASSETS.CURSOR_ANIMATION,
         "CURSOR_UP", bot_x, bot_y - 40, 100, 2.0, 2.0
     )
     pcall(
         games.add_ui_element,
-        rep.cursor_bottom, player_id, CURSOR_TEXTURE, CURSOR_ANIMATION,
+        rep.cursor_bottom, player_id, Config.ASSETS.CURSOR_TEXTURE, Config.ASSETS.CURSOR_ANIMATION,
         "CURSOR_DOWN", bot_x, bot_y + 20, 100, 2.0, 2.0
     )
     draw_navi_name(player_id, rep, NAVI_OPTIONS[rep.skin_index].name)
@@ -1241,6 +1324,7 @@ local function remove_representation(player_id)
     if rep.score_player_one_text_id then pcall(games.remove_text, rep.score_player_one_text_id, player_id) end
     if rep.score_player_two_text_id then pcall(games.remove_text, rep.score_player_two_text_id, player_id) end
     if rep.role_text_id then pcall(games.remove_text, rep.role_text_id, player_id) end
+    if rep.role_panel_id then pcall(Displayer.SlicedPanel.remove, player_id, rep.role_panel_id) end
     if rep.hud_hidden and type(Net.toggle_player_hud) == "function" then
         pcall(Net.toggle_player_hud, player_id)
         rep.hud_hidden = false
@@ -1328,6 +1412,9 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
         role_text_id = "footbomb_role_text_"
             .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        role_panel_id = "footbomb_role_panel_"
+            .. tostring(player_id):gsub("[^%w_%-]", "_"),
+        role_panel_role = nil,
         role_text_enabled = false,
         role_text_suppressed = false,
         role_text_suppression_count = 0,
@@ -1542,7 +1629,7 @@ local function cycle_player_skin(player_id, direction)
                 slots[rep.slot].texture_path = old_option.texture
                 slots[rep.slot].animation_path = old_option.animation
                 slots[rep.slot].mug_texture_path = old_option.texture:gsub("%.png$", "-mug.png")
-                slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
+                slots[rep.slot].mug_animation_path = Config.ASSETS.DEFAULT_MUG_ANIMATION
                 slots[rep.slot].current_direction = "Down"
                 slots[rep.slot]._hold_token = nil
             end
@@ -1555,7 +1642,7 @@ local function cycle_player_skin(player_id, direction)
     rep.bot_record.texture_path = option.texture
     rep.bot_record.animation_path = option.animation
     rep.bot_record.mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
-    rep.bot_record.mug_animation_path = DEFAULT_MUG_ANIMATION
+    rep.bot_record.mug_animation_path = Config.ASSETS.DEFAULT_MUG_ANIMATION
     rep.bot_record.id = new_id
     rep.bot_record.current_direction = "Down"
     rep.bot_record._hold_token = nil
@@ -1571,7 +1658,7 @@ local function cycle_player_skin(player_id, direction)
         slots[rep.slot].texture_path = option.texture
         slots[rep.slot].animation_path = option.animation
         slots[rep.slot].mug_texture_path = option.texture:gsub("%.png$", "-mug.png")
-        slots[rep.slot].mug_animation_path = DEFAULT_MUG_ANIMATION
+        slots[rep.slot].mug_animation_path = Config.ASSETS.DEFAULT_MUG_ANIMATION
         slots[rep.slot].current_direction = "Down"
         slots[rep.slot]._hold_token = nil
     end
@@ -1589,7 +1676,7 @@ local function cycle_bomb_skin(player_id, direction)
     rep.bomb_skin_index = next_index
     hide_bomb_selector_ui(player_id, rep)
     show_bomb_selector_ui(player_id, rep)
-    pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
+    pcall(Net.play_sound_for_player, player_id, Config.ASSETS.CURSOR_SFX)
     log("Player " .. tostring(player_id) .. " previewing ball skin " .. option.name)
 end
 
@@ -1736,8 +1823,8 @@ local function spawn_bomb_bot_for_round(instance_id, human_reps)
         bomb_skin_index = 1
     end
     local option = BOMB_OPTIONS[bomb_skin_index] or BOMB_OPTIONS[1]
-    local texture_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".png"
-    local animation_path = BOMB_ASSET_FOLDER .. option.asset_name .. ".animation"
+    local texture_path = Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".png"
+    local animation_path = Config.ASSETS.BOMB_FOLDER .. option.asset_name .. ".animation"
     local actor_id = "footbomb-match-"
         .. tostring(instance_id):gsub("[^%w_%-]", "_") .. "-bomb"
     if bots.bomb_bot then
@@ -1980,8 +2067,6 @@ end
 -- Scoreboard
 -- ---------------------------------------------------------------------------
 
-local DIRECTION_CHOICES = Directions.CHOICES
-local DIRECTION_INPUT_SETTLE_SECONDS = Input.DIRECTION_SETTLE_SECONDS
 
 local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
     if not bot or not bot.mug_texture_path or not bot.mug_animation_path or not ui_id then
@@ -1996,7 +2081,7 @@ local function draw_scoreboard_mug(player_id, rep, bot, ui_id, x)
     local ok, err = pcall(
         games.add_ui_element,
         ui_id, player_id, bot.mug_texture_path, bot.mug_animation_path,
-        "IDLE", x, SCORE_MUG_Y, 102, SCORE_MUG_SCALE, SCORE_MUG_SCALE
+        "IDLE", x, Config.UI.SCORE_MUG_Y, 102, Config.UI.SCORE_MUG_SCALE, Config.UI.SCORE_MUG_SCALE
     )
     if not ok then
         log("SCORE_FLOW: scoreboard mug draw failed player="
@@ -2009,14 +2094,14 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
         return
     end
     hide_role_text(player_id, rep)
-    pcall(Net.provide_asset_for_player, player_id, SCOREBOARD_TEXTURE)
-    pcall(Net.provide_asset_for_player, player_id, SCOREBOARD_ANIMATION)
+    pcall(Net.provide_asset_for_player, player_id, Config.ASSETS.SCOREBOARD_TEXTURE)
+    pcall(Net.provide_asset_for_player, player_id, Config.ASSETS.SCOREBOARD_ANIMATION)
     local ok, err = pcall(
         games.add_ui_element,
         rep.scoreboard_ui_id, player_id,
-        SCOREBOARD_TEXTURE, SCOREBOARD_ANIMATION,
-        "DEFAULT", SCOREBOARD_X, SCOREBOARD_Y, 100,
-        SCOREBOARD_SCALE, SCOREBOARD_SCALE
+        Config.ASSETS.SCOREBOARD_TEXTURE, Config.ASSETS.SCOREBOARD_ANIMATION,
+        "DEFAULT", Config.UI.SCOREBOARD_X, Config.UI.SCOREBOARD_Y, 100,
+        Config.UI.SCOREBOARD_SCALE, Config.UI.SCOREBOARD_SCALE
     )
     if not ok then
         log("SCORE_FLOW: scoreboard image draw failed player="
@@ -2024,15 +2109,15 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
     end
     draw_scoreboard_mug(
         player_id, rep, bots[1], rep.score_player_one_mug_ui_id,
-        SCORE_PLAYER_ONE_MUG_X
+        Config.UI.SCORE_PLAYER_ONE_MUG_X
     )
     draw_scoreboard_mug(
         player_id, rep, bots[2], rep.score_player_two_mug_ui_id,
-        SCORE_PLAYER_TWO_MUG_X
+        Config.UI.SCORE_PLAYER_TWO_MUG_X
     )
     local score_text_one = tostring(bots.player_one_score or 0)
     local score_text_two = tostring(bots.player_two_score or 0)
-    local score_text_options = { font = "THICK", scale = SCORE_TEXT_SCALE }
+    local score_text_options = { font = "THICK", scale = Config.UI.SCORE_TEXT_SCALE }
     local function measure_score(text)
         local measured_width, measured_height = TextLayout.measure(text, score_text_options)
         if type(measured_width) == "table" then
@@ -2044,20 +2129,20 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
             or TextLayout.measureLine(text, score_text_options)
         measured_height = tonumber(measured_height)
         if not measured_height or measured_height <= 0 then
-            measured_height = 16 * SCORE_TEXT_SCALE
+            measured_height = 16 * Config.UI.SCORE_TEXT_SCALE
         end
         return measured_width, measured_height
     end
     local score_width_one, score_height_one = measure_score(score_text_one)
     local score_width_two, score_height_two = measure_score(score_text_two)
-    local score_one_x = SCORE_BOX_PLAYER_ONE_X
-        + (SCORE_BOX_WIDTH - score_width_one) / 2
-    local score_one_y = SCORE_BOX_Y
-        + (SCORE_BOX_HEIGHT - score_height_one) / 2
-    local score_two_x = SCORE_BOX_PLAYER_TWO_X
-        + (SCORE_BOX_WIDTH - score_width_two) / 2
-    local score_two_y = SCORE_BOX_Y
-        + (SCORE_BOX_HEIGHT - score_height_two) / 2
+    local score_one_x = Config.UI.SCORE_BOX_PLAYER_ONE_X
+        + (Config.UI.SCORE_BOX_WIDTH - score_width_one) / 2
+    local score_one_y = Config.UI.SCORE_BOX_Y
+        + (Config.UI.SCORE_BOX_HEIGHT - score_height_one) / 2
+    local score_two_x = Config.UI.SCORE_BOX_PLAYER_TWO_X
+        + (Config.UI.SCORE_BOX_WIDTH - score_width_two) / 2
+    local score_two_y = Config.UI.SCORE_BOX_Y
+        + (Config.UI.SCORE_BOX_HEIGHT - score_height_two) / 2
     local function draw_score_number(text_id, score_text, x, y, slot)
         local r, g, b = 255, 255, 255
         if bots.match_complete and bots.final_winner_slot and bots.final_score_pulse then
@@ -2075,7 +2160,7 @@ local function draw_scoreboard_for_player(player_id, rep, bots)
         pcall(games.draw_advanced_text, player_id, score_text, {
             text_id = text_id,
             x = math.floor(x + 0.5), y = math.floor(y + 0.5),
-            z = 101, font = "THICK", scale = SCORE_TEXT_SCALE,
+            z = 101, font = "THICK", scale = Config.UI.SCORE_TEXT_SCALE,
             r = r, g = g, b = b,
             opacity = 255, a = 255, color_mode = 0,
         })
@@ -2177,7 +2262,7 @@ local function move_bot_smoothly(bot, target, speed, phase, animation_state, dur
     local tx, ty, tz = tonumber(target.x) or sx, tonumber(target.y) or sy, tonumber(target.z) or sz
     local dx, dy = tx - sx, ty - sy
     local distance = math.sqrt(dx * dx + dy * dy)
-    local move_speed = math.max(1, tonumber(speed) or Gameplay.RESULT_KICKER_WALK_U_SPEED or 150)
+    local move_speed = math.max(1, tonumber(speed) or Config.GAMEPLAY.RESULT_KICKER_WALK_U_SPEED or 150)
     local duration = math.max(0.12, tonumber(duration_override) or (distance / move_speed))
     local keyframes = {
         {
@@ -2330,7 +2415,7 @@ end
 local function evaluate_match_point(bots, instance_id)
     local score_one = bots.player_one_score or 0
     local score_two = bots.player_two_score or 0
-    local target = bots.points_to_win or DEFAULT_POINTS_TO_WIN
+    local target = bots.points_to_win or Config.DEFAULTS.POINTS_TO_WIN
     if score_one == score_two then
         if bots.match_point_active then
             bots.match_point_challenger_slot = nil
@@ -2398,7 +2483,7 @@ local function complete_match_and_return(instance_id)
     local bots = State.instance_bots[instance_id]
     if not bots or bots.returning_players then return end
     bots.returning_players = true
-    local return_area_id = bots.return_area_id or DEFAULT_SOURCE_AREA
+    local return_area_id = bots.return_area_id or Config.DEFAULTS.SOURCE_AREA
     local return_position = bots.return_position
     local players = {}
     for player_id, rep in pairs(State.player_representations) do
@@ -2412,7 +2497,7 @@ local function complete_match_and_return(instance_id)
     for _, player_id in ipairs(players) do
         if player_is_available(player_id) then
             local sound_ok, sound_result = pcall(
-                Net.play_sound_for_player, player_id, FINAL_SCORE_SFX
+                Net.play_sound_for_player, player_id, Config.ASSETS.FINAL_SCORE_SFX
             )
             if not sound_ok or sound_result == false then
                 log("MATCH_FLOW: final score cheer failed player="
@@ -2522,7 +2607,7 @@ local function defender_jump_position_at(start_position, target_position, ratio,
     -- 5 is the neutral profile (linear progress), higher values front-load
     -- travel, and lower values ease into the movement more gradually.
     local speed = math.max(0.1, tonumber(movement_speed)
-        or tonumber(Gameplay.RESULT_DEFENDER_JUMP_SPEED) or 5)
+        or tonumber(Config.GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED) or 5)
     local profile = math.max(0.5, math.min(2.0, speed / 5))
     ratio = 1 - ((1 - ratio) ^ profile)
     local sx, sy = tonumber(start_position and start_position.x) or 0,
@@ -2583,7 +2668,7 @@ local function move_defender_jump_arc(bot, target, duration, phase)
     local previous_ratio = 0
     for _, ratio in ipairs({ 0.2, 0.4, 0.6, 0.8, 1 }) do
         local position = defender_jump_position_at(
-            start_position, target_position, ratio, Gameplay.RESULT_DEFENDER_JUMP_SPEED
+            start_position, target_position, ratio, Config.GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED
         )
         keyframes[#keyframes + 1] = {
             properties = {
@@ -2806,7 +2891,7 @@ local function subscribe_kicker_handlers(bot, emitter, on)
                 )
                 if step_ok then
                     step_ok = move_bot_smoothly(
-                        bot, move_forward, Gameplay.RESULT_KICKER_WALK_UR_SPEED,
+                        bot, move_forward, Config.GAMEPLAY.RESULT_KICKER_WALK_UR_SPEED,
                         "kicker-walk-to-move-forward", AnimationStates.WALK_UR
                     )
                 end
@@ -2817,7 +2902,7 @@ local function subscribe_kicker_handlers(bot, emitter, on)
                 end
                 if step_ok then
                     step_ok = move_bot_smoothly(
-                        bot, bomb_point, Gameplay.RESULT_KICKER_WALK_U_SPEED,
+                        bot, bomb_point, Config.GAMEPLAY.RESULT_KICKER_WALK_U_SPEED,
                         "kicker-walk-to-bomb", AnimationStates.WALK_U
                     )
                 end
@@ -3099,7 +3184,7 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
         if start_position and target_position and movement_duration > 0 then
             local ratio = math.max(0, math.min(1, t / movement_duration))
             return defender_jump_position_at(
-                start_position, target_position, ratio, Gameplay.RESULT_DEFENDER_JUMP_SPEED
+                start_position, target_position, ratio, Config.GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED
             )
         end
         return read_bot_position(defender) or defender.position
@@ -3132,7 +3217,7 @@ local function follow_defender_ball_point(instance_id, bots, ball_bot, defender,
             point_time = math.max(elapsed, finish - 0.000001)
         end
         local defender_position = defender_position_at(point_time)
-        local lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+        local lift = tonumber(Config.GAMEPLAY.RESULT_BALL_Z_LIFT) or 0.1
         -- Pass lift (delta) not defender.z + lift (absolute). Matches the
         -- catch phase so the ball does not snap at the catch→follow
         -- transition; the engine handles the defender's absolute z.
@@ -3274,7 +3359,7 @@ local function resolve_round_winner(instance_id)
             -- Hoisted so catch planning, catch execution, and follow all use
             -- the same lift, keeping the ball visually attached without a
             -- snap at the catch→follow boundary.
-            local ball_lift = tonumber(Gameplay.RESULT_BALL_Z_LIFT) or 0.1
+            local ball_lift = tonumber(Config.GAMEPLAY.RESULT_BALL_Z_LIFT) or 0.1
 
             local defender_target_name = ({
                 Left = "Defender 1", Up = "Defender 2", Right = "Defender 3",
@@ -3321,7 +3406,7 @@ local function resolve_round_winner(instance_id)
                         .. " movement_duration=" .. tostring(jump_movement_duration)
                         .. " animation_duration=" .. tostring(jump_animation_duration)
                         .. " final_frame_start=" .. tostring(jump_final_frame_start)
-                        .. " speed_profile=" .. tostring(Gameplay.RESULT_DEFENDER_JUMP_SPEED))
+                        .. " speed_profile=" .. tostring(Config.GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED))
                 else
                     jump_movement_duration = get_animation_movement_end(defender, jump_state) or 0
                     jump_animation_duration = get_animation_state_duration(defender, jump_state)
@@ -3334,8 +3419,8 @@ local function resolve_round_winner(instance_id)
                 end
             end
 
-            local base_bomb_speed = math.max(1, tonumber(Gameplay.RESULT_BOMB_MOVE_SPEED)
-                or tonumber(Gameplay.RESULT_KICKER_WALK_U_SPEED) or 150)
+            local base_bomb_speed = math.max(1, tonumber(Config.GAMEPLAY.RESULT_BOMB_MOVE_SPEED)
+                or tonumber(Config.GAMEPLAY.RESULT_KICKER_WALK_U_SPEED) or 150)
             local response_bomb_speed = base_bomb_speed * 3.0
             local bomb_speed = response_bomb_speed
             local bomb_start = read_bot_position(bots.bomb_bot)
@@ -3380,7 +3465,7 @@ local function resolve_round_winner(instance_id)
                             and jump_movement_duration or shared_duration)))
                     local midpoint = defender_jump_position_at(
                         start_position, target_position, ratio,
-                        Gameplay.RESULT_DEFENDER_JUMP_SPEED
+                        Config.GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED
                     )
                     -- Lift is the DELTA above the defender, not midpoint.z
                     -- (which is an absolute z). This matches the follow
@@ -3508,7 +3593,7 @@ local function resolve_round_winner(instance_id)
                     and (catch_duration / jump_movement_duration) or 0.5
                 ratio = math.max(0, math.min(1, ratio))
                 local midpoint = defender_jump_position_at(
-                    start_position, target_position, ratio, Gameplay.RESULT_DEFENDER_JUMP_SPEED
+                    start_position, target_position, ratio, Config.GAMEPLAY.RESULT_DEFENDER_JUMP_SPEED
                 )
                 -- Same delta-based values as the planning block above.
                 local catch_offset, catch_point_error = get_navi_ball_point_offset(
@@ -3808,7 +3893,7 @@ end
 
 local function refill_npc_direction_bag(bot)
     local bag = {}
-    for i, direction in ipairs(DIRECTION_CHOICES) do
+    for i, direction in ipairs(Config.DIRECTIONS.CHOICES) do
         bag[i] = direction
     end
     for i = #bag, 2, -1 do
@@ -3896,7 +3981,7 @@ local function start_direction_selection(instance_id, human_reps)
         end
         async(function()
             if State.player_representations[player_id] ~= rep then return end
-            await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+            await(Async.sleep(Config.INPUT.DIRECTION_SETTLE_SECONDS))
             if State.player_representations[player_id] == rep then
                 if rep.input and rep.input_owner
                     and rep.input:has_input_control(rep.input_owner) then
@@ -4054,13 +4139,13 @@ local function confirm_direction_selection(player_id, rep)
             .. ". Would you like to confirm this selection?"
         )
         if State.player_representations[player_id] ~= rep then return end
-        await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+        await(Async.sleep(Config.INPUT.DIRECTION_SETTLE_SECONDS))
         if State.player_representations[player_id] ~= rep then return end
         local choice = await_player_quiz(player_id, "Yes", "No")
         log("DIRECTION_FLOW: confirmation answer player=" .. tostring(player_id)
             .. " direction=" .. tostring(selected) .. " choice=" .. tostring(choice))
         if State.player_representations[player_id] ~= rep then return end
-        await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+        await(Async.sleep(Config.INPUT.DIRECTION_SETTLE_SECONDS))
         if State.player_representations[player_id] ~= rep then return end
         if rep.input and rep.input_owner
             and rep.input:has_input_control(rep.input_owner) then
@@ -4078,7 +4163,7 @@ local function confirm_direction_selection(player_id, rep)
                 "Confirmed " .. string.upper(selected)
                 .. ". Waiting for the other player..."
             )
-            await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+            await(Async.sleep(Config.INPUT.DIRECTION_SETTLE_SECONDS))
             if State.player_representations[player_id] == rep then
                 finish_direction_selection_if_ready(rep.instance_id)
             end
@@ -4093,7 +4178,7 @@ local function confirm_direction_selection(player_id, rep)
                     rep.input_owner
                 )
             end
-            await(Async.sleep(DIRECTION_INPUT_SETTLE_SECONDS))
+            await(Async.sleep(Config.INPUT.DIRECTION_SETTLE_SECONDS))
             if State.player_representations[player_id] == rep
                 and not rep.direction_selection_confirmed then
                 if rep.input and rep.input_owner
@@ -4362,8 +4447,8 @@ local function begin_interaction(player_id, area_id, reference)
     if State.pending_interactions[player_id] then return end
     log("ASSET_FLOW: source-area interaction observed player=" .. tostring(player_id)
         .. " area=" .. tostring(area_id)
-        .. " expected_source_area=" .. tostring(DEFAULT_SOURCE_AREA))
-    if area_id == DEFAULT_SOURCE_AREA then
+        .. " expected_source_area=" .. tostring(Config.DEFAULTS.SOURCE_AREA))
+    if area_id == Config.DEFAULTS.SOURCE_AREA then
         provide_source_area_assets(area_id, "begin_interaction")
     end
     if join_waiting_match(player_id, area_id, reference) then return end
@@ -4430,8 +4515,8 @@ function FootBomb.handle_player_join(player_id)
     local area_id = Net.get_player_area(player_id)
     log("ASSET_FLOW: player_join observed player=" .. tostring(player_id)
         .. " area=" .. tostring(area_id)
-        .. " expected_source_area=" .. tostring(DEFAULT_SOURCE_AREA))
-    if area_id == DEFAULT_SOURCE_AREA then
+        .. " expected_source_area=" .. tostring(Config.DEFAULTS.SOURCE_AREA))
+    if area_id == Config.DEFAULTS.SOURCE_AREA then
         provide_source_area_assets(area_id, "player_join")
     end
 end
@@ -4452,8 +4537,8 @@ function FootBomb.handle_player_transfer(player_id)
     local area_id = Net.get_player_area(player_id)
     log("ASSET_FLOW: player_transfer observed player=" .. tostring(player_id)
         .. " area=" .. tostring(area_id)
-        .. " expected_source_area=" .. tostring(DEFAULT_SOURCE_AREA))
-    if area_id == DEFAULT_SOURCE_AREA then
+        .. " expected_source_area=" .. tostring(Config.DEFAULTS.SOURCE_AREA))
+    if area_id == Config.DEFAULTS.SOURCE_AREA then
         provide_source_area_assets(area_id, "player_transfer")
     end
     local record = EzMapInstance.get_for_player(player_id)
@@ -4534,7 +4619,7 @@ Net:on("tick", function(event)
                         show_direction_selector_ui(player_id, rep)
                     end
                     if direction_changed then
-                        pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
+                        pcall(Net.play_sound_for_player, player_id, Config.ASSETS.CURSOR_SFX)
                         log("DIRECTION_FLOW: player changed direction player="
                             .. tostring(player_id) .. " direction=" .. chosen_direction)
                     else
@@ -4562,10 +4647,10 @@ Net:on("tick", function(event)
                     end
                 else
                     if input:is_action_pressed("Up", rep.input_owner) then
-                        pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
+                        pcall(Net.play_sound_for_player, player_id, Config.ASSETS.CURSOR_SFX)
                         cycle_player_skin(player_id, -1)
                     elseif input:is_action_pressed("Down", rep.input_owner) then
-                        pcall(Net.play_sound_for_player, player_id, CURSOR_SFX)
+                        pcall(Net.play_sound_for_player, player_id, Config.ASSETS.CURSOR_SFX)
                         cycle_player_skin(player_id, 1)
                     elseif input:is_action_pressed("Confirm", rep.input_owner) then
                         confirm_navi_selection(player_id, rep)

@@ -9,7 +9,7 @@ local createLogger = require("scripts/persistence/logger")
 
 local Log = createLogger({  
     filePath = "scripts/_DEBUGGING/Simon-Says/debugging.log",
-    minLevel = "debug",      -- log debug and above
+    minLevel = "debug",
     flushInterval = 5.0,
     maxBufferSize = 50,
     logIfChanged = true,  
@@ -28,7 +28,6 @@ local defaults = {
   total_answers = 60
 }
 
--- Shorthand for async/await
 local function async(p)
   local co = coroutine.create(p)
   return Async.promisify(co)
@@ -49,11 +48,23 @@ end
 --=====================================================
 local INPUT_CHOICES = { "Interact", "Shoulder L","Shoulder R", "Move Down", "Move Left", "Move Right", "Move Up" }
 
--- Overlay Z band. Cosmetic bots ride at player.z + 3 (see net-games
--- set_cosmetic), so map-element overlays must sit well above that or they
--- get occluded by any equipped cosmetic bot in the area.
-local OVERLAY_Z_CHAT      = 2
-local OVERLAY_Z_INDICATOR = 4
+-- Overlay Z band.
+--
+-- Cosmetic bots ride at player.z + 3 (see net-games set_cosmetic). Overlays
+-- must clear that band so cosmetics don't occlude them, but the engine also
+-- couples Z with a visual (-Z/2, -Z/2) map-space shift (see
+-- net-games convertOffsets). So whenever we raise Z above the original
+-- (working) baseline, we must add +lift/2 to map X and Y to keep the sprite
+-- in the same visual screen position.
+--
+-- Both overlays are lifted by the same amount (4 units) to preserve their
+-- original 2-unit relative offset (chat was at +0, indicator was at +2).
+local OVERLAY_Z_LIFT       = 4
+local OVERLAY_XY_COMP        = OVERLAY_Z_LIFT / 2   -- = 2
+
+-- Original (pre-cosmetic) indicator Z relative to simon.z. Keep this so the
+-- indicator's vertical spacing relative to the chat is preserved.
+local INDICATOR_ORIGINAL_Z_OFFSET = 2
 
 local INDICATOR_STATE = {
   ["Interact"]   = "A",
@@ -143,7 +154,6 @@ end
 
 spawn_simon()
 
--- Cleanup on disconnect (release occupancy + stop any half-running session)
 Net:on("player_disconnect", function(event)
   local pid = event.player_id
   local p = simon_players[pid]
@@ -190,19 +200,15 @@ local function simon_says_press(player_id)
       "/server/assets/simon-says/indicators.png",
       "/server/assets/simon-says/indicators.animation",
       indicator_state,
-      (simon.x - 0.1) + (OVERLAY_Z_CHAT/2),
-      (simon.y - 0.9) + (OVERLAY_Z_CHAT/2),
-      simon.z + OVERLAY_Z_INDICATOR
+      simon.x - 0.1 + OVERLAY_XY_COMP,
+      simon.y - 0.9 + OVERLAY_XY_COMP,
+      simon.z + INDICATOR_ORIGINAL_Z_OFFSET + OVERLAY_Z_LIFT
     )
-
-    -- IMPORTANT: do NOT unlock input here. Game is played via virtual_input while locked.
   end)
 end
 
 local function end_game_cleanup(player_id, reason, simon)
   return async(function()
-    -- stop prompt loop
-
     local p = simon_players[player_id]
     Log:debug(player_id .. " " .. reason, {score = p["score"]})
     
@@ -265,7 +271,6 @@ local function greet_simon(actor_id, player_id)
       return
     end
 
-    -- Setup phase: lock so nothing weird happens while we fade/toggle HUD/UI
     Net.lock_player_input(player_id)
     Log:debug(player_id.." Played with simon")
 
@@ -276,7 +281,7 @@ local function greet_simon(actor_id, player_id)
     p.score = 0
     p.active = false
     p.current = nil
-    p["return"] = Net.get_player_position(player_id) -- kept, even though we don't move them
+    p["return"] = Net.get_player_position(player_id)
 
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=255}, 0.5)
     await(Async.sleep(0.75))
@@ -292,18 +297,15 @@ local function greet_simon(actor_id, player_id)
       2, 2, 100
     )
 
-    -- FIXED: Updated to match new framework API (removed +1 from duration)
     games.spawn_countdown("simon_says", player_id, 22, 15, tonumber(simon.custom_properties["Time"]), false)
     await(Async.sleep(0.1))
     games.pause_countdown("simon_says", player_id)
 
-    -- FIXED: Added scale parameter (2.0) to match new framework API
     games.draw_text("simon_says_answers", player_id, "00", 32, 39, 100, "THICK", 2.0)
 
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=0}, 0.5)
     await(Async.sleep(0.75))
 
-    -- Allow dialogue to advance normally
     Net.unlock_player_input(player_id)
 
     Net.message_player(player_id, "Now it's time for... \"CyberSimon Says\"! Yeahh! Whoo! Whoo!",
@@ -328,13 +330,11 @@ local function greet_simon(actor_id, player_id)
       "/server/assets/simon-says/chat.png",
       "/server/assets/simon-says/chat.animation",
       "UI",
-      (simon.x - 0.8)  + (OVERLAY_Z_CHAT/2),
-      (simon.y - 1.1) + (OVERLAY_Z_CHAT/2),
-      simon.z + OVERLAY_Z_CHAT
+      simon.x - 0.8 + OVERLAY_XY_COMP,
+      simon.y - 1.1 + OVERLAY_XY_COMP,
+      simon.z + OVERLAY_Z_LIFT
     )
 
-    -- NOW start the minigame:
-    -- lock input so movement stops AND virtual_input events fire
     Net.lock_player_input(player_id)
 
     games.resume_countdown("simon_says", player_id)
@@ -344,30 +344,24 @@ local function greet_simon(actor_id, player_id)
   end)
 end
 
--- Talk to Simon bot
 Net:on("actor_interaction", function(event)
   if event.button == 0 and string.find(event.actor_id, "-simon-") then
     greet_simon(event.actor_id, event.player_id)
-  
   end
 end)
 
--- Main gameplay input: virtual_input ONLY (because we keep the player locked)
 Net:on("virtual_input", function(event)
   return async(function()
     local pid = event.player_id
     local p = simon_players[pid]
     if not p or p.active ~= true then return end
 
-    -- Only process one valid press per prompt.
-    -- We treat state==1 (pressed) and state==4 (held repeat) as "a press".
     for _, btn in next, event.events do
       local pressed = (btn.state == 1 or btn.state == 4)
       if pressed and is_simon_button(btn.name) then
         local name = btn.name
         if name == "Confirm" then name = "Interact" end
 
-        -- consume this prompt
         p.active = false
 
         if name == p.current then
@@ -389,7 +383,6 @@ Net:on("virtual_input", function(event)
             return
           end
 
-          -- WIN
           games.pause_countdown("simon_says", pid)
           Net.play_sound_for_player(pid, "/server/assets/simon-says/succeed.ogg")
 
@@ -400,13 +393,20 @@ Net:on("virtual_input", function(event)
           return
 
         else
-          -- WRONG
           Net.play_sound_for_player(pid, "/server/assets/simon-says/wrong_answer.ogg")
 
           local simon = simon_cache[p.area] and simon_cache[p.area][p.actor]
           if simon then
-            local function jiggle(dx, dy)
-              games.move_map_element("indicator", pid, simon.x + dx, simon.y + dy, simon.z + OVERLAY_Z_INDICATOR)
+            -- Original jiggle values are ABSOLUTE offsets from simon.x/simon.y
+            -- (they were never relative to the (-0.1, -0.9) base). Apply them
+            -- as-is, then add OVERLAY_XY_COMP to cancel the visual shift from
+            -- OVERLAY_Z_LIFT. The z stays at the indicator's resting height.
+            local jiggle_z = simon.z + INDICATOR_ORIGINAL_Z_OFFSET + OVERLAY_Z_LIFT
+            local function jiggle(off_x, off_y)
+              games.move_map_element("indicator", pid,
+                simon.x + off_x + OVERLAY_XY_COMP,
+                simon.y + off_y + OVERLAY_XY_COMP,
+                jiggle_z)
             end
             jiggle(-0.125, -0.875); await(Async.sleep(0.1))
             jiggle(-0.10,  -0.90 ); await(Async.sleep(0.1))
@@ -423,7 +423,6 @@ Net:on("virtual_input", function(event)
   end)
 end)
 
--- Time-out loss
 Net:on("countdown_ended", function(event)
   return async(function()
     local pid = event.player_id

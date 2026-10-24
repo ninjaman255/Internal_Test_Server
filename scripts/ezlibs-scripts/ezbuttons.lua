@@ -14,6 +14,22 @@
 -- checkpoint unlocks and relocks have no target. When that happens, the
 -- deactivation path falls back to area-wide so the button's state change is
 -- fully reversed - matching player behavior as closely as possible.
+--
+-- Optional "Cinematic Unlock" (bool, default false) on OW Buttons, Button
+-- Groups, and Combo Button Groups: player-triggered unlocks lock input, pan
+-- the player's camera smoothly to the first checkpoint, hold, then snap the
+-- camera back to the player and unlock input. Companion "Cinematic Duration"
+-- (number, default 1.0) sets the hold time after the checkpoint animation.
+--
+-- Optional "Cinematic on Bot Trigger" (bool, default false): when true, bot
+-- (NPC) activations also play the cinematic - the camera pans for every live
+-- player in the area. When false, bot triggers perform the unlock normally
+-- but suppress the cinematic. Player-triggered cinematics are unaffected.
+--
+-- Camera API: uses Net.unlock_player_camera / Net.move_player_camera /
+-- Net.track_with_player_camera (the same primitives camera-controller.lua
+-- uses). Override ezbuttons.camera_release / camera_move / camera_reattach
+-- if a project's engine revision exposes different names.
 
 local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbuttons')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
@@ -26,7 +42,6 @@ local ezcheckpoints = require('scripts/ezlibs-scripts/ezcheckpoints')
 local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')
 
 -- Optional: bot triggers back NPC entries on buttons flagged "Bots Can Trigger".
--- If this fails to load, buttons behave exactly as before (player-only).
 local ok_bottriggers, ezbottriggers = pcall(require, 'scripts/ezlibs-scripts/eztriggers/ezbottriggers')
 if not ok_bottriggers then
     logger:warn("[ezbuttons] ezbottriggers could not be loaded; NPC button triggers disabled.", tostring(ezbottriggers))
@@ -95,8 +110,8 @@ local function object_to_tile_pos(object)
 end
 
 -- Internal data
-local button_placeholders = {}          -- area_id -> [object_id] = placeholder_info
-local button_bots = {}                  -- bot_id -> placeholder_info
+local button_placeholders = {}
+local button_bots = {}
 
 -- Forward declarations
 local is_button_active
@@ -106,8 +121,8 @@ local deactivate_button_internal
 local activate_button
 local deactivate_button
 local set_button_active_state
+local run_cinematic_unlock
 
--- Additive group/combination/effect layer. All IDs are scoped to an area.
 local button_groups = {}
 local button_effects = {}
 local group_effects = {}
@@ -138,26 +153,7 @@ end
 
 -- ==========================================================================
 -- Live-contributor resolution for group state transitions
---
--- When a group changes state, the callback normally fires with the player
--- whose action triggered the transition. If that player has disconnected
--- (typical when a pressure plate releases during cleanup) or is nil (bot
--- triggered), we search the group's required buttons for a live contributor.
--- The contributor is whoever last activated one of the required buttons and
--- is still connected - they're the one who "owns" the current combo state.
---
--- If no contributor is alive but there ARE live players in the area, fall
--- back to area-wide so the state change isn't silently lost. If nobody is
--- alive, skip (nothing to apply to).
---
--- This helper is consulted on BOTH directions:
---   * SATISFIED (unlock):  recovers achievements lost to a disconnected
---                          triggerer.
---   * INCOMPLETE (relock): ensures bot-triggered (or disconnected-triggered)
---                          deactivations still reverse the effect for
---                          someone, matching player behavior.
 -- ==========================================================================
-
 local function find_live_contributor(area_id, group)
     local function first_live_from(ids)
         for _, id in ipairs(ids or {}) do
@@ -181,13 +177,6 @@ local function find_live_contributor(area_id, group)
     return first_live_from(group.button_ids)
 end
 
--- Resolve the effective player (and possibly area-wide fallback) for a
--- transition. Returns (player_id, use_area_wide, reason).
---
---   player_id      - may be nil if no contributor and no fallback
---   use_area_wide  - true if we should apply the action to every live player
---                    in the area
---   reason         - human-readable for logging
 local function resolve_transition_player(area_id, group, event_player_id)
     if event_player_id and player_is_alive(event_player_id) then
         return event_player_id, false, "triggerer"
@@ -260,24 +249,21 @@ local function group_is_satisfied(area_id, group)
     return #members > 0
 end
 
-local function apply_logic_action(area_id, target_id, action, player_id)
-    -- Never propagate a dead player into a downstream activation. Otherwise
-    -- the newly activated button records a stale last_activator and the same
-    -- skip-on-disconnect bug cascades to further group transitions.
+local function apply_logic_action(area_id, target_id, action, player_id, was_bot)
     if player_id and not player_is_alive(player_id) then
         player_id = nil
     end
 
     target_id = tostring(target_id)
     if action == "activate" then
-        activate_button(area_id, target_id, player_id)
+        activate_button(area_id, target_id, player_id, was_bot)
     elseif action == "deactivate" then
         deactivate_button(area_id, target_id, false)
     elseif action == "toggle" then
         if is_button_active(area_id, target_id) then
             deactivate_button(area_id, target_id, false)
         else
-            activate_button(area_id, target_id, player_id)
+            activate_button(area_id, target_id, player_id, was_bot)
         end
     elseif action == "reset" then
         local info = button_placeholders[area_id] and button_placeholders[area_id][target_id]
@@ -285,7 +271,13 @@ local function apply_logic_action(area_id, target_id, action, player_id)
             local was_active = is_button_active(area_id, target_id)
             set_button_active_state(area_id, target_id, info.bot_id, info.active_anim, info.inactive_anim, false)
             if was_active then
-                logic_queue[#logic_queue + 1] = { area_id = area_id, object_id = target_id, active = false, player_id = player_id }
+                logic_queue[#logic_queue + 1] = {
+                    area_id = area_id,
+                    object_id = target_id,
+                    active = false,
+                    player_id = player_id,
+                    was_bot = was_bot == true,
+                }
             end
         end
     else
@@ -301,7 +293,7 @@ local function process_logic_event(event)
     local rules = by_source and by_source[event_name]
     if rules then
         for _, rule in ipairs(rules) do
-            apply_logic_action(area_id, rule.target_id, rule.action, event.player_id)
+            apply_logic_action(area_id, rule.target_id, rule.action, event.player_id, event.was_bot)
         end
     end
 
@@ -316,31 +308,34 @@ local function process_logic_event(event)
            (previous == nil and now == true) then
             local group_event = now and "completed" or "incomplete"
             if type(group.callback) == "function" then
-                local ok, err = pcall(group.callback, area_id, group_id, now, event.player_id)
+                local ok, err = pcall(group.callback,
+                    area_id, group_id, now, event.player_id, event.was_bot == true)
                 if not ok then logger:warn("[ezbuttons] Group callback failed:", tostring(err)) end
             end
             local area_group_effects = group_effects[area_id] and group_effects[area_id][group_id]
             local group_rules = area_group_effects and area_group_effects[group_event]
             if group_rules then
                 for _, rule in ipairs(group_rules) do
-                    apply_logic_action(area_id, rule.target_id, rule.action, event.player_id)
+                    apply_logic_action(area_id, rule.target_id, rule.action, event.player_id, event.was_bot)
                 end
             end
             ezbus:emit("ezbuttons.group_" .. group_event, {
                 area_id = area_id,
                 group_id = group_id,
-                player_id = event.player_id
+                player_id = event.player_id,
+                was_bot = event.was_bot == true,
             })
         end
     end
 end
 
-local function enqueue_logic_event(area_id, object_id, active, player_id)
+local function enqueue_logic_event(area_id, object_id, active, player_id, was_bot)
     logic_queue[#logic_queue + 1] = {
         area_id = area_id,
         object_id = tostring(object_id),
         active = active,
-        player_id = player_id
+        player_id = player_id,
+        was_bot = was_bot == true,
     }
     if processing_logic_queue then return end
 
@@ -447,27 +442,10 @@ end)
 
 -- ==========================================================================
 -- Disconnect cleanup - deterministic three-phase
---
--- Why three phases? Because group re-evaluation fires inside deactivate, and
--- that re-evaluation may consult other buttons' last_activator as a fallback
--- when the departing player was the triggerer. If we cleared last_activators
--- in the same pass as deactivation, the order of pairs() iteration would
--- decide whether the fallback had data to work with - the symptom being that
--- "releasing one button sometimes activates the combo, sometimes doesn't".
---
--- Phase 1: clear trigger_players on every button, collect plates to release.
--- Phase 2: deactivate those plates. last_activator for every button is still
---          intact, so any transition fires with full context.
--- Phase 3: clear last_activator for the departing player on every button.
---
--- Note: a Pressure Plate is only released when NO player AND NO bot is
--- still inside. Bots (when "Bots Can Trigger" is enabled) participate in
--- the same occupancy bookkeeping.
 -- ==========================================================================
 local function cleanup_player_state(player_id)
     if not player_id then return end
 
-    -- Phase 1
     local plates_to_deactivate = {}
     for area_id, area_table in pairs(button_placeholders) do
         for object_id, info in pairs(area_table) do
@@ -484,7 +462,6 @@ local function cleanup_player_state(player_id)
         end
     end
 
-    -- Phase 2
     for _, entry in ipairs(plates_to_deactivate) do
         local area_id, object_id = entry[1], entry[2]
         logger:info("[ezbuttons] Auto-deactivating Pressure Plate",
@@ -493,11 +470,11 @@ local function cleanup_player_state(player_id)
         pcall(deactivate_button, area_id, object_id)
     end
 
-    -- Phase 3
     for area_id, area_table in pairs(button_placeholders) do
         for object_id, info in pairs(area_table) do
             if info.last_activator == player_id then
                 info.last_activator = nil
+                info.last_activator_was_bot = false
             end
         end
     end
@@ -604,6 +581,139 @@ local function create_button_trigger(area_id, object, width_px, height_px, trigg
     return emitter
 end
 
+-- ==========================================================================
+-- Cinematic unlock (uses Net camera primitives from camera-controller.lua)
+-- ==========================================================================
+ezbuttons.camera_release = function(player_id)
+    pcall(Net.unlock_player_camera, player_id)
+end
+
+ezbuttons.camera_move = function(player_id, x, y, z)
+    pcall(Net.move_player_camera, player_id, x, y, z)
+end
+
+ezbuttons.camera_reattach = function(player_id)
+    pcall(Net.unlock_player_camera, player_id)
+    pcall(Net.track_with_player_camera, player_id)
+end
+
+local function smooth_camera_pan(player_id, from_pos, to_pos, duration)
+    return async(function()
+        duration = tonumber(duration) or 0.4
+        if duration <= 0 then
+            ezbuttons.camera_move(player_id, to_pos.x, to_pos.y, to_pos.z)
+            return
+        end
+        local steps = math.max(8, math.floor(duration * 30))
+        local step_time = duration / steps
+        for i = 1, steps do
+            if not player_is_alive(player_id) then return end
+            local t = i / steps
+            t = t * t * (3 - 2 * t)
+            local x = from_pos.x + (to_pos.x - from_pos.x) * t
+            local y = from_pos.y + (to_pos.y - from_pos.y) * t
+            local z = from_pos.z + (to_pos.z - from_pos.z) * t
+            ezbuttons.camera_move(player_id, x, y, z)
+            await(Async.sleep(step_time))
+        end
+    end)
+end
+
+run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
+                                checkpoint_ids, permanent, hold_duration)
+    return async(function()
+        if not player_is_alive(player_id) then return end
+
+        if type(checkpoint_ids) ~= "table" then
+            checkpoint_ids = (checkpoint_ids ~= nil and tostring(checkpoint_ids) ~= "")
+                and { checkpoint_ids } or {}
+        end
+        if #checkpoint_ids == 0 then return end
+
+        local first_cp_id = tostring(checkpoint_ids[1])
+        local cp_obj = Net.get_object_by_id(button_area_id, first_cp_id)
+        if not cp_obj then
+            logger:info("[ezbuttons] Cinematic skipped: checkpoint "
+                .. first_cp_id .. " not found in area " .. tostring(button_area_id))
+            return
+        end
+
+        if type(Net.is_player_input_locked) == "function" then
+            local ok, locked = pcall(Net.is_player_input_locked, player_id)
+            if ok and locked then
+                logger:info("[ezbuttons] Cinematic skipped: player "
+                    .. tostring(player_id) .. " already input-locked")
+                return
+            end
+        end
+
+        local player_pos = Net.get_player_position(player_id)
+        if not player_pos then
+            logger:info("[ezbuttons] Cinematic skipped: player position unavailable")
+            return
+        end
+
+        local cam_z = player_pos.z or 0
+        local from_pos = { x = player_pos.x, y = player_pos.y, z = cam_z }
+        local to_pos   = { x = tonumber(cp_obj.x) or 0,
+                           y = tonumber(cp_obj.y) or 0,
+                           z = cam_z }
+
+        pcall(Net.lock_player_input, player_id)
+        ezbuttons.camera_release(player_id)
+
+        await(smooth_camera_pan(player_id, from_pos, to_pos, 0.4))
+
+        if button_object_id ~= nil
+            and not is_button_active(button_area_id, button_object_id) then
+            logger:info("[ezbuttons] Cinematic aborted: button "
+                .. tostring(button_object_id) .. " deactivated mid-sequence")
+            if player_is_alive(player_id) then
+                ezbuttons.camera_reattach(player_id)
+                pcall(Net.unlock_player_input, player_id)
+            end
+            return
+        end
+
+        for _, raw_id in ipairs(checkpoint_ids) do
+            local cp_str = tostring(raw_id)
+            if cp_str ~= "" and player_is_alive(player_id) then
+                local ok, result = pcall(ezcheckpoints.force_unlock_checkpoint,
+                    player_id, button_area_id, cp_str, permanent,
+                    { lock_input = false })
+                if not ok then
+                    logger:warn("[ezbuttons] Cinematic: checkpoint unlock failed: "
+                        .. tostring(result))
+                elseif type(result) == "table" then
+                    await(result)
+                end
+            end
+        end
+
+        local hold = tonumber(hold_duration) or 1.0
+        if hold < 0.3 then hold = 0.3 end
+        if player_is_alive(player_id) then
+            await(Async.sleep(hold))
+        end
+
+        if player_is_alive(player_id) then
+            ezbuttons.camera_reattach(player_id)
+            pcall(Net.unlock_player_input, player_id)
+        end
+    end)
+end
+
+-- Fan a cinematic out to every live player in an area (used for bot triggers
+-- when "Cinematic on Bot Trigger" is enabled).
+local function run_cinematic_for_all_players(button_area_id, button_object_id,
+                                              checkpoint_ids, permanent, hold_duration)
+    local players = Net.list_players(button_area_id) or {}
+    for _, pid in ipairs(players) do
+        run_cinematic_unlock(pid, button_area_id, button_object_id,
+            checkpoint_ids, permanent, hold_duration)
+    end
+end
+
 -- ============================================================
 -- PERFORM ACTIVATION
 -- ============================================================
@@ -613,17 +723,32 @@ perform_activation = function(area_id, object_id, player_id, info)
     end
 
     info.last_activator = player_id
+    info.last_activator_was_bot = (player_id == nil)
 
     set_button_active_state(area_id, object_id, info.bot_id, info.active_anim, info.inactive_anim, true)
     logger:for_player(player_id):info("[ezbuttons] Button", object_id, "activated in area", area_id)
-    enqueue_logic_event(area_id, object_id, true, player_id)
+    enqueue_logic_event(area_id, object_id, true, player_id, info.last_activator_was_bot)
 
     local cp_id = not info.group_member and info.unlock_checkpoint_obj or nil
     if cp_id and cp_id ~= "" then
+        local is_bot_trigger = info.last_activator_was_bot
         if info.unlock_area_wide then
+            -- Area-wide unlock: applies to every player in the area regardless
+            -- of activator. Cinematic fan-out is always on for player
+            -- activators; for bot activators it must be explicitly opted into
+            -- via Cinematic on Bot Trigger.
             local players = Net.list_players(info.area_id) or {}
-            for _, pid in ipairs(players) do
-                pcall(ezcheckpoints.force_unlock_checkpoint, pid, info.area_id, cp_id, info.unlock_permanently)
+            local run_cinematic = info.cinematic_unlock
+                and (not is_bot_trigger or info.cinematic_on_bot)
+            if run_cinematic then
+                for _, pid in ipairs(players) do
+                    run_cinematic_unlock(pid, info.area_id, object_id, {cp_id},
+                        info.unlock_permanently, info.cinematic_duration)
+                end
+            else
+                for _, pid in ipairs(players) do
+                    pcall(ezcheckpoints.force_unlock_checkpoint, pid, info.area_id, cp_id, info.unlock_permanently)
+                end
             end
             if not info.unlock_permanently then
                 local cp_area_mem = ezmemory.get_area_memory(info.area_id)
@@ -635,24 +760,44 @@ perform_activation = function(area_id, object_id, player_id, info)
                 }
                 ezmemory.save_area_memory(info.area_id)
             end
-            logger:info("[ezbuttons] Area-wide checkpoint unlock applied by button " .. tostring(object_id))
+            logger:info("[ezbuttons] Area-wide checkpoint unlock applied by button "
+                .. tostring(object_id)
+                .. (run_cinematic and " (cinematic)" or "")
+                .. (is_bot_trigger and " (bot trigger)" or ""))
         elseif player_is_alive(player_id) then
-            local ok, err = pcall(ezcheckpoints.force_unlock_checkpoint, player_id, info.area_id, cp_id, info.unlock_permanently)
-            if not ok then
-                logger:for_area(area_id):warn("[ezbuttons] Failed to unlock checkpoint: " .. tostring(err))
-            elseif not info.unlock_permanently then
-                local area_mem = ezmemory.get_area_memory(area_id)
-                area_mem.timed_button_unlock_info = area_mem.timed_button_unlock_info or {}
-                area_mem.timed_button_unlock_info[tostring(object_id)] = {
-                    player_id = player_id,
-                    area_id = info.area_id,
-                    checkpoint_object_id = tostring(cp_id),
-                }
-                ezmemory.save_area_memory(area_id)
+            if info.cinematic_unlock then
+                if not info.unlock_permanently then
+                    local area_mem = ezmemory.get_area_memory(area_id)
+                    area_mem.timed_button_unlock_info = area_mem.timed_button_unlock_info or {}
+                    area_mem.timed_button_unlock_info[tostring(object_id)] = {
+                        player_id = player_id,
+                        area_id = info.area_id,
+                        checkpoint_object_id = tostring(cp_id),
+                    }
+                    ezmemory.save_area_memory(area_id)
+                end
+                run_cinematic_unlock(player_id, area_id, object_id, {cp_id},
+                    info.unlock_permanently, info.cinematic_duration)
+            else
+                local ok, err = pcall(ezcheckpoints.force_unlock_checkpoint, player_id, info.area_id, cp_id, info.unlock_permanently)
+                if not ok then
+                    logger:for_area(area_id):warn("[ezbuttons] Failed to unlock checkpoint: " .. tostring(err))
+                elseif not info.unlock_permanently then
+                    local area_mem = ezmemory.get_area_memory(area_id)
+                    area_mem.timed_button_unlock_info = area_mem.timed_button_unlock_info or {}
+                    area_mem.timed_button_unlock_info[tostring(object_id)] = {
+                        player_id = player_id,
+                        area_id = info.area_id,
+                        checkpoint_object_id = tostring(cp_id),
+                    }
+                    ezmemory.save_area_memory(area_id)
+                end
             end
         else
             logger:info("[ezbuttons] Skipping per-player checkpoint unlock for button "
-                .. tostring(object_id) .. ": activator is no longer connected")
+                .. tostring(object_id)
+                .. ": activator is no longer connected"
+                .. (is_bot_trigger and " (bot trigger, not area-wide)" or ""))
         end
     end
 
@@ -703,18 +848,6 @@ perform_deactivation = function(area_id, object_id, info)
         end
 
         if info.relock_target then
-            -- Three cases:
-            --   * Area Wide set         -> relock for every live player.
-            --   * last_activator == nil -> the button was activated by a bot
-            --                              (or some other non-player actor),
-            --                              so there is no specific player to
-            --                              target. Fall back to area-wide so
-            --                              the reversal still happens.
-            --   * last_activator set    -> relock for that player if still
-            --                              connected; skip otherwise (their
-            --                              per-player state persists via
-            --                              memory, matching the original
-            --                              disconnect design).
             local use_area_wide_relock = info.relock_area_wide or (info.last_activator == nil)
             if use_area_wide_relock then
                 local players = Net.list_players(info.area_id) or {}
@@ -734,7 +867,7 @@ perform_deactivation = function(area_id, object_id, info)
         end
     end
 
-    enqueue_logic_event(area_id, object_id, false, info.last_activator)
+    enqueue_logic_event(area_id, object_id, false, info.last_activator, info.last_activator_was_bot)
     return true
 end
 
@@ -753,7 +886,7 @@ local function reconcile_pending_button_state(area_id, object_id, info)
     end
 
     if desired_state then
-        activate_button(area_id, object_id, desired_player_id)
+        activate_button(area_id, object_id, desired_player_id, desired_player_id == nil)
     else
         deactivate_button_internal(area_id, object_id, info)
     end
@@ -830,7 +963,7 @@ local function start_timed_deactivation(area_id, object_id, info)
     end)
 end
 
-activate_button = function(area_id, object_id, player_id)
+activate_button = function(area_id, object_id, player_id, was_bot)
     object_id = tostring(object_id)
     local info = button_placeholders[area_id] and button_placeholders[area_id][object_id]
     if not info then
@@ -841,6 +974,7 @@ activate_button = function(area_id, object_id, player_id)
     if info.is_animating then
         info.pending_state = true
         info.pending_player_id = player_id
+        info.pending_was_bot = (was_bot == true) or (player_id == nil)
         logger:info("[ezbuttons] Button", object_id, "is animating; queued activation")
         return true
     end
@@ -982,6 +1116,11 @@ local function register_button_object(area_id, object, group_member)
         end
     end
 
+    -- Cinematic options
+    local cinematic_unlock = read_bool(props["Cinematic Unlock"])
+    local cinematic_duration = tu.get_number_from(props, "Cinematic Duration", 1.0)
+    local cinematic_on_bot = read_bool(props["Cinematic on Bot Trigger"])
+
     local bot_x, bot_y, bot_z = object_to_tile_pos(object)
     local bot_id = create_button_bot(area_id, asset_name, bot_x, bot_y,
                                      bot_z, direction, bot_name,
@@ -1042,6 +1181,7 @@ local function register_button_object(area_id, object, group_member)
         is_animating = false,
         pending_state = nil,
         pending_player_id = nil,
+        pending_was_bot = false,
         trigger_players = {},
         trigger_bots = {},
         trigger_x = trigger_source_obj.x,
@@ -1055,10 +1195,14 @@ local function register_button_object(area_id, object, group_member)
         relock_target = relock_target,
         relock_area_wide = relock_area_wide,
         last_activator = nil,
+        last_activator_was_bot = false,
         group_member = group_member,
         unlock_checkpoint_obj = unlock_checkpoint_obj,
         unlock_permanently = unlock_permanently,
         unlock_area_wide = unlock_area_wide,
+        cinematic_unlock = cinematic_unlock,
+        cinematic_duration = cinematic_duration,
+        cinematic_on_bot = cinematic_on_bot,
     }
 
     button_placeholders[area_id][tostring(object.id)] = info
@@ -1070,8 +1214,6 @@ local function register_button_object(area_id, object, group_member)
 
     local trigger_id = "button_" .. area_id .. "_" .. tostring(object.id)
 
-    -- Resolve custom handlers up-front so `behavior` reflects the
-    -- post-fallback value when we decide whether to install a bot trigger.
     local custom_handlers = nil
     if behavior == "Custom" then
         local mod, err = load_custom_script(script_path)
@@ -1102,10 +1244,6 @@ local function register_button_object(area_id, object, group_member)
         return
     end
 
-    -- Optional bot trigger. Same rectangle / ellipse as the player trigger,
-    -- but registered against ezbottriggers so NPC movement is tracked
-    -- independently. `Custom` behavior is excluded because custom handlers
-    -- receive a player_id and are not designed for bots.
     local bot_emitter = nil
     if bots_can_trigger then
         if behavior == "Custom" then
@@ -1133,9 +1271,6 @@ local function register_button_object(area_id, object, group_member)
         end
     end
 
-    -- Shared handler dispatch. `actor_type` is "player" or "bot"; the emitted
-    -- event payloads differ (player_id vs bot_id) but the behavior rules and
-    -- overlap bookkeeping are identical.
     local function resolve_actor_id(event, actor_type)
         if actor_type == "bot" then return event.bot_id end
         return event.player_id
@@ -1167,23 +1302,23 @@ local function register_button_object(area_id, object, group_member)
         if actor_id == nil then return end
         mark_actor_present(actor_id, actor_type)
 
-        -- Bots never own per-player checkpoint unlocks or relocks, so they
-        -- pass nil where the player's ID would normally flow through.
         local activator_player_id = (actor_type == "player") and actor_id or nil
+        local was_bot_trigger = (actor_type == "bot")
 
         logger:info("[ezbuttons] 🟢 TRIGGER ENTERED:", actor_type, "button=", tostring(object.id),
             tostring(actor_type).."=", tostring(actor_id), "behavior=", behavior)
 
         if behavior == "Pressure Plate" then
             if not is_button_active(area_id, object.id) then
-                activate_button(area_id, object.id, activator_player_id)
+                activate_button(area_id, object.id, activator_player_id, was_bot_trigger)
             elseif info.is_animating then
                 info.pending_state = true
                 info.pending_player_id = activator_player_id
+                info.pending_was_bot = was_bot_trigger
             end
         elseif behavior == "One-Time" then
             if not is_button_active(area_id, object.id) then
-                activate_button(area_id, object.id, activator_player_id)
+                activate_button(area_id, object.id, activator_player_id, was_bot_trigger)
             end
         elseif behavior == "Toggle" then
             if info.is_animating then
@@ -1193,15 +1328,16 @@ local function register_button_object(area_id, object, group_member)
                 end
                 info.pending_state = not current_target
                 info.pending_player_id = info.pending_state and activator_player_id or nil
+                info.pending_was_bot = was_bot_trigger
                 logger:info("[ezbuttons] Toggle requested during animation; queued state:", tostring(info.pending_state))
             elseif is_button_active(area_id, object.id) then
                 deactivate_button(area_id, object.id)
             else
-                activate_button(area_id, object.id, activator_player_id)
+                activate_button(area_id, object.id, activator_player_id, was_bot_trigger)
             end
         elseif behavior == "Timed" then
             if not is_button_active(area_id, object.id) then
-                if activate_button(area_id, object.id, activator_player_id) then
+                if activate_button(area_id, object.id, activator_player_id, was_bot_trigger) then
                     start_timed_deactivation(area_id, object.id, info)
                 end
             end
@@ -1230,6 +1366,7 @@ local function register_button_object(area_id, object, group_member)
             elseif not someone_inside and info.is_animating then
                 info.pending_state = false
                 info.pending_player_id = nil
+                info.pending_was_bot = false
             end
         elseif behavior == "One-Time" then
             -- do nothing
@@ -1253,7 +1390,9 @@ local function register_button_object(area_id, object, group_member)
     info.trigger_info = emitter
     info.bot_trigger_info = bot_emitter
     logger:for_area(area_id):info("[ezbuttons] ✅ OW Button fully initialized:", object.id, "behavior=", behavior, "trigger size=", trigger_width_px, "x", trigger_height_px,
-        "bots_can_trigger=", tostring(bot_emitter ~= nil))
+        "bots_can_trigger=", tostring(bot_emitter ~= nil),
+        "cinematic=", tostring(cinematic_unlock),
+        "cinematic_on_bot=", tostring(cinematic_on_bot))
 
     if not group_member and unlock_checkpoint_obj and unlock_checkpoint_obj ~= "" then
         logger:info("[ezbuttons] Button", object.id, "will unlock checkpoint", unlock_checkpoint_obj,
@@ -1279,8 +1418,8 @@ function ezbuttons.is_button_active(area_id, object_id)
     return is_button_active(area_id, object_id)
 end
 
-function ezbuttons.activate_button(area_id, object_id, player_id)
-    return activate_button(area_id, object_id, player_id)
+function ezbuttons.activate_button(area_id, object_id, player_id, was_bot)
+    return activate_button(area_id, object_id, player_id, was_bot)
 end
 
 function ezbuttons.deactivate_button(area_id, object_id)
@@ -1293,7 +1432,7 @@ function ezbuttons.reset_button(area_id, object_id)
     if info then
         local was_active = is_button_active(area_id, object_id)
         set_button_active_state(area_id, object_id, info.bot_id, info.active_anim, info.inactive_anim, false)
-        if was_active then enqueue_logic_event(area_id, object_id, false, info.last_activator) end
+        if was_active then enqueue_logic_event(area_id, object_id, false, info.last_activator, info.last_activator_was_bot) end
         return true
     end
     return false
@@ -1394,7 +1533,12 @@ end
 
 -- Group checkpoint action. Area-wide: applies to every live player. Per-player:
 -- applies to the resolved target if still alive; otherwise skips with a log.
-local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids, area_wide, unlock, permanent, group_id)
+--
+-- `cinematic` (optional) enables the camera presentation on the unlock path.
+-- Relock is never cinematic (the "Cinematic Unlock" property is unlock-only).
+local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
+                                             area_wide, unlock, permanent, group_id,
+                                             cinematic, cinematic_duration)
     if type(checkpoint_ids) ~= "table" then
         checkpoint_ids = checkpoint_ids ~= nil and checkpoint_ids ~= "" and { checkpoint_ids } or {}
     end
@@ -1402,6 +1546,35 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
 
     area_id = tostring(area_id)
     local area_mem = ezmemory.get_area_memory(area_id)
+
+    if unlock and cinematic then
+        if area_wide then
+            local players = Net.list_players(area_id) or {}
+            for _, pid in ipairs(players) do
+                run_cinematic_unlock(pid, area_id, nil, checkpoint_ids,
+                    permanent, cinematic_duration)
+            end
+            if not permanent then
+                area_mem.area_wide_unlock = area_mem.area_wide_unlock or {}
+                for _, raw_id in ipairs(checkpoint_ids) do
+                    local cp_id = tostring(raw_id)
+                    local tracking_key = "button_group:" .. tostring(group_id or "") .. ":" .. cp_id
+                    area_mem.area_wide_unlock[tracking_key] = {
+                        area_id = area_id,
+                        checkpoint_object_id = cp_id,
+                        once = false,
+                    }
+                end
+                ezmemory.save_area_memory(area_id)
+            end
+        elseif player_id and player_is_alive(player_id) then
+            run_cinematic_unlock(player_id, area_id, nil, checkpoint_ids,
+                permanent, cinematic_duration)
+        else
+            logger:info("[ezbuttons] Cinematic group unlock skipped: no valid player")
+        end
+        return
+    end
 
     for _, raw_checkpoint_id in ipairs(checkpoint_ids) do
         if raw_checkpoint_id ~= nil and tostring(raw_checkpoint_id) ~= "" then
@@ -1465,19 +1638,29 @@ local function apply_group_checkpoint_action(area_id, player_id, checkpoint_ids,
     end
 end
 
--- Resolve-and-route wrapper used by every group/combo callback. Resolves a
--- concrete player (or forces area-wide) when the triggerer can't be targeted,
--- on BOTH directions:
+-- Resolve-and-route wrapper used by every group/combo callback.
 --
---   * unlock (satisfied):   previously only resolved here, to recover
---                           achievements lost to a disconnected triggerer.
---   * relock (incomplete):  resolves here too, so a bot clearing a pressure
---                           plate (or a disconnected triggerer) still reverses
---                           the checkpoint rather than silently skipping.
+-- Bot-trigger handling:
+--   * If `was_bot` is true and the event is a sat isfied transition (unlock):
+--       - `cinematic_on_bot` false (default): suppress the cinematic, but
+--         still perform the unlock through the normal resolution path.
+--       - `cinematic_on_bot` true: force area-wide so the cinematic fans out
+--         to every live player in the area.
+--   * Player-triggered transitions are unchanged.
 local function route_group_callback(area_id, group_ref, event_player_id,
-                                    checkpoint_ids, area_wide, unlock, permanent, group_id, log_tag)
+                                    checkpoint_ids, area_wide, unlock, permanent, group_id, log_tag,
+                                    cinematic, cinematic_duration, cinematic_on_bot, was_bot)
     local effective_player = event_player_id
     local force_area_wide = false
+
+    if was_bot and unlock and cinematic then
+        if not cinematic_on_bot then
+            cinematic = false
+        else
+            -- Bot trigger + opted-in cinematic: fan out to every live player.
+            area_wide = true
+        end
+    end
 
     if not effective_player or not player_is_alive(effective_player) then
         local resolved_player, use_area_wide, reason =
@@ -1489,7 +1672,8 @@ local function route_group_callback(area_id, group_ref, event_player_id,
     end
 
     apply_group_checkpoint_action(area_id, effective_player, checkpoint_ids,
-        area_wide or force_area_wide, unlock, permanent, group_id)
+        area_wide or force_area_wide, unlock, permanent, group_id,
+        cinematic, cinematic_duration)
 end
 
 local function configure_group_object(area_id, object)
@@ -1521,16 +1705,20 @@ local function configure_group_object(area_id, object)
     local unlock_permanently = read_bool(props["Unlock Permanently"], true)
     local unlock_area_wide = read_bool(props["Unlock Area Wide"], false)
     local relock_area_wide = read_bool(props["Relock Area Wide"], false)
+    local cinematic_unlock = read_bool(props["Cinematic Unlock"])
+    local cinematic_duration = tu.get_number_from(props, "Cinematic Duration", 1.0)
+    local cinematic_on_bot = read_bool(props["Cinematic on Bot Trigger"])
 
     local ok, err = pcall(ezbuttons.define_group, area_id, group_id, required_ids, mode, {
         forbidden_ids = forbidden_ids,
-        on_change = function(changed_area_id, changed_group_id, satisfied, player_id)
+        on_change = function(changed_area_id, changed_group_id, satisfied, player_id, was_bot)
             local group_ref = button_groups[changed_area_id]
                 and button_groups[changed_area_id][changed_group_id]
             if satisfied then
                 route_group_callback(changed_area_id, group_ref, player_id,
                     unlock_checkpoints, unlock_area_wide, true, unlock_permanently,
-                    changed_group_id, "Button Group " .. tostring(changed_group_id))
+                    changed_group_id, "Button Group " .. tostring(changed_group_id),
+                    cinematic_unlock, cinematic_duration, cinematic_on_bot, was_bot)
             elseif #relock_checkpoints > 0 then
                 route_group_callback(changed_area_id, group_ref, player_id,
                     relock_checkpoints, relock_area_wide, false, false,
@@ -1545,7 +1733,7 @@ local function configure_group_object(area_id, object)
 
     group_object_ids[area_id] = group_object_ids[area_id] or {}
     group_object_ids[area_id][tostring(object.id)] = group_id
-    logger:for_area(area_id):info("[ezbuttons] Configured Button Group:", tostring(object.id), "group_id=", group_id, "mode=", tostring(mode), "members=", #required_ids)
+    logger:for_area(area_id):info("[ezbuttons] Configured Button Group:", tostring(object.id), "group_id=", group_id, "mode=", tostring(mode), "members=", #required_ids, "cinematic=", tostring(cinematic_unlock), "cinematic_on_bot=", tostring(cinematic_on_bot))
 
     local pending = pending_group_effect_objects[area_id]
     if pending then
@@ -1663,6 +1851,10 @@ local function configure_combo_button_group_object(area_id, object)
         return false
     end
 
+    local cinematic_unlock = read_bool(props["Cinematic Unlock"])
+    local cinematic_duration = tu.get_number_from(props, "Cinematic Duration", 1.0)
+    local cinematic_on_bot = read_bool(props["Cinematic on Bot Trigger"])
+
     local combos = {}
     local known_combos = combo_object_definitions[area_id] or {}
     for _, combo_object_id in ipairs(combo_object_ids) do
@@ -1681,14 +1873,15 @@ local function configure_combo_button_group_object(area_id, object)
         button_groups[tostring(area_id)] = button_groups[tostring(area_id)] or {}
         button_groups[tostring(area_id)][combo_runtime_id] = {
             combo = combo,
-            callback = function(changed_area_id, changed_group_id, satisfied, player_id)
+            callback = function(changed_area_id, changed_group_id, satisfied, player_id, was_bot)
                 local group_ref = button_groups[changed_area_id]
                     and button_groups[changed_area_id][changed_group_id]
                 if satisfied then
                     route_group_callback(changed_area_id, group_ref, player_id,
                         definition.unlock_checkpoints, definition.unlock_area_wide,
                         true, definition.unlock_permanently,
-                        combo_runtime_id, "Button Combo " .. tostring(definition.object_id))
+                        combo_runtime_id, "Button Combo " .. tostring(definition.object_id),
+                        cinematic_unlock, cinematic_duration, cinematic_on_bot, was_bot)
                 elseif #definition.relock_checkpoints > 0 then
                     route_group_callback(changed_area_id, group_ref, player_id,
                         definition.relock_checkpoints, definition.relock_area_wide,
@@ -1710,7 +1903,7 @@ local function configure_combo_button_group_object(area_id, object)
     group_object_ids[area_id] = group_object_ids[area_id] or {}
     group_object_ids[area_id][tostring(object.id)] = group_id
     logger:for_area(area_id):info("[ezbuttons] Configured Combo Button Group:", tostring(object.id), "group_id=", group_id,
-        "combos=", #combos, "mode=", combo_mode, "logic=any combo matches")
+        "combos=", #combos, "mode=", combo_mode, "logic=any combo matches", "cinematic=", tostring(cinematic_unlock), "cinematic_on_bot=", tostring(cinematic_on_bot))
 
     local pending = pending_group_effect_objects[area_id]
     if pending then
@@ -1782,5 +1975,5 @@ object_registry.register_handler("Button Group Effect", function(area_id, object
     end
 end)
 
-logger:info("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects, optional NPC triggers via ezbottriggers)")
+logger:info("[ezbuttons] Loaded (individual OW Buttons, Button Groups, Combo Button Groups, Button Combos, Tiled checkpoint actions, button/group effects, optional NPC triggers via ezbottriggers, cinematic unlock with optional bot-trigger opt-in)")
 return ezbuttons

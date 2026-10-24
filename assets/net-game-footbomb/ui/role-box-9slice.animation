@@ -1,0 +1,26 @@
+animation state="CENTER"
+frame duration="0.0833333" x="4" y="4" w="4" h="4" originx="0" originy="0"
+
+animation state="CORNER_LL"
+frame duration="0.0833333" x="0" y="8" w="4" h="4" originx="0" originy="0"
+
+animation state="CORNER_LR"
+frame duration="0.0833333" x="8" y="8" w="4" h="4" originx="0" originy="0"
+
+animation state="CORNER_UL"
+frame duration="0.0833333" x="0" y="0" w="4" h="4" originx="0" originy="0"
+
+animation state="CORNER_UR"
+frame duration="0.0833333" x="8" y="0" w="4" h="4" originx="0" originy="0"
+
+animation state="EDGE_CL"
+frame duration="0.0833333" x="0" y="4" w="4" h="4" originx="0" originy="0"
+
+animation state="EDGE_LC"
+frame duration="0.0833333" x="4" y="8" w="4" h="4" originx="0" originy="0"
+
+animation state="EDGE_RC"
+frame duration="0.0833333" x="8" y="4" w="4" h="4" originx="0" originy="0"
+
+animation state="EDGE_UC"
+frame duration="0.0833333" x="4" y="0" w="4" h="4" originx="0" originy="0"  

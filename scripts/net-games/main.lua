@@ -8,10 +8,10 @@
 -- ===========================================================
 -- DEPENDENCIES
 -- ===========================================================
-local Displayer = require("scripts/displayer/displayer")          -- updated path
+local Displayer = require("scripts/displayer/displayer")
 local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local boom = require("scripts/boom/main")
-local InputSystem = require("scripts/input-controller/main")     -- unified input API
+local InputSystem = require("scripts/input-controller/main")
 
 local assets = {
         "/server/assets/net-games/fonts/fonts_compressed.png",
@@ -29,8 +29,7 @@ local assets = {
 -- ===========================================================
 -- INITIALIZATION
 -- ===========================================================
-Displayer:init()   -- always returns self, no need for isValid check
--- Input.attach_virtual_input_listener()  -- removed, now handled by InputSystem
+Displayer:init()
 
 -- ===========================================================
 -- CACHE MANAGEMENT
@@ -45,20 +44,15 @@ local map_elements = {}
 local ui_update = {}
 local online_players = {}
 
--- Additional caches for new Displayer features
-local text_cache = {}        -- player_id -> { [text_id] = {x, y, font, scale, z, opts} }
-local marquee_cache = {}     -- player_id -> { [marquee_id] = {text, x, y, opts} }
-local timer_cache = {}       -- player_id -> { [timer_id] = {callback, loop} }
-local countdown_cache = {}   -- player_id -> { [countdown_id] = {callback, loop} }
-
--- (No longer used for cursor repeats, but kept for potential other uses)
-local repeat_state = {}      -- player_id -> { dir = nil, elapsed = 0, stage = 0 }
+local text_cache = {}
+local marquee_cache = {}
+local timer_cache = {}
+local countdown_cache = {}
+local repeat_state = {}
 
 -- ===========================================================
 -- HELPER FUNCTIONS
 -- ===========================================================
-
--- Purpose: Helper function for fixOffsets
 local function round_fraction(value, denominator)
     local int_part = math.floor(value)
     local decimal = value - int_part
@@ -66,14 +60,12 @@ local function round_fraction(value, denominator)
     return int_part, n / denominator
 end
 
--- Purpose: Converts h/v offsets to x/y offsets for UIs
 local function convertOffsets(horizontalOffset, verticalOffset, Z)
     local xoffset = ((2 * -verticalOffset + horizontalOffset) / 64) + (Z / 2)
     local yoffset = ((2 * -verticalOffset - horizontalOffset) / 64) + (Z / 2)
     return xoffset, yoffset
 end
 
--- Purpose: Adjusts offsets for UIs so they do not jitter
 local function fixOffsets(a, b)
     local a_int, a_dec = round_fraction(a, 32)
     local b_int, b_dec = round_fraction(b, 32)
@@ -94,7 +86,6 @@ local function fixOffsets(a, b)
     return a_int + a_dec, b_int + b_dec
 end
 
--- Purpose: Normalize color tables
 local function normalize_color(color)
     if not color then return nil end
     
@@ -111,18 +102,15 @@ local function normalize_color(color)
     return nil
 end
 
--- Purpose: Shorthand for async
 local function async(p)
     local co = coroutine.create(p)
     return Async.promisify(co)
 end
 
--- Purpose: Shorthand for await
 local function await(v) 
     return Async.await(v) 
 end
 
--- Purpose: Check if table has value
 local function table_has_value(tab, val)
     for index, value in ipairs(tab) do
         if value == val then
@@ -132,7 +120,6 @@ local function table_has_value(tab, val)
     return false
 end
 
--- Purpose: Exclude bot for everyone except provided player_id
 local function exclude_except_for(player_id, bot_id)
     for i, p_id in next, online_players do 
         if p_id ~= player_id then
@@ -153,10 +140,7 @@ end)
 -- ===========================================================
 -- PLAYER MOVEMENT FUNCTIONS
 -- ===========================================================
-
--- Try a handful of possible EO/Net APIs to move a player without hard-crashing
 local function try_move_player(player_id, area_id, x, y, z)
-    -- Method 1: transfer_player(player_id, area_id, x, y, z)
     local ok = pcall(function()
         if Net.transfer_player then
             Net.transfer_player(player_id, area_id, x, y, z)
@@ -164,7 +148,6 @@ local function try_move_player(player_id, area_id, x, y, z)
     end)
     if ok and Net.transfer_player then return true end
     
-    -- Method 2: transfer_player with warp_in parameter
     ok = pcall(function()
         if Net.transfer_player then
             Net.transfer_player(player_id, area_id, false, x, y, z)
@@ -172,7 +155,6 @@ local function try_move_player(player_id, area_id, x, y, z)
     end)
     if ok and Net.transfer_player then return true end
     
-    -- Method 3: move_player
     ok = pcall(function()
         if Net.move_player then
             Net.move_player(player_id, x, y, z)
@@ -180,7 +162,6 @@ local function try_move_player(player_id, area_id, x, y, z)
     end)
     if ok and Net.move_player then return true end
     
-    -- Method 4: set_player_position
     ok = pcall(function()
         if Net.set_player_position then
             Net.set_player_position(player_id, x, y, z)
@@ -191,9 +172,7 @@ local function try_move_player(player_id, area_id, x, y, z)
     return false
 end
 
--- Try common APIs to animate the player
 local function try_animate_player(player_id, anim_state)
-    -- Method 1: animate_player_properties
     local ok = pcall(function()
         if Net.animate_player_properties then
             local keyframes = {{
@@ -205,7 +184,6 @@ local function try_animate_player(player_id, anim_state)
     end)
     if ok and Net.animate_player_properties then return true end
     
-    -- Method 2: set_player_animation
     ok = pcall(function()
         if Net.set_player_animation then
             Net.set_player_animation(player_id, anim_state)
@@ -216,7 +194,6 @@ local function try_animate_player(player_id, anim_state)
     return false
 end
 
--- Move the frozen player
 function frame.move_frozen_player(player_id, x, y, z)
     return async(function()
         local area_id = Net.get_player_area(player_id)
@@ -225,7 +202,6 @@ function frame.move_frozen_player(player_id, x, y, z)
     end)
 end
 
--- Animate the frozen player
 function frame.animate_frozen_player(player_id, anim_state)
     return async(function()
         try_animate_player(player_id, anim_state)
@@ -242,14 +218,15 @@ end
 --
 -- Animation states:
 --   * `state` (caller-provided, typically "IDLE_DR") is used by the WORLD BOT.
---     animate_bot(..., true) explicitly loops it, so it plays fine for other
---     clients regardless of the animation file's own loop flag.
---   * The OWNER SPRITE uses the "cosmetic" state. That is the overlay state
---     in the cosmetic's animation file designed to sit on top of the player's
---     own sprite. Passing the bot state ("IDLE_DR") to the sprite path leaves
---     it frozen on frame 0 because the sprite respects the state's own loop
---     flag rather than being forced to loop.
-function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset)
+--     animate_bot(..., true) forces looping regardless of the .anim file's own
+--     loop flag, so the bot animates fine for other clients.
+--   * The OWNER SPRITE uses "cosmetic" -- the overlay state designed to sit on
+--     top of the player. The engine's sprite path (player_draw_sprite) obeys
+--     the .anim file's loop flag, and boom v2.0 states have loop hardcoded to
+--     false. So the sprite plays the "cosmetic" animation once and then stops;
+--     the tick handler below restarts it by erasing and re-drawing at the
+--     state's total duration.
+function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale)
     return async(function()
         if not cosmetic_id or not animation or not state or not player_id
             or not texture or x == nil or y == nil then
@@ -268,12 +245,9 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
         local visibility = visible ~= false
         local p_xoffset = player_xoffset or 0
         local p_yoffset = player_yoffset or 0
-        local bot_id = cosmetic_id .. "_" .. player_id
-        local sprite_id = cosmetic_id .. "_obj"
-
-        -- Owner-sprite overlay state. Distinct from `state`, which is the
-        -- full-body animation the world bot plays for other players.
-        local sprite_state = "cosmetic"
+        local sprite_scale = scale or 2
+        local world_bot_scale = bot_scale or 1.0
+        local sprite_state = "cosmetic"   -- owner overlay state (bot uses `state`)
 
         if not last_position_cache[player_id] then
             last_position_cache[player_id] = {}
@@ -289,8 +263,30 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
         local xoffset, yoffset = convertOffsets(-x, -y, (position.z or 0) + 3)
         xoffset, yoffset = fixOffsets(xoffset, yoffset)
 
-        -- Cache before publishing the bot so subsequent movement events have
-        -- a complete record to use.
+        -- Duration for the manual loop. Caller-supplied wins; otherwise sum the
+        -- frame durations of the owner-sprite state from the .anim file so
+        -- callers don't need to hardcode the timing.
+        local duration = tonumber(anim_duration)
+        if duration == nil then
+            duration = 0
+            local stripped = animation:gsub("^/server/", "")
+            local ok, data = pcall(boom.load, stripped)
+            if ok and data and data.states and data.states[sprite_state] then
+                local fl = data.states[sprite_state].framelist or {}
+                for _, f in ipairs(fl) do
+                    duration = duration + (tonumber(f.duration) or 0)
+                end
+            end
+            if duration <= 0 then
+                duration = 0   -- no loop if the file couldn't be parsed
+            end
+        end
+
+        local bot_id = cosmetic_id .. "_" .. player_id
+        local sprite_id = cosmetic_id .. "_obj"
+        local spritex = (x + 120 + p_xoffset) * 2
+        local spritey = (y + 80 + p_yoffset) * 2
+
         cosmetic_cache[player_id][cosmetic_id] = {
             id = cosmetic_id,
             bot_id = bot_id,
@@ -302,47 +298,16 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
             x = xoffset,
             y = yoffset,
             visibility = visibility,
-            spritex = (x + 120 + p_xoffset) * 2,
-            spritey = (y + 80 + p_yoffset) * 2,
+            spritex = spritex,
+            spritey = spritey,
+            scale = sprite_scale,
+            duration = duration,
+            elapsed = 0,
             player_xoffset = p_xoffset,
             player_yoffset = p_yoffset
         }
 
-        -- World bot: other players see this representation and receive the
-        -- normal engine-driven animation playback.
-        Net.create_bot(bot_id, {
-            area_id = area_id,
-            warp_in = false,
-            texture_path = texture,
-            animation_path = animation,
-            animation = state,                     -- bot uses caller-provided state
-            x = position.x + xoffset,
-            y = position.y + yoffset,
-            z = (position.z or 0) + 3,
-            solid = false
-        })
-
-        -- Explicitly start the bot animation once. Do not call animate_bot
-        -- from player_move; that would continually restart the animation.
-        if Net.animate_bot then
-            pcall(Net.animate_bot, bot_id, state, true)
-        end
-
-        -- Hide the world bot only from its owner; that player gets a native
-        -- player sprite instead. Keep the bot available to every other client.
-        if Net.exclude_actor_for_player then
-            pcall(Net.exclude_actor_for_player, player_id, bot_id)
-        end
-
-        -- Allocate and draw the owner's sprite using the same native animated
-        -- sprite API used by Net Games UI elements. The sprite state is
-        -- "cosmetic" -- the overlay animation designed for the owner's view.
-        --
-        -- Cache-busting: mirror ui-safe.lua by allocating a fresh physical
-        -- sprite identity each time. Reusing `cosmetic_id` as the alloc key
-        -- lets some clients keep the previously-cached texture/animation,
-        -- which makes an equipped cosmetic appear stale/broken to its owner
-        -- even while the world bot renders correctly for everyone else.
+        -- Owner sprite: fresh alloc id (cache-busting) + explicit z = -110.
         Net.provide_asset_for_player(player_id, texture)
         if animation and animation ~= "" then
             Net.provide_asset_for_player(player_id, animation)
@@ -359,27 +324,48 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
         })
         Net.player_draw_sprite(player_id, alloc_id, {
             id = sprite_id,
-            x = (x + 120 + p_xoffset) * 2,
-            y = (y + 80 + p_yoffset) * 2,
-            sx = 2,
-            sy = 2,
-            ox = 0,
-            oy = 0,
-            ro = 0,
-            opacity = 255,
-            a = 255,
-            r = 255,
-            g = 255,
-            b = 255,
+            x = spritex,
+            y = spritey,
+            z = -110,
+            sx = sprite_scale,
+            sy = sprite_scale,
+            ox = 0, oy = 0, ro = 0,
+            opacity = 255, a = 255,
+            r = 255, g = 255, b = 255,
             anim_state = sprite_state
         })
-
-        -- Remember the physical alloc key so removal can free it. The draw id
-        -- (`sprite_id`) stays stable across rebuilds, per ui-safe.lua's design.
         cosmetic_cache[player_id][cosmetic_id].sprite_alloc_id = alloc_id
 
-        -- If visibility is false, hide the world bot from all existing viewers
-        -- as well. The owner sprite remains visible to its owner.
+        -- World bot for other players.
+        Net.create_bot(bot_id, {
+            area_id = area_id,
+            warp_in = false,
+            texture_path = texture,
+            animation_path = animation,
+            animation = state,
+            x = position.x + xoffset,
+            y = position.y + yoffset,
+            z = (position.z or 0) + 3,
+            solid = false
+        })
+        if Net.animate_bot then
+            pcall(Net.animate_bot, bot_id, state, true)
+        end
+        if Net.exclude_actor_for_player then
+            pcall(Net.exclude_actor_for_player, player_id, bot_id)
+        end
+
+        if bot_scale ~= nil and Net.animate_bot_properties then
+            local keyframes = {{
+                properties = {
+                    { property = "ScaleX", ease = "Linear", value = world_bot_scale },
+                    { property = "ScaleY", ease = "Linear", value = world_bot_scale },
+                },
+                duration = 0
+            }}
+            pcall(Net.animate_bot_properties, bot_id, keyframes)
+        end
+
         if not visibility and Net.exclude_actor_for_player then
             for _, viewer_id in ipairs(online_players) do
                 if viewer_id ~= player_id then
@@ -390,7 +376,6 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
     end)
 end
 
--- Purpose: Remove a player's existing cosmetic
 function frame.remove_cosmetic(cosmetic_id, player_id)
     local player_cosmetics = cosmetic_cache[player_id]
     if not player_cosmetics or not player_cosmetics[cosmetic_id] then
@@ -421,7 +406,6 @@ end
 -- ===========================================================
 -- MAP ELEMENT FUNCTIONS
 -- ===========================================================
-
 function frame.add_map_element(name, player_id, texture, animation, animation_state, x, y, z, exclude)
     local area_id = (last_position_cache[player_id] and last_position_cache[player_id]["area"]) or Net.get_player_area(player_id)
     local bot_id = player_id .. "-map-" .. name
@@ -480,8 +464,6 @@ end
 -- ===========================================================
 -- UI ELEMENT FUNCTIONS
 -- ===========================================================
-
--- Helper to compute actual draw position when bounding box is used
 local function compute_aligned_position(element)
     local x, y = element.x, element.y
     if element.box_width and element.box_height then
@@ -503,7 +485,6 @@ local function compute_aligned_position(element)
     return x, y
 end
 
--- Purpose: Add a UI element to the screen, optionally with a bounding box and alignment.
 function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path, animation_state,
                                x, y, z, sx, sy, box_width, box_height, halign, valign)
     sx = (sx and sx >= 0.0) and sx or 2.0
@@ -517,7 +498,6 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
         ui_cache[player_id] = {}
     end
 
-    -- Check if sprite already allocated
     local new_sprite_id = sprite_id
     local already_allocated = false
     for existing_id, sprite_data in pairs(ui_cache[player_id]) do
@@ -528,13 +508,11 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
         end
     end
 
-    -- Load animation data to get frame sizes
     local animation_data = nil
     local sprite_width, sprite_height = nil, nil
     if animation_path ~= "" then
         local stripped_path = animation_path:gsub("/server/", "", 1)
         animation_data = boom.load(stripped_path).states
-        -- Determine max width/height for the initial animation state
         if animation_data and animation_data[animation_state] then
             local frames = animation_data[animation_state].framelist
             local max_w, max_h = 0, 0
@@ -551,7 +529,6 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
         sprite_width, sprite_height = 0, 0
     end
 
-    -- Compute actual draw position if bounding box is given
     local draw_x, draw_y = x, y
     if box_width and box_height then
         local effective_width = sprite_width * sx
@@ -561,16 +538,15 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
             draw_x = x + (box_width - effective_width) / 2
         elseif halign == "right" then
             draw_x = x + box_width - effective_width
-        end -- left: draw_x = x
+        end
 
         if valign == "middle" then
             draw_y = y + (box_height - effective_height) / 2
         elseif valign == "bottom" then
             draw_y = y + box_height - effective_height
-        end -- top: draw_y = y
+        end
     end
 
-    -- Allocate sprite if needed
     if not already_allocated then
         if animation_path ~= "" then
             Net.provide_asset_for_player(player_id, animation_path)
@@ -583,7 +559,6 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
         })
     end
 
-    -- Draw using computed draw_x, draw_y (multiply by 2 as before)
     Net.player_draw_sprite(player_id, new_sprite_id, {
         id = sprite_id .. "_obj",
         x = draw_x * 2,
@@ -603,12 +578,11 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
         opacity = 255
     })
 
-    -- Store everything in cache
     ui_cache[player_id][sprite_id] = {
         texture_path = texture_path,
         animation_path = animation_path,
         sprite_id = new_sprite_id,
-        x = x,                     -- bounding box top‑left (or sprite top‑left if no box)
+        x = x,
         y = y,
         z = z or 0,
         sx = sx,
@@ -627,7 +601,6 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
         has_children = false,
         children = {},
         animation_data = animation_data,
-        -- new fields
         box_width = box_width,
         box_height = box_height,
         halign = halign,
@@ -637,7 +610,6 @@ function frame.add_ui_element(sprite_id, player_id, texture_path, animation_path
     }
 end
 
--- Purpose: Update any property of a sprite element
 function frame.update_ui_element(sprite_id, player_id, properties)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return
@@ -646,7 +618,6 @@ function frame.update_ui_element(sprite_id, player_id, properties)
     local element = ui_cache[player_id][sprite_id]
     local sprite_data = {id = sprite_id .. "_obj"}
 
-    -- Update element properties first
     for prop, value in pairs(properties) do
         if prop == "x" or prop == "y" or prop == "z" or prop == "sx" or prop == "sy" or
            prop == "ro" or prop == "ox" or prop == "oy" or prop == "opacity" or
@@ -659,7 +630,6 @@ function frame.update_ui_element(sprite_id, player_id, properties)
         end
     end
 
-    -- If animation state changed, reload dimensions
     if properties.animation_state and element.animation_data then
         local new_state = properties.animation_state
         if element.animation_data[new_state] then
@@ -674,10 +644,8 @@ function frame.update_ui_element(sprite_id, player_id, properties)
         end
     end
 
-    -- Compute the actual position if bounding box exists
     local draw_x, draw_y = compute_aligned_position(element)
 
-    -- Build sprite_data with transformed values (multiply x,y by 2)
     if properties.x ~= nil or properties.y ~= nil or properties.sx ~= nil or properties.sy ~= nil or properties.animation_state ~= nil then
         sprite_data.x = draw_x * 2
         sprite_data.y = draw_y * 2
@@ -699,7 +667,6 @@ function frame.update_ui_element(sprite_id, player_id, properties)
     Net.player_draw_sprite(player_id, element.sprite_id, sprite_data)
 end
 
--- Purpose: Change the animation state of existing UI element
 function frame.set_ui_animation(sprite_id, player_id, animation_state)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return
@@ -711,10 +678,8 @@ function frame.set_ui_animation(sprite_id, player_id, animation_state)
         return
     end
 
-    -- Update state
     element.animation_state = animation_state
 
-    -- Refresh intrinsic dimensions from the new state
     local frames = possible_anims[animation_state]
     local max_w, max_h = 0, 0
     for _, frame in ipairs(frames) do
@@ -724,7 +689,6 @@ function frame.set_ui_animation(sprite_id, player_id, animation_state)
     element.sprite_width = max_w
     element.sprite_height = max_h
 
-    -- Compute new position if bounding box is used
     local draw_x, draw_y = compute_aligned_position(element)
 
     Net.player_draw_sprite(player_id, element.sprite_id, {
@@ -735,7 +699,6 @@ function frame.set_ui_animation(sprite_id, player_id, animation_state)
     })
 end
 
--- Purpose: Remove UI element from screen
 function frame.remove_ui_element(sprite_id, player_id)
     frame.stop_ui_animation(sprite_id, player_id)
     Net.player_erase_sprite(player_id, sprite_id .. "_obj")
@@ -745,7 +708,6 @@ function frame.remove_ui_element(sprite_id, player_id)
     end
 end
 
--- Purpose: Get UI element proxy for animation
 function frame.get_ui_element_proxy(sprite_id, player_id)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return nil
@@ -806,10 +768,8 @@ function frame.get_ui_element_proxy(sprite_id, player_id)
 end
 
 -- ===========================================================
--- UI ANIMATION FUNCTIONS (ADDITIONS)
+-- UI ANIMATION FUNCTIONS
 -- ===========================================================
-
--- Purpose: Smoothly slide/move a UI element from current position to target position
 function frame.slide_ui_element(sprite_id, player_id, target_x, target_y, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -820,7 +780,6 @@ function frame.slide_ui_element(sprite_id, player_id, target_x, target_y, durati
     duration = duration or 0.3
     easing = easing or "linear"
     
-    -- Get current position
     local current_x = element.x
     local current_y = element.y
     
@@ -832,7 +791,7 @@ function frame.slide_ui_element(sprite_id, player_id, target_x, target_y, durati
         duration,
         {
             easing = easing,
-            easing_back = easing,  -- For consistency with other functions
+            easing_back = easing,
             on_update = function(values)
                 frame.update_ui_element(sprite_id, player_id, {
                     x = values.x,
@@ -840,21 +799,17 @@ function frame.slide_ui_element(sprite_id, player_id, target_x, target_y, durati
                 })
             end,
             on_complete = function(values, interrupted)
-                -- Ensure final position is set
-                
-                -- Call user callback if provided
                 if on_complete then
                     on_complete(values, interrupted)
                 end
                 
-                -- Clean up animation tracking
                 if element.animations and anim_id then
                     element.animations[anim_id] = nil
                 end
             end,
-            loop = false,        -- One-time animation
-            ping_pong = false,   -- Don't return to start
-            max_cycles = nil     -- No cycling
+            loop = false,
+            ping_pong = false,
+            max_cycles = nil
         }
     )
     
@@ -866,7 +821,6 @@ function frame.slide_ui_element(sprite_id, player_id, target_x, target_y, durati
     return anim_id
 end
 
--- Purpose: Relative version of slide_ui_element (move by offset)
 function frame.relative_slide_ui_element(sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -878,7 +832,6 @@ function frame.relative_slide_ui_element(sprite_id, player_id, offset_x, offset_
     return frame.slide_ui_element(sprite_id, player_id, target_x, target_y, duration, easing, on_complete)
 end
 
--- Purpose: Smoothly slide/move a UI element from specified start to target position
 function frame.set_slide_ui_element(sprite_id, player_id, start_x, start_y, target_x, target_y, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -889,7 +842,6 @@ function frame.set_slide_ui_element(sprite_id, player_id, start_x, start_y, targ
     duration = duration or 0.3
     easing = easing or "ease_in_out"
     
-    -- Set starting position immediately
     frame.update_ui_element(sprite_id, player_id, {x = start_x, y = start_y})
     
     local anim_id = nil
@@ -937,7 +889,6 @@ function frame.set_slide_ui_element(sprite_id, player_id, start_x, start_y, targ
     return anim_id
 end
 
--- Purpose: Smoothly move a UI element relative to its current position
 function frame.move_ui_element(sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -948,18 +899,15 @@ function frame.move_ui_element(sprite_id, player_id, offset_x, offset_y, duratio
     duration = duration or 0.3
     easing = easing or "ease_in_out"
     
-    -- Get current position
     local current_x = element.x or 0
     local current_y = element.y or 0
     
-    -- Calculate target position
     local target_x = current_x + offset_x
     local target_y = current_y + offset_y
     
     return frame.slide_ui_element(sprite_id, player_id, target_x, target_y, duration, easing, on_complete)
 end
 
--- Purpose: Smoothly scale a UI element (consistent with slide pattern)
 function frame.scale_ui_element(sprite_id, player_id, target_scale, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -970,7 +918,6 @@ function frame.scale_ui_element(sprite_id, player_id, target_scale, duration, ea
     duration = duration or 0.3
     easing = easing or "ease_in_out"
     
-    -- Get current scale (use sx as reference)
     local current_scale = element.sx or 2.0
     
     local anim_id = nil
@@ -1018,7 +965,6 @@ function frame.scale_ui_element(sprite_id, player_id, target_scale, duration, ea
     return anim_id
 end
 
--- Purpose: Relative version of scale_ui_element (scale by additive offset)
 function frame.relative_scale_ui_element(sprite_id, player_id, offset_scale, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1029,7 +975,6 @@ function frame.relative_scale_ui_element(sprite_id, player_id, offset_scale, dur
     return frame.scale_ui_element(sprite_id, player_id, target_scale, duration, easing, on_complete)
 end
 
--- Purpose: Smoothly rotate a UI element (consistent with slide pattern)
 function frame.rotate_ui_element(sprite_id, player_id, target_rotation, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1040,7 +985,6 @@ function frame.rotate_ui_element(sprite_id, player_id, target_rotation, duration
     duration = duration or 0.3
     easing = easing or "ease_in_out"
     
-    -- Get current rotation
     local current_rotation = element.ro or 0
     
     local anim_id = nil
@@ -1086,7 +1030,6 @@ function frame.rotate_ui_element(sprite_id, player_id, target_rotation, duration
     return anim_id
 end
 
--- Purpose: Relative version of rotate_ui_element (rotate by offset)
 function frame.relative_rotate_ui_element(sprite_id, player_id, offset_rotation, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1097,7 +1040,6 @@ function frame.relative_rotate_ui_element(sprite_id, player_id, offset_rotation,
     return frame.rotate_ui_element(sprite_id, player_id, target_rotation, duration, easing, on_complete)
 end
 
--- Purpose: Complex animation that combines slide, scale, and rotation
 function frame.transform_ui_element(sprite_id, player_id, properties, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1108,7 +1050,6 @@ function frame.transform_ui_element(sprite_id, player_id, properties, duration, 
     duration = duration or 0.3
     easing = easing or "ease_in_out"
     
-    -- Get current properties
     local current_props = {
         x = element.x,
         y = element.y,
@@ -1118,7 +1059,6 @@ function frame.transform_ui_element(sprite_id, player_id, properties, duration, 
         opacity = element.opacity
     }
     
-    -- Merge with target properties
     local target_props = {}
     for key, value in pairs(current_props) do
         target_props[key] = properties[key] or value
@@ -1170,7 +1110,6 @@ function frame.transform_ui_element(sprite_id, player_id, properties, duration, 
     return anim_id
 end
 
--- Purpose: Relative version of transform_ui_element (add offsets to current properties)
 function frame.relative_transform_ui_element(sprite_id, player_id, offset_properties, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1184,7 +1123,6 @@ function frame.relative_transform_ui_element(sprite_id, player_id, offset_proper
     if offset_properties.sy ~= nil then target_props.sy = (element.sy or 2.0) + offset_properties.sy end
     if offset_properties.ro ~= nil then target_props.ro = (element.ro or 0) + offset_properties.ro end
     if offset_properties.opacity ~= nil then target_props.opacity = (element.opacity or 255) + offset_properties.opacity end
-    -- also allow scale as a shortcut for both sx and sy
     if offset_properties.scale ~= nil then
         target_props.sx = (element.sx or 2.0) + offset_properties.scale
         target_props.sy = (element.sy or 2.0) + offset_properties.scale
@@ -1192,7 +1130,6 @@ function frame.relative_transform_ui_element(sprite_id, player_id, offset_proper
     return frame.transform_ui_element(sprite_id, player_id, target_props, duration, easing, on_complete)
 end
 
--- Purpose: Apply Bob animation to a UI element
 function frame.bob_ui_element(sprite_id, player_id, distance, duration, easing, loop, ping_pong)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1238,7 +1175,6 @@ function frame.bob_ui_element(sprite_id, player_id, distance, duration, easing, 
     return anim_id
 end
 
--- Purpose: Pulse the scale of a UI element
 function frame.pulse_scale_ui_element(sprite_id, player_id, min_scale, max_scale, pulse_duration, easing, loops, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1274,7 +1210,6 @@ function frame.pulse_scale_ui_element(sprite_id, player_id, min_scale, max_scale
     return anim_id
 end
 
--- Purpose: Apply color pulse from current color
 function frame.color_pulse_from_current(sprite_id, player_id, target_color)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1292,7 +1227,6 @@ function frame.color_pulse_from_current(sprite_id, player_id, target_color)
     return frame.color_pulse_ui_element(sprite_id, player_id, current_color, target_color)
 end
 
--- Purpose: Apply summon animation to UI element (flies with arc)
 function frame.summon_ui_element(sprite_id, player_id, start_x, start_y, start_scale, 
                                 end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
@@ -1377,7 +1311,6 @@ function frame.summon_ui_element(sprite_id, player_id, start_x, start_y, start_s
     return anim_id
 end
 
--- Purpose: Apply complex summon animation
 function frame.complex_summon_ui_element(sprite_id, player_id, start_x, start_y, start_scale,
                                         end_x, end_y, end_scale, arc_duration, wobble_duration, settle_duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete, on_update_step1, on_update_step2, on_update_step3)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
@@ -1406,7 +1339,6 @@ function frame.complex_summon_ui_element(sprite_id, player_id, start_x, start_y,
     local control_y = (start_y + end_y) * 0.5 - arc_height
     local sequence_steps = {}
     
-    -- Step 1: Arc movement with scale pulse
     table.insert(sequence_steps, {
         type = "animate",
         duration = arc_duration,
@@ -1434,7 +1366,6 @@ function frame.complex_summon_ui_element(sprite_id, player_id, start_x, start_y,
         end
     })
     
-    -- Step 2: Rotation wobble
     if wobble_deg and wobble_deg > 0 then
         table.insert(sequence_steps, {
             type = "animate",
@@ -1451,7 +1382,6 @@ function frame.complex_summon_ui_element(sprite_id, player_id, start_x, start_y,
         })
     end
     
-    -- Step 3: Final settle
     table.insert(sequence_steps, {
         type = "animate",
         duration = settle_duration,
@@ -1503,7 +1433,6 @@ function frame.complex_summon_ui_element(sprite_id, player_id, start_x, start_y,
     return seq_id
 end
 
--- Purpose: Relative variant of summon_ui_element (uses current position/scale as start)
 function frame.summon_ui_element_relative(sprite_id, player_id, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1513,7 +1442,7 @@ function frame.summon_ui_element_relative(sprite_id, player_id, end_x, end_y, en
     local element = ui_cache[player_id][sprite_id]
     local start_x = element.x
     local start_y = element.y
-    local start_scale = element.sx  -- using sx as reference (assuming uniform scale)
+    local start_scale = element.sx
 
     return frame.summon_ui_element(
         sprite_id, player_id,
@@ -1523,7 +1452,6 @@ function frame.summon_ui_element_relative(sprite_id, player_id, end_x, end_y, en
     )
 end
 
--- Purpose: Relative variant of complex_summon_ui_element (uses current position/scale as start)
 function frame.complex_summon_ui_element_relative(sprite_id, player_id, end_x, end_y, end_scale,
                                                   arc_duration, wobble_duration, settle_duration,
                                                   arc_height, peak_scale_mul, wobble_deg, easing,
@@ -1548,7 +1476,6 @@ function frame.complex_summon_ui_element_relative(sprite_id, player_id, end_x, e
     )
 end
 
--- Purpose: Apply fade animation to UI element
 function frame.set_opacity_ui_element(sprite_id, player_id, target_opacity, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1600,7 +1527,6 @@ function frame.set_opacity_ui_element(sprite_id, player_id, target_opacity, dura
     return anim_id
 end
 
--- Purpose: Relative version of set_opacity_ui_element (change opacity by offset)
 function frame.relative_set_opacity_ui_element(sprite_id, player_id, offset_opacity, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1611,7 +1537,6 @@ function frame.relative_set_opacity_ui_element(sprite_id, player_id, offset_opac
     return frame.set_opacity_ui_element(sprite_id, player_id, target_opacity, duration, easing, on_complete)
 end
 
--- Purpose: Apply tint animation to UI element
 function frame.set_ui_element_color(sprite_id, player_id, r, g, b, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1672,7 +1597,6 @@ function frame.set_ui_element_color(sprite_id, player_id, r, g, b, duration, eas
     return anim_id
 end
 
--- Purpose: Relative version of set_ui_element_color (add offsets to each color component)
 function frame.relative_set_ui_element_color(sprite_id, player_id, offset_r, offset_g, offset_b, duration, easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1685,7 +1609,6 @@ function frame.relative_set_ui_element_color(sprite_id, player_id, offset_r, off
     return frame.set_ui_element_color(sprite_id, player_id, target_r, target_g, target_b, duration, easing, on_complete)
 end
 
--- Purpose: Apply color pulse animation to UI element
 function frame.color_pulse_ui_element(sprite_id, player_id, start_color, target_color)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1726,7 +1649,6 @@ function frame.color_pulse_ui_element(sprite_id, player_id, start_color, target_
         end
     }
     
-    -- Use the sequences submodule for the color pulse
     local anim_id = AnimationEngine.Sequences.color_pulse(proxy, start_color, target_color)
     
     if not element.animations then
@@ -1737,7 +1659,6 @@ function frame.color_pulse_ui_element(sprite_id, player_id, start_color, target_
     return anim_id
 end
 
--- Purpose: Simple color pulse with RGB values
 function frame.color_pulse_rgb(sprite_id, player_id, start_r, start_g, start_b, start_a, 
                                target_r, target_g, target_b, target_a)
     local start_color = {
@@ -1757,7 +1678,6 @@ function frame.color_pulse_rgb(sprite_id, player_id, start_r, start_g, start_b, 
     return frame.color_pulse_ui_element(sprite_id, player_id, start_color, target_color)
 end
 
--- Purpose: Apply menu cursor animation (bob + pulse)
 function frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_scale, bob_duration, pulse_duration, orientation, easing, back_easing, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1779,7 +1699,6 @@ function frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_
     local start_scale = element.sy or 2.0
     local proxy = frame.get_ui_element_proxy(sprite_id, player_id)
     if not proxy then return nil end
-    -- Bob animation (relative to current position)
     local bob_id = AnimationEngine.animate(
         {axis = element[axis]},
         {axis = element[axis] - bob_distance},
@@ -1788,7 +1707,6 @@ function frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_
             easing = easing,
             easing_back = back_easing,
             on_update = function(values)
-                -- Use computed key to update the correct axis
                 frame.update_ui_element(sprite_id, player_id, {[axis] = values.axis})
             end,
             loop = true,
@@ -1796,7 +1714,6 @@ function frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_
         }
     )
     
-    -- Pulse animation (scale)
     local pulse_id = AnimationEngine.animate(
         {scale = 1.0},
         {scale = pulse_scale},
@@ -1835,7 +1752,6 @@ function frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_
     }
 end
 
--- Purpose: Apply shake animation to UI element
 function frame.shake_ui_element(sprite_id, player_id, intensity, duration, frequency, on_complete)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1863,7 +1779,6 @@ function frame.shake_ui_element(sprite_id, player_id, intensity, duration, frequ
     }
     local seq_id = nil
 
-    -- Use the sequences submodule for the shake effect
     seq_id = AnimationEngine.Sequences.shake(shake_object, {
         intensity = intensity,
         duration = duration,
@@ -1891,7 +1806,6 @@ function frame.shake_ui_element(sprite_id, player_id, intensity, duration, frequ
     return seq_id
 end
 
--- Purpose: Apply instant transition (no animation)
 function frame.set_ui_element_instant(sprite_id, player_id, properties)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1909,7 +1823,6 @@ function frame.set_ui_element_instant(sprite_id, player_id, properties)
     frame.update_ui_element(sprite_id, player_id, properties)
 end
 
--- Purpose: Reset UI element to its initial state
 function frame.reset_ui_element(sprite_id, player_id, initial_values)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         print("[games] UI element not found: " .. sprite_id)
@@ -1939,7 +1852,6 @@ function frame.reset_ui_element(sprite_id, player_id, initial_values)
     frame.set_ui_element_instant(sprite_id, player_id, reset_props)
 end
 
--- Purpose: Stop UI element animation
 function frame.stop_ui_animation(sprite_id, player_id, anim_id)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return false
@@ -1969,7 +1881,6 @@ function frame.stop_ui_animation(sprite_id, player_id, anim_id)
     end
 end
 
--- Purpose: Check if a UI element has active animations
 function frame.has_active_animations(sprite_id, player_id)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return false
@@ -1979,7 +1890,6 @@ function frame.has_active_animations(sprite_id, player_id)
     return element.animations and next(element.animations) ~= nil
 end
 
--- Purpose: Check if a specific animation is running on a UI element
 function frame.is_animation_running(sprite_id, player_id, anim_id)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return false
@@ -1989,7 +1899,6 @@ function frame.is_animation_running(sprite_id, player_id, anim_id)
     return element.animations and element.animations[anim_id] == true
 end
 
--- Purpose: Get UI element properties (including bounding box and alignment)
 function frame.get_ui_element_properties(sprite_id, player_id)
     if not ui_cache[player_id] or not ui_cache[player_id][sprite_id] then
         return nil
@@ -2013,7 +1922,6 @@ function frame.get_ui_element_properties(sprite_id, player_id)
         color_mode = element.color_mode,
         animation_state = element.animation_state,
         has_animations = element.animations and next(element.animations) ~= nil,
-        -- new fields
         box_width = element.box_width,
         box_height = element.box_height,
         halign = element.halign,
@@ -2024,17 +1932,13 @@ function frame.get_ui_element_properties(sprite_id, player_id)
 end
 
 -- ===========================================================
--- CURSOR FUNCTIONS (UPDATED FOR UI INTEGRATION)
+-- CURSOR FUNCTIONS
 -- ===========================================================
-
--- Purpose: Spawn a cursor that integrates with UI element system
 function frame.spawn_cursor(sprite_id, player_id, options)
         Net.lock_player_input(player_id)
         
-        -- Get initial selection
         local initial_selection = options.selections[1]
         
-        -- Create cursor as a UI element, passing nil for box dimensions and default alignment
         frame.add_ui_element(sprite_id, player_id, 
             options.texture, 
             options.animation or "", 
@@ -2042,11 +1946,10 @@ function frame.spawn_cursor(sprite_id, player_id, options)
             initial_selection.x, 
             initial_selection.y, 
             initial_selection.z or 0,
-            2, 2,   -- default scale
-            nil, nil, "left", "top"   -- no bounding box, default alignment
+            2, 2,
+            nil, nil, "left", "top"
         )
         
-        -- Store cursor options in UI element's cursor_options
         if ui_cache[player_id] and ui_cache[player_id][sprite_id] then
             local obj_cache = ui_cache[player_id][sprite_id]
             obj_cache.x = obj_cache.x or 0
@@ -2065,9 +1968,7 @@ function frame.spawn_cursor(sprite_id, player_id, options)
         end
 end
 
--- Purpose: Remove a cursor
 function frame.remove_cursor(cursor_id, player_id)
-    -- Check if this is actually a cursor
     if ui_cache[player_id] and ui_cache[player_id][cursor_id] and ui_cache[player_id][cursor_id]["sprite_id"] then
         frame.remove_ui_element(cursor_id, player_id)
         Net.unlock_player_input(player_id)
@@ -2076,7 +1977,6 @@ function frame.remove_cursor(cursor_id, player_id)
     end
 end
 
--- Purpose: Move cursor to specific selection using AnimationEngine
 function frame.move_cursor_to_selection(cursor_id, player_id, selection_name)
     if not ui_cache[player_id] or not ui_cache[player_id][cursor_id] or not ui_cache[player_id][cursor_id]["sprite_id"] then
         return false
@@ -2086,24 +1986,20 @@ function frame.move_cursor_to_selection(cursor_id, player_id, selection_name)
     local cursor_options = cursor_element.cursor_options
     local selections = cursor_options.selections
     
-    -- Find selection by name
     for i, selection in ipairs(selections) do
         if selection.name == selection_name then
             cursor_options.current_index = i
             
-            -- Use AnimationEngine to smoothly move the cursor
             frame.slide_ui_element(cursor_id, player_id, 
                 selection.x, 
                 selection.y, 
-                0.15,  -- duration
-                "ease_out_quad",  -- easing
+                0.15,
+                "ease_out_quad",
                 function()
-                    -- Update animation state after movement completes
                     frame.update_ui_element(cursor_id, player_id, {
                         animation_state = selection.state
                     })
                     
-                    -- Emit hover event
                     Net:emit("cursor_hover", {
                         player_id = player_id,
                         cursor = cursor_id,
@@ -2119,7 +2015,6 @@ function frame.move_cursor_to_selection(cursor_id, player_id, selection_name)
     return false
 end
 
--- Purpose: Get current cursor selection
 function frame.get_current_cursor_selection(cursor_id, player_id)
     if not ui_cache[player_id] or not ui_cache[player_id][cursor_id] or not ui_cache[player_id][cursor_id]["sprite_id"].is_cursor then
         return nil
@@ -2135,7 +2030,6 @@ function frame.get_current_cursor_selection(cursor_id, player_id)
     return nil
 end
 
--- Purpose: Lock cursor movement
 function frame.lock_cursor(cursor_id, player_id, locked)
     if not ui_cache[player_id] or not ui_cache[player_id][cursor_id] or not ui_cache[player_id][cursor_id].is_cursor then
         return false
@@ -2146,7 +2040,6 @@ function frame.lock_cursor(cursor_id, player_id, locked)
     return true
 end
 
--- Purpose: Check if cursor is locked
 function frame.is_cursor_locked(cursor_id, player_id)
     if not ui_cache[player_id] or not ui_cache[player_id][cursor_id] or not ui_cache[player_id][cursor_id].is_cursor then
         return false
@@ -2156,7 +2049,6 @@ function frame.is_cursor_locked(cursor_id, player_id)
     return cursor_options.locked or false
 end
 
--- Purpose: Update cursor options
 function frame.update_cursor_options(cursor_id, player_id, new_options)
     if not ui_cache[player_id] or not ui_cache[player_id][cursor_id] or not ui_cache[player_id][cursor_id].is_cursor then
         return false
@@ -2164,7 +2056,6 @@ function frame.update_cursor_options(cursor_id, player_id, new_options)
     
     local cursor_options = ui_cache[player_id][cursor_id].cursor_options
     
-    -- Merge new options with existing ones
     if new_options.selections then
         cursor_options.selections = new_options.selections
     end
@@ -2184,24 +2075,20 @@ end
 -- ===========================================================
 -- CAMERA FUNCTIONS
 -- ===========================================================
-
 function frame.detach_camera(player_id)
     print("detach_camera() is not yet supported.")
     return 
 end
 
 -- ===========================================================
--- TEXT FUNCTIONS (updated for new Displayer)
+-- TEXT FUNCTIONS
 -- ===========================================================
-
 function frame.draw_text(text_id, player_id, text, x, y, z, font, scale)
-    -- Build options using Builder
     local opts = Displayer.Builder.staticText({
         font = font or "THICK",
         scale = scale or 2.0,
         z = z or 100,
     })
-    -- Store in cache for later updates
     text_cache[player_id] = text_cache[player_id] or {}
     text_cache[player_id][text_id] = {
         x = x, y = y,
@@ -2216,7 +2103,6 @@ end
 function frame.update_text(text_id, player_id, text)
     local cache = text_cache[player_id] and text_cache[player_id][text_id]
     if cache then
-        -- Recreate with same position/style, new text
         Displayer.Text.drawStatic(player_id, text_id, text, cache.x, cache.y, cache.opts)
     else
         print("[games] Cannot update text '"..text_id.."' – not found in cache.")
@@ -2231,13 +2117,11 @@ function frame.remove_text(text_id, player_id)
 end
 
 function frame.draw_advanced_text(player_id, text, opts)
-    -- opts must contain text_id, x, y, etc.
     local text_id = opts.text_id
     if not text_id then
         print("[games] draw_advanced_text requires opts.text_id")
         return
     end
-    -- Store in cache for potential updates (though no update function for advanced)
     text_cache[player_id] = text_cache[player_id] or {}
     text_cache[player_id][text_id] = {
         x = opts.x, y = opts.y,
@@ -2249,16 +2133,14 @@ function frame.draw_advanced_text(player_id, text, opts)
     Displayer.Text.drawStatic(player_id, text_id, text, opts.x, opts.y, opts)
 end
 
--- Marquee functions with caching
 function frame.draw_marquee_text(marquee_id, player_id, text, y, font, scale, z_order, speed, backdrop)
     local opts = {
         font = font or "THICK",
         scale = scale or 2.0,
         z = z_order or 100,
         speed = speed or 60,
-        loops = nil,   -- infinite loop
+        loops = nil,
     }
-    -- Store in cache (x is always 0 initially)
     marquee_cache[player_id] = marquee_cache[player_id] or {}
     marquee_cache[player_id][marquee_id] = {
         text = text,
@@ -2274,7 +2156,6 @@ function frame.set_marquee_position(player_id, marquee_id, x, y)
     if cache then
         cache.x = x
         cache.y = y
-        -- Recreate using draw() with mode="marquee"
         local opts = cache.opts
         Displayer.Text.draw(player_id, marquee_id, cache.text, x, y, {
             mode = "marquee",
@@ -2291,7 +2172,6 @@ function frame.set_marquee_speed(player_id, marquee_id, speed)
     local cache = marquee_cache[player_id] and marquee_cache[player_id][marquee_id]
     if cache then
         cache.opts.speed = speed
-        -- Recreate with new speed
         local opts = cache.opts
         Displayer.Text.draw(player_id, marquee_id, cache.text, cache.x or 0, cache.y, {
             mode = "marquee",
@@ -2305,16 +2185,13 @@ function frame.set_marquee_speed(player_id, marquee_id, speed)
 end
 
 -- ===========================================================
--- TIMER FUNCTIONS (updated for new Displayer)
+-- TIMER FUNCTIONS
 -- ===========================================================
-
 function frame.spawn_timer(timer_id, player_id, x, y, duration, loop)
     loop = loop or false
-    -- Empty callback (matches original)
     local callback = function(_, timer_id, value) end
     Displayer.Timer.createPlayerTimer(player_id, timer_id, duration, callback, loop)
     Displayer.TimerDisplay.createPlayerTimer(player_id, timer_id, x, y, {})
-    -- Store for update
     timer_cache[player_id] = timer_cache[player_id] or {}
     timer_cache[player_id][timer_id] = { callback = callback, loop = loop }
 end
@@ -2338,19 +2215,16 @@ end
 function frame.update_timer(timer_id, player_id, duration)
     local cache = timer_cache[player_id] and timer_cache[player_id][timer_id]
     if cache then
-        -- Remove old timer and create new one with same callback/loop, new duration
         Displayer.Timer.removePlayerTimer(player_id, timer_id)
         Displayer.Timer.createPlayerTimer(player_id, timer_id, duration, cache.callback, cache.loop)
-        -- Display remains; it will update automatically from timer events
     else
         print("[games] Cannot update timer '"..timer_id.."' – not found in cache.")
     end
 end
 
 -- ===========================================================
--- COUNTDOWN FUNCTIONS (updated for new Displayer)
+-- COUNTDOWN FUNCTIONS
 -- ===========================================================
-
 function frame.spawn_countdown(countdown_id, player_id, x, y, duration, loop)
     loop = loop or false
     local callback = function(_, countdown_id, value)
@@ -2385,7 +2259,6 @@ function frame.update_countdown(countdown_id, player_id, duration)
     if cache then
         Displayer.Timer.removePlayerCountdown(player_id, countdown_id)
         Displayer.Timer.createPlayerCountdown(player_id, countdown_id, duration, cache.callback, cache.loop)
-        -- Display remains
     else
         print("[games] Cannot update countdown '"..countdown_id.."' – not found in cache.")
     end
@@ -2394,8 +2267,6 @@ end
 -- ===========================================================
 -- UTILITY FUNCTIONS
 -- ===========================================================
-
--- Purpose: Split a string based on a delimiter
 local function splitter(inputstr, sep)
     if sep == nil then
         sep = '%s'
@@ -2411,9 +2282,8 @@ local function splitter(inputstr, sep)
 end
 
 -- ===========================================================
--- CURSOR INPUT HANDLING (now using virtual_input)
+-- CURSOR INPUT HANDLING
 -- ===========================================================
-
 Net:on("virtual_input", function(event)
     local player_id = event.player_id
     local cursors = ui_cache[player_id]
@@ -2434,7 +2304,6 @@ Net:on("virtual_input", function(event)
                 local name = ev.name
                 local state = ev.state
 
-                -- Movement: only consider press (1) and repeat (4)
                 if state == 1 or state == 4 then
                     local dir = nil
                     if movement == "vertical" then
@@ -2473,11 +2342,9 @@ Net:on("virtual_input", function(event)
                                 button = "auto"
                             })
                         end
-                        -- Break after processing one direction per event? Not needed; direction unlikely to appear twice.
                     end
                 end
 
-                -- Confirm selection: only press (1)
                 if state == 1 then
                     if name == "Confirm" or name == "A" or name == "Interact" or name == "Use Card" then
                         local selection = selections[current_index]
@@ -2501,15 +2368,41 @@ end)
 -- TICK HANDLER
 -- ===========================================================
 Net:on("tick", function(event)
-    -- This tick handler is now empty for cursor input, but can be used for other periodic updates.
-    -- If no other logic, it can be removed.
+    -- Manual loop for owner-visible cosmetic sprites. The engine plays sprite
+    -- animations once (boom v2.0 states hardcode loop=false), so we re-issue
+    -- the draw at the state's total duration: erase invalidates the draw cache,
+    -- then re-draw restarts the animation from frame 0.
+    if next(cosmetic_cache) ~= nil then
+        local dt = tonumber(event and event.delta_time or 0) or 0
+        for player_id, cosmetics in pairs(cosmetic_cache) do
+            for cosmetic_id, data in pairs(cosmetics) do
+                if data.duration and data.duration > 0 and data.sprite_alloc_id then
+                    data.elapsed = (data.elapsed or 0) + dt
+                    if data.elapsed >= data.duration then
+                        Net.player_erase_sprite(player_id, data.sprite_id)
+                        Net.player_draw_sprite(player_id, data.sprite_alloc_id, {
+                            id = data.sprite_id,
+                            x = data.spritex,
+                            y = data.spritey,
+                            z = -110,
+                            sx = data.scale or 2,
+                            sy = data.scale or 2,
+                            ox = 0, oy = 0, ro = 0,
+                            opacity = 255, a = 255,
+                            r = 255, g = 255, b = 255,
+                            anim_state = data.sprite_state or "cosmetic",
+                        })
+                        data.elapsed = 0
+                    end
+                end
+            end
+        end
+    end
 end)
 
 -- ===========================================================
--- EVENT HANDLERS (remaining unchanged)
+-- EVENT HANDLERS
 -- ===========================================================
-
--- Cursor movement logic (handles the actual UI update)
 Net:on("cursor_move", function(event)
     local player_id = event.player_id
     local cursor_found = false
@@ -2549,19 +2442,14 @@ Net:on("cursor_move", function(event)
     end
 end)
 
--- Player join event
 Net:on("player_join", function(event)
     table.insert(online_players, event.player_id)
     
-    -- Reset all caches on join
     ui_cache[event.player_id] = {}
     avatar_cache[event.player_id] = {}
     
-    -- Ensure input controller exists (the InputSystem already does this, but safe)
     InputSystem.create_controller(event.player_id)
     
-    -- Each cosmetic owner sees their own native sprite, never their world bot.
-    -- Other players see the bot unless that cosmetic is marked private.
     for owner_id, cosmetics in pairs(cosmetic_cache) do
         for cosmetic_id, cosmetic_data in pairs(cosmetics) do
             local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. owner_id)
@@ -2572,9 +2460,7 @@ Net:on("player_join", function(event)
     end
 end)
 
--- Player disconnect event
 Net:on("player_disconnect", function(event)
-    -- Clear all caches on disconnect
     avatar_cache[event.player_id] = nil
     ui_cache[event.player_id] = nil
     ui_update[event.player_id] = nil
@@ -2582,12 +2468,10 @@ Net:on("player_disconnect", function(event)
     marquee_cache[event.player_id] = nil
     timer_cache[event.player_id] = nil
     countdown_cache[event.player_id] = nil
-    repeat_state[event.player_id] = nil   -- clean up repeat state
+    repeat_state[event.player_id] = nil
     
-    -- Clean up any active animations for this player
     AnimationEngine.clear_all()
     
-    -- Remove bots
     if Net.is_bot(event.player_id .. "-double") then
         Net.remove_bot(event.player_id .. "-double", false)
     end
@@ -2596,7 +2480,6 @@ Net:on("player_disconnect", function(event)
         Net.remove_bot(event.player_id .. "-camera", false)
     end
     
-    -- Remove from online players
     for i, player in ipairs(online_players) do
         if player == event.player_id then
             table.remove(online_players, i)
@@ -2604,8 +2487,6 @@ Net:on("player_disconnect", function(event)
         end
     end
     
-    -- Remove cosmetics owned by the disconnecting player, including the
-    -- owner-only screen sprites as well as their world bots.
     if cosmetic_cache[event.player_id] then
         for cosmetic_id, cosmetic_data in pairs(cosmetic_cache[event.player_id]) do
             local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. event.player_id)
@@ -2619,11 +2500,9 @@ Net:on("player_disconnect", function(event)
         cosmetic_cache[event.player_id] = nil
     end
 
-    -- Destroy input controller
     InputSystem.destroy_controller(event.player_id)
 end)
 
--- Player move event
 Net:on("player_move", function(event)
     local cosmetics = cosmetic_cache[event.player_id]
     if not cosmetics then return end
@@ -2671,22 +2550,17 @@ Net:on("player_move", function(event)
     end
 end)
 
--- Player area transfer event
 Net:on("player_area_transfer", function(event)
-    -- Update cache position
     if not last_position_cache[event.player_id] then
         last_position_cache[event.player_id] = {}
     end
     
     last_position_cache[event.player_id]["area"] = Net.get_player_area(event.player_id)
     
-    -- Transfer cosmetics
     if cosmetic_cache[event.player_id] then
         for cosmetic_id, cosmetic_data in pairs(cosmetic_cache[event.player_id]) do
             local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. event.player_id)
             Net.transfer_bot(bot_id, last_position_cache[event.player_id]["area"], false)
-            -- Area transfers may rebuild actor visibility; reassert the owner
-            -- exclusion so the owner continues to see only their sprite.
             pcall(Net.exclude_actor_for_player, event.player_id, bot_id)
         end
     end

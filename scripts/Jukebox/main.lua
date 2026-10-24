@@ -197,8 +197,8 @@ local MARQUEE_H = 20    -- 112 - 93
 local MARQUEE_SPEED = 60  -- pixels per second
 
 -- Cursors: fixed at the viewport's left/right edges.
-local CURSOR_TEXTURE   = "/server/assets/net-games/text_cursor.png"
-local CURSOR_ANIMATION = "/server/assets/net-games/text_cursor.animation"
+local CURSOR_TEXTURE   = "/server/assets/net-games/cursors/text_cursor.png"
+local CURSOR_ANIMATION = "/server/assets/net-games/cursors/text_cursor.animation"
 local CURSOR_SCALE = 2.0
 local CURSOR_WIDTH = 16   -- 8x8 base at scale 2
 local CURSOR_GAP = 4

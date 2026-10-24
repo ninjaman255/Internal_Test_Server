@@ -594,6 +594,8 @@
     <property name="Button Combo 2" type="object" value="181"/>
     <property name="Button Combo 3" type="object" value="182"/>
     <property name="Button Combo 4" type="object" value="183"/>
+    <property name="Cinematic Duration" value="2"/>
+    <property name="Cinematic Unlock" type="bool" value="true"/>
     <property name="Combo Mode" value="Exclusive"/>
     <property name="Group ID" value="Combo Group Test"/>
    </properties>
@@ -715,8 +717,8 @@
   </object>
   <object id="200" type="Waypoint" x="848" y="592">
    <properties>
+    <property name="Move Direction" propertytype="Direction" value="Up Right"/>
     <property name="Next Waypoint 1" type="object" value="201"/>
-    <property name="Wait Animation" value="IDLE_DL"/>
     <property name="Wait Loop" type="bool" value="true"/>
     <property name="Wait Time" value="5"/>
    </properties>
@@ -760,6 +762,7 @@
   <object id="207" type="Waypoint" x="848" y="688">
    <properties>
     <property name="Direction" value="Up Right"/>
+    <property name="Move Direction" propertytype="Direction" value="Up Right"/>
     <property name="Next Waypoint 1" type="object" value="199"/>
    </properties>
    <point/>

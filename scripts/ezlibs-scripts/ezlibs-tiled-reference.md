@@ -653,7 +653,7 @@ Visual and animation configuration for an OW Button.
 
 ### OW Button
 **Category:** gameplay
-A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.
+A pressable button. Unlocks checkpoints through a referenced Unlock Behavior. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
@@ -663,6 +663,9 @@ A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.
 | `Button Activated Behavior` | object |  | `""` | gameplay | Optional reference to an Unlock Behavior object that defines which checkpoint this button unlocks. |
 | `Button Behavior` | string (ButtonBehavior) |  | `One-Time` | gameplay | How the button reacts to player presence:<br>• Pressure Plate — active while anyone stands on it.<br>• One-Time — activates once and stays active.<br>• Toggle — flips active/inactive each press.<br>• Custom — runs a map-specific Lua script.<br>• Timed — activates, then auto-deactivates after Activated Time. |
 | `Button Deactivated Behavior` | object |  | `""` | gameplay | Optional reference to a Relock Behavior object that defines which checkpoint this button re-locks when it deactivates. |
+| `Cinematic Duration` | number |  | 1 | gameplay | Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3. |
+| `Cinematic Unlock` | bool |  | false | gameplay | If true, player-triggered unlocks lock input, smoothly pan the player's camera to the checkpoint, hold for the unlock animation, then snap the camera back to the player and release input. Requires Button Activated Behavior to reference a valid Unlock Behavior. Bot-triggered activations skip the cinematic unless `Cinematic on Bot Trigger` is also true. |
+| `Cinematic on Bot Trigger` | bool |  | false | gameplay | If true, bot (NPC) activations also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot activations while still performing the unlock normally. Note: only meaningful when the referenced Unlock Behavior has `Area Wide = true`; a bot triggering a non-area-wide button cannot target a specific player's checkpoint state, so there is nothing for the cinematic to reveal. |
 | `Next 1` | object |  | `""` | gameplay |  |
 | `Script Path` | file |  | `""` | gameplay | Lua module path providing on_enter / on_exit handlers. |
 | `Trigger Height` | number |  | 4 | gameplay | Trigger rectangle height in map tiles. |
@@ -677,6 +680,9 @@ A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.
 
 - `Activated Time`: Only used when Button Behavior == 'Timed'. Only meaningful when `Button Behavior` == `Timed`.
 - `Bots Can Trigger`: Ignored when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` in {`Pressure Plate`, `One-Time`, `Toggle`, `Timed`}.
+- `Cinematic Duration`: Only used when Cinematic Unlock is true. Only meaningful when `Cinematic Unlock` is set.
+- `Cinematic Unlock`: Only affects player-triggered unlocks. Ignored when Button Activated Behavior is empty or refers to a missing object. Only meaningful when `Button Activated Behavior` is set.
+- `Cinematic on Bot Trigger`: Only used when Cinematic Unlock is true. Only meaningful when `Cinematic Unlock` is set.
 - `Script Path`: Only used when Button Behavior == 'Custom'. Only meaningful when `Button Behavior` == `Custom`.
 - `Trigger Height`: Only used when Trigger Object is empty.
 - `Trigger Type`: Only used when Trigger Object is empty.
@@ -736,11 +742,14 @@ Optional standalone trigger rectangle referenced by an OW Button.
 
 ### Button Group
 **Category:** gameplay
-Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks.
+Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
 | `Button 1` | object | yes | `""` | gameplay | Reference to a required OW Button Group Member. Add Button 2..N as needed in Tiled. |
+| `Cinematic Duration` | number |  | 1 | gameplay | Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3. |
+| `Cinematic Unlock` | bool |  | false | gameplay | If true, player-triggered unlocks lock input, smoothly pan the player's camera to the first Unlock Checkpoint, hold for the unlock animation, then snap the camera back to the player and release input. Requires at least one Unlock Checkpoint. Bot-triggered transitions skip the cinematic unless `Cinematic on Bot Trigger` is also true. |
+| `Cinematic on Bot Trigger` | bool |  | false | gameplay | If true, bot (NPC) transitions to the satisfied state also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot triggers while still performing the unlock normally (via the group's `Unlock Area Wide` setting, or via area-wide fallback when no live contributor is present). |
 | `Forbidden Button 1` | object |  | `""` | gameplay | Reference to a member that must be inactive for the group to satisfy. |
 | `Group ID` | string |  | `""` | gameplay | Optional stable identifier. Falls back to the object's Tiled ID. |
 | `Group Mode` | string (ButtonGroupMode) |  | `all_active` | gameplay | How members combine:<br>• all_active — every referenced Button is active.<br>• any_active — at least one is active.<br>• combination — every Button is active AND every Forbidden Button is inactive. |
@@ -754,6 +763,9 @@ Group of OW Button Group Members that share a satisfaction rule; owns its own ch
 
 **Conditional properties**
 
+- `Cinematic Duration`: Only used when Cinematic Unlock is true. Only meaningful when `Cinematic Unlock` is set.
+- `Cinematic Unlock`: Only affects player-triggered unlocks on the satisfied transition. Not used on the relock (incomplete) path. Only meaningful when `Unlock Checkpoint 1` is set.
+- `Cinematic on Bot Trigger`: Only used when Cinematic Unlock is true. Only meaningful when `Cinematic Unlock` is set.
 - `Forbidden Button 1`: Only meaningful when Group Mode == 'combination'. Only meaningful when `Group Mode` == `combination`.
 - `Relock Checkpoint 1`: Only meaningful when at least one Unlock Checkpoint is configured.
 
@@ -779,15 +791,24 @@ One specific button pattern; owns its own checkpoint unlocks.
 
 ### Combo Button Group
 **Category:** gameplay
-A set of Button Combos; satisfying any one fires that combo's actions.
+A set of Button Combos; satisfying any one fires that combo's actions. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.
 
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
 | `Button Combo 1` | object | yes | `""` | gameplay | Reference to a Button Combo. Add Button Combo 2..N as needed — satisfying ANY one fires its actions. |
+| `Cinematic Duration` | number |  | 1 | gameplay | Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3. |
+| `Cinematic Unlock` | bool |  | false | gameplay | If true, player-triggered unlocks across any of this group's combos lock input, smoothly pan the player's camera to the first checkpoint in the matching combo, hold for the unlock animation, then snap the camera back and release input. Applies to every combo the group manages. Bot-triggered transitions skip the cinematic unless `Cinematic on Bot Trigger` is also true. |
+| `Cinematic on Bot Trigger` | bool |  | false | gameplay | If true, bot (NPC) transitions to the satisfied state also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot triggers while still performing the unlock normally. |
 | `Combo Mode` | string (ButtonComboMode) |  | `Inclusive` | gameplay | How each referenced combo's button matches are evaluated:<br>• Inclusive — required buttons active and forbidden inactive; other group-members may be active too.<br>• Exclusive — same, but no other group-member button may be active. |
 | `Group ID` | string |  | `""` | gameplay | Optional stable identifier. Falls back to the object's Tiled ID. |
 
 **Template properties:** `Button Combo N` — add additional numbered instances manually in Tiled.
+
+**Conditional properties**
+
+- `Cinematic Duration`: Only used when Cinematic Unlock is true. Only meaningful when `Cinematic Unlock` is set.
+- `Cinematic Unlock`: Only affects player-triggered unlocks on the satisfied transition. Only meaningful when `Button Combo 1` is set.
+- `Cinematic on Bot Trigger`: Only used when Cinematic Unlock is true. Only meaningful when `Cinematic Unlock` is set.
 
 ### Button Effect
 **Category:** gameplay

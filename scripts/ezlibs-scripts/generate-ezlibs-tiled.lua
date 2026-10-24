@@ -12,14 +12,6 @@
 --                                 conditional-properties section per class.
 --
 -- Run with: lua generate-ezlibs-tiled.lua [output_path_for_types_json]
---
--- Where each file goes:
---   * types.json       — wherever output_path points (default: cwd).
---   * schema.lua       — next to this generator script. The runtime
---                        requires it from the fixed module path
---                        scripts.ezlibs-scripts.ezlibs-tiled-schema, so its
---                        location is effectively fixed by convention.
---   * reference.md     — same as schema.lua.
 
 local json = require('scripts/ezlibs-scripts/json')
 
@@ -532,6 +524,9 @@ local object_types = {
             prop("Trigger Height", "number", 4),
             prop("Activated Time", "number", 1),
             prop("Bots Can Trigger", "bool", false),
+            prop("Cinematic Unlock", "bool", false),
+            prop("Cinematic Duration", "number", 1.0),
+            prop("Cinematic on Bot Trigger", "bool", false),
         }
     },
     {
@@ -586,6 +581,9 @@ local object_types = {
             prop("Unlock Area Wide", "bool", false),
             prop("Relock Checkpoint 1", "object", ""),
             prop("Relock Area Wide", "bool", false),
+            prop("Cinematic Unlock", "bool", false),
+            prop("Cinematic Duration", "number", 1.0),
+            prop("Cinematic on Bot Trigger", "bool", false),
         }
     },
     {
@@ -607,7 +605,10 @@ local object_types = {
         members = {
             prop("Group ID", "string", ""),
             prop("Combo Mode", "string", "Inclusive", "ButtonComboMode"),
-            prop("Button Combo 1", "object", "")
+            prop("Button Combo 1", "object", ""),
+            prop("Cinematic Unlock", "bool", false),
+            prop("Cinematic Duration", "number", 1.0),
+            prop("Cinematic on Bot Trigger", "bool", false),
         }
     },
     {
@@ -704,8 +705,7 @@ local object_types = {
 }
 
 -- ----------------------------------------------------------------------
--- META — additive metadata (never emitted into types.json; drives schema.lua,
--- reference.md, and runtime validation).
+-- META
 -- ----------------------------------------------------------------------
 local META = {
     classes = {
@@ -738,7 +738,7 @@ local META = {
         ["Button Bot Details"] = { category = "appearance",
             description = "Visual and animation configuration for an OW Button." },
         ["OW Button"] = { category = "gameplay",
-            description = "A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.",
+            description = "A pressable button. Unlocks checkpoints through a referenced Unlock Behavior. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.",
             numberedTemplates = { "Next " } },
         ["OW Button Group Member"] = { category = "gameplay",
             description = "Button that participates in a Button Group or Button Combo but never unlocks checkpoints on its own." },
@@ -749,7 +749,7 @@ local META = {
         ["Button Trigger"] = { category = "gameplay",
             description = "Optional standalone trigger rectangle referenced by an OW Button." },
         ["Button Group"] = { category = "gameplay",
-            description = "Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks.",
+            description = "Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.",
             numberedTemplates = { "Button ", "Forbidden Button ",
                                   "Unlock Checkpoint ", "Relock Checkpoint " } },
         ["Button Combo"] = { category = "gameplay",
@@ -757,7 +757,7 @@ local META = {
             numberedTemplates = { "Button ", "Forbidden Button ",
                                   "Unlock Checkpoint ", "Relock Checkpoint " } },
         ["Combo Button Group"] = { category = "gameplay",
-            description = "A set of Button Combos; satisfying any one fires that combo's actions.",
+            description = "A set of Button Combos; satisfying any one fires that combo's actions. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.",
             numberedTemplates = { "Button Combo " } },
         ["Button Effect"] = { category = "gameplay",
             description = "One button's state transition drives another button's action." },
@@ -1134,6 +1134,18 @@ local META = {
                 conditional = "Ignored when Button Behavior == 'Custom'.",
                 dependsOn = { property = "Button Behavior",
                               oneOf = { "Pressure Plate", "One-Time", "Toggle", "Timed" } } },
+            ["Cinematic Unlock"] = { category = "gameplay",
+                description = "If true, player-triggered unlocks lock input, smoothly pan the player's camera to the checkpoint, hold for the unlock animation, then snap the camera back to the player and release input. Requires Button Activated Behavior to reference a valid Unlock Behavior. Bot-triggered activations skip the cinematic unless `Cinematic on Bot Trigger` is also true.",
+                conditional = "Only affects player-triggered unlocks. Ignored when Button Activated Behavior is empty or refers to a missing object.",
+                dependsOn = { property = "Button Activated Behavior" } },
+            ["Cinematic Duration"] = { category = "gameplay",
+                description = "Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3.",
+                conditional = "Only used when Cinematic Unlock is true.",
+                dependsOn = { property = "Cinematic Unlock" } },
+            ["Cinematic on Bot Trigger"] = { category = "gameplay",
+                description = "If true, bot (NPC) activations also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot activations while still performing the unlock normally. Note: only meaningful when the referenced Unlock Behavior has `Area Wide = true`; a bot triggering a non-area-wide button cannot target a specific player's checkpoint state, so there is nothing for the cinematic to reveal.",
+                conditional = "Only used when Cinematic Unlock is true.",
+                dependsOn = { property = "Cinematic Unlock" } },
         },
         ["OW Button Group Member"] = {
             ["Bot Details"] = { category = "appearance",
@@ -1211,6 +1223,18 @@ local META = {
                 conditional = "Only meaningful when at least one Unlock Checkpoint is configured." },
             ["Relock Area Wide"] = { category = "gameplay",
                 description = "If true, relock applies to every player in the area." },
+            ["Cinematic Unlock"] = { category = "gameplay",
+                description = "If true, player-triggered unlocks lock input, smoothly pan the player's camera to the first Unlock Checkpoint, hold for the unlock animation, then snap the camera back to the player and release input. Requires at least one Unlock Checkpoint. Bot-triggered transitions skip the cinematic unless `Cinematic on Bot Trigger` is also true.",
+                conditional = "Only affects player-triggered unlocks on the satisfied transition. Not used on the relock (incomplete) path.",
+                dependsOn = { property = "Unlock Checkpoint 1" } },
+            ["Cinematic Duration"] = { category = "gameplay",
+                description = "Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3.",
+                conditional = "Only used when Cinematic Unlock is true.",
+                dependsOn = { property = "Cinematic Unlock" } },
+            ["Cinematic on Bot Trigger"] = { category = "gameplay",
+                description = "If true, bot (NPC) transitions to the satisfied state also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot triggers while still performing the unlock normally (via the group's `Unlock Area Wide` setting, or via area-wide fallback when no live contributor is present).",
+                conditional = "Only used when Cinematic Unlock is true.",
+                dependsOn = { property = "Cinematic Unlock" } },
         },
         ["Button Combo"] = {
             ["Button 1"] = { category = "gameplay",
@@ -1240,6 +1264,18 @@ local META = {
             ["Button Combo 1"] = { category = "gameplay",
                 description = "Reference to a Button Combo. Add Button Combo 2..N as needed — satisfying ANY one fires its actions.",
                 required = true },
+            ["Cinematic Unlock"] = { category = "gameplay",
+                description = "If true, player-triggered unlocks across any of this group's combos lock input, smoothly pan the player's camera to the first checkpoint in the matching combo, hold for the unlock animation, then snap the camera back and release input. Applies to every combo the group manages. Bot-triggered transitions skip the cinematic unless `Cinematic on Bot Trigger` is also true.",
+                conditional = "Only affects player-triggered unlocks on the satisfied transition.",
+                dependsOn = { property = "Button Combo 1" } },
+            ["Cinematic Duration"] = { category = "gameplay",
+                description = "Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3.",
+                conditional = "Only used when Cinematic Unlock is true.",
+                dependsOn = { property = "Cinematic Unlock" } },
+            ["Cinematic on Bot Trigger"] = { category = "gameplay",
+                description = "If true, bot (NPC) transitions to the satisfied state also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot triggers while still performing the unlock normally.",
+                conditional = "Only used when Cinematic Unlock is true.",
+                dependsOn = { property = "Cinematic Unlock" } },
         },
         ["Button Effect"] = {
             ["Source Button"] = { category = "gameplay",
@@ -1793,18 +1829,6 @@ end
 
 -- ----------------------------------------------------------------------
 -- Directory helpers
---
--- dirname("") returns "", so callers that pass a bare filename end up
--- writing to the process's current directory. That was the source of the
--- "schema in scripts/" bug: running the generator from scripts/ with a
--- bare filename placed the schema there instead of next to the generator.
---
--- script_dirname returns the directory of the running script with a
--- trailing separator, or "./" when there is no directory component (e.g.
--- `lua generate-ezlibs-tiled.lua` from inside ezlibs-scripts/). It only
--- treats the caller as "the generator" when arg[0] actually points at this
--- file, so programmatic `require("...generate-ezlibs-tiled").generate(...)`
--- from a host script doesn't accidentally write into the host's directory.
 -- ----------------------------------------------------------------------
 local function dirname(p)
     return p:match("^(.*[/\\])") or ""
@@ -1817,7 +1841,6 @@ local function script_dirname()
              or a:find("generate_tiled_types_json.lua")) then
         local d = a:match("^(.*[/\\])")
         if d and d ~= "" then return d end
-        -- Running from within ezlibs-scripts/ with no path prefix.
         return "./"
     end
     return nil
@@ -1836,7 +1859,6 @@ local function main(output_path, pretty)
         error("aborting due to schema errors")
     end
 
-    -- types.json: Tiled-facing artifact, goes wherever the caller asked.
     local types = build_tiled_types()
     do
         local f, err = io.open(output_path, "w")
@@ -1848,10 +1870,6 @@ local function main(output_path, pretty)
         print("Generated Tiled types: " .. output_path)
     end
 
-    -- schema.lua and reference.md: prefer the generator's own directory so
-    -- they always land next to the runtime's fixed require path
-    -- (scripts.ezlibs-scripts.ezlibs-tiled-schema). Fall back to the JSON's
-    -- directory when invoked programmatically (arg[0] is not this script).
     local json_dir = dirname(output_path)
     if json_dir == "" then json_dir = "./" end
     local script_dir = script_dirname() or json_dir

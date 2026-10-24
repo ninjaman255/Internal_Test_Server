@@ -168,7 +168,18 @@ end
 -- Live effects (input lock, sound, animation bot, input unlock) run only when
 -- the player is confirmed connected, and every Net call is pcall-guarded so a
 -- mid-await disconnect cannot crash the coroutine.
-function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, unlocking_asset_name, unlocking_sound_path, unlocking_animation_time, once)
+--
+-- `opts` (optional) may contain:
+--   * lock_input (boolean, default true) — when false, the player's input is
+--     neither locked nor unlocked around the unlocking animation. Use this
+--     when a bot / group effect / script is the initiator and the player is
+--     only a viewer: sound and the world animation bot still play so the
+--     player sees the checkpoint change, but their movement / battle is not
+--     interrupted for an action they did not take.
+function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, unlocking_asset_name, unlocking_sound_path, unlocking_animation_time, once, opts)
+    opts = opts or {}
+    local should_lock_input = opts.lock_input ~= false
+
     return async(function ()
         local object = Net.get_object_by_id(area_id, object_id)
         if not object then
@@ -184,36 +195,54 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
 
         -- Live effects: only if the player is still connected.
         if is_player_alive(player_id) then
-            safe_net(Net.lock_player_input, player_id)
-            safe_net(Net.play_sound_for_player, player_id, unlocking_sound_path)
+            -- When input locking is enabled (default, player-triggered), the
+            -- original behavior is preserved: skip the entire live-effects
+            -- block if the player's input is already locked (e.g. mid-cutscene
+            -- or another minigame) so we don't hijack an in-progress sequence.
+            --
+            -- When input locking is disabled (bot-triggered), we still want to
+            -- play the sound and animation, because those are visible to the
+            -- player. We just don't touch their input.
+            local input_already_locked = false
+            if should_lock_input then
+                local ok, locked = pcall(Net.is_player_input_locked, player_id)
+                input_already_locked = ok and locked
+            end
 
-            if unlocking_animation_time > 0 then
-                local new_bot_props = {
-                    x = object.x,
-                    y = object.y,
-                    z = object.z,
-                    texture_path = "/server/assets/ezlibs-assets/ezcheckpoints/" .. unlocking_asset_name .. ".png",
-                    animation_path = "/server/assets/ezlibs-assets/ezcheckpoints/" .. unlocking_asset_name .. ".animation",
-                    animation = "UNLOCKING",
-                    warp_in = false,
-                    area_id = area_id
-                }
-                safe_net(Net.provide_asset, area_id, new_bot_props.texture_path)
-
-                local bot_id = Net.create_bot(new_bot_props)
-                await(Async.sleep(unlocking_animation_time))
-
-                -- Player may have disconnected during the animation; the
-                -- remaining live Net calls must be re-checked.
-                if bot_id then
-                    safe_net(Net.remove_bot, bot_id, false)
+            if (not should_lock_input) or (not input_already_locked) then
+                if should_lock_input then
+                    safe_net(Net.lock_player_input, player_id)
                 end
-                if is_player_alive(player_id) then
-                    safe_net(Net.unlock_player_input, player_id)
-                end
-            else
-                if is_player_alive(player_id) then
-                    safe_net(Net.unlock_player_input, player_id)
+                safe_net(Net.play_sound_for_player, player_id, unlocking_sound_path)
+
+                if unlocking_animation_time > 0 then
+                    local new_bot_props = {
+                        x = object.x,
+                        y = object.y,
+                        z = object.z,
+                        texture_path = "/server/assets/ezlibs-assets/ezcheckpoints/" .. unlocking_asset_name .. ".png",
+                        animation_path = "/server/assets/ezlibs-assets/ezcheckpoints/" .. unlocking_asset_name .. ".animation",
+                        animation = "UNLOCKING",
+                        warp_in = false,
+                        area_id = area_id
+                    }
+                    safe_net(Net.provide_asset, area_id, new_bot_props.texture_path)
+
+                    local bot_id = Net.create_bot(new_bot_props)
+                    await(Async.sleep(unlocking_animation_time))
+
+                    -- Player may have disconnected during the animation; the
+                    -- remaining live Net calls must be re-checked.
+                    if bot_id then
+                        safe_net(Net.remove_bot, bot_id, false)
+                    end
+                    if should_lock_input and is_player_alive(player_id) then
+                        safe_net(Net.unlock_player_input, player_id)
+                    end
+                else
+                    if should_lock_input and is_player_alive(player_id) then
+                        safe_net(Net.unlock_player_input, player_id)
+                    end
                 end
             end
         end
@@ -227,8 +256,11 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
     end)
 end
 
--- Public shortcut to force-unlock a checkpoint using its own properties
-function ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, once)
+-- Public shortcut to force-unlock a checkpoint using its own properties.
+--
+-- `opts` is forwarded verbatim to unlock_checkpoint_for_player. Bot-driven
+-- callers should pass { lock_input = false }.
+function ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, once, opts)
     local obj = Net.get_object_by_id(area_id, object_id)
     if not obj or obj.type ~= "Checkpoint" then
         logger:for_area(area_id):warn("[ezcheckpoints] force_unlock_checkpoint: object not found or not a checkpoint")
@@ -238,7 +270,7 @@ function ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, on
     local asset = tu.get_string_from(props, "Unlocking Asset Name", "bn5cubegreen_bot")
     local sound = tu.get_string_from(props, "Unlocking Sound Path", "/server/assets/ezlibs-assets/sfx/panel_change.ogg")
     local anim_time = tu.get_number_from(props, "Unlocking Animation Time", 0)
-    return ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, asset, sound, anim_time, once)
+    return ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, asset, sound, anim_time, once, opts)
 end
 
 -- Re-lock a checkpoint for a player.
@@ -247,6 +279,9 @@ end
 -- cleared). The live object include runs only when the player is confirmed
 -- connected and still in the checkpoint's area. All memory/Net access is
 -- guarded so callers wrapping this in pcall isn't required for safety.
+--
+-- Note: relock does not lock player input in either path, so no opt-out flag
+-- is needed here.
 function ezcheckpoints.relock_checkpoint(player_id, area_id, object_id)
     if player_id == nil then return false end
 
@@ -468,6 +503,8 @@ Net:on("object_interaction", function(event)
         end
 
         if unlocked then
+            -- Player-triggered path: default opts, so input is locked around
+            -- the unlocking animation as before.
             await(ezcheckpoints.unlock_checkpoint_for_player(
                 player_id,
                 area_id,

@@ -1804,7 +1804,7 @@ return {
     ["OW Button"] = {
       color = "#66ccff",
       category    = "gameplay",
-      description = "A pressable button. Unlocks checkpoints through a referenced Unlock Behavior.",
+      description = "A pressable button. Unlocks checkpoints through a referenced Unlock Behavior. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.",
       members = {
         {
           ["category"] = "appearance",
@@ -1919,6 +1919,39 @@ return {
           },
           ["description"] = "If true, NPCs (bots) entering or leaving this button's trigger also affect its state, using the same Pressure Plate / One-Time / Toggle / Timed rules as players. Ignored for Custom behavior.",
           ["name"] = "Bots Can Trigger",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only affects player-triggered unlocks. Ignored when Button Activated Behavior is empty or refers to a missing object.",
+          ["dependsOn"] = {
+            ["property"] = "Button Activated Behavior"
+          },
+          ["description"] = "If true, player-triggered unlocks lock input, smoothly pan the player's camera to the checkpoint, hold for the unlock animation, then snap the camera back to the player and release input. Requires Button Activated Behavior to reference a valid Unlock Behavior. Bot-triggered activations skip the cinematic unless `Cinematic on Bot Trigger` is also true.",
+          ["name"] = "Cinematic Unlock",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Cinematic Unlock is true.",
+          ["dependsOn"] = {
+            ["property"] = "Cinematic Unlock"
+          },
+          ["description"] = "Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3.",
+          ["name"] = "Cinematic Duration",
+          ["type"] = "number",
+          ["value"] = 1
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Cinematic Unlock is true.",
+          ["dependsOn"] = {
+            ["property"] = "Cinematic Unlock"
+          },
+          ["description"] = "If true, bot (NPC) activations also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot activations while still performing the unlock normally. Note: only meaningful when the referenced Unlock Behavior has `Area Wide = true`; a bot triggering a non-area-wide button cannot target a specific player's checkpoint state, so there is nothing for the cinematic to reveal.",
+          ["name"] = "Cinematic on Bot Trigger",
           ["type"] = "bool",
           ["value"] = false
         },
@@ -2083,7 +2116,7 @@ return {
     ["Button Group"] = {
       color = "#66dd99",
       category    = "gameplay",
-      description = "Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks.",
+      description = "Group of OW Button Group Members that share a satisfaction rule; owns its own checkpoint unlocks. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.",
       members = {
         {
           ["category"] = "gameplay",
@@ -2159,6 +2192,39 @@ return {
           ["type"] = "bool",
           ["value"] = false
         },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only affects player-triggered unlocks on the satisfied transition. Not used on the relock (incomplete) path.",
+          ["dependsOn"] = {
+            ["property"] = "Unlock Checkpoint 1"
+          },
+          ["description"] = "If true, player-triggered unlocks lock input, smoothly pan the player's camera to the first Unlock Checkpoint, hold for the unlock animation, then snap the camera back to the player and release input. Requires at least one Unlock Checkpoint. Bot-triggered transitions skip the cinematic unless `Cinematic on Bot Trigger` is also true.",
+          ["name"] = "Cinematic Unlock",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Cinematic Unlock is true.",
+          ["dependsOn"] = {
+            ["property"] = "Cinematic Unlock"
+          },
+          ["description"] = "Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3.",
+          ["name"] = "Cinematic Duration",
+          ["type"] = "number",
+          ["value"] = 1
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Cinematic Unlock is true.",
+          ["dependsOn"] = {
+            ["property"] = "Cinematic Unlock"
+          },
+          ["description"] = "If true, bot (NPC) transitions to the satisfied state also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot triggers while still performing the unlock normally (via the group's `Unlock Area Wide` setting, or via area-wide fallback when no live contributor is present).",
+          ["name"] = "Cinematic on Bot Trigger",
+          ["type"] = "bool",
+          ["value"] = false
+        },
       },
     },
     ["Button Combo"] = {
@@ -2222,7 +2288,7 @@ return {
     ["Combo Button Group"] = {
       color = "#44bb88",
       category    = "gameplay",
-      description = "A set of Button Combos; satisfying any one fires that combo's actions.",
+      description = "A set of Button Combos; satisfying any one fires that combo's actions. Optionally plays a cinematic camera pan on player-triggered unlocks via `Cinematic Unlock`.",
       members = {
         {
           ["category"] = "gameplay",
@@ -2248,6 +2314,39 @@ return {
           ["required"] = true,
           ["type"] = "object",
           ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only affects player-triggered unlocks on the satisfied transition.",
+          ["dependsOn"] = {
+            ["property"] = "Button Combo 1"
+          },
+          ["description"] = "If true, player-triggered unlocks across any of this group's combos lock input, smoothly pan the player's camera to the first checkpoint in the matching combo, hold for the unlock animation, then snap the camera back and release input. Applies to every combo the group manages. Bot-triggered transitions skip the cinematic unless `Cinematic on Bot Trigger` is also true.",
+          ["name"] = "Cinematic Unlock",
+          ["type"] = "bool",
+          ["value"] = false
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Cinematic Unlock is true.",
+          ["dependsOn"] = {
+            ["property"] = "Cinematic Unlock"
+          },
+          ["description"] = "Seconds the camera holds on the checkpoint after the unlock animation completes, before snapping back to the player. Values below 0.3 are clamped to 0.3.",
+          ["name"] = "Cinematic Duration",
+          ["type"] = "number",
+          ["value"] = 1
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Only used when Cinematic Unlock is true.",
+          ["dependsOn"] = {
+            ["property"] = "Cinematic Unlock"
+          },
+          ["description"] = "If true, bot (NPC) transitions to the satisfied state also play the cinematic — the camera pans for every live player in the area. Default false suppresses the cinematic on bot triggers while still performing the unlock normally.",
+          ["name"] = "Cinematic on Bot Trigger",
+          ["type"] = "bool",
+          ["value"] = false
         },
       },
     },
