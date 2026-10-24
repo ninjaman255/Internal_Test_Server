@@ -52,7 +52,7 @@ local INPUT_CHOICES = { "Interact", "Shoulder L","Shoulder R", "Move Down", "Mov
 -- Overlay Z band. Cosmetic bots ride at player.z + 3 (see net-games
 -- set_cosmetic), so map-element overlays must sit well above that or they
 -- get occluded by any equipped cosmetic bot in the area.
-local OVERLAY_Z_CHAT      = 4
+local OVERLAY_Z_CHAT      = 2
 local OVERLAY_Z_INDICATOR = 4
 
 local INDICATOR_STATE = {
@@ -190,9 +190,9 @@ local function simon_says_press(player_id)
       "/server/assets/simon-says/indicators.png",
       "/server/assets/simon-says/indicators.animation",
       indicator_state,
-      simon.x - 0.1,
-      simon.y - 0.9,
-      simon.z
+      (simon.x - 0.1) + (OVERLAY_Z_CHAT/2),
+      (simon.y - 0.9) + (OVERLAY_Z_CHAT/2),
+      simon.z + OVERLAY_Z_INDICATOR
     )
 
     -- IMPORTANT: do NOT unlock input here. Game is played via virtual_input while locked.
@@ -328,9 +328,9 @@ local function greet_simon(actor_id, player_id)
       "/server/assets/simon-says/chat.png",
       "/server/assets/simon-says/chat.animation",
       "UI",
-      simon.x - 0.8,
-      simon.y - 1.1,
-      simon.z
+      (simon.x - 0.8)  + (OVERLAY_Z_CHAT/2),
+      (simon.y - 1.1) + (OVERLAY_Z_CHAT/2),
+      simon.z + OVERLAY_Z_CHAT
     )
 
     -- NOW start the minigame:
