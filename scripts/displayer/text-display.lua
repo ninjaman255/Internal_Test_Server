@@ -20,6 +20,12 @@ local function normalize_loops(value)
     return math.max(1, math.floor(n))
 end
 
+local function normalize_scale(value, fallback)
+    local scale = tonumber(value)
+    if not scale or scale <= 0 then return fallback or 2.0 end
+    return scale
+end
+
 local function pixel_snap_virtual(value)
     -- Net renders at 2x; half a virtual unit is exactly one rendered pixel.
     return math.floor((tonumber(value) or 0) * 2 + 0.5) / 2
@@ -56,7 +62,7 @@ function DisplayInstance:new(owner, player_id, text_id, text, x, y, options)
     o.width = options.width and tonumber(options.width) or nil
     o.height = options.height and tonumber(options.height) or nil
     o.font = options.font or "THICK"
-    o.scale = tonumber(options.scale) or 2.0
+    o.scale = normalize_scale(options.scale, 2.0)
     o.z = tonumber(options.z) or 100
     o.halign = options.halign or "left"
     o.valign = options.valign or "top"
@@ -504,7 +510,7 @@ function DisplayInstance:reset(text, options)
     self.text = tostring(text or "")
 
     if options.font then self.font = options.font end
-    if options.scale then self.scale = tonumber(options.scale) or self.scale end
+    if options.scale ~= nil then self.scale = normalize_scale(options.scale, self.scale) end
     if options.z then self.z = tonumber(options.z) or self.z end
     if options.width then self.width = tonumber(options.width) end
     if options.height then self.height = tonumber(options.height) end

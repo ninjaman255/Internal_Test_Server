@@ -12,6 +12,7 @@ local TextLayout = require("scripts/displayer/text-layout")
 local Emitter = require("scripts/utils/event-emitter")
 local UIData = require("scripts/jukebox/constants/ui-data")
 local InputAPI = require("scripts/input-controller/main")
+local UISuppression = require("scripts/net-games/ui-suppression")
 
 -- Resolve the text API. Prefer NetGames.Text if the net-games module
 -- re-exports the displayer; otherwise require the displayer module
@@ -31,6 +32,7 @@ local Jukebox = Emitter.new()
 
 local open_sessions = {}
 local open_callbacks = {}
+local suppression_handles = {}
 
 function async(p)
   local co = coroutine.create(p)
@@ -516,12 +518,23 @@ Jukebox:on("Jukebox Open", function(event)
     return
   end
 
-  Net.lock_player_input(player_id)
-  Net.toggle_player_hud(player_id)
+  local suppression, suppression_err = UISuppression.acquire_profile(player_id, "menu", "jukebox:" .. tostring(player_id))
+  if not suppression then
+    print("[Jukebox] Could not acquire UI suppression: " .. tostring(suppression_err))
+    release_input_for(player_id)
+    open_sessions[player_id] = nil
+    local cb = open_callbacks[player_id]
+    open_callbacks[player_id] = nil
+    if cb then pcall(cb, player_id) end
+    return
+  end
+  suppression_handles[player_id] = suppression
 
   local ui_ok, ui_err = pcall(spawnJukeboxUI, player_id)
   if not ui_ok then
     print("[Jukebox] spawnJukeboxUI failed: " .. tostring(ui_err))
+    closeJukeboxMenu(player_id)
+    return
   end
 
   async(function()
@@ -570,8 +583,12 @@ end)
 Jukebox:on("Jukebox Close", function(event)
   local player_id = event.player_id
   release_input_for(player_id)
-  Net.unlock_player_input(player_id)
-  Net.toggle_player_hud(player_id)
+  local suppression = suppression_handles[player_id]
+  if suppression then
+    local ok, err = UISuppression.release_profile(suppression)
+    if not ok then print("[Jukebox] Suppression release failed: " .. tostring(err)) end
+    suppression_handles[player_id] = nil
+  end
   removeJukeboxUI(player_id)
 end)
 

@@ -15,6 +15,12 @@
 
 local boom = require("scripts/boom/main")
 local TextLayout = require("scripts/displayer/text-layout")
+
+local function normalize_text_scale(value, fallback)
+    local scale = tonumber(value)
+    if not scale or scale <= 0 then return fallback or 2.0 end
+    return scale
+end
 local fontSystem = require("scripts/displayer/font-system")
 
 local SlicedSprite = {}
@@ -798,7 +804,7 @@ function TextPanel:_measure_child(child, inner_max_width)
     if child.kind == "text" then
         local opts = self._options
         local font = child.font or opts.font or "THICK"
-        local scale = child.scale or opts.scale or 2.0
+        local scale = normalize_text_scale(child.scale, normalize_text_scale(opts.scale, 2.0))
         local halign = child.halign or "left"
         local valign = child.valign or "top"
         local line_spacing = child.line_spacing or opts.line_spacing or 0

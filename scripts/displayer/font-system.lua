@@ -419,7 +419,8 @@ end
 ---@return string|nil instance_id
 function FontSystem:drawGlyph(player_id, font_name, char, x, y, options)
     options = options or {}
-    local scale = options.scale or 2.0
+    local scale = tonumber(options.scale) or 2.0
+    if scale <= 0 then scale = 2.0 end
     local z = options.z or 100
 
     local state = self:getGlyphState(font_name, char)
