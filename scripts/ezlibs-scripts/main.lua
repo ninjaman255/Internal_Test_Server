@@ -24,6 +24,7 @@ local ezusers = require('scripts/ezlibs-scripts/ezusers')
 local ezbbs = require('scripts/ezlibs-scripts/ezbbs')
 local ezbuttons = require('scripts/ezlibs-scripts/ezbuttons')
 local ezpushback = require('scripts/ezlibs-scripts/eznpcs/ezpushback')
+local npc_behaviors = require('scripts/ezlibs-scripts/eznpcs/npc_behaviors')
 local ezbottriggers = require('scripts/ezlibs-scripts/eztriggers/ezbottriggers')
 local ezcutscenes = require('scripts/ezlibs-scripts/ezcutscenes/ezcutscenes')
 
@@ -68,6 +69,7 @@ local object_registry = require('scripts/ezlibs-scripts/object_registry')
 object_registry.load_all()
 
 eznpcs.load_npcs()
+npc_behaviors.attach_all() -- attach Tiled NPC Behavior objects after base NPCs exist
 ezrushroads.init()  -- group roads after all objects are cached
 
 Net:on("battle_results", function(event)

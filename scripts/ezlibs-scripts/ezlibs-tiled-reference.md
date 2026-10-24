@@ -407,6 +407,29 @@ NPC with a moving collision zone that pushes the player.
 
 - `Template Only`: Only meaningful if the referenced spawner does not also need collision push behaviour on the spawned bot.
 
+### NPC Behavior
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Move Animation State` | string |  | `MOVE` | appearance | Animation state played during pushback. |
+| `Attached NPC` | object | yes | `""` | gameplay | Object reference to an NPC or NPC template that receives this behavior. |
+| `Behavior` | string |  | `Pushback` | gameplay | Registered behavior implementation to attach. Currently supported: Pushback. |
+| `Collision Height` | number |  | 1.5 | gameplay | Pushback behavior collision rectangle height in tiles. |
+| `Collision Width` | number |  | 1.5 | gameplay | Pushback behavior collision rectangle width in tiles. |
+| `Enabled` | bool |  | true | gameplay | Allows this behavior to be disabled without deleting the behavior object. |
+| `Push Cooldown` | number |  | 0.75 | gameplay | Seconds before this NPC can push the same player again. |
+| `Push Distance` | number |  | 1 | gameplay | Distance to push a player beyond the collision rectangle. |
+| `Push Duration` | number |  | 0.28 | gameplay | Duration of the push movement in seconds. |
+
+**Conditional properties**
+
+- `Move Animation State`: Used by Pushback behavior.
+- `Collision Height`: Used by Pushback behavior.
+- `Collision Width`: Used by Pushback behavior.
+- `Push Cooldown`: Used by Pushback behavior.
+- `Push Distance`: Used by Pushback behavior.
+- `Push Duration`: Used by Pushback behavior.
+
 ### NPC Spawner
 **Category:** gameplay
 Spawns NPCs from a template object, lets them follow a waypoint path, and optionally warps them out when the path completes. Supports one-per-entry spawning (Once mode) and continuous spawning at an interval while a player stays inside (Interval mode).

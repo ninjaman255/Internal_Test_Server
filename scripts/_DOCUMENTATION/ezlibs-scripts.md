@@ -4982,3 +4982,52 @@ Then all Net:on handlers are wired up and [main] ezlibs loaded in <seconds>s is 
 ## Current archive coverage (2026-10-23)
 
 This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.
+
+
+---
+
+# NPC Behavior Composition (Tiled)
+
+## Purpose
+
+The `NPC Behavior` Tiled object lets a map attach a registered behavior implementation to an existing `NPC` object or an NPC template. The NPC remains the owner of its bot; the behavior owns only its specialized state and resources. Behavior objects do not create a second NPC bot.
+
+## Current implementation
+
+- Runtime: `scripts/ezlibs-scripts/eznpcs/npc_behaviors.lua`
+- Pushback adapter: `scripts/ezlibs-scripts/eznpcs/ezpushback.lua`
+- Tiled type source: `scripts/ezlibs-scripts/generate-ezlibs-tiled.lua`
+- Generated Tiled types: `scripts/ezlibs-scripts/ezlibs-types.json`
+- Behavior object type: `NPC Behavior`
+- Current registered behavior: `Pushback`
+
+The `Attached NPC` property references an NPC object ID. For a template used by an `NPC Spawner`, attach the behavior to the template; each spawned instance receives its own behavior. Player-exclusive and quest-exclusive NPC instances are handled through the `npc_created_from_object` lifecycle event.
+
+## Existing NPC behavior and spawn patterns found in this codebase
+
+| Existing pattern | Current owner | Composition recommendation |
+|---|---|---|
+| Dialogue and interaction | `eznpcs` + `dialogue_types.lua` + separate Tiled `Dialogue` objects | Keep as a native NPC capability initially; the NPC already references a Dialogue root object. |
+| Waypoint movement and animation | `eznpcs` waypoint behavior and `Waypoint` objects | Keep as a native NPC movement capability initially; it has animation ownership and scripted movement timing. |
+| Pushback collision | `ezpushback.lua`, currently `Pushback NPC` type plus spawned-template listener | First composable behavior. New NPCs can use base `NPC` + `NPC Behavior (Pushback)`; legacy `Pushback NPC` remains supported. Do not apply both methods to the same NPC. |
+| NPC spawning | `NPC Spawner` in `eznpcs.lua` | Keep as a spawn pattern, not an attached behavior. It owns trigger radius, Once/Interval, Max Alive, waypoint completion and warp-out. |
+| Player-exclusive and quest-exclusive NPCs | `eznpcs.lua` player lifecycle | Keep as creation/visibility policy; composed behavior attachment is notified when each instance is created. |
+| Cutscenes | `ezcutscenes.lua` + Tiled `Cutscene` / `Cutscene Step` objects | Keep as a separate sequence system invoked by NPC interaction or triggers. |
+| Bot enter/depart triggers | `ezbottriggers.lua` + `eztriggers.lua` | Keep as an event/trigger service; can later be exposed as an NPC behavior if maps need per-NPC configuration. |
+| Rush Road permanent and temporary bots | `ezrushroads.lua` | Keep specialized; linked road groups and temporary avatar representations are not generic NPC behavior. |
+| Explosions, warp visuals, checkpoint effects | `ezexplosions.lua`, `ezwarps/`, `ezcheckpoints.lua` | Keep as short-lived effect/transition bot factories, not NPC archetypes. |
+| FootBomb actors, bombs and cursor bots | `ezlibs-custom/footbomb/` | Keep game-instance-owned; the module owns roles, assets, animation timing, camera/input and cleanup. |
+| Nebulous Liberations enemies, projectiles and effects | `ezlibs-custom/nebulous-liberations/liberations/` | Keep combat-instance-owned; enemy templates, abilities, loot, projectiles and effects have battle-specific lifecycles. |
+| Button bots | `ezbuttons.lua` + `Button Bot Details` | Keep button-owned because activation state and effects belong to the button/group lifecycle, not to a dialogue NPC. |
+
+## Adding another behavior
+
+1. Implement a Lua module or register an implementation in `npc_behaviors.lua` using `npc_behaviors.register("Name", { attach = function(args) ... end })`.
+2. Add configuration properties to the `NPC Behavior` Tiled class and its validation/documentation metadata, or introduce a dedicated Tiled behavior class if its configuration is large enough to warrant one.
+3. Ensure the behavior attaches to the existing bot and releases any resources when `bot_removed` occurs.
+4. If it needs to handle spawned templates, use the `npc_spawned_from_spawner` event and the `Attached NPC` template reference rather than assuming a single global bot ID.
+5. Regenerate Tiled types/schema/reference with `generate-ezlibs-tiled.lua` after modifying the source definitions.
+
+## Runtime notes
+
+The Tiled behavior registry is additive and does not replace legacy NPC creation. The current implementation has only one registered composable behavior (Pushback); dialogue, waypoint movement, cutscenes, spawn patterns, and custom minigame/combat actors are inventoried above but are not falsely advertised as migrated behavior objects. Runtime integration must be tested in the target server before using the new `NPC Behavior` class in production maps.

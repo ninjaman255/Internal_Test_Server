@@ -930,6 +930,81 @@ return {
         },
       },
     },
+    ["NPC Behavior"] = {
+      color = "#88bbdd",
+      members = {
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Object reference to an NPC or NPC template that receives this behavior.",
+          ["name"] = "Attached NPC",
+          ["required"] = true,
+          ["type"] = "object",
+          ["value"] = ""
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Registered behavior implementation to attach. Currently supported: Pushback.",
+          ["name"] = "Behavior",
+          ["type"] = "string",
+          ["value"] = "Pushback"
+        },
+        {
+          ["category"] = "gameplay",
+          ["description"] = "Allows this behavior to be disabled without deleting the behavior object.",
+          ["name"] = "Enabled",
+          ["type"] = "bool",
+          ["value"] = true
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Used by Pushback behavior.",
+          ["description"] = "Pushback behavior collision rectangle width in tiles.",
+          ["name"] = "Collision Width",
+          ["type"] = "number",
+          ["value"] = 1.5
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Used by Pushback behavior.",
+          ["description"] = "Pushback behavior collision rectangle height in tiles.",
+          ["name"] = "Collision Height",
+          ["type"] = "number",
+          ["value"] = 1.5
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Used by Pushback behavior.",
+          ["description"] = "Distance to push a player beyond the collision rectangle.",
+          ["name"] = "Push Distance",
+          ["type"] = "number",
+          ["value"] = 1
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Used by Pushback behavior.",
+          ["description"] = "Duration of the push movement in seconds.",
+          ["name"] = "Push Duration",
+          ["type"] = "number",
+          ["value"] = 0.28
+        },
+        {
+          ["category"] = "gameplay",
+          ["conditional"] = "Used by Pushback behavior.",
+          ["description"] = "Seconds before this NPC can push the same player again.",
+          ["name"] = "Push Cooldown",
+          ["type"] = "number",
+          ["value"] = 0.75
+        },
+        {
+          ["category"] = "appearance",
+          ["conditional"] = "Used by Pushback behavior.",
+          ["description"] = "Animation state played during pushback.",
+          ["name"] = "Move Animation State",
+          ["type"] = "string",
+          ["value"] = "MOVE"
+        },
+      },
+    },
     ["NPC Spawner"] = {
       color = "#ffcc88",
       category    = "gameplay",

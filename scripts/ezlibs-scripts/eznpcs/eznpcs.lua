@@ -311,6 +311,19 @@ function create_bot_from_object(area_id, object, player_id, options)
         add_behaviour(npc, waypoint_follow)
     end
 
+    -- Lets composed behavior objects attach to ordinary, player-exclusive,
+    -- and quest-exclusive instances after the base NPC record is complete.
+    ezbus:emit("npc_created_from_object", {
+        area_id = area_id,
+        object_id = object.id,
+        object_type = object.type,
+        bot_id = npc.bot_id,
+        player_id = player_id,
+        x = npc.x, y = npc.y, z = npc.z or 0,
+        name = object.name,
+        custom_properties = object.custom_properties or {},
+    })
+
     return npc
 end
 

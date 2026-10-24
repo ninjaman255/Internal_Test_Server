@@ -49,6 +49,12 @@ end
 --=====================================================
 local INPUT_CHOICES = { "Interact", "Shoulder L","Shoulder R", "Move Down", "Move Left", "Move Right", "Move Up" }
 
+-- Overlay Z band. Cosmetic bots ride at player.z + 3 (see net-games
+-- set_cosmetic), so map-element overlays must sit well above that or they
+-- get occluded by any equipped cosmetic bot in the area.
+local OVERLAY_Z_CHAT      = 4
+local OVERLAY_Z_INDICATOR = 4
+
 local INDICATOR_STATE = {
   ["Interact"]   = "A",
   ["Confirm"]    = "A",
@@ -186,7 +192,7 @@ local function simon_says_press(player_id)
       indicator_state,
       simon.x - 0.1,
       simon.y - 0.9,
-      simon.z + 2
+      simon.z
     )
 
     -- IMPORTANT: do NOT unlock input here. Game is played via virtual_input while locked.
@@ -400,7 +406,7 @@ Net:on("virtual_input", function(event)
           local simon = simon_cache[p.area] and simon_cache[p.area][p.actor]
           if simon then
             local function jiggle(dx, dy)
-              games.move_map_element("indicator", pid, simon.x + dx, simon.y + dy, simon.z + 2)
+              games.move_map_element("indicator", pid, simon.x + dx, simon.y + dy, simon.z + OVERLAY_Z_INDICATOR)
             end
             jiggle(-0.125, -0.875); await(Async.sleep(0.1))
             jiggle(-0.10,  -0.90 ); await(Async.sleep(0.1))

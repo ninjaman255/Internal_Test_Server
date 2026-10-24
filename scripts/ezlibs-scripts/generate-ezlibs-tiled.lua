@@ -333,6 +333,21 @@ local object_types = {
         }
     },
     {
+        name = "NPC Behavior",
+        color = "#88bbdd",
+        members = {
+            prop("Attached NPC", "object", ""),
+            prop("Behavior", "string", "Pushback"),
+            prop("Enabled", "bool", true),
+            prop("Collision Width", "number", 1.5),
+            prop("Collision Height", "number", 1.5),
+            prop("Push Distance", "number", 1.0),
+            prop("Push Duration", "number", 0.28),
+            prop("Push Cooldown", "number", 0.75),
+            prop("Move Animation State", "string", "MOVE"),
+        }
+    },
+    {
         name = "NPC Spawner",
         color = "#ffcc88",
         members = {
@@ -860,6 +875,26 @@ local META = {
             ["Template Only"] = { category = "advanced",
                 description = "If true, this NPC is used only as a reference target for NPC Spawners and does not spawn as a regular NPC on its own.",
                 conditional = "Only meaningful if the referenced spawner does not also need collision push behaviour on the spawned bot." },
+        },
+        ["NPC Behavior"] = {
+            ["Attached NPC"] = { category = "gameplay",
+                description = "Object reference to an NPC or NPC template that receives this behavior.", required = true },
+            ["Behavior"] = { category = "gameplay",
+                description = "Registered behavior implementation to attach. Currently supported: Pushback." },
+            ["Enabled"] = { category = "gameplay",
+                description = "Allows this behavior to be disabled without deleting the behavior object." },
+            ["Collision Width"] = { category = "gameplay",
+                description = "Pushback behavior collision rectangle width in tiles.", conditional = "Used by Pushback behavior." },
+            ["Collision Height"] = { category = "gameplay",
+                description = "Pushback behavior collision rectangle height in tiles.", conditional = "Used by Pushback behavior." },
+            ["Push Distance"] = { category = "gameplay",
+                description = "Distance to push a player beyond the collision rectangle.", conditional = "Used by Pushback behavior." },
+            ["Push Duration"] = { category = "gameplay",
+                description = "Duration of the push movement in seconds.", conditional = "Used by Pushback behavior." },
+            ["Push Cooldown"] = { category = "gameplay",
+                description = "Seconds before this NPC can push the same player again.", conditional = "Used by Pushback behavior." },
+            ["Move Animation State"] = { category = "appearance",
+                description = "Animation state played during pushback.", conditional = "Used by Pushback behavior." },
         },
         ["NPC Spawner"] = {
             ["NPC Template"] = { category = "gameplay",

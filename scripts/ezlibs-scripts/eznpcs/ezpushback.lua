@@ -656,6 +656,38 @@ local function build_pushback_entry(area_id, object_id, props, bot_id, trigger_i
     return entry
 end
 
+-- Public adapter used by the composable NPC Behavior system. The behavior
+-- object owns configuration; this module continues to own trigger mechanics,
+-- push animation, cooldowns, and cleanup. Legacy Pushback NPC objects use the
+-- same builder below.
+function ezpushback.attach_behavior(area_id, object_id, props, bot_id, x, y, z, name)
+    if not bot_id or not area_id then return nil, 'missing area or bot id' end
+    props = props or {}
+    if props['Enabled'] ~= nil and not truthy(props['Enabled'], true) then
+        return nil, 'behavior disabled'
+    end
+    local position = nil
+    if type(Net.get_bot_position) == 'function' then
+        local ok, value = pcall(Net.get_bot_position, bot_id)
+        if ok and type(value) == 'table' then position = value end
+    end
+    x = tonumber(x) or (position and tonumber(position.x)) or 0
+    y = tonumber(y) or (position and tonumber(position.y)) or 0
+    z = tonumber(z) or (position and tonumber(position.z)) or 0
+    local trigger_id = 'ezpushback_behavior_' .. tostring(area_id) .. '_'
+        .. tostring(object_id) .. '_' .. tostring(bot_id)
+    if entries[trigger_id] then return entries[trigger_id] end
+    local entry = build_pushback_entry(
+        area_id, object_id, props, bot_id, trigger_id, name, x, y, z)
+    if not entry then return nil, 'failed to register pushback trigger' end
+    entry.behavior_object_id = object_id
+    entry.composed_behavior = true
+    logger:for_area(area_id):info(string.format(
+        '[ezpushback] Attached NPC Behavior object=%s bot=%s zone=%.2fx%.2f push=%.2f',
+        tostring(object_id), tostring(bot_id), entry.width, entry.height, entry.push_distance))
+    return entry
+end
+
 local function register_pushback_npc(area_id, object)
     local props = object.custom_properties or {}
     local bot_id = eznpcs.get_bot_for_placeholder(area_id, object.id)
