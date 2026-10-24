@@ -272,40 +272,36 @@ local function build_role_panel(player_id, rep, role)
         { sx = 1, sy = 1 }
     )
 
-    local function make_icon_child(extra)
-        local c = {
-            kind = "sprites",
-            sprites = { icon_sprite },
+    local function make_icon_child()
+        return Displayer.Builder.panelSpritesChild({ icon_sprite }, {
             sprite_scale = Config.UI.ROLE_ICON_SCALE,
             columns = 1,
             column_spacing = 0,
             row_spacing = 0,
             sprite_align = "center",
             valign = "middle",
-        }
-        if extra then for k, v in pairs(extra) do c[k] = v end end
-        return c
+        })
     end
 
     local children = {
-        make_icon_child(nil),
-        {
-            kind = "text",
-            text = tostring(role),
+        make_icon_child(),
+        Displayer.Builder.panelTextChild(tostring(role), {
             font = "THICK",
             scale = Config.UI.ROLE_TEXT_SCALE,
             color = { r = 255, g = 255, b = 255, a = 255 },
             halign = "center",
             valign = "middle",
-            gap_before = Config.UI.ROLE_ICON_GAP,
-        },
-        make_icon_child({ gap_before = Config.UI.ROLE_ICON_GAP }),
+        }),
+        make_icon_child(),
     }
 
-    local options = Displayer.Builder.textPanelOptions({
+    local options = Displayer.Builder.rowPanelOptions({
         auto_size = true,
         padding = Config.UI.ROLE_PANEL_PADDING,
-        layout = "horizontal",
+        -- Inset each icon/text child; sliced-sprite includes these in auto-size.
+        child_padding = Config.UI.ROLE_PANEL_CHILD_PADDING,
+        -- Explicit main-axis spacing between icon, text, and icon in this row.
+        main_axis_spacing = Config.UI.ROLE_ICON_GAP,
         z = 101,
         slice_scale = Config.UI.ROLE_PANEL_SLICE_SCALE,
         children = children,

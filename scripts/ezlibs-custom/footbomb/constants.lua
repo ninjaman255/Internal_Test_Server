@@ -59,9 +59,14 @@ local constants = {
         ROLE_TEXT_Y = 142,
         ROLE_TEXT_SCALE = 2.0,
         ROLE_PANEL_Y = 260,
-        ROLE_PANEL_PADDING = 6,
+        -- Keep horizontal inset at 6 while adding a little more room above/below.
+        ROLE_PANEL_PADDING = { horizontal = 6, vertical = 8 },
+        -- Small inset on every side of each role-panel child. The sliced-panel
+        -- layout includes this child padding in its measured auto-size.
+        ROLE_PANEL_CHILD_PADDING = 2,
         ROLE_PANEL_SLICE_SCALE = 2.0,
         ROLE_ICON_SCALE = 1.0,
+        -- Horizontal gap between the left icon, role text, and right icon.
         ROLE_ICON_GAP = 8,
         ROLE_ICON_STATE_KICKER = "KICKER",
         ROLE_ICON_STATE_DEFENDER = "DEFENSE",

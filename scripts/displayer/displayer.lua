@@ -255,35 +255,99 @@ function Displayer:_setupBuilderAPI()
         return { kind = kind or "9", orientation = orientation or "horizontal", parts = parts }
     end
 
-    --- Build options for text/sliced panels.
-    --- `layout` selects vertical stacking (default) or horizontal row.
-    --- `children` is an array of child descriptors, see panelTextChild/panelSpritesChild.
+    -- Normalize panel/child padding into the edge shape consumed by
+    -- sliced-sprite.lua. Accepts a uniform number or an edge table such as
+    -- { horizontal = 6, vertical = 8 } / { left=6, right=6, top=8, bottom=8 }.
+    local function panelPadding(value, vertical)
+        if type(value) == "number" then
+            local h = value
+            local v = tonumber(vertical) or h
+            return { left = h, right = h, top = v, bottom = v }
+        end
+        if type(value) == "table" then
+            local all = tonumber(value.all)
+            local horizontal = tonumber(value.horizontal) or all or 0
+            local vertical_value = tonumber(value.vertical) or all or 0
+            return {
+                left = tonumber(value.left) or horizontal,
+                right = tonumber(value.right) or horizontal,
+                top = tonumber(value.top) or vertical_value,
+                bottom = tonumber(value.bottom) or vertical_value,
+            }
+        end
+        local h = 0
+        local v = tonumber(vertical) or h
+        return { left = h, right = h, top = v, bottom = v }
+    end
+
+    function api.panelPadding(value, vertical)
+        return panelPadding(value, vertical)
+    end
+
+    function api.panelChildPadding(value, vertical)
+        return panelPadding(value, vertical)
+    end
+
+    --- Build options for text/sliced panels. `layout` accepts vertical/column,
+    --- horizontal/row, or grid. Spacing and padding are included in auto-size.
+    --- `children` is an array of descriptors from panelTextChild/panelSpritesChild.
     function api.textPanelOptions(overrides)
         local opts = {
             font = "THICK", scale = 2.0,
             color = { r = 255, g = 255, b = 255, a = 255 },
             halign = "left", valign = "top", line_spacing = 0,
-            padding = 8, auto_size = true,
+            padding = 8, child_padding = 0, auto_size = true,
             width = nil, height = nil, max_width = nil, max_height = nil,
             z = 100, slice_scale = 1.0, slice_options = {},
             overflow = "wrap",
-            layout = "vertical",
+            layout = "vertical", spacing = 0,
+            main_axis_spacing = nil, cross_axis_spacing = 0,
+            main_axis_alignment = "start", cross_axis_alignment = "center",
+            columns = 2, column_spacing = nil, row_spacing = nil,
+            horizontal_alignment = "start", vertical_alignment = "start",
             children = nil,
         }
         if overrides then
             for k, v in pairs(overrides) do
-                if k == "padding" and type(v) == "number" then
-                    opts.padding = { left = v, right = v, top = v, bottom = v }
-                elseif k == "color" and type(v) == "table" then
+                if k == "color" and type(v) == "table" then
                     opts.color = { r = v.r or 255, g = v.g or 255, b = v.b or 255, a = v.a or 255 }
-                else opts[k] = v end
+                else
+                    opts[k] = v
+                end
             end
         end
-        if type(opts.padding) == "number" then
-            opts.padding = { left = opts.padding, right = opts.padding,
-                             top = opts.padding, bottom = opts.padding }
-        end
+        opts.padding = panelPadding(opts.padding)
+        opts.child_padding = panelPadding(opts.child_padding)
+        local layout = tostring(opts.layout or "vertical"):lower()
+        if layout == "row" then layout = "horizontal"
+        elseif layout == "column" then layout = "vertical" end
+        opts.layout = layout
         return opts
+    end
+
+    function api.rowPanelOptions(overrides)
+        overrides = overrides or {}
+        local opts = {}
+        for k, v in pairs(overrides) do opts[k] = v end
+        opts.layout = "row"
+        return api.textPanelOptions(opts)
+    end
+
+    function api.columnPanelOptions(overrides)
+        overrides = overrides or {}
+        local opts = {}
+        for k, v in pairs(overrides) do opts[k] = v end
+        opts.layout = "column"
+        return api.textPanelOptions(opts)
+    end
+
+    function api.gridPanelOptions(columns, overrides)
+        overrides = overrides or {}
+        local opts = {}
+        for k, v in pairs(overrides) do opts[k] = v end
+        opts.layout = "grid"
+        if columns ~= nil then opts.columns = columns end
+        return api.textPanelOptions(opts)
     end
 
     function api.textPanel(text, style, options)
@@ -293,6 +357,7 @@ function Displayer:_setupBuilderAPI()
     function api.panelTextChild(text, overrides)
         local child = { kind = "text", text = text }
         if overrides then for k, v in pairs(overrides) do child[k] = v end end
+        if child.padding ~= nil then child.padding = panelPadding(child.padding) end
         return child
     end
 
@@ -303,6 +368,7 @@ function Displayer:_setupBuilderAPI()
             column_spacing = 5, row_spacing = 5, sprite_align = "center",
         }
         if overrides then for k, v in pairs(overrides) do child[k] = v end end
+        if child.padding ~= nil then child.padding = panelPadding(child.padding) end
         return child
     end
 end

@@ -702,6 +702,71 @@ end)
 -- Text Panel (vertical stacking OR horizontal row of mixed text/sprite children)
 -- =========================================================================
 
+
+-- Normalize Flutter-style EdgeInsets-like padding. Values are in physical
+-- screen pixels, matching the sliced-sprite and sprite-child coordinate space.
+local function normalize_edges(value, fallback)
+    if type(value) == "number" then
+        return { left = value, right = value, top = value, bottom = value }
+    end
+    if type(value) ~= "table" then
+        value = fallback
+    end
+    if type(value) == "number" then
+        return { left = value, right = value, top = value, bottom = value }
+    end
+    value = type(value) == "table" and value or {}
+    local horizontal = tonumber(value.horizontal)
+    local vertical = tonumber(value.vertical)
+    local all = tonumber(value.all)
+    return {
+        left = tonumber(value.left) or horizontal or all or 0,
+        right = tonumber(value.right) or horizontal or all or 0,
+        top = tonumber(value.top) or vertical or all or 0,
+        bottom = tonumber(value.bottom) or vertical or all or 0,
+    }
+end
+
+local function normalize_alignment(value, fallback)
+    value = tostring(value or fallback or "start")
+    value = value:gsub("(%l)(%u)", "%1_%2"):lower():gsub("%-", "_")
+    if value == "left" or value == "top" then return "start" end
+    if value == "right" or value == "bottom" then return "end" end
+    if value == "middle" then return "center" end
+    return value
+end
+
+local function alignment_offset(alignment, available, used)
+    alignment = normalize_alignment(alignment)
+    local extra = math.max(0, available - used)
+    if alignment == "end" or alignment == "right" or alignment == "bottom" then
+        return extra
+    elseif alignment == "center" then
+        return extra / 2
+    end
+    return 0
+end
+
+local function main_axis_distribution(alignment, available, used, count, base_spacing)
+    alignment = normalize_alignment(alignment)
+    local extra = math.max(0, available - used - math.max(0, count - 1) * base_spacing)
+    local offset, spacing = 0, base_spacing
+    if alignment == "end" then
+        offset = extra
+    elseif alignment == "center" then
+        offset = extra / 2
+    elseif alignment == "space_between" and count > 1 then
+        spacing = base_spacing + extra / (count - 1)
+    elseif alignment == "space_around" and count > 0 then
+        spacing = base_spacing + extra / count
+        offset = (spacing - base_spacing) / 2
+    elseif alignment == "space_evenly" and count > 0 then
+        spacing = base_spacing + extra / (count + 1)
+        offset = spacing - base_spacing
+    end
+    return offset, spacing
+end
+
 local TextPanel = {}
 TextPanel.__index = TextPanel
 
@@ -723,11 +788,7 @@ function TextPanel:new(player_id, logical_id, x, y, text, style, options)
     o._destroyed = false
     o._children = o._options.children
 
-    local pad = o._options.padding or 8
-    if type(pad) == "number" then
-        pad = { left = pad, right = pad, top = pad, bottom = pad }
-    end
-    o._padding = pad
+    o._padding = normalize_edges(o._options.padding, 8)
 
     o:_redraw()
     return o
@@ -910,186 +971,199 @@ function TextPanel:_redraw()
     local style = self._style
     local options = self._options
 
-    -- 1. Erase existing
     SlicedSprite.erase(player_id, self._slice_logical_id)
-    for _, id in ipairs(self._glyph_ids) do
-        fontSystem:eraseGlyph(player_id, id)
-    end
+    for _, id in ipairs(self._glyph_ids) do fontSystem:eraseGlyph(player_id, id) end
     self._glyph_ids = {}
-    for _, id in ipairs(self._sprite_ids) do
-        pcall(Net.player_erase_sprite, player_id, id)
-    end
+    for _, id in ipairs(self._sprite_ids) do pcall(Net.player_erase_sprite, player_id, id) end
     self._sprite_ids = {}
 
-    -- 2. Children
     local children = self._children
     if not children or #children == 0 then
-        children = {
-            {
-                kind = "text",
-                text = self._text or "",
-                font = options.font,
-                scale = options.scale,
-                color = options.color,
-                halign = options.halign,
-                valign = options.valign,
-                line_spacing = options.line_spacing,
-            }
-        }
+        children = {{
+            kind = "text", text = self._text or "", font = options.font,
+            scale = options.scale, color = options.color,
+            halign = options.halign, valign = options.valign,
+            line_spacing = options.line_spacing,
+        }}
     end
 
     local auto_size = options.auto_size ~= false
-    local pad = self._padding
-    local max_width = options.max_width
-    local max_height = options.max_height
+    local pad = normalize_edges(self._padding, 8)
+    local max_width, max_height = tonumber(options.max_width), tonumber(options.max_height)
     local layout_mode = options.layout or "vertical"
-    local is_horizontal = layout_mode == "horizontal"
-
+    local is_horizontal = layout_mode == "horizontal" or layout_mode == "row"
+    local is_grid = layout_mode == "grid"
+    local grid_columns = math.max(1, math.floor(tonumber(options.columns) or 2))
     local inner_max_width = math.huge
-    if max_width then
-        inner_max_width = max_width - pad.left - pad.right
-    end
+    if max_width then inner_max_width = max_width - pad.left - pad.right end
     if not auto_size and options.width then
         inner_max_width = math.min(inner_max_width, options.width - pad.left - pad.right)
     end
 
-    -- 3. Measure
     local measured = {}
     local max_child_width, max_child_height = 0, 0
     local total_child_width, total_child_height = 0, 0
+    local grid_col_widths, grid_row_heights = {}, {}
+    local grid_rows = is_grid and math.ceil(#children / grid_columns) or 0
+    local main_spacing = tonumber(options.main_axis_spacing) or tonumber(options.spacing) or 0
+    local cross_spacing = tonumber(options.cross_axis_spacing) or 0
+    local grid_col_spacing = tonumber(options.column_spacing) or main_spacing
+    local grid_row_spacing = tonumber(options.row_spacing) or cross_spacing
 
     for i, child in ipairs(children) do
-        local m = self:_measure_child(child, inner_max_width)
-        m.child = child
-        m.index = i
+        local cp = normalize_edges(child.padding, options.child_padding or 0)
+        local child_max_width = inner_max_width
+        if child_max_width ~= math.huge then
+            child_max_width = math.max(0, child_max_width - cp.left - cp.right)
+        end
+        local m = self:_measure_child(child, child_max_width)
+        m.child, m.index, m.child_padding = child, i, cp
+        m.outer_width = m.width + cp.left + cp.right
+        m.outer_height = m.height + cp.top + cp.bottom
         measured[i] = m
-        if m.width > max_child_width then max_child_width = m.width end
-        if m.height > max_child_height then max_child_height = m.height end
-        total_child_width = total_child_width + m.width
-        total_child_height = total_child_height + m.height
-        if i > 1 then
-            local gap = child.gap_before or 0
-            total_child_width = total_child_width + gap
-            total_child_height = total_child_height + gap
+        if m.outer_width > max_child_width then max_child_width = m.outer_width end
+        if m.outer_height > max_child_height then max_child_height = m.outer_height end
+        if is_grid then
+            local col = (i - 1) % grid_columns + 1
+            local row = math.floor((i - 1) / grid_columns) + 1
+            grid_col_widths[col] = math.max(grid_col_widths[col] or 0, m.outer_width)
+            grid_row_heights[row] = math.max(grid_row_heights[row] or 0, m.outer_height)
+        else
+            total_child_width = total_child_width + m.outer_width
+            total_child_height = total_child_height + m.outer_height
+            if i > 1 then
+                local legacy_gap = tonumber(child.gap_before) or 0
+                if is_horizontal then total_child_width = total_child_width + main_spacing + legacy_gap
+                else total_child_height = total_child_height + main_spacing + legacy_gap end
+            end
         end
     end
 
-    -- 4. Panel size
+    local grid_width, grid_height = 0, 0
+    if is_grid then
+        local actual_cols = math.min(grid_columns, math.max(1, #children))
+        for col = 1, actual_cols do grid_width = grid_width + (grid_col_widths[col] or 0) end
+        for row = 1, grid_rows do grid_height = grid_height + (grid_row_heights[row] or 0) end
+        grid_width = grid_width + math.max(0, actual_cols - 1) * grid_col_spacing
+        grid_height = grid_height + math.max(0, grid_rows - 1) * grid_row_spacing
+    end
+
     local panel_width, panel_height
     if auto_size then
-        if is_horizontal then
-            panel_width = total_child_width + pad.left + pad.right
-            panel_height = max_child_height + pad.top + pad.bottom
+        if is_grid then
+            panel_width, panel_height = grid_width + pad.left + pad.right, grid_height + pad.top + pad.bottom
+        elseif is_horizontal then
+            panel_width, panel_height = total_child_width + pad.left + pad.right, max_child_height + pad.top + pad.bottom
         else
-            panel_width = max_child_width + pad.left + pad.right
-            panel_height = total_child_height + pad.top + pad.bottom
+            panel_width, panel_height = max_child_width + pad.left + pad.right, total_child_height + pad.top + pad.bottom
         end
         if max_width then panel_width = math.min(panel_width, max_width) end
         if max_height then panel_height = math.min(panel_height, max_height) end
-        panel_width = math.max(panel_width, 1)
-        panel_height = math.max(panel_height, 1)
+        panel_width, panel_height = math.max(panel_width, 1), math.max(panel_height, 1)
     else
-        panel_width = options.width
-        panel_height = options.height
+        panel_width, panel_height = tonumber(options.width), tonumber(options.height)
         if not panel_width or panel_width <= 0 or not panel_height or panel_height <= 0 then
-            if is_horizontal then
-                panel_width = total_child_width + pad.left + pad.right
-                panel_height = max_child_height + pad.top + pad.bottom
+            if is_grid then
+                panel_width, panel_height = grid_width + pad.left + pad.right, grid_height + pad.top + pad.bottom
+            elseif is_horizontal then
+                panel_width, panel_height = total_child_width + pad.left + pad.right, max_child_height + pad.top + pad.bottom
             else
-                panel_width = max_child_width + pad.left + pad.right
-                panel_height = total_child_height + pad.top + pad.bottom
+                panel_width, panel_height = max_child_width + pad.left + pad.right, total_child_height + pad.top + pad.bottom
             end
-            panel_width = math.max(panel_width, 1)
-            panel_height = math.max(panel_height, 1)
+            panel_width, panel_height = math.max(panel_width, 1), math.max(panel_height, 1)
         end
     end
 
-    -- 5. Draw slices
     local slice_kind = style.kind or "9"
-    local draw_fn = slice_kind == "3" and SlicedSprite.draw3 or
-                    slice_kind == "5" and SlicedSprite.draw5 or
-                    SlicedSprite.draw9
+    local draw_fn = slice_kind == "3" and SlicedSprite.draw3 or slice_kind == "5" and SlicedSprite.draw5 or SlicedSprite.draw9
     local slice_options = {}
     for k, v in pairs(options.slice_options or {}) do slice_options[k] = v end
     slice_options.z = options.z or 100
     if options.slice_scale then slice_options.scale = options.slice_scale end
-
-    local ok, err = draw_fn(
-        player_id, self._slice_logical_id, x, y, panel_width, panel_height, style, slice_options
-    )
+    local ok, err = draw_fn(player_id, self._slice_logical_id, x, y, panel_width, panel_height, style, slice_options)
     if not ok then
         print("TextPanel slice drawing failed:", err)
-        self._glyph_ids = {}
-        self._sprite_ids = {}
+        self._glyph_ids, self._sprite_ids = {}, {}
         return
     end
 
-    -- 6. Draw children
-    local inner_x = x + pad.left
-    local inner_y = y + pad.top
-    local inner_width = panel_width - pad.left - pad.right
-    local inner_height = panel_height - pad.top - pad.bottom
+    local inner_x, inner_y = x + pad.left, y + pad.top
+    local inner_width = math.max(0, panel_width - pad.left - pad.right)
+    local inner_height = math.max(0, panel_height - pad.top - pad.bottom)
+    local glyph_ids, sprite_ids = {}, {}
+    local z_base = options.z or 100
+    local cross_alignment = normalize_alignment(options.cross_axis_alignment, "center")
+    local main_alignment = normalize_alignment(options.main_axis_alignment, "start")
 
-    local cursor_x = inner_x
-    local cursor_y = inner_y
-    local glyph_ids = {}
-    local sprite_ids = {}
-
-    for i, m in ipairs(measured) do
-        local child = m.child
-        if i > 1 then
-            local gap = child.gap_before or 0
-            if is_horizontal then
-                cursor_x = cursor_x + gap
-            else
-                cursor_y = cursor_y + gap
-            end
-        end
-
-        local child_x, child_y
+    local function draw_child(m, slot_x, slot_y, slot_w, slot_h)
+        local child, cp = m.child, m.child_padding
+        local content_w = math.max(0, slot_w - cp.left - cp.right)
+        local content_h = math.max(0, slot_h - cp.top - cp.bottom)
+        local content_x, content_y = slot_x + cp.left, slot_y + cp.top
+        local h_align = child.align
+        local v_align = child.valign
         if is_horizontal then
-            child_x = cursor_x
-            local child_valign = child.valign or "middle"
-            if child_valign == "top" then
-                child_y = inner_y
-            elseif child_valign == "bottom" then
-                child_y = inner_y + inner_height - m.height
-            else
-                child_y = inner_y + (inner_height - m.height) / 2
-            end
+            v_align = normalize_alignment(v_align, cross_alignment)
+            content_y = content_y + alignment_offset(v_align, content_h, m.height)
+        elseif is_grid then
+            h_align = normalize_alignment(h_align, cross_alignment)
+            v_align = normalize_alignment(v_align, options.vertical_alignment or "center")
+            content_x = content_x + alignment_offset(h_align, content_w, m.width)
+            content_y = content_y + alignment_offset(v_align, content_h, m.height)
         else
-            child_y = cursor_y
-            local child_align = child.align or "left"
-            if child_align == "center" then
-                child_x = inner_x + (inner_width - m.width) / 2
-            elseif child_align == "right" then
-                child_x = inner_x + inner_width - m.width
-            else
-                child_x = inner_x
-            end
+            h_align = normalize_alignment(h_align, cross_alignment == "center" and "start" or cross_alignment)
+            content_x = content_x + alignment_offset(h_align, content_w, m.width)
         end
-
-        local z = (options.z or 100) + (child.z_offset or 0) + 1
-
+        local child_z = z_base + (child.z_offset or 0) + 1
         if child.kind == "text" then
-            self:_draw_text_child(player_id, child, m, child_x, child_y, z, glyph_ids)
+            self:_draw_text_child(player_id, child, m, content_x, content_y, child_z, glyph_ids)
         elseif child.kind == "sprites" then
-            self:_draw_sprites_child(player_id, child, m, child_x, child_y, z, sprite_ids, i)
-        end
-
-        if is_horizontal then
-            cursor_x = cursor_x + m.width
-        else
-            cursor_y = cursor_y + m.height
+            self:_draw_sprites_child(player_id, child, m, content_x, content_y, child_z, sprite_ids, m.index)
         end
     end
 
-    self._glyph_ids = glyph_ids
-    self._sprite_ids = sprite_ids
-    self._panel_width = panel_width
-    self._panel_height = panel_height
-    self._measured = measured
+    if is_grid then
+        local y_cursor = inner_y + alignment_offset(options.vertical_alignment or "start", inner_height, grid_height)
+        for row = 1, grid_rows do
+            local x_cursor = inner_x + alignment_offset(options.horizontal_alignment or "start", inner_width, grid_width)
+            for col = 1, math.min(grid_columns, #children - (row - 1) * grid_columns) do
+                local index = (row - 1) * grid_columns + col
+                local m = measured[index]
+                local cell_w, cell_h = grid_col_widths[col] or 0, grid_row_heights[row] or 0
+                draw_child(m, x_cursor, y_cursor, cell_w, cell_h)
+                x_cursor = x_cursor + cell_w + grid_col_spacing
+            end
+            y_cursor = y_cursor + (grid_row_heights[row] or 0) + grid_row_spacing
+        end
+    else
+        local is_main_horizontal = is_horizontal
+        local available_main = is_main_horizontal and inner_width or inner_height
+        local used_main = 0
+        for i, m in ipairs(measured) do
+            used_main = used_main + (is_main_horizontal and m.outer_width or m.outer_height)
+            if i > 1 then used_main = used_main + (tonumber(m.child.gap_before) or 0) end
+        end
+        local offset, distributed_spacing = main_axis_distribution(main_alignment, available_main, used_main, #measured, main_spacing)
+        local cursor = (is_main_horizontal and inner_x or inner_y) + offset
+        for i, m in ipairs(measured) do
+            local child = m.child
+            if i > 1 then
+                cursor = cursor + (tonumber(child.gap_before) or 0) + distributed_spacing
+            end
+            local slot_w, slot_h = m.outer_width, m.outer_height
+            if is_horizontal then
+                draw_child(m, cursor, inner_y, slot_w, inner_height)
+                cursor = cursor + slot_w
+            else
+                draw_child(m, inner_x, cursor, inner_width, slot_h)
+                cursor = cursor + slot_h
+            end
+        end
+    end
 
+    self._glyph_ids, self._sprite_ids = glyph_ids, sprite_ids
+    self._panel_width, self._panel_height = panel_width, panel_height
+    self._measured = measured
     if not panels[player_id] then panels[player_id] = {} end
     panels[player_id][self._logical_id] = self
 end
@@ -1129,11 +1203,7 @@ function TextPanel:setOptions(new_options)
             self._options[k] = v
         end
     end
-    local pad = self._options.padding or 8
-    if type(pad) == "number" then
-        pad = { left = pad, right = pad, top = pad, bottom = pad }
-    end
-    self._padding = pad
+    self._padding = normalize_edges(self._options.padding, 8)
     self._children = self._options.children
     self:_redraw()
 end

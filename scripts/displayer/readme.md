@@ -286,6 +286,32 @@ The underlying `SlicedSprite` module also exposes `draw3`, `draw5`, `draw9`, `er
 
 `Displayer.Builder` builds option tables; it does not itself create the displayed object.
 
+Panel layout options support `layout = "vertical"`/`"column"`, `"horizontal"`/`"row"`, and `"grid"`. Use `padding` for the panel's outer inset, `child_padding` for a default inset around each child, and `main_axis_spacing`/`cross_axis_spacing` (or the compatibility `spacing` option) for layout gaps. Per-child `padding` overrides the panel's `child_padding`. Padding is normalized to `{ left, right, top, bottom }` and the sliced-panel layout includes it in auto-sizing. Grid panels additionally accept `columns`, `column_spacing`, and `row_spacing`.
+
+Example:
+
+```lua
+local children = {
+    Displayer.Builder.panelSpritesChild({ icon_def }, {
+        sprite_scale = 1,
+        valign = "middle",
+    }),
+    Displayer.Builder.panelTextChild("Kicker", {
+        font = "THICK",
+        scale = 2,
+        halign = "center",
+        valign = "middle",
+    }),
+}
+
+local options = Displayer.Builder.rowPanelOptions({
+    padding = { horizontal = 6, vertical = 8 },
+    child_padding = 2,
+    main_axis_spacing = 8,
+    children = children,
+})
+```
+
 | Helper | Result/use |
 |---|---|
 | `glyph(overrides)` | Glyph options |
@@ -299,7 +325,14 @@ The underlying `SlicedSprite` module also exposes `draw3`, `draw5`, `draw9`, `er
 | `spriteDef(texture_path, anim_path, anim_state, overrides)` | Sprite definition |
 | `text(mode, overrides)` | Text options for a mode |
 | `textPanelStyle(kind, parts, orientation)` | Text-panel style descriptor |
-| `textPanelOptions(overrides)` | Text-panel options |
+| `textPanelOptions(overrides)` | Text-panel options, including panel/child padding, axis spacing, alignment, and row/column/grid layouts |
+| `rowPanelOptions(overrides)` | Text-panel options configured for a horizontal row |
+| `columnPanelOptions(overrides)` | Text-panel options configured for vertical stacking |
+| `gridPanelOptions(columns, overrides)` | Text-panel options configured for a grid |
+| `panelPadding(value, vertical)` | Normalizes uniform or horizontal/vertical padding to edge values |
+| `panelChildPadding(value, vertical)` | Same padding helper for an individual panel child |
+| `panelTextChild(text, overrides)` | Text child descriptor; supports per-child padding and alignment overrides |
+| `panelSpritesChild(sprites, overrides)` | Sprite child descriptor; supports per-child padding, sprite layout, and alignment overrides |
 | `textPanel(text, style, options)` | Text-panel definition/helper result |
 
 Additional utility calls:
