@@ -672,7 +672,7 @@
    </properties>
    <point/>
   </object>
-  <object id="195" name="Shademan Dialogue" type="Dialogue" x="704" y="672">
+  <object id="195" name="Shademan Dialogue" type="Dialogue" x="704" y="656">
    <properties>
     <property name="Dialogue Type" value="battle_npc"/>
     <property name="Encounter Name" value="BossTest"/>
