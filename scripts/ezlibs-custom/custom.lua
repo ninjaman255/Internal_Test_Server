@@ -4,8 +4,20 @@
 
 local plugins = {
     require("scripts/ezlibs-custom/nebulous-liberations/main"),
-    require("scripts/ezlibs-custom/footbomb/main")
+    require("scripts/ezlibs-custom/footbomb/main"),
+    require("scripts/ezlibs-custom/endless-runner/endless-runner")
 }
+local EndlessRunner = require("scripts/ezlibs-custom/endless-runner/endless-runner")
+
+EndlessRunner.setup({
+    -- "endless-runner" is what Net.list_areas() reports
+    -- (see: [ezmemory] loaded area memory for endless-runner)
+    base_area_id  = "endless-runner",
+    enter_options = {
+        loop       = true,
+        lock_input = false,
+    },
+})
 
 local custom = {}
 

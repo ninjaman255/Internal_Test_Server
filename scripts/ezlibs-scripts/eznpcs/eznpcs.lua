@@ -1820,4 +1820,126 @@ function eznpcs.set_bot_pose(bot_or_npc, options)
     end)
 end
 
+-- =========================================================================
+-- Public helpers for external modules that need to create avatar-style
+-- NPCs (arbitrary texture/animation paths) or attach behaviors
+-- programmatically. These do not change any existing NPC/serialization
+-- behavior; they just expose the existing internals through a stable API.
+-- =========================================================================
+
+--- Create an NPC with explicit texture/animation paths.
+---
+--- Unlike eznpcs.create_npc (which builds paths from an asset name in the
+--- eznpcs asset folder), this accepts arbitrary paths — useful for
+--- player-avatar clones or dynamically sourced sprites.
+---
+--- @param area_id string
+--- @param texture_path string      (e.g. "/server/assets/avatars/...")
+--- @param animation_path string
+--- @param x number
+--- @param y number
+--- @param z number
+--- @param direction string
+--- @param options table|nil
+---   options.asset_name         - identifier for debugging (default "custom")
+---   options.name               - bot name
+---   options.animation          - initial animation state (default nil = engine default)
+---   options.mug_animation_path - mugshot animation path override
+---   options.dont_face_player   - bool (default true)
+---   options.solid              - bool (default true)
+---   options.size               - number (default 0.2)
+---   options.speed              - number (default 1)
+---   options.warp_in            - bool (default false)
+--- @return npc_data|nil
+function eznpcs.create_npc_from_paths(area_id, texture_path, animation_path,
+                                      x, y, z, direction, options)
+    options = options or {}
+    if not area_id or not texture_path then return nil end
+
+    local npc_data = {
+        asset_name = options.asset_name or "custom",
+        bot_id = nil,
+        name = options.name or nil,
+        area_id = area_id,
+        texture_path = texture_path,
+        animation_path = animation_path or "",
+        mug_animation_path = options.mug_animation_path or generic_npc_mug_animation_path,
+        x = x, y = y, z = z or 0,
+        direction = direction or "Down",
+        animation = options.animation,  -- optional initial state
+        solid = options.solid ~= false,
+        size = options.size or 0.2,
+        speed = options.speed or 1,
+        dont_face_player = options.dont_face_player ~= false,
+        warp_in = options.warp_in == true,
+        current_animation = nil,
+        _animation_source = nil,
+        _hold_generation = 0,
+        _scripted_move_generation = 0,
+        _scripted_move_active = false,
+    }
+
+    local bot_id = Net.create_bot(npc_data)
+    if not bot_id then
+        printd("eznpcs.create_npc_from_paths: Net.create_bot returned nil for "
+            .. tostring(options.asset_name or texture_path))
+        return nil
+    end
+    npc_data.bot_id = bot_id
+    npcs[bot_id] = npc_data
+
+    emit_bot_created(bot_id, area_id, {
+        asset_name = npc_data.asset_name,
+        name = npc_data.name,
+        x = x, y = y, z = z or 0,
+    })
+    return npc_data
+end
+
+--- Attach waypoint-following behavior to an existing NPC record.
+--- Uses the same waypoint_follow_behaviour the Tiled property path uses,
+--- so `Next Waypoint N`, `Move Animation`, `Wait Animation`, `Waypoint Type`,
+--- loop/path-complete semantics are all identical.
+---
+--- @param npc table             npc_data returned by create_npc* / create_npc_from_paths
+--- @param first_waypoint_id string
+--- @param options table|nil     see waypoint_follow_behaviour
+---   options.on_path_complete(npc) — fires when a waypoint has no Next Waypoint
+--- @return boolean
+function eznpcs.attach_waypoint_follow(npc, first_waypoint_id, options)
+    if not npc or not first_waypoint_id then return false end
+    local behaviour = waypoint_follow_behaviour(first_waypoint_id, options or {})
+    add_behaviour(npc, behaviour)
+    return true
+end
+
+--- Attach the standard chat/interaction behavior to an NPC record.
+--- Not needed for the endless runner, but exposed for symmetry with Tiled
+--- NPCs so custom modules don't have to reimplement dialogue plumbing.
+---
+--- @param npc table
+--- @param first_dialogue table|nil
+--- @return boolean
+function eznpcs.attach_chat(npc, first_dialogue)
+    if not npc then return false end
+    if first_dialogue then npc.first_dialogue = first_dialogue end
+    add_behaviour(npc, chat_behaviour())
+    return true
+end
+
+--- Remove an NPC by record or bot_id.
+--- Handles the ezbus notification so ezbottriggers clears overlap state.
+---
+--- @param npc_or_bot_id table|string|number
+--- @return boolean
+function eznpcs.remove_npc(npc_or_bot_id)
+    local bot_id = _resolve_bot_id(npc_or_bot_id)
+    if not bot_id then return false end
+    if not npcs[bot_id] then return false end
+    emit_bot_removed(bot_id)
+    pcall(Net.remove_bot, bot_id)
+    npcs[bot_id] = nil
+    return true
+end
+
 return eznpcs
