@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="22" height="22" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="212">
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="22" height="22" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="216">
  <properties>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
@@ -50,10 +50,10 @@
 </data>
  </layer>
  <objectgroup id="7" name="Object Layer 0">
-  <object id="198" type="Endless Runner Trigger" x="208" y="240" width="32" height="32">
+  <object id="198" type="Endless Runner Trigger" x="208" y="48" width="32" height="32">
    <properties>
     <property name="Warp Bot Too" type="bool" value="true"/>
-    <property name="Warp To" value="Spawn"/>
+    <property name="Warp To" value="$instance:202"/>
    </properties>
   </object>
   <object id="202" type="Endless Runner Spawn" x="64" y="256">
@@ -74,7 +74,7 @@
   <object id="205" type="Waypoint" x="384" y="256">
    <properties>
     <property name="Move Direction" propertytype="Direction" value="Up Right"/>
-    <property name="Next Waypoint 1" type="object" value="206"/>
+    <property name="Next Waypoint 1" type="object" value="210"/>
    </properties>
    <point/>
   </object>
@@ -90,6 +90,60 @@
    <properties>
     <property name="Move Direction" propertytype="Direction" value="Down Left"/>
     <property name="Next Waypoint 1" type="object" value="204"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="210" type="Waypoint" x="384" y="144">
+   <properties>
+    <property name="Default Option" type="int" value="1"/>
+    <property name="Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Is Choice" type="bool" value="true"/>
+    <property name="Option 1" value="Straight"/>
+    <property name="Option 2" value="Left Detour"/>
+    <property name="Option 3" value="Right Detour"/>
+    <property name="Prompt" value="Which way?"/>
+    <property name="Target 1" type="object" value="206"/>
+    <property name="Target 2" type="object" value="211"/>
+    <property name="Target 3" type="object" value="214"/>
+    <property name="Timeout" type="int" value="20"/>
+    <property name="Wait Animation" value="IDLE_UL"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="211" type="Waypoint" x="304" y="144">
+   <properties>
+    <property name="Move Direction" propertytype="Direction" value="Down Left"/>
+    <property name="Next Waypoint 1" type="object" value="213"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="212" type="Runner Rectangle Encounter" x="208" y="16" width="32" height="32">
+   <properties>
+    <property name="Encounter 1" value="BossTest"/>
+    <property name="Encounter 2" value="BossTest"/>
+    <property name="Encounter 3" value="BossTest"/>
+    <property name="Pick Mode" value="random"/>
+    <property name="Return Point Type" value="Endless Runner Spawn"/>
+   </properties>
+  </object>
+  <object id="213" type="Waypoint" x="304" y="32">
+   <properties>
+    <property name="Move Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Next Waypoint 1" type="object" value="209"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="214" type="Waypoint" x="464" y="144">
+   <properties>
+    <property name="Move Direction" propertytype="Direction" value="Up Right"/>
+    <property name="Next Waypoint 1" type="object" value="215"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="215" type="Waypoint" x="464" y="32">
+   <properties>
+    <property name="Move Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Next Waypoint 1" type="object" value="209"/>
    </properties>
    <point/>
   </object>
