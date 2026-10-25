@@ -300,6 +300,35 @@ function FontSystem:isBattleFont(font_name)
 end
 
 -- --------------------------------------------------------------------
+-- Glyph advance helpers (single source of truth for text layout)
+-- --------------------------------------------------------------------
+--- Get glyph advance in virtual 240x160 units (matches TextLayout).
+---@param font_name string
+---@param char string
+---@param scale number
+---@return number
+function FontSystem:getVirtualAdvance(font_name, char, scale)
+    scale = tonumber(scale) or 2.0
+    if scale <= 0 then scale = 2.0 end
+    local w = self:getGlyphDimensions(font_name, char)
+    local spacing = self:isBattleFont(font_name) and 0 or 1
+    return ((w + spacing) * scale) / 2
+end
+
+--- Get glyph advance in screen (480x320) units.
+---@param font_name string
+---@param char string
+---@param scale number
+---@return number
+function FontSystem:getScreenAdvance(font_name, char, scale)
+    scale = tonumber(scale) or 2.0
+    if scale <= 0 then scale = 2.0 end
+    local w = self:getGlyphDimensions(font_name, char)
+    local spacing = self:isBattleFont(font_name) and 0 or 1
+    return (w + spacing) * scale
+end
+
+-- --------------------------------------------------------------------
 -- Per‑player asset management
 -- --------------------------------------------------------------------
 ---@param player_id string

@@ -366,8 +366,14 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
     -- Format the time string
     local text
     if is_countdown then
-        local mins = math.floor(seconds / 60)
-        local secs = math.floor(seconds % 60)
+        -- Countdown display convention: ceil (clamped at 0) so the "N"
+        -- label stays visible for the whole second between N.0 and N-1.0
+        -- instead of only at exactly N.0. This matters whenever the timer
+        -- ticks before the countdown is paused or consumed, because a raw
+        -- floor would briefly render "N-1" even though ~N seconds remain.
+        local total_secs = math.max(0, math.ceil(seconds))
+        local mins = math.floor(total_secs / 60)
+        local secs = total_secs % 60
         text = string.format("%02d:%02d", mins, secs)
     else
         local hours = math.floor(seconds / 3600)
@@ -404,7 +410,6 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
     -- Iterate through each character in the new text
     for i = 1, #text do
         local ch = text:sub(i, i)
-        local w, _ = fontSystem:getGlyphDimensions(disp.font, ch)
 
         if i <= #old_data and old_data[i] then
             -- Existing glyph slot
@@ -454,8 +459,7 @@ function TimerDisplay:_updateDisplay(player_id, display_id, seconds, is_countdow
             end
         end
 
-        local spacing = fontSystem:isBattleFont(disp.font) and 0 or 1
-        x = x + w * disp.scale + spacing * disp.scale
+        x = x + fontSystem:getScreenAdvance(disp.font, ch, disp.scale)
     end
 
     -- If old data had more glyphs than new text, erase the extras
@@ -510,12 +514,10 @@ function TimerDisplay:setDisplayPosition(player_id, display_id, x, y)
         local current_x = screen_x
         for i, glyph in ipairs(disp.glyph_data) do
             local ch = glyph.char
-            local w, _ = fontSystem:getGlyphDimensions(disp.font, ch)
             -- Convert to virtual for update
             fontSystem:updateGlyph(player_id, glyph.instance_id, { x = current_x / 2, y = screen_y / 2 })
             glyph.x = current_x
-            local spacing = fontSystem:isBattleFont(disp.font) and 0 or 1
-            current_x = current_x + w * disp.scale + spacing * disp.scale
+            current_x = current_x + fontSystem:getScreenAdvance(disp.font, ch, disp.scale)
         end
     end
 end

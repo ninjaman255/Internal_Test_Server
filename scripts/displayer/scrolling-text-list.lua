@@ -70,13 +70,15 @@ function TextEntry:_createGlyphs(y_offset)
     local total_width = 0
     for i = 1, #self.text do
         local ch = self.text:sub(i,i)
-        local w, _ = fontSystem:getGlyphDimensions(self.font, ch)
-        total_width = total_width + w * self.scale
-        if i < #self.text then
-            local spacing = fontSystem:isBattleFont(self.font) and 0 or 1
-            total_width = total_width + spacing * self.scale
-        end
+        total_width = total_width + fontSystem:getScreenAdvance(self.font, ch, self.scale)
     end
+    -- getScreenAdvance includes the trailing inter-glyph spacing; subtract it
+    -- so total_width matches the visible span of the text.
+    if #self.text > 0 then
+        local last_spacing = (fontSystem:isBattleFont(self.font) and 0 or 1) * self.scale
+        total_width = total_width - last_spacing
+    end
+
     local base_x = bounds_left + (bounds_width - total_width) / 2
     local base_y = self.grid_y + (y_offset or 0)
 
@@ -102,9 +104,7 @@ function TextEntry:_createGlyphs(y_offset)
                 table.insert(glyph_data, { id = inst_id, x = cx })
             end
         end
-        local w, _ = fontSystem:getGlyphDimensions(self.font, ch)
-        local spacing = fontSystem:isBattleFont(self.font) and 0 or 1
-        cx = cx + w * self.scale + spacing * self.scale
+        cx = cx + fontSystem:getScreenAdvance(self.font, ch, self.scale)
     end
     self.glyph_data = glyph_data
 end

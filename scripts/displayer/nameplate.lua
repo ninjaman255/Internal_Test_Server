@@ -210,10 +210,17 @@ function Nameplate:_redraw(player_id, np, assets)
         end
     end
 
-    -- Draw name text when fully unfolded and not closing
+    -- Draw name text when fully unfolded and not closing.
+    --
+    -- Coordinates throughout this block are computed in *screen* pixels (the
+    -- same space as the plate frame above). FontSystem:drawGlyph expects
+    -- *virtual* 240x160 coordinates and doubles them internally, so we convert
+    -- the origin once and let getVirtualAdvance advance in virtual units.
     if np.complete and not np.closing and np.text then
-        local text_x = math.floor((left_x + self.w_left * scale + np.pad_px) + 0.5)
-        local text_y = math.floor((y + (3 * scale) + 2) + 0.5)
+        local text_x_px = math.floor((left_x + self.w_left * scale + np.pad_px) + 0.5)
+        local text_y_px = math.floor((y + (3 * scale) + 2) + 0.5)
+        local text_x_v  = text_x_px / 2
+        local text_y_v  = text_y_px / 2
 
         if np.text_glyph_ids then
             for _, id in ipairs(np.text_glyph_ids) do
@@ -222,11 +229,11 @@ function Nameplate:_redraw(player_id, np, assets)
         end
 
         local glyph_ids = {}
-        local cx = text_x
+        local cx = text_x_v
         for i = 1, #np.text do
-            local ch = np.text:sub(i,i)
+            local ch = np.text:sub(i, i)
             if ch ~= " " then
-                local inst_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y, {
+                local inst_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y_v, {
                     scale = np.text_scale,
                     z = z + 2,
                     r = 255, g = 255, b = 255,
@@ -236,9 +243,7 @@ function Nameplate:_redraw(player_id, np, assets)
                     table.insert(glyph_ids, inst_id)
                 end
             end
-            local w, _ = self.font_system:getGlyphDimensions(np.font, ch)
-            local spacing = self.font_system:isBattleFont(np.font) and 0 or 1
-            cx = cx + w * np.text_scale + spacing * np.text_scale
+            cx = cx + self.font_system:getVirtualAdvance(np.font, ch, np.text_scale)
         end
         np.text_glyph_ids = glyph_ids
     else

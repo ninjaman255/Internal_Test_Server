@@ -76,10 +76,7 @@ function TextLayout.parseMarkup(text)
 end
 
 local function glyph_advance(font, char, scale)
-    local w = fontSystem:getGlyphDimensions(font, char)
-    local spacing = fontSystem:isBattleFont(font) and 0 or 1
-    -- FontSystem doubles virtual positions before rendering. Convert rendered pixels back to virtual units.
-    return ((w + spacing) * scale) / 2
+    return fontSystem:getVirtualAdvance(font, char, scale)
 end
 
 function TextLayout.measureLine(text, options)
