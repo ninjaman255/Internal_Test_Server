@@ -40,12 +40,19 @@ local BOMB_PREVIEW_ANIMATION = AnimationStates.BOMB_PREVIEW
 -- the 240x160 logical space used by games.draw_text, so the equivalent raw
 -- pixel Y is near the bottom of the 320-tall raw screen.
 
--- Built once at module load. sliceStyle9 only builds a table; asset loading
--- happens lazily on first draw inside sliced-sprite.lua.
-local role_panel_style = Displayer.Builder.sliceStyle9(
-    Config.ASSETS.ROLE_PANEL_TEXTURE,
-    Config.ASSETS.ROLE_PANEL_ANIMATION
-)
+-- Build role-specific 9-slice styles once. Both textures share the same
+-- role-box-9slice.animation slicing definition; only the artwork differs.
+-- Asset loading remains lazy inside sliced-sprite.lua.
+local role_panel_styles = {
+    Kicker = Displayer.Builder.sliceStyle9(
+        Config.ASSETS.ROLE_PANEL_TEXTURE_KICKER,
+        Config.ASSETS.ROLE_PANEL_ANIMATION
+    ),
+    Defender = Displayer.Builder.sliceStyle9(
+        Config.ASSETS.ROLE_PANEL_TEXTURE_DEFENDER,
+        Config.ASSETS.ROLE_PANEL_ANIMATION
+    ),
+}
 
 
 
@@ -262,6 +269,12 @@ local function build_role_panel(player_id, rep, role)
     if not rep or not role or not rep.role_panel_id then
         return nil
     end
+    local role_panel_style = role_panel_styles[role]
+    if not role_panel_style then
+        log("ROLE_FLOW: no 9-slice style configured for role=" .. tostring(role))
+        return nil
+    end
+
     local icon_state = (role == "Kicker")
         and Config.UI.ROLE_ICON_STATE_KICKER
         or  Config.UI.ROLE_ICON_STATE_DEFENDER
@@ -707,7 +720,8 @@ local function provide_match_assets(player_id)
     provide(Config.ASSETS.CURSOR_TEXTURE)
     provide(Config.ASSETS.CURSOR_ANIMATION)
     provide(Config.ASSETS.THUD_SFX)
-    provide(Config.ASSETS.ROLE_PANEL_TEXTURE)
+    provide(Config.ASSETS.ROLE_PANEL_TEXTURE_KICKER)
+    provide(Config.ASSETS.ROLE_PANEL_TEXTURE_DEFENDER)
     provide(Config.ASSETS.ROLE_PANEL_ANIMATION)
     provide(Config.ASSETS.ROLE_ICONS_TEXTURE)
     provide(Config.ASSETS.ROLE_ICONS_ANIMATION)
@@ -996,7 +1010,8 @@ local function provide_instance_bot_assets(area_id)
     -- Role panel + role icon UI assets. Provided without hard validation
     -- because draw_role_text() already falls back to plain text if the panel
     -- cannot be built at runtime.
-    add(Config.ASSETS.ROLE_PANEL_TEXTURE)
+    add(Config.ASSETS.ROLE_PANEL_TEXTURE_KICKER)
+    add(Config.ASSETS.ROLE_PANEL_TEXTURE_DEFENDER)
     add(Config.ASSETS.ROLE_PANEL_ANIMATION)
     add(Config.ASSETS.ROLE_ICONS_TEXTURE)
     add(Config.ASSETS.ROLE_ICONS_ANIMATION)

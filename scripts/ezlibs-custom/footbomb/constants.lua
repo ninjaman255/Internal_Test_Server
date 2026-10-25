@@ -33,7 +33,9 @@ local constants = {
         SCOREBOARD_ANIMATION = ASSET_ROOT .. "ui/score-board.animation",
         FINAL_SCORE_SFX = ASSET_ROOT .. "sfx/winner.ogg",
         THUD_SFX = ASSET_ROOT .. "sfx/item-thud.ogg",
-        ROLE_PANEL_TEXTURE = ASSET_ROOT .. "ui/role-box-9slice.png",
+        ROLE_PANEL_TEXTURE_KICKER = ASSET_ROOT .. "ui/kicker-role-box-9slice.png",
+        ROLE_PANEL_TEXTURE_DEFENDER = ASSET_ROOT .. "ui/defender-role-box-9slice.png",
+        -- Both role-specific textures use the shared 9-slice animation definition.
         ROLE_PANEL_ANIMATION = ASSET_ROOT .. "ui/role-box-9slice.animation",
         ROLE_ICONS_TEXTURE = ASSET_ROOT .. "ui/role-icons.png",
         ROLE_ICONS_ANIMATION = ASSET_ROOT .. "ui/role-icons.animation",
