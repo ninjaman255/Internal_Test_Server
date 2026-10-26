@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/helpers/net-helpers.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/helpers/net-helpers.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,36 +11,54 @@
 ## Module location
 
 - **Source:** `net-games/helpers/net-helpers.lua`
-- **Relative reference:** `script-reference/net-games/helpers/net-helpers.lua.md`
+- **Reference:** `script-reference/net-games/helpers/net-helpers.lua.md`
+- **Source SHA-256 prefix:** `53a5dd55e9a5`
 
-## Net event subscriptions
+## Source header notes
 
-| Event | Evidence |
+- scripts/net-games/helpers/net-helpers.lua
+- EZLIBS compatibility helpers for net-games
+- Adds:
+- Net:create_timer(seconds, callback) -> handle
+- handle:cancel()
+- Why:
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+| `attach_tick_listener` | `` |
+| `NetHelpers.create_timer` | `seconds, callback` |
+| `handle:cancel` | `` |
+| `NetHelpers.safe_require` | `path` |
+| `NetHelpers.patch_net` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`create_timer`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `NetHelpers.create_timer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `NetHelpers.patch_net` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `NetHelpers.safe_require` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `attach_tick_listener` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `handle:cancel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `ATTACHED` | `false` |
+| `NEXT_ID` | `1` |
+| `TIMERS` | `{} -- id -> { remaining, cb, cancelled }` |
+| `ATTACHED` | `true` |
+| `NEXT_ID` | `NEXT_ID + 1` |
 
-## Uppercase constants
+## Usage and maintenance notes
 
-`ATTACHED`, `NEXT_ID`
-
-## Source notes
-
-- Approximate source size: 106 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,63 +2,77 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezcheckpoints.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezcheckpoints.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Ezcheckpoints source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezcheckpoints.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezcheckpoints.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezcheckpoints.lua.md`
+- **Source SHA-256 prefix:** `606a97de1483`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/ezlibs-scripts/helpers` |
+| `scripts/ezlibs-scripts/condition` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/utils/eztiledutils` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_avatar_change` |
+| `player_disconnect` |
+| `object_interaction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/condition` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/utils/eztiledutils` | Import string found in source; runtime resolution depends on the server package layout. |
+| `is_player_alive` | `player_id` |
+| `safe_net` | `fn, ...` |
+| `ezcheckpoints.handle_player_disconnect` | `player_id` |
+| `ezcheckpoints.get_player_navi_info` | `player_id` |
+| `names_equal` | `a, b` |
+| `ezcheckpoints.player_has_navi` | `player_id, name` |
+| `ezcheckpoints.player_has_navi_element` | `player_id, element` |
+| `ezcheckpoints.player_has_any_navi` | `player_id, names` |
+| `evaluate_navi_check` | `player_id, navi_check` |
+| `ezcheckpoints.unlock_checkpoint_for_player` | `player_id, area_id, object_id, unlocking_asset_name, unlocking_sound_path, unlocking_animation_time, once, opts` |
+| `ezcheckpoints.force_unlock_checkpoint` | `player_id, area_id, object_id, once, opts` |
+| `ezcheckpoints.relock_checkpoint` | `player_id, area_id, object_id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `object_interaction` | `Net:on(...)` subscription found in source. |
-| `player_avatar_change` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Event-bus event names
+`is_player`, `on`, `get_object_by_id`, `is_player_input_locked`, `lock_player_input`, `play_sound_for_player`, `provide_asset`, `create_bot`, `remove_bot`, `unlock_player_input`, `get_player_area`, `include_object_for_player`
 
-| Event | Evidence |
-|---|---|
-| `checkpoint_unlocked` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+## Engine `Async` calls
 
-## Functions defined in this file
+`sleep`, `message_player`, `prompt_player`, `question_player`
 
-| Function | Notes |
-|---|---|
-| `evaluate_navi_check` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.force_unlock_checkpoint` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.get_player_navi_info` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.player_has_any_navi` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.player_has_navi` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.player_has_navi_element` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.relock_checkpoint` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcheckpoints.unlock_checkpoint_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `is_player_alive` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `names_equal` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_net` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Literal asset/path strings
 
-## Source notes
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- Approximate source size: 491 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/ezcheckpoints/` |
+| `/server/assets/ezlibs-assets/sfx/panel_change.ogg` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

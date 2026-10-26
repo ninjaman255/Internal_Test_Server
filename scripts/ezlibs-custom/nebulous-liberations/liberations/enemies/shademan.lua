@@ -36,6 +36,7 @@ function ShadeMan:new(instance, position, direction)
 end
 
 function ShadeMan:spawn(direction)
+  self.direction = direction
   self.id = Net.create_bot({
     texture_path = "/server/assets/NebuLibsAssets/bots/shademan.png",
     animation_path = "/server/assets/NebuLibsAssets/bots/shademan.animation",

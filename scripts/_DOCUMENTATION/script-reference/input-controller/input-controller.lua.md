@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `input-controller/input-controller.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `input-controller/input-controller.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,75 +11,90 @@ input-controller.lua Unified sticky-state input controller with release/repeat e
 ## Module location
 
 - **Source:** `input-controller/input-controller.lua`
-- **Relative reference:** `script-reference/input-controller/input-controller.lua.md`
+- **Reference:** `script-reference/input-controller/input-controller.lua.md`
+- **Source SHA-256 prefix:** `1a3388cfacf6`
+
+## Source header notes
+
+- input-controller.lua
+- Unified sticky-state input controller with release/repeat edges and UI handoff guards.
+- Timing is driven only by tick(delta_time); missing packet keys never imply release.
+- Lifecycle:
+- local ctrl = InputController.new(player_id, button_mappings, dir_names, config)
+- ctrl:activate()     -- begin processing (default unless config.auto_activate == false)
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/utils/utility` |
+| `scripts/input-controller/d-pad` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/input-controller/d-pad` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/utils/utility` | Import string found in source; runtime resolution depends on the server package layout. |
+| `normalize_state` | `value` |
+| `normalize_events` | `events` |
+| `rebuild_action_tables` | `self` |
+| `sanitize_delay` | `value, fallback` |
+| `InputController.new` | `player_id, button_mappings, direction_raw_names, config` |
+| `InputController:_init` | `player_id, button_mappings, direction_raw_names, config` |
+| `InputController.extend` | `overrides` |
+| `subclass.new` | `player_id, button_mappings, direction_raw_names, config` |
+| `InputController:clone` | `player_id` |
+| `InputController:is_active` | `` |
+| `InputController:activate` | `` |
+| `InputController:deactivate` | `` |
+| `InputController:reset` | `` |
+| `InputController:reload` | `button_mappings, direction_raw_names` |
+| `InputController:_clear_transient_state` | `` |
+| `InputController:destroy` | `` |
+| `InputController:set_repeat_delays` | `first_repeat_delay, repeat_delay` |
+| `InputController:restore_repeat_delays` | `` |
+| `InputController:get_repeat_delays` | `` |
+| `InputController:on` | `event, callback` |
+| `InputController:off` | `event, callback` |
+| `InputController:remove_listener` | `event, callback` |
+| `InputController:claim_input` | `owner, force` |
+| `InputController:release_input` | `owner` |
+| `InputController:has_input_control` | `owner` |
+| `InputController:get_input_owner` | `` |
+| `InputController:_swallowing` | `` |
+| `InputController:_emit_edge` | `kind, action, state` |
+| `InputController:handle_raw_input` | `events` |
+| `InputController:_set_action_down` | `action, down` |
+| `InputController:_update_logical_states` | `` |
+| `InputController:_update_direction` | `` |
+| `InputController:_synthesize_non_direction_releases` | `` |
+| `InputController:_process_holds` | `dt` |
+| `InputController:tick` | `delta_time` |
+| `can_access_input` | `self, owner` |
+| `InputController:is_action_down` | `action, owner` |
+| `InputController:peek_action_pressed` | `action, owner` |
+| `InputController:peek_action_released` | `action, owner` |
+| `InputController:peek_action_repeated` | `action, owner` |
+| `InputController:is_action_pressed` | `action, owner` |
+| `InputController:is_action_released` | `action, owner` |
+| `InputController:is_action_repeated` | `action, owner` |
+| `InputController:get_active_direction` | `owner` |
+| `InputController:require_release` | `actions, owner` |
+| `InputController:swallow` | `seconds, owner` |
+| `InputController:consume` | `owner` |
 
-## Functions defined in this file
+## Selected uppercase constants
 
-| Function | Notes |
+| Name | Source expression |
 |---|---|
-| `InputController.extend` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController.new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_clear_transient_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_emit_edge` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_process_holds` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_set_action_down` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_swallowing` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_synthesize_non_direction_releases` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_update_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:_update_logical_states` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:activate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:claim_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:clone` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:consume` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:deactivate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:get_active_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:get_input_owner` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:get_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:handle_raw_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:has_input_control` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:is_action_down` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:is_action_pressed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:is_action_released` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:is_action_repeated` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:is_active` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:off` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:on` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:peek_action_pressed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:peek_action_released` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:peek_action_repeated` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:release_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:reload` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:remove_listener` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:require_release` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:reset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:restore_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:set_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:swallow` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `InputController:tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `can_access_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_events` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `rebuild_action_tables` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `sanitize_delay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `subclass.new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `NON_DIR_UP_TIMEOUT` | `0.06` |
+| `FIRST_REPEAT_DELAY` | `0.30` |
+| `REPEAT_DELAY` | `0.10` |
+| `MAX_TICK_DT` | `0.25` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 664 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/enemy.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/enemy.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,31 +11,42 @@ enemy.lua
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/enemy.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy.lua.md`
+- **Source SHA-256 prefix:** `8fe5271e9024`
+
+## Source header notes
+
+- enemy.lua
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_templates` |
+| `scripts/ezlibs-custom/nebulous-liberations/utils/exploding_effect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_templates` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/utils/exploding_effect` | Import string found in source; runtime resolution depends on the server package layout. |
+| `Enemy.from` | `instance, position, direction, name` |
+| `Enemy.is_alive` | `enemy` |
+| `Enemy.destroy` | `instance, enemy` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `Enemy.destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Enemy.from` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Enemy.is_alive` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`set_bot_name`, `is_bot`, `is_player_input_locked`, `lock_player_input`, `slide_player_camera`, `move_player_camera`, `unlock_player_camera`, `remove_bot`, `unlock_player_input`
 
-- Approximate source size: 66 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`create_promise`, `await`, `sleep`, `promisify`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

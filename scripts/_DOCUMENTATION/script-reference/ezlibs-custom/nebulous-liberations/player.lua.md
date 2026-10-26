@@ -2,47 +2,58 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/player.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/player.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Player source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/player.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/player.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/player.lua.md`
+- **Source SHA-256 prefix:** `f6debf6fffcf`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/ezlibs-scripts/helpers` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/helpers` | Import string found in source; runtime resolution depends on the server package layout. |
+| `create_textbox_promise` | `self` |
+| `Player:new` | `player_id` |
+| `Player:message` | `message, texture_path, animation_path` |
+| `Player:message_with_mug` | `message` |
+| `Player:question` | `question, texture_path, animation_path` |
+| `Player:question_with_mug` | `question` |
+| `Player:quiz` | `a, b, c, texture_path, animation_path` |
+| `Player:is_battling` | `` |
+| `create_default_results` | `` |
+| `Player:initiate_encounter` | `asset_path, data` |
+| `Player:handle_textbox_response` | `response` |
+| `Player:handle_battle_results` | `stats` |
+| `Player:handle_disconnect` | `` |
+| `Player:boot_to_lobby` | `isVictory, mapName` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `Player:boot_to_lobby` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:handle_battle_results` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:handle_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:handle_textbox_response` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:initiate_encounter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:is_battling` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:message` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:message_with_mug` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:question` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:question_with_mug` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Player:quiz` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_default_results` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_textbox_promise` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`get_player_position`, `get_player_mugshot`, `message_player`, `question_player`, `quiz_player`, `initiate_encounter`, `get_player_area`, `get_area_custom_property`, `get_object_by_name`, `get_spawn_position`, `transfer_player`, `list_objects`, `get_object_by_id`
 
-- Approximate source size: 184 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`create_promise`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -7,7 +7,18 @@
 
 math.randomseed(os.time())
 
+local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
+local log = ezlogger.get("nebulous-liberations")
+
+-- Single source of truth for the liberation order-points cap. Passed into
+-- Instance:new and stored on each mission as MAX_ORDER_POINTS. Changing this
+-- value resizes the point gauge on the fly (one pip per point).
+local MAX_ORDER_POINTS = 10
+
 local LibPlugin = {}
+
+-- Exposed for debug tooling and any future modules that need to know the cap.
+LibPlugin.MAX_ORDER_POINTS = MAX_ORDER_POINTS
 
 local Player = require("scripts/ezlibs-custom/nebulous-liberations/player")
 local Instance = require("scripts/ezlibs-custom/nebulous-liberations/liberations/instance")
@@ -34,7 +45,7 @@ end
 
 local function transfer_players_to_new_instance(base_area, player_ids)
     if type(base_area) ~= "string" or base_area == "" then
-        print("[nebulous-liberations] Cannot start mission: missing liberation area name.")
+        log:error("Cannot start mission: missing liberation area name.")
         return
     end
     if type(player_ids) ~= "table" or #player_ids == 0 then
@@ -50,13 +61,28 @@ local function transfer_players_to_new_instance(base_area, player_ids)
         end
     end
     if #instance_players == 0 then
+        log:warn_data("Cannot start mission: no connected players", {
+            base_area = base_area,
+            requested_player_ids = player_ids,
+        })
         return
     end
 
-    local instance = Instance:new(base_area, instance_id, instance_players)
+    log:info_data("Starting liberation mission", {
+        base_area = base_area,
+        base_area_name = Net.get_area_name(base_area),
+        instance_area_id = instance_id,
+        player_count = #instance_players,
+        player_ids = player_ids,
+    })
+
+    local instance = Instance:new(base_area, instance_id, instance_players, MAX_ORDER_POINTS)
     local spawn = instance:get_spawn_position()
     if not spawn then
-        print("[nebulous-liberations] Cannot start mission in " .. tostring(base_area) .. ": no spawn position was found.")
+        log:error_data("Cannot start mission: no spawn position", {
+            base_area = base_area,
+            instance_area_id = instance_id,
+        })
         instance:clean_up()
         return
     end
@@ -76,7 +102,10 @@ end
 function LibPlugin.start_game_for_player(player_id, liberation_id)
     local player = players[player_id]
     if not player then
-        print("[nebulous-liberations] Cannot start mission: player is not initialized.")
+        log:error_data("Cannot start mission: player not initialized", {
+            player_id = player_id,
+            liberation_id = liberation_id,
+        })
         return
     end
 
@@ -88,11 +117,19 @@ function LibPlugin.start_game_for_player(player_id, liberation_id)
     end
 end
 
-local function detect_door_interaction(player_id, object_id, button)
+local function detect_door_interaction(area_id, player_id, object_id, button)
     if button ~= 0 then return end
-    local mission_area = gate_to_area_map[object_id]
+    local area_gates = gate_to_area_map[area_id]
+    if not area_gates then return end
+    local mission_area = area_gates[object_id]
     local player = players[player_id]
     if mission_area ~= nil and player then
+        log:debug_data("Gate interaction", {
+            waiting_area_id = area_id,
+            object_id = object_id,
+            mission_area = mission_area,
+            player_id = player_id,
+        })
         player:question_with_mug("Start mission?").and_then(function(response)
             if response == 1 and players[player_id] == player and not player.disconnected then
                 LibPlugin.start_game_for_player(player_id, mission_area)
@@ -105,19 +142,18 @@ local function leave_party(player)
     if not player then return end
     local party = Parties.find(player.id)
     if not party then return end
-
     Parties.leave(player.id)
     local name = Net.get_player_name(player.id) or "A player"
     for _, member_id in ipairs(party.members) do
         local member = players[member_id]
         if member then
-            member:message(name .. " has left your party.")
+            member:say(name .. " has left your party.")
         end
     end
     if #party.members == 1 then
         local last_member = players[party.members[1]]
         if last_member then
-            last_member:message("Party disbanded!")
+            last_member:say("Party disbanded!")
         end
     end
 end
@@ -136,8 +172,20 @@ local function remove_instance(area_id)
         spawn = Net.get_spawn_position("default")
     end
 
+    log:info_data("Removing liberation instance", {
+        instance_area_id = area_id,
+        area_name = area_name,
+        base_area_id = instance.base_area_id,
+        respawn_area = respawn_area,
+        spawn_found = spawn ~= nil,
+    })
+
     if not spawn then
-        print("[nebulous-liberations] No respawn point found for instance " .. tostring(area_id) .. ".")
+        log:error_data("No respawn point found for instance", {
+            instance_area_id = area_id,
+            area_name = area_name,
+            respawn_area = respawn_area,
+        })
         for _, player in ipairs(instance:get_players()) do
             if player then player.activity = nil end
         end
@@ -154,9 +202,6 @@ local function remove_instance(area_id)
         instances[area_id] = nil
     end)
 end
-
--- ezlibs plugin hooks. The root ezlibs main.lua owns Net:on subscriptions and
--- invokes these functions through its plugin fan-out.
 
 function LibPlugin.on_tick(delta_time)
     local elapsed = tonumber(delta_time) or 0
@@ -196,7 +241,7 @@ end
 function LibPlugin.handle_object_interaction(player_id, object_id, button)
     local area_id = Net.get_player_area(player_id)
     if waiting_area_map[area_id] ~= nil then
-        detect_door_interaction(player_id, object_id, button)
+        detect_door_interaction(area_id, player_id, object_id, button)
     elseif instances[area_id] ~= nil then
         instances[area_id]:handle_object_interaction(player_id, object_id, button)
     end
@@ -212,7 +257,7 @@ function LibPlugin.handle_actor_interaction(player_id, actor_id, button)
     local name = Net.get_player_name(actor_id) or "that player"
 
     if Parties.is_in_same_party(player_id, actor_id) then
-        player:message_with_mug(name .. " is already in our party.")
+        player:say_with_mug(name .. " is already in our party.")
         return
     end
     if Parties.has_request(player_id, actor_id) then
@@ -224,7 +269,7 @@ function LibPlugin.handle_actor_interaction(player_id, actor_id, button)
         return
     end
     if Parties.has_request(actor_id, player_id) then
-        player:message_with_mug("We already asked " .. name .. " to join our party.")
+        player:say_with_mug("We already asked " .. name .. " to join our party.")
         return
     end
     player:question_with_mug("Recruit " .. name .. "?").and_then(function(response)
@@ -241,10 +286,57 @@ function LibPlugin.handle_textbox_response(player_id, response)
     end
 end
 
-function LibPlugin.handle_battle_results(player_id, stats)
+function LibPlugin.handle_battle_results(...)
+    local arg_count = select('#', ...)
+    local first = select(1, ...)
+    local second = select(2, ...)
+    log:info_data("plugin handle_battle_results invoked", {
+        arg_count = arg_count,
+        arg1_type = type(first),
+        arg2_type = type(second),
+    })
+    local player_id, stats
+    if arg_count == 1 and type(first) == "table" then
+        player_id = first.player_id
+        stats = first
+    else
+        player_id = first
+        stats = second
+    end
     local player = players[player_id]
     if player then
         player:handle_battle_results(stats)
+    else
+        log:warn_data("handle_battle_results: player not found", {
+            player_id = tostring(player_id),
+        })
+    end
+end
+
+function LibPlugin.handle_battle_exit(...)
+    local arg_count = select('#', ...)
+    local first = select(1, ...)
+    local second = select(2, ...)
+    log:info_data("plugin handle_battle_exit invoked", {
+        arg_count = arg_count,
+        arg1_type = type(first),
+        arg2_type = type(second),
+    })
+    local player_id, stats
+    if arg_count == 1 and type(first) == "table" then
+        player_id = first.player_id
+        stats = first
+    else
+        player_id = first
+        stats = second
+    end
+    local player = players[player_id]
+    if player then
+        player:handle_battle_exit(stats)
+    else
+        log:warn_data("handle_battle_exit: player not found", {
+            player_id = tostring(player_id),
+        })
     end
 end
 
@@ -267,6 +359,19 @@ function LibPlugin.handle_player_transfer(player_id)
         player.y = player_pos.y
         player.z = player_pos.z
     end
+
+    if player.pending_battle_stats and player.resolve_battle then
+        local area_id = Net.get_player_area(player_id)
+        if player.activity and area_id == player.activity.area_id then
+            log:info_data("handle_player_transfer: battle exit detected", {
+                player_id = player_id,
+                area_id = area_id,
+                base_area_id = player.activity.base_area_id,
+            })
+            player:handle_battle_exit(player.pending_battle_stats)
+        end
+    end
+
     if player.activity then
         player.activity:handle_player_transfer(player_id)
     end
@@ -281,7 +386,6 @@ end
 function LibPlugin.handle_player_disconnect(player_id)
     local player = players[player_id]
     if not player then return end
-
     player:handle_disconnect()
     leave_party(player)
     players[player_id] = nil
@@ -290,13 +394,21 @@ end
 function LibPlugin.handle_player_move(player_id, x, y, z)
     local player = players[player_id]
     if not player then return end
+    if player.pending_battle_stats and player.resolve_battle then
+        log:info_data("handle_player_move: battle exit detected via movement", {
+            player_id = player_id,
+            new_x = x,
+            new_y = y,
+            new_z = z,
+        })
+        player:handle_battle_exit(player.pending_battle_stats)
+    end
     player.moved = true
     player.x = x
     player.y = y
     player.z = z
 end
 
--- Initialize panel registry and map metadata on module load.
 local areas = Net.list_areas()
 for _, area_id in ipairs(areas) do
     local custom_parameters = Net.get_area_custom_properties(area_id) or {}
@@ -307,7 +419,6 @@ for _, area_id in ipairs(areas) do
         waiting_area_map[waiting_area] = custom_parameters[Constants.CustomProperties.RespawnArea]
     end
 
-    -- Register panel object GIDs first so specific panel types take precedence.
     local objects = Net.list_objects(area_id) or {}
     for _, obj_id in ipairs(objects) do
         local obj = Net.get_object_by_id(area_id, obj_id)
@@ -325,7 +436,6 @@ for _, area_id in ipairs(areas) do
         end
     end
 
-    -- Unclassified GIDs in the configured liberation tileset default to Dark Panel.
     local tileset_path = custom_parameters[Constants.CustomProperties.LiberationTileset]
     if tileset_path then
         local tileset = Net.get_tileset(area_id, tileset_path)
@@ -339,11 +449,11 @@ for _, area_id in ipairs(areas) do
         Validation.report(area_id)
     end
 
-    -- The object ID identifies a mission gate and its destination map/area name.
+    gate_to_area_map[area_id] = gate_to_area_map[area_id] or {}
     for _, obj_id in ipairs(objects) do
         local obj = Net.get_object_by_id(area_id, obj_id)
         if obj and obj.custom_properties and obj.custom_properties[Constants.CustomProperties.LiberationMapFileName] then
-            gate_to_area_map[obj_id] = obj.custom_properties[Constants.CustomProperties.LiberationMapFileName]
+            gate_to_area_map[area_id][obj_id] = obj.custom_properties[Constants.CustomProperties.LiberationMapFileName]
         end
     end
 end

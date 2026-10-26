@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,49 +11,60 @@ main.lua Nebulous Liberations ezlibs custom plugin entry point. This module foll
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/main.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/main.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/main.lua.md`
+- **Source SHA-256 prefix:** `3b962389a058`
+
+## Source header notes
+
+- main.lua
+- Nebulous Liberations ezlibs custom plugin entry point.
+- This module follows scripts/ezlibs-scripts/main.lua's plugin contract:
+- it returns a table of handle_* functions and does not register its own Net
+- event listeners. The ezlibs dispatcher passes event fields to these methods.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/player` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/instance` |
+| `scripts/ezlibs-custom/nebulous-liberations/utils/parties` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/constants` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/validation` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/panel_registry` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/constants` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/instance` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/panel_registry` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/validation` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/player` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/utils/parties` | Import string found in source; runtime resolution depends on the server package layout. |
+| `find_available_instance_id` | `start_id` |
+| `transfer_players_to_new_instance` | `base_area, player_ids` |
+| `LibPlugin.start_game_for_player` | `player_id, liberation_id` |
+| `detect_door_interaction` | `player_id, object_id, button` |
+| `leave_party` | `player` |
+| `remove_instance` | `area_id` |
+| `LibPlugin.on_tick` | `delta_time` |
+| `LibPlugin.handle_tile_interaction` | `player_id, x, y, z, button` |
+| `LibPlugin.handle_object_interaction` | `player_id, object_id, button` |
+| `LibPlugin.handle_actor_interaction` | `player_id, actor_id, button` |
+| `LibPlugin.handle_textbox_response` | `player_id, response` |
+| `LibPlugin.handle_battle_results` | `player_id, stats` |
+| `LibPlugin.handle_player_avatar_change` | `player_id, details` |
+| `LibPlugin.handle_player_transfer` | `player_id` |
+| `LibPlugin.handle_player_request` | `player_id, data` |
+| `LibPlugin.handle_player_disconnect` | `player_id` |
+| `LibPlugin.handle_player_move` | `player_id, x, y, z` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `LibPlugin.handle_actor_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_battle_results` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_object_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_player_avatar_change` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_player_move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_player_request` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_textbox_response` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.handle_tile_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.on_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LibPlugin.start_game_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `detect_door_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `find_available_instance_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `leave_party` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `transfer_players_to_new_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`transfer_player`, `get_player_name`, `get_area_name`, `get_object_by_name`, `get_spawn_position`, `on`, `get_player_area`, `is_bot`, `get_player_position`, `list_areas`, `get_area_custom_properties`, `list_objects`, `get_object_by_id`, `get_tileset`
 
-- Approximate source size: 351 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

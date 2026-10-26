@@ -2,41 +2,55 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/utils/parties.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/utils/parties.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Parties source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/utils/parties.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/utils/parties.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/utils/parties.lua.md`
+- **Source SHA-256 prefix:** `63a330050002`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/libs/emotes` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/libs/emotes` | Import string found in source; runtime resolution depends on the server package layout. |
+| `internal_find` | `player_id` |
+| `Parties.find` | `player_id` |
+| `Parties.is_in_same_party` | `player_a, player_b` |
+| `Parties.on_tick` | `elapsed` |
+| `Parties.request` | `requester, recruit` |
+| `internal_find_request` | `requester, recruit` |
+| `Parties.has_request` | `recruit, requester` |
+| `Parties.accept` | `recruit, requester` |
+| `Parties.leave` | `player_id` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`exclusive_player_emote`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `Parties.accept` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Parties.find` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Parties.has_request` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Parties.is_in_same_party` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Parties.leave` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Parties.on_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Parties.request` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `internal_find` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `internal_find_request` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `REQUEST_EMOTE` | `Emotes.QUESTION` |
+| `ACCEPT_EMOTE` | `Emotes.HAPPY` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 148 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

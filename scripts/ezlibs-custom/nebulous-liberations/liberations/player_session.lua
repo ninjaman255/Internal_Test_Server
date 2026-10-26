@@ -1,4 +1,7 @@
 -- player_session.lua
+local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
+local log = ezlogger.get("nebulous-liberations")
+
 local Ability = require("scripts/ezlibs-custom/nebulous-liberations/liberations/ability")
 local PlayerSelection = require("scripts/ezlibs-custom/nebulous-liberations/liberations/player_selection")
 local Loot = require("scripts/ezlibs-custom/nebulous-liberations/liberations/loot")
@@ -8,6 +11,18 @@ local RecoverEffect = require("scripts/ezlibs-custom/nebulous-liberations/utils/
 local Constants = require("scripts/ezlibs-custom/nebulous-liberations/liberations/constants")
 local ezmemory = require("scripts/ezlibs-scripts/ezmemory")
 local Emotes = require("scripts/libs/emotes")
+
+-- HP penalty applied when the player force-exits a battle (panic / debug
+-- escape). A normal fled/ran action is not penalised beyond the loss itself.
+local PANIC_HP_PENALTY = 20
+
+local function stats_indicate_panic(results)
+    if not results then return false end
+    if results.reason ~= nil and results.reason ~= 1 then return true end
+    if results.escape == true then return true end
+    if results.fled == true then return true end
+    return false
+end
 
 local PlayerSession = {}
 
@@ -45,34 +60,6 @@ function PlayerSession:emote_state()
     end
 end
 
-local order_points_mug_texture = "/server/assets/NebuLibsAssets/mugs/order pts.png"
-local order_points_mug_animations = {
-    "/server/assets/NebuLibsAssets/mugs/order pts 0.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 1.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 2.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 3.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 4.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 5.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 6.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 7.animation",
-    "/server/assets/NebuLibsAssets/mugs/order pts 8.animation",
-}
-
-function PlayerSession:message_with_points(message)
-    local mug_animation = order_points_mug_animations[self.instance.order_points + 1]
-    return self.player:message(message, order_points_mug_texture, mug_animation)
-end
-
-function PlayerSession:question_with_points(question)
-    local mug_animation = order_points_mug_animations[self.instance.order_points + 1]
-    return self.player:question(question, order_points_mug_texture, mug_animation)
-end
-
-function PlayerSession:quiz_with_points(a, b, c)
-    local mug_animation = order_points_mug_animations[self.instance.order_points + 1]
-    return self.player:quiz(a, b, c, order_points_mug_texture, mug_animation)
-end
-
 function PlayerSession:get_ability_permission()
     local question_promise = self.player:question_with_mug(self.ability.question)
     question_promise.and_then(function(response)
@@ -82,10 +69,27 @@ function PlayerSession:get_ability_permission()
             return
         end
         if self.instance.order_points < self.ability.cost then
-            self.player:message("Not enough Order Pts!")
+            self.player:say("Not enough Order Pts!")
+            log:info_data("Player unable to use ability: not enough order points", {
+                base_area_id = self.instance.base_area_id,
+                instance_area_id = self.instance.area_id,
+                player_id = self.player.id,
+                ability = self.ability.name,
+                ability_cost = self.ability.cost,
+                order_points = self.instance.order_points,
+            })
             return
         end
-        self.instance.order_points = self.instance.order_points - self.ability.cost
+        self.instance:set_order_points(self.instance.order_points - self.ability.cost)
+        log:info_data("Player activated ability", {
+            base_area_id = self.instance.base_area_id,
+            instance_area_id = self.instance.area_id,
+            player_id = self.player.id,
+            ability = self.ability.name,
+            ability_cost = self.ability.cost,
+            remaining_order_points = self.instance.order_points,
+            phase = self.instance.phase,
+        })
         self.ability.activate(self.instance, self, nil, self.ability.remove_traps, self.ability.destroy_items)
     end)
 end
@@ -109,21 +113,51 @@ function PlayerSession:initiate_encounter(encounter_path, data)
     return Async.create_promise(function(resolve)
         self.player:initiate_encounter(encounter_path, data).and_then(function(results)
             local total_enemy_health = 0
-            for _, enemy in ipairs(results.enemies) do
-                total_enemy_health = total_enemy_health + enemy.health
+            for _, enemy in ipairs(results.enemies or {}) do
+                total_enemy_health = total_enemy_health + (enemy.health or 0)
             end
+
             self.health = results.health
             ezmemory.set_player_max_health(self.player.id, self.max_health, true)
             ezmemory.set_player_health(self.player.id, self.health)
             Net.set_player_emotion(self.player.id, results.emotion)
+
+            if stats_indicate_panic(results) then
+                local health_before_penalty = self.health
+                if self.health > 0 then
+                    self:hurt(PANIC_HP_PENALTY)
+                end
+                if self.health == 0 then
+                    self:paralyze()
+                end
+                results.success = false
+                self.player:say_with_mug(
+                    "Panicked out!\nLiberation failed. (-" ..
+                    tostring(PANIC_HP_PENALTY) .. " HP)"
+                )
+                log:info_data("Player panicked out of battle", {
+                    base_area_id = self.instance.base_area_id,
+                    instance_area_id = self.instance.area_id,
+                    player_id = self.player.id,
+                    reason = results.reason,
+                    escape = results.escape,
+                    fled = results.fled,
+                    turns = results.turns,
+                    health_before_penalty = health_before_penalty,
+                    health_after_penalty = self.health,
+                    penalty_hp = PANIC_HP_PENALTY,
+                })
+                resolve(results)
+                return
+            end
+
             if self.health == 0 then
                 self:paralyze()
             end
             if total_enemy_health > 0 or results.ran then
                 results.success = false
-                self.player:message_with_mug("Oh, no!\nLiberation failed!").and_then(function()
-                    resolve(results)
-                end)
+                self.player:say_with_mug("Oh, no!\nLiberation failed!")
+                resolve(results)
             else
                 results.success = true
                 resolve(results)
@@ -138,6 +172,14 @@ function PlayerSession:heal(amount)
     ezmemory.set_player_max_health(self.player.id, self.max_health, true)
     ezmemory.set_player_health(self.player.id, self.health)
     if previous_health < self.health then
+        log:debug_data("Player healed", {
+            base_area_id = self.instance.base_area_id,
+            instance_area_id = self.instance.area_id,
+            player_id = self.player.id,
+            amount = amount,
+            previous_health = previous_health,
+            health = self.health,
+        })
         return RecoverEffect:new(self.player.id):remove()
     else
         return Async.create_promise(function(resolve) resolve() end)
@@ -150,6 +192,14 @@ function PlayerSession:hurt(amount)
     self.health = math.max(math.ceil(self.health - amount), 0)
     ezmemory.set_player_max_health(self.player.id, self.max_health, true)
     ezmemory.set_player_health(self.player.id, self.health)
+    log:debug_data("Player hurt", {
+        base_area_id = self.instance.base_area_id,
+        instance_area_id = self.instance.area_id,
+        player_id = self.player.id,
+        amount = amount,
+        health = self.health,
+        paralyzed = self.health == 0,
+    })
     if self.health == 0 then
         Async.sleep(1).and_then(function()
             self:paralyze()
@@ -161,9 +211,23 @@ function PlayerSession:paralyze()
     self.paralyze_counter = 2
     self.paralyze_effect = ParalyzeEffect:new(self.player.id)
     self.is_trapped = true
+    log:info_data("Player paralyzed", {
+        base_area_id = self.instance.base_area_id,
+        instance_area_id = self.instance.area_id,
+        player_id = self.player.id,
+        paralyze_counter = self.paralyze_counter,
+    })
 end
 
 function PlayerSession:pass_turn()
+    log:info_data("Player passed turn", {
+        base_area_id = self.instance.base_area_id,
+        instance_area_id = self.instance.area_id,
+        player_id = self.player.id,
+        health = self.health,
+        max_health = self.max_health,
+        phase = self.instance.phase,
+    })
     self:heal(self.max_health / 2).and_then(function()
         self:complete_turn()
     end)
@@ -176,6 +240,15 @@ function PlayerSession:complete_turn()
     Net.lock_player_input(self.player.id)
     self:emote_state()
     self.instance.ready_count = self.instance.ready_count + 1
+    log:info_data("Player turn complete", {
+        base_area_id = self.instance.base_area_id,
+        instance_area_id = self.instance.area_id,
+        player_id = self.player.id,
+        phase = self.instance.phase,
+        health = self.health,
+        ready_count = self.instance.ready_count,
+        player_count = #self.instance.players,
+    })
     if self.instance.ready_count < #self.instance.players then
         Net.unlock_player_camera(self.player.id)
     end
@@ -186,6 +259,12 @@ function PlayerSession:give_turn()
     if self.paralyze_counter > 0 then
         self.paralyze_counter = self.paralyze_counter - 1
         if self.paralyze_counter > 0 then
+            log:info_data("Player turn skipped (still paralyzed)", {
+                base_area_id = self.instance.base_area_id,
+                instance_area_id = self.instance.area_id,
+                player_id = self.player.id,
+                paralyze_counter = self.paralyze_counter,
+            })
             self:complete_turn()
             return
         end
@@ -198,6 +277,14 @@ function PlayerSession:give_turn()
         end
     end
     self.completed_turn = false
+    log:info_data("Player turn start", {
+        base_area_id = self.instance.base_area_id,
+        instance_area_id = self.instance.area_id,
+        player_id = self.player.id,
+        phase = self.instance.phase,
+        health = self.health,
+        order_points = self.instance.order_points,
+    })
     Net.unlock_player_input(self.player.id)
 end
 
@@ -245,11 +332,27 @@ end
 function PlayerSession:liberate_panels(panels, results)
     local co = coroutine.create(function()
         Async.await(Async.sleep(1))
+        local msg
         if results and results.turns == 1 and not results.ran then
-            Async.await(self.player:message_with_mug("One turn liberation!"))
+            msg = "One turn liberation!"
         else
-            Async.await(self.player:message_with_mug("Yeah!\nI liberated it!"))
+            msg = "Yeah!\nI liberated it!"
         end
+        log:info_data("liberate_panels: firing message (fire-and-forget)", {
+            base_area_id = self.instance.base_area_id,
+            instance_area_id = self.instance.area_id,
+            player_id = self.player.id,
+            panel_count = #panels,
+            turns = results and results.turns,
+            ran = results and results.ran,
+            message = msg,
+        })
+        self.player:say_with_mug(msg)
+        log:info_data("liberate_panels: proceeding to loot", {
+            base_area_id = self.instance.base_area_id,
+            instance_area_id = self.instance.area_id,
+            player_id = self.player.id,
+        })
     end)
     return Async.promisify(co)
 end
@@ -262,7 +365,15 @@ function PlayerSession:get_cash(panel, destroy_items)
             if panel.custom_properties[Constants.CustomProperties.Money] then
                 bonus = tonumber(panel.custom_properties[Constants.CustomProperties.Money])
             end
-            Async.await(self.player:message("Obtained $"..tostring(bonus).."!"))
+            log:info_data("Player found money", {
+                base_area_id = self.instance.base_area_id,
+                instance_area_id = self.instance.area_id,
+                player_id = self.player.id,
+                bonus = bonus,
+                panel_x = panel.x,
+                panel_y = panel.y,
+            })
+            self.player:say("Obtained $"..tostring(bonus).."!")
             Net.set_player_money(self.player.id, cash + bonus)
             ezmemory.set_player_money(self.player.id, Net.get_player_money(self.player.id))
         end
@@ -273,6 +384,15 @@ end
 function PlayerSession:loot_panels(panels, remove_traps, destroy_items)
     local co = coroutine.create(function()
         for _, panel in ipairs(panels) do
+            log:debug_data("loot_panels: processing panel", {
+                base_area_id = self.instance.base_area_id,
+                instance_area_id = self.instance.area_id,
+                player_id = self.player.id,
+                panel_type = panel.type,
+                panel_x = panel.x,
+                panel_y = panel.y,
+                has_loot = panel.loot ~= nil,
+            })
             if panel.loot then
                 Async.await(Loot.loot_item_panel(self.instance, self, panel, destroy_items))
                 self:get_cash(panel, destroy_items)
@@ -284,26 +404,54 @@ function PlayerSession:loot_panels(panels, remove_traps, destroy_items)
                 Net.slide_player_camera(self.player.id, spawn_x, spawn_y, spawn_z, slide_time)
                 Async.await(Async.sleep(slide_time))
                 if remove_traps then
-                    Async.await(self.player:message_with_mug("I found a trap! It's been removed."))
+                    log:info_data("Player removed trap", {
+                        base_area_id = self.instance.base_area_id,
+                        instance_area_id = self.instance.area_id,
+                        player_id = self.player.id,
+                        panel_x = panel.x,
+                        panel_y = panel.y,
+                    })
+                    self.player:say_with_mug("I found a trap! It's been removed.")
                 elseif panel.custom_properties[Constants.CustomProperties.DamageTrap] == "true" then
                     if panel.custom_properties[Constants.CustomProperties.TrapMessage] then
-                        Async.await(self.player:message_with_mug(panel.custom_properties[Constants.CustomProperties.TrapMessage]))
+                        self.player:say_with_mug(panel.custom_properties[Constants.CustomProperties.TrapMessage])
                     else
-                        Async.await(self.player:message_with_mug("Ah! A damage trap!"))
+                        self.player:say_with_mug("Ah! A damage trap!")
                     end
+                    log:info_data("Player triggered damage trap", {
+                        base_area_id = self.instance.base_area_id,
+                        instance_area_id = self.instance.area_id,
+                        player_id = self.player.id,
+                        damage = tonumber(panel.custom_properties[Constants.CustomProperties.DamageDealt]),
+                        panel_x = panel.x,
+                        panel_y = panel.y,
+                    })
                     self:hurt(tonumber(panel.custom_properties[Constants.CustomProperties.DamageDealt]))
                 elseif panel.custom_properties[Constants.CustomProperties.StunTrap] == "true" then
                     if panel.custom_properties[Constants.CustomProperties.TrapMessage] then
-                        Async.await(self.player:message_with_mug(panel.custom_properties[Constants.CustomProperties.TrapMessage]))
+                        self.player:say_with_mug(panel.custom_properties[Constants.CustomProperties.TrapMessage])
                     else
-                        Async.await(self.player:message_with_mug("Ah! A paralysis trap!"))
+                        self.player:say_with_mug("Ah! A paralysis trap!")
                     end
+                    log:info_data("Player triggered paralysis trap", {
+                        base_area_id = self.instance.base_area_id,
+                        instance_area_id = self.instance.area_id,
+                        player_id = self.player.id,
+                        panel_x = panel.x,
+                        panel_y = panel.y,
+                    })
                     self:paralyze()
                 end
             end
             self.instance:remove_panel(panel)
         end
         self.selection:clear()
+        log:debug_data("loot_panels: completed", {
+            base_area_id = self.instance.base_area_id,
+            instance_area_id = self.instance.area_id,
+            player_id = self.player.id,
+            panel_count = #panels,
+        })
     end)
     return Async.promisify(co)
 end
@@ -325,6 +473,13 @@ function PlayerSession:handle_disconnect()
         self.paralyze_effect:remove()
     end
     self.disconnected = true
+    log:info_data("Player session disconnect cleanup", {
+        base_area_id = self.instance.base_area_id,
+        instance_area_id = self.instance.area_id,
+        player_id = self.player.id,
+        completed_turn = self.completed_turn,
+        ready_count = self.instance.ready_count,
+    })
 end
 
 return PlayerSession

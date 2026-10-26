@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/avatar_utils/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/avatar_utils/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,43 +11,62 @@ NaviSpot.lua Module to cache player and bot avatar/mugshot assets. For players: 
 ## Module location
 
 - **Source:** `ezlibs-scripts/avatar_utils/main.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/avatar_utils/main.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/avatar_utils/main.lua.md`
+- **Source SHA-256 prefix:** `a5ac606990f3`
+
+## Source header notes
+
+- NaviSpot.lua
+- Module to cache player and bot avatar/mugshot assets.
+- For players: copies assets from engine to local files on avatar change.
+- For bots: registers existing local asset paths (no copying).
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/avatar_utils/avatar_utils` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_avatar_change` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/avatar_utils/avatar_utils` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
+| `get_player_secret` | `player_id` |
+| `resolve_secret` | `input` |
+| `update_player_avatar` | `player_id` |
+| `get_player_avatar_paths` | `input` |
+| `refresh_player_avatar` | `player_id` |
+| `parse_player_animation` | `input, type` |
+| `register_bot_avatar` | `bot_id, sheet_texture_path, sheet_animation_path, mug_texture_path, mug_animation_path` |
+| `get_bot_avatar_paths` | `bot_id` |
+| `parse_bot_animation` | `bot_id, type` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `player_avatar_change` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`get_player_secret`, `on`
 
-| Function | Notes |
-|---|---|
-| `get_bot_avatar_paths` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_player_avatar_paths` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_player_secret` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_bot_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_player_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `refresh_player_avatar` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `register_bot_avatar` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_secret` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_player_avatar` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Literal asset/path strings
 
-## Source notes
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- Approximate source size: 204 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Path |
+|---|
+| `assets/avatars/sheet/` |
+| `assets/avatars/mug/` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

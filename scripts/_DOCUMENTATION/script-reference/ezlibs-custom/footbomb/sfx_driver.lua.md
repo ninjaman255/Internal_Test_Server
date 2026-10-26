@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/footbomb/sfx_driver.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/footbomb/sfx_driver.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,26 +11,46 @@ Sound driver for FootBomb round events. Reacts to semantic round events by playi
 ## Module location
 
 - **Source:** `ezlibs-custom/footbomb/sfx_driver.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/footbomb/sfx_driver.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/footbomb/sfx_driver.lua.md`
+- **Source SHA-256 prefix:** `b7bceb9fa397`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- Sound driver for FootBomb round events.
+- Reacts to semantic round events by playing sounds. All timing lives in the
+- round's event emitters; this module only decides WHAT to play, not WHEN.
+- Adding a new sound effect is a one-line addition here — no changes needed
+- to `resolve_round_winner` or any animation code.
+- The driver is attached once per round (see `SfxDriver.attach`). It does NOT
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `SfxDriver.attach` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `SfxDriver.attach` | `round_events, event_names, play_sound_for_inst, instance_id, file_exists` |
+| `safe_play` | `path, reason` |
 
-## Uppercase constants
+## Selected uppercase constants
 
-`EXPLOSION`, `THUD`
+| Name | Source expression |
+|---|---|
+| `SFX` | `{` |
+| `THUD` | `"/server/assets/net-game-footbomb/sfx/item-thud.ogg",` |
+| `EXPLOSION` | `"/server/assets/net-game-footbomb/sfx/explosion.ogg",` |
 
-## Source notes
+## Literal asset/path strings
 
-- Approximate source size: 59 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Related documentation
+| Path |
+|---|
+| `/server/assets/net-game-footbomb/sfx/item-thud.ogg` |
+| `/server/assets/net-game-footbomb/sfx/explosion.ogg` |
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

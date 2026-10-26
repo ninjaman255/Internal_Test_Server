@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-game-tourney/tournament-core.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-game-tourney/tournament-core.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,51 +11,52 @@ tournament-core.lua
 ## Module location
 
 - **Source:** `net-game-tourney/tournament-core.lua`
-- **Relative reference:** `script-reference/net-game-tourney/tournament-core.lua.md`
+- **Reference:** `script-reference/net-game-tourney/tournament-core.lua.md`
+- **Source SHA-256 prefix:** `a2c6587887a4`
+
+## Source header notes
+
+- tournament-core.lua
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-game-tourney/tournament-state` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-game-tourney/tournament-state` | Import string found in source; runtime resolution depends on the server package layout. |
+| `shuffle_table` | `values` |
+| `normalize_config` | `config` |
+| `TournamentCore.create_tournament` | `config` |
+| `TournamentCore.add_participant` | `tournament_id, participant` |
+| `TournamentCore.initialize_tournament` | `tournament_id` |
+| `TournamentCore.initialize_positions` | `tournament_id` |
+| `TournamentCore.calculate_round_positions` | `tournament_id, round` |
+| `TournamentCore.update_positions` | `tournament_id, round` |
+| `TournamentCore.record_battle` | `tournament_id, round, match_index, winner_id, loser_id, battle_index` |
+| `TournamentCore.record_battle_result` | `tournament_id, round, match_index, winner_id, loser_id` |
+| `TournamentCore.get_npc_battle_result` | `tournament_id, round, match_index, npc1_id, npc2_id, battle_index` |
+| `TournamentCore.is_round_complete` | `tournament_id, round` |
+| `TournamentCore.advance_round` | `tournament_id` |
+| `TournamentCore.complete_round` | `tournament_id` |
+| `TournamentCore.get_winner` | `tournament_id` |
+| `TournamentCore.add_spectator` | `tournament_id, player_id, name` |
+| `TournamentCore.remove_spectator` | `tournament_id, player_id` |
+| `TournamentCore.for_each_human_viewer` | `tournament_id, callback` |
+| `TournamentCore.cleanup_tournament` | `tournament_id` |
+| `TournamentCore.handle_player_disconnect` | `player_id` |
+| `TournamentCore.cleanup_orphaned_tournaments` | `` |
+| `TournamentCore.get_tournament` | `tournament_id` |
+| `TournamentCore.get_player_tournament` | `player_id` |
+| `TournamentCore.is_player_in_tournament` | `player_id` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `TournamentCore.add_participant` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.add_spectator` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.advance_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.calculate_round_positions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.cleanup_orphaned_tournaments` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.cleanup_tournament` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.complete_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.create_tournament` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.for_each_human_viewer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.get_npc_battle_result` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.get_player_tournament` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.get_tournament` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.get_winner` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.initialize_positions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.initialize_tournament` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.is_player_in_tournament` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.is_round_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.record_battle` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.record_battle_result` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.remove_spectator` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TournamentCore.update_positions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_config` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `shuffle_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 204 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

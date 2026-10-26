@@ -12,10 +12,10 @@ local BackgroundManage = {}
 
 local background_sessions = {}
 
-local constants = require("scripts/HP_Manager/constants/constants")
+local constants = require("scripts/hp_manager/constants/constants")
 
 local background_data = {}
-local background_data_file = "scripts/HP_manager/data/background_data.dat"
+local background_data_file = "scripts/hp_manager/data/background_data.dat"
 
 local background_cursors = {
     {
@@ -268,7 +268,7 @@ function BackgroundManage.open(player_id, return_to_hp)
     local backgrounds = find_backgrounds()
 
     if #backgrounds == 0 then
-        Net.message_player(player_id, "No backgrounds found in assets/Backgrounds.")
+        Net.message_player(player_id, "No backgrounds found in assets/backgrounds.")
 
         if return_to_hp ~= nil then
             return_to_hp(player_id)
@@ -321,13 +321,13 @@ function BackgroundManage.open(player_id, return_to_hp)
 
     Net.lock_player_input(player_id)
 
-    games.add_ui_element("word_bar", player_id, "/server/assets/HP_Manager/background_manage_bar.png", "", "", 0,
+    games.add_ui_element("word_bar", player_id, "/server/assets/hp_manager/background_manage_bar.png", "", "", 0,
         140, 110, 2, 2)
 
-    games.add_ui_element("lb", player_id, "/server/assets/HP_Manager/lb_button.png", "", "", 224,
+    games.add_ui_element("lb", player_id, "/server/assets/hp_manager/lb_button.png", "", "", 224,
         135, 100, 2, 2)
 
-    games.add_ui_element("rb", player_id, "/server/assets/HP_Manager/rb_button.png", "", "", 3,
+    games.add_ui_element("rb", player_id, "/server/assets/hp_manager/rb_button.png", "", "", 3,
         135, 100, 2, 2)
 
     -- CURSORS
@@ -402,7 +402,7 @@ local function handle_manager_input(event)
                         "/server/assets/net-games/cursors/text_cursor.animation", "CURSOR_RIGHT", 98, setting.y + 2, 30,
                         1, 1)
 
-                    games.add_ui_element("board", player_id, "/server/assets/HP_Manager/board.png",
+                    games.add_ui_element("board", player_id, "/server/assets/hp_manager/board.png",
                         "", "",
                         80, 43, 20, 2, 2)
 

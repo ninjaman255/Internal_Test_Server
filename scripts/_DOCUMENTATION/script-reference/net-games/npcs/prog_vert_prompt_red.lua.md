@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_vert_prompt_red.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_vert_prompt_red.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,28 +11,49 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_vert_prompt_red.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_vert_prompt_red.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_vert_prompt_red.lua.md`
+- **Source SHA-256 prefix:** `1d1c28fd6054`
+
+## Source header notes
+
+- prog_vert_prompt_red.lua
+- Max-condensed example:
+- - no Net:on in this file
+- - no TalkVertMenu.open in this file
+- - no SFX table in this file
+- - no exit_index math in this file
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/npcs/talk` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/npcs/talk` | Import string found in source; runtime resolution depends on the server package layout. |
+| `on_interact` | `player_id, _bot_id, bot_name` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `on_interact` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`on`
 
-- Approximate source size: 58 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Literal asset/path strings
 
-## Related documentation
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+| Path |
+|---|
+| `/server/assets/ow/prog/prog_ow_red.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

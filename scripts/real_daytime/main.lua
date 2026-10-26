@@ -84,7 +84,7 @@ local function get_current_time(settings)
       or (settings.day_night_mode == "off" and settings.timezone_offset ~= nil) then
     local timestamp = os.time()
 
-    return os.date("!*t", timestamp + settings.timezone_offset * 60)
+    return os.date("*t", timestamp + settings.timezone_offset * 60)
   end
 
   return os.date("*t")

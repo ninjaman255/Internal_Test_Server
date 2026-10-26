@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/timer-display.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/timer-display.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,57 +11,64 @@
 ## Module location
 
 - **Source:** `displayer/timer-display.lua`
-- **Relative reference:** `script-reference/displayer/timer-display.lua.md`
+- **Reference:** `script-reference/displayer/timer-display.lua.md`
+- **Source SHA-256 prefix:** `11e8d17e6252`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/font-system` |
+| `scripts/displayer/timer-system` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `timer_update` |
+| `countdown_update` |
+| `timer_remove` |
+| `countdown_remove` |
+| `timer_global_update` |
+| `countdown_global_update` |
+| `timer_global_create` |
+| `countdown_global_create` |
+| `timer_global_remove` |
+| `countdown_global_remove` |
+| `player_join` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/font-system` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/timer-system` | Import string found in source; runtime resolution depends on the server package layout. |
+| `dump` | `o` |
+| `TimerDisplay:init` | `` |
+| `TimerDisplay:createPlayerTimerDisplay` | `player_id, display_id, x, y, options` |
+| `TimerDisplay:createPlayerCountdownDisplay` | `player_id, display_id, x, y, options` |
+| `TimerDisplay:createGlobalTimerDisplay` | `display_id, x, y, options` |
+| `TimerDisplay:createGlobalCountdownDisplay` | `display_id, x, y, options` |
+| `TimerDisplay:_createDisplay` | `player_id, display_id, x, y, type, options` |
+| `TimerDisplay:updateTimerDisplay` | `player_id, display_id, seconds` |
+| `TimerDisplay:updateCountdownDisplay` | `player_id, display_id, seconds` |
+| `TimerDisplay:_updateDisplay` | `player_id, display_id, seconds, is_countdown` |
+| `TimerDisplay:removeDisplay` | `player_id, display_id` |
+| `TimerDisplay:setDisplayPosition` | `player_id, display_id, x, y` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `countdown_global_create` | `Net:on(...)` subscription found in source. |
-| `countdown_global_remove` | `Net:on(...)` subscription found in source. |
-| `countdown_global_update` | `Net:on(...)` subscription found in source. |
-| `countdown_remove` | `Net:on(...)` subscription found in source. |
-| `countdown_update` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `timer_global_create` | `Net:on(...)` subscription found in source. |
-| `timer_global_remove` | `Net:on(...)` subscription found in source. |
-| `timer_global_update` | `Net:on(...)` subscription found in source. |
-| `timer_remove` | `Net:on(...)` subscription found in source. |
-| `timer_update` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`on`
 
-| Function | Notes |
-|---|---|
-| `TimerDisplay:_createDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:_updateDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:createGlobalCountdownDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:createGlobalTimerDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:createPlayerCountdownDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:createPlayerTimerDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:removeDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:setDisplayPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:updateCountdownDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TimerDisplay:updateTimerDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `dump` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 525 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_talk_colors.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_talk_colors.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,29 +11,47 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_talk_colors.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_talk_colors.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_talk_colors.lua.md`
+- **Source SHA-256 prefix:** `d869219ed423`
+
+## Source header notes
+
+- prog_talk_colors.lua
+- PROG talk NPCs: one per frame dye color
+- Tiled object names must be: prog_{color}
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/net-games/npcs/talk` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ow` | `color` |
 
-## Functions defined in this file
+## Selected uppercase constants
 
-| Function | Notes |
+| Name | Source expression |
 |---|---|
-| `ow` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `AREA_ID` | `"default"` |
+| `OW_COLOR_DIR` | `"/server/assets/ow/prog/"` |
 
-## Source notes
+## Literal asset/path strings
 
-- Approximate source size: 257 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Related documentation
+| Path |
+|---|
+| `/server/assets/ow/prog/` |
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

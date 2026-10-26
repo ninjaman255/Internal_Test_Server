@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/footbomb/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/footbomb/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,176 +11,214 @@ FootBomb Controller and match-instance entry point. Loaded by scripts/ezlibs-scr
 ## Module location
 
 - **Source:** `ezlibs-custom/footbomb/main.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/footbomb/main.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/footbomb/main.lua.md`
+- **Source SHA-256 prefix:** `53f9a718f774`
+
+## Source header notes
+
+- FootBomb Controller and match-instance entry point.
+- Loaded by scripts/ezlibs-scripts/main.lua through custom.lua.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/object_registry` |
+| `scripts/ezlibs-scripts/ezmapinstance` |
+| `scripts/net-games/main` |
+| `scripts/net-games/ui-safe` |
+| `scripts/ezlibs-scripts/ezexplosions` |
+| `scripts/displayer/text-layout` |
+| `scripts/input-controller/main` |
+| `scripts/boom/main` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/ezemitter` |
+| `scripts/ezlibs-custom/footbomb/constants` |
+| `scripts/ezlibs-custom/footbomb/animation_states` |
+| `scripts/ezlibs-custom/footbomb/navi_options` |
+| `scripts/ezlibs-custom/footbomb/bomb_options` |
+| `scripts/world-attachment` |
+| `scripts/ezlibs-custom/footbomb/result_timeline` |
+| `scripts/ezlibs-custom/footbomb/sfx_driver` |
+| `scripts/displayer/displayer` |
+| `scripts/ezlibs-custom/footbomb/state` |
+| `scripts/ezlibs-custom/footbomb/animation_diagnostics` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/boom/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/camera/camera-manager` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-layout` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/animation_diagnostics` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/animation_states` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/bomb_options` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/constants` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/navi_options` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/result_timeline` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/sfx_driver` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/state` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezemitter` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezexplosions` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmapinstance` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/object_registry` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/ui-safe` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/world-attachment` | Import string found in source; runtime resolution depends on the server package layout. |
+| `log` | `message` |
+| `async` | `p` |
+| `await` | `v` |
+| `get_footbomb_animation` | `path` |
+| `ensure_round_events` | `instance_id` |
+| `get_round_events` | `instance_id` |
+| `destroy_round_events` | `instance_id` |
+| `run_direction_mapping_test` | `` |
+| `draw_confirm_prompt` | `player_id, text_id` |
+| `hide_role_text` | `player_id, rep` |
+| `build_role_panel` | `player_id, rep, role` |
+| `make_icon_child` | `` |
+| `draw_role_text` | `player_id, rep, role` |
+| `begin_role_text_suppression` | `player_id` |
+| `end_role_text_suppression` | `player_id, rep` |
+| `await_player_message` | `player_id, ...` |
+| `await_player_quiz` | `player_id, ...` |
+| `draw_navi_name` | `player_id, rep, name` |
+| `as_string` | `value, fallback` |
+| `as_number` | `value, fallback` |
+| `ensure_area_refs` | `area_id` |
+| `create_ref_npc` | `area_id, object` |
+| `player_is_available` | `player_id` |
+| `find_named_spawn_points` | `area_id` |
+| `safe_remove_bot` | `bot_id` |
+| `set_bot_animation_state` | `bot_id, animation_state, should_loop` |
+| `ensure_bot_direction` | `bot, direction` |
+| `cancel_hold` | `bot, reason` |
+| `create_match_bots` | `instance, spawn_points, vs_npc` |
+| `provide_match_assets` | `player_id` |
+| `provide` | `path` |
+| `transfer_match_players` | `instance, player_ids, spawn_points` |
+| `remove_instance_bots` | `instance_id` |
+| `cleanup_empty_instance` | `instance` |
+| `server_asset_file_exists` | `path` |
+| `provide_instance_asset` | `area_id, path` |
+| `read_png_dimensions` | `path` |
+| `u32` | `offset` |
+| `validate_animation_states` | `path, required_states, label, texture_path` |
+| `provide_instance_bot_assets` | `area_id` |
+| `add` | `path` |
+| `provide_source_area_assets` | `area_id, reason` |
+| `make_instance` | `player_id, source_area_id, object, mode` |
+| `move_player_off_map` | `player_id, area_id` |
+| `hide_bomb_selector_ui` | `player_id, rep` |
+| `direction_cursor_id` | `rep, direction` |
+| `draw_direction_cursor` | `player_id, rep, direction, y` |
+| `show_direction_selector_ui` | `player_id, rep` |
+| `hide_direction_selector_ui` | `player_id, rep` |
+| `update_direction_selector_bob` | `player_id, rep` |
+| `hide_selector_ui` | `player_id, rep` |
+| `show_bomb_selector_ui` | `player_id, rep` |
+| `show_selector_ui` | `player_id, rep` |
+| `remove_representation` | `player_id` |
+| `setup_player_representation` | `player_id, instance, bot_record` |
+| `setup_representations_for_match` | `instance, player_ids, bots` |
+| `launch_npc_match` | `player_id, source_area_id, object, npc` |
+| `launch_player_match` | `waiting, second_player` |
+| `cycle_player_skin` | `player_id, direction` |
+| `cycle_bomb_skin` | `player_id, direction` |
+| `fade_player_to_white` | `player_id` |
+| `focus_player_camera_for_round` | `player_id, instance_id` |
+| `position_bots_for_round` | `instance_id` |
+| `spawn_bomb_bot_for_round` | `instance_id, human_reps` |
+| `set_defender_animation_for_round` | `instance_id, animation_state, phase` |
+| `set_kicker_pose_for_round` | `instance_id` |
+| `apply_round_role_poses` | `instance_id, phase` |
+| `reassert_round_start_poses` | `instance_id` |
+| `prime_round_bot_animations` | `instance_id` |
+| `draw_scoreboard_mug` | `player_id, rep, bot, ui_id, x` |
+| `draw_scoreboard_for_player` | `player_id, rep, bots` |
+| `measure_score` | `text` |
+| `draw_score_number` | `text_id, score_text, x, y, slot` |
+| `update_scoreboard` | `instance_id` |
+| `hide_scoreboard_for_player` | `player_id, rep` |
+| `hide_scoreboard_for_instance` | `instance_id` |
+| `play_sound_for_instance` | `instance_id, sound_path, reason` |
+| `move_bot_smoothly` | `bot, target, speed, phase, animation_state, duration_override` |
+| `set_result_animation` | `bot, animation_state, direction, phase, should_loop` |
+| `hold_pose_for` | `bot, state, direction, hold_seconds, phase, should_loop` |
+| `award_round_point` | `instance_id, kicker, defender, winner` |
+| `evaluate_match_point` | `bots, instance_id` |
+| `complete_match_and_return` | `instance_id` |
+| `get_animation_state_duration` | `bot, state_name` |
+| `get_animation_movement_end` | `bot, state_name` |
+| `world_xy_distance` | `a, b` |
+| `defender_jump_position_at` | `start_position, target_position, ratio, movement_speed` |
+| `move_defender_jump_arc` | `bot, target, duration, phase` |
+| `animation_frame_at_elapsed` | `animation, state_name, elapsed` |
+| `get_navi_ball_point_offset` | `bot, state_name, elapsed, child_z` |
+| `subscribe_kicker_handlers` | `bot, emitter, on` |
+| `run` | `` |
+| `subscribe_defender_handlers` | `bot, emitter, on` |
+| `subscribe_bomb_handlers` | `bot, emitter, on` |
+| `on` | `emitter, event, fn` |
+| `move_bot_follow_keyframe` | `bot, position, phase, duration` |
+| `defender_position_at` | `t` |
+| `resolve_round_winner` | `instance_id` |
+| `mark_response_actor_done` | `actor, success` |
+| `refill_npc_direction_bag` | `bot` |
+| `draw_npc_direction` | `bot` |
+| `finish_direction_selection_if_ready` | `instance_id` |
+| `start_direction_selection` | `instance_id, human_reps` |
+| `confirm_direction_selection` | `player_id, rep` |
+| `try_begin_match` | `instance_id` |
+| `confirm_bomb_selection` | `player_id, rep` |
+| `confirm_navi_selection` | `player_id, rep` |
+| `representation_is_current` | `` |
+| `join_waiting_match` | `player_id, source_area_id, reference` |
+| `begin_interaction` | `player_id, area_id, reference` |
+| `FootBomb.handle_player_join` | `player_id` |
+| `FootBomb.handle_actor_interaction` | `player_id, actor_id, button` |
+| `FootBomb.handle_player_transfer` | `player_id` |
+| `FootBomb.handle_player_disconnect` | `player_id` |
+| `fade_player_to_black` | `player_id` |
+| `fade_player_in` | `player_id` |
+| `read_bot_position` | `bot` |
+| `ensure_role_events` | `instance_id` |
+| `destroy_role_events` | `instance_id` |
+| `emit_async` | `instance_id, role, event, ...` |
+| `assign_bot_role` | `bot, new_role, instance_id` |
+| `begin_next_round` | `instance_id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`player_draw_sprite`, `create_bot`, `is_player`, `get_player_area`, `list_objects`, `get_object_by_id`, `remove_bot`, `animate_bot`, `set_bot_direction`, `provide_asset_for_player`, `provide_asset`, `move_player`, `transfer_player`, `toggle_player_hud`, `unlock_player_camera`, `track_with_player_camera`, `unlock_player_input`, `lock_player_input`, `get_bot_position`, `move_player_camera`, `play_sound_for_player`, `fade_player_camera`, `move_bot`, `set_bot_avatar`, `animate_bot_properties`, `get_bot_area`, `get_tile_width`, `get_tile_height`, `on`
+
+## Engine `Async` calls
+
+`promisify`, `await`, `message_player`, `quiz_player`, `sleep`, `create_promise`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+| `NAVI_OPTIONS` | `require("scripts/ezlibs-custom/footbomb/navi_options")` |
+| `BOMB_OPTIONS` | `require("scripts/ezlibs-custom/footbomb/bomb_options")` |
+| `BOMB_PREVIEW_ANIMATION` | `AnimationStates.BOMB_PREVIEW` |
+| `ROUND_EVENT` | `{` |
+| `KICKER_STEP_STARTED` | `"kicker_step_started",` |
+| `KICKER_STEP_COMPLETE` | `"kicker_step_complete",` |
+| `KICKER_IDLE_STARTED` | `"kicker_idle_started",` |
+| `DEFENDER_JUMP_LAUNCHED` | `"defender_jump_launched",` |
+| `DEFENDER_LANDING_FRAME` | `"defender_landing_frame",` |
+| `DEFENDER_ARC_COMPLETE` | `"defender_arc_complete",` |
+| `DEFENDER_HOLD_STARTED` | `"defender_hold_started",` |
+| `BOMB_LAUNCHED` | `"bomb_launched",` |
+| `BOMB_CATCH_CONTACT` | `"bomb_catch_contact",` |
+| `BOMB_TARGET_REACHED` | `"bomb_target_reached",` |
+| `BOMB_EXPLODING` | `"bomb_exploding",` |
+| `ROUND_RESPONSE_COMPLETE` | `"round_response_complete",` |
+| `ROUND_HOLD_COMPLETE` | `"round_hold_complete",` |
+| `ROUND_CAMERA_FADE_STARTED` | `"round_camera_fade_started",` |
+| `ROUND_CAMERA_FADED` | `"round_camera_faded",` |
+| `ROUND_COMPLETE` | `"round_complete",` |
+| `RESULT_TARGET_BY_DIRECTION` | `{` |
+| `DIRECTION_CURSOR_DIRECTIONS` | `{ "Left", "Up", "Right" }` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `FootBomb.handle_actor_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FootBomb.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FootBomb.handle_player_join` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FootBomb.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `add` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `animation_frame_at_elapsed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `as_number` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `as_string` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `assign_bot_role` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await_player_message` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await_player_quiz` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `award_round_point` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `begin_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `begin_next_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `begin_role_text_suppression` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cancel_hold` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cleanup_empty_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `complete_match_and_return` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `confirm_bomb_selection` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `confirm_direction_selection` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `confirm_navi_selection` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_match_bots` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_ref_npc` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cycle_bomb_skin` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cycle_player_skin` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `defender_jump_position_at` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `defender_position_at` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `destroy_role_events` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `destroy_round_events` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `direction_cursor_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_confirm_prompt` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_direction_cursor` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_navi_name` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_npc_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_role_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_score_number` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_scoreboard_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_scoreboard_mug` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `emit_async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `end_role_text_suppression` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_area_refs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_bot_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_role_events` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_round_events` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `evaluate_match_point` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fade_player_in` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fade_player_to_black` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fade_player_to_white` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `find_named_spawn_points` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `finish_direction_selection_if_ready` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `focus_player_camera_for_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `follow_defender_ball_point` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_animation_movement_end` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_animation_state_duration` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_footbomb_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_navi_ball_point_offset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_round_events` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_bomb_selector_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_direction_selector_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_role_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_scoreboard_for_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_scoreboard_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_selector_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hold_pose_for` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `join_waiting_match` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `launch_npc_match` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `launch_player_match` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `log` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `make_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `mark_response_actor_done` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `measure_score` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `move_bot_follow_keyframe` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `move_bot_smoothly` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `move_defender_jump_arc` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `move_player_off_map` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `play_sound_for_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `player_is_available` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `position_bots_for_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `prime_round_bot_animations` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide_instance_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide_instance_bot_assets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide_match_assets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide_source_area_assets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `read_bot_position` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `read_png_dimensions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `refill_npc_direction_bag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_instance_bots` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_representation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `representation_is_current` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_round_winner` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run_direction_mapping_test` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_remove_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `server_asset_file_exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_bot_animation_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_defender_animation_for_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_kicker_pose_for_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_result_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `setup_player_representation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `setup_representations_for_match` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `show_bomb_selector_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `show_direction_selector_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `show_selector_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `spawn_bomb_bot_for_round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `start_direction_selection` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `subscribe_bomb_handlers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `subscribe_defender_handlers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `subscribe_kicker_handlers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `transfer_match_players` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `try_begin_match` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `u32` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_direction_selector_bob` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_scoreboard` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `validate_animation_states` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `world_xy_distance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Uppercase constants
-
-`BOMB_CATCH_CONTACT`, `BOMB_EXPLODING`, `BOMB_LAUNCHED`, `BOMB_TARGET_REACHED`, `DEFENDER_ARC_COMPLETE`, `DEFENDER_HOLD_STARTED`, `DEFENDER_JUMP_LAUNCHED`, `DEFENDER_LANDING_FRAME`, `KICKER_IDLE_STARTED`, `KICKER_STEP_COMPLETE`, `KICKER_STEP_STARTED`, `ROUND_CAMERA_FADED`, `ROUND_CAMERA_FADE_STARTED`, `ROUND_COMPLETE`, `ROUND_HOLD_COMPLETE`, `ROUND_RESPONSE_COMPLETE`
-
-## Source notes
-
-- Approximate source size: 4391 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

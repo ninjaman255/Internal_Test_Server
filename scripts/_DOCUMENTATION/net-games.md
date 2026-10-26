@@ -525,6 +525,6 @@ end
 
 ---
 
-## Current archive coverage (2026-10-23)
+## Current archive coverage (2026-10-25)
 
-This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.
+This documentation bundle was refreshed against the current `internal_test_server.zip` Library snapshot on 2026-10-25. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

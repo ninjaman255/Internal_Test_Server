@@ -2,39 +2,54 @@
 
 > **Source reference**
 >
-> Generated from `net-games/navi-emotes/navi-emotes.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/navi-emotes/navi-emotes.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Navi emotes source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `net-games/navi-emotes/navi-emotes.lua`
-- **Relative reference:** `script-reference/net-games/navi-emotes/navi-emotes.lua.md`
+- **Reference:** `script-reference/net-games/navi-emotes/navi-emotes.lua.md`
+- **Source SHA-256 prefix:** `6d1e807314e5`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `NaviEmotes.activate` | `player_id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `player_join` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`lock_player_input`, `on`
 
-| Function | Notes |
-|---|---|
-| `NaviEmotes.activate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Literal asset/path strings
 
-## Source notes
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- Approximate source size: 12 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Path |
+|---|
+| `assets/card.png` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

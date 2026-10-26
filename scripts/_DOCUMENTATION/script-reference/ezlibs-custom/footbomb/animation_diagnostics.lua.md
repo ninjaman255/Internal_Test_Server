@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/footbomb/animation_diagnostics.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/footbomb/animation_diagnostics.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,31 +11,40 @@ Startup diagnostics for FootBomb's active v2.0 Navi animations and their optiona
 ## Module location
 
 - **Source:** `ezlibs-custom/footbomb/animation_diagnostics.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/footbomb/animation_diagnostics.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/footbomb/animation_diagnostics.lua.md`
+- **Source SHA-256 prefix:** `71b1236dbd6b`
+
+## Source header notes
+
+- Startup diagnostics for FootBomb's active v2.0 Navi animations and their
+- optional v2.5 .ani counterparts. This module is read-only: it never changes
+- the animation state used by Net.animate_bot.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/boom/main` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/boom/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `emit` | `log, message` |
+| `sorted_state_names` | `states` |
+| `inspect_file` | `option, path, expected_state, log` |
+| `Diagnostics.run` | `options, log` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `Diagnostics.run` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `emit` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `inspect_file` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `sorted_state_names` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`animate_bot`
 
-- Approximate source size: 99 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

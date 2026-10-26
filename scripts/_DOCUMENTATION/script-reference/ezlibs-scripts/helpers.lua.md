@@ -2,60 +2,71 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/helpers.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/helpers.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Helpers source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/helpers.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/helpers.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/helpers.lua.md`
+- **Source SHA-256 prefix:** `42f814d7efe8`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/utils/ezutil` |
+| `scripts/ezlibs-scripts/urlencode` |
+| `scripts/ezlibs-scripts/ezcache` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezcache` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/urlencode` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/utils/ezutil` | Import string found in source; runtime resolution depends on the server package layout. |
+| `async` | `p` |
+| `await` | `v` |
+| `first_value_from_table` | `tbl` |
+| `get_table_length` | `tbl` |
+| `helpers.indexOf` | `array, value` |
+| `helpers.extract_numbered_properties` | `object,property_prefix` |
+| `helpers.clear_table` | `tbl` |
+| `helpers.create_bbs_option` | `text,id` |
+| `helpers.deep_copy` | `orig` |
+| `helpers.split` | `string, delimiter` |
+| `helpers.get_safe_player_secret` | `player_id` |
+| `helpers.safe_require` | `script_path` |
+| `helpers.date_string_to_timestamp` | `date_string` |
+| `helpers.is_now_before_date` | `date_string` |
+| `helpers.position_overlaps_something` | `position,area_id` |
+| `helpers.get_lock` | `player_id,lock_id,timeout` |
+| `helpers.read_item_information` | `area_id, item_object_id` |
+| `helpers.ensure_directory` | `path` |
+| `release` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`get_player_secret`, `list_players`, `get_player_position`, `on`
 
-| Function | Notes |
-|---|---|
-| `async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `first_value_from_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_table_length` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.clear_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.create_bbs_option` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.date_string_to_timestamp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.deep_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.ensure_directory` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.extract_numbered_properties` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.get_lock` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.get_safe_player_secret` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.indexOf` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.is_now_before_date` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.position_overlaps_something` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.read_item_information` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.safe_require` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `helpers.split` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `release` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Engine `Async` calls
 
-## Source notes
+`promisify`, `await`, `sleep`
 
-- Approximate source size: 228 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

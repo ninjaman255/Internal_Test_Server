@@ -2,39 +2,60 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/enemy_selection.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/enemy_selection.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Enemy selection source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/enemy_selection.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy_selection.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy_selection.lua.md`
+- **Source SHA-256 prefix:** `d7d258ff5b3a`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/selection` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/selection` | Import string found in source; runtime resolution depends on the server package layout. |
+| `EnemySelection:new` | `instance` |
+| `filter` | `x, y, z` |
+| `EnemySelection:set_shape` | `shape, shape_offset_x, shape_offset_y` |
+| `EnemySelection:move` | `position, direction` |
+| `EnemySelection:detect_player_sessions` | `` |
+| `EnemySelection:indicate` | `` |
+| `EnemySelection:remove_indicators` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_tileset`, `get_tile`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `EnemySelection:detect_player_sessions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemySelection:indicate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemySelection:move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemySelection:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemySelection:remove_indicators` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemySelection:set_shape` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `filter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `INDICATOR_GID` | `Net.get_tileset(instance.area_id, "/server/assets/tiles/attack indicator.tsx").first_gid` |
 
-## Source notes
+## Literal asset/path strings
 
-- Approximate source size: 69 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Related documentation
+| Path |
+|---|
+| `/server/assets/tiles/attack indicator.tsx` |
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

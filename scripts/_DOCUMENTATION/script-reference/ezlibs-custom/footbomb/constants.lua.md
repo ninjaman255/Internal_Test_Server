@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/footbomb/constants.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/footbomb/constants.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,20 +11,64 @@ FootBomb configuration. Keep values grouped by responsibility so UI, assets, inp
 ## Module location
 
 - **Source:** `ezlibs-custom/footbomb/constants.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/footbomb/constants.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/footbomb/constants.lua.md`
+- **Source SHA-256 prefix:** `b32b0f13f41f`
 
-## Uppercase constants
+## Source header notes
 
-`ASSETS`, `ASSET_NAME`, `BOMB_CURSOR_LEFT_X`, `BOMB_CURSOR_RIGHT_X`, `BOMB_CURSOR_Y`, `BOMB_FOLDER`, `BOMB_PREVIEW_X`, `BOMB_PREVIEW_Y`, `BOMB_SELECTOR_SCALE`, `BOT_FOLDER`, `CHOICES`, `CONFIRM_PROMPT`, `CONFIRM_PROMPT_SCALE`, `CONFIRM_PROMPT_Y`, `CURSOR_ANIMATION`, `CURSOR_SFX`, `CURSOR_TEXTURE`, `DEFAULTS`, `DEFAULT_MUG_ANIMATION`, `DIAGNOSTICS`, `DIRECTIONS`, `DIRECTION_CURSOR_BOB_OFFSET`, `DIRECTION_CURSOR_BOB_TICKS`, `DIRECTION_CURSOR_SCALE`, `DIRECTION_CURSOR_X`, `DIRECTION_CURSOR_Y`, `DIRECTION_SETTLE_SECONDS`, `GAMEPLAY`, `INPUT`, `MUGSHOT_NAME`, `MUG_FOLDER`, `NAVI_NAME_SCALE`, `OFF_MAP_POSITION`, `POINTS_TO_WIN`, `RESULT_BALL_Z_LIFT`, `RESULT_BOMB_MOVE_SPEED`, `RESULT_DEFENDER_JUMP_SPEED`, `RESULT_HOLD_SECONDS`, `RESULT_KICKER_WALK_UR_SPEED`, `RESULT_KICKER_WALK_U_SPEED`, `ROLE_TEXT_SCALE`, `ROLE_TEXT_Y`, `RUN_ANIMATION_DIAGNOSTICS`, `RUN_DIRECTION_MAPPING_TEST`, `SCOREBOARD_ANIMATION`, `SCOREBOARD_SCALE`, `SCOREBOARD_TEXTURE`, `SCOREBOARD_X`, `SCOREBOARD_Y`, `SCORE_MUG_SCALE`, `SCORE_MUG_Y`, `SCORE_PLAYER_ONE_MUG_X`, `SCORE_PLAYER_ONE_X`, `SCORE_PLAYER_TWO_MUG_X`, `SCORE_PLAYER_TWO_X`, `SCORE_TEXT_SCALE`, `SCORE_TEXT_Y`, `SCREEN_CENTER`, `SCREEN_HEIGHT`, `SCREEN_WIDTH`, `SOURCE_AREA`, `VIBRANT_CURSOR_TEXTURE`
+- FootBomb configuration.
+- Keep values grouped by responsibility so UI, assets, input, and match tuning
+- can be adjusted independently of lifecycle code.
 
-## Source notes
+## Selected uppercase constants
 
-- Approximate source size: 93 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Name | Source expression |
+|---|---|
+| `ASSET_ROOT` | `"/server/assets/net-game-footbomb/"` |
+| `BOT_ASSET_FOLDER` | `ASSET_ROOT .. "bots/"` |
+| `SCREEN_CENTER` | `{ x = 120, y = 80 }` |
+| `DIAGNOSTICS` | `{` |
+| `RUN_ANIMATION_DIAGNOSTICS` | `false,` |
+| `RUN_DIRECTION_MAPPING_TEST` | `false,` |
+| `DEFAULTS` | `{` |
+| `SOURCE_AREA` | `"footbomb",` |
+| `POINTS_TO_WIN` | `10,` |
+| `ASSET_NAME` | `"ref-prog",` |
+| `MUGSHOT_NAME` | `"ref-prog-mug",` |
+| `ASSETS` | `{` |
+| `BOT_FOLDER` | `BOT_ASSET_FOLDER,` |
+| `MUG_FOLDER` | `BOT_ASSET_FOLDER,` |
+| `BOMB_FOLDER` | `ASSET_ROOT .. "bombs/",` |
+| `DEFAULT_MUG_ANIMATION` | `BOT_ASSET_FOLDER .. "mug.animation",` |
+| `CURSOR_TEXTURE` | `"/server/assets/net-games/cursors/text_cursor.png",` |
+| `VIBRANT_CURSOR_TEXTURE` | `"/server/assets/net-games/cursors/vibrant_text_cursor.png",` |
+| `CURSOR_ANIMATION` | `"/server/assets/net-games/cursors/text_cursor.animation",` |
+| `CURSOR_SFX` | `"/server/assets/net-games/sfx/cursor_move.ogg",` |
+| `SCOREBOARD_TEXTURE` | `ASSET_ROOT .. "ui/score-board.png",` |
+| `SCOREBOARD_ANIMATION` | `ASSET_ROOT .. "ui/score-board.animation",` |
+| `FINAL_SCORE_SFX` | `ASSET_ROOT .. "sfx/winner.ogg",` |
+| `THUD_SFX` | `ASSET_ROOT .. "sfx/item-thud.ogg",` |
+| `ROLE_PANEL_TEXTURE_KICKER` | `ASSET_ROOT .. "ui/kicker-role-box-9slice.png",` |
+| `ROLE_PANEL_TEXTURE_DEFENDER` | `ASSET_ROOT .. "ui/defender-role-box-9slice.png",` |
+| `ROLE_PANEL_ANIMATION` | `ASSET_ROOT .. "ui/role-box-9slice.animation",` |
+| `ROLE_ICONS_TEXTURE` | `ASSET_ROOT .. "ui/role-icons.png",` |
+| `ROLE_ICONS_ANIMATION` | `ASSET_ROOT .. "ui/role-icons.animation",` |
+| `OFF_MAP_POSITION` | `{ x = -1000, y = -1000, z = 0 },` |
 
-## Related documentation
+## Literal asset/path strings
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/net-game-footbomb/` |
+| `/server/assets/net-games/cursors/text_cursor.png` |
+| `/server/assets/net-games/cursors/vibrant_text_cursor.png` |
+| `/server/assets/net-games/cursors/text_cursor.animation` |
+| `/server/assets/net-games/sfx/cursor_move.ogg` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

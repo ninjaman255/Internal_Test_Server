@@ -10,152 +10,69 @@
 <a id="footbomb-ref-npc"></a>
 ## 🧭 Part 1 — FootBomb Ref NPC
 
-### FootBomb Ref NPC
+### Current implementation overview
 
-The `FootBomb Ref` custom object in `areas/footbomb.tmx` starts FootBomb matchmaking. The ref NPC uses the configured NPC assets for its appearance and dialogue mug. FootBomb's implementation is organized into a main runtime module and separate modules for constants, Navi options, bomb skins, and animation-state names.
+`ezlibs-custom/footbomb/main.lua` is the runtime controller. The implementation is split into `constants.lua`, `state.lua`, `navi_options.lua`, `bomb_options.lua`, `animation_states.lua`, `animation_points.lua`, `animation_diagnostics.lua`, `result_timeline.lua`, and `sfx_driver.lua`. The current source imports the shared logger, object registry, map instancing, net-games UI helpers, input controller, Boom, Displayer, WorldAttachment, EzBus, EzEmitter, and explosion support. Treat those source imports—not this prose—as the authority if the module layout changes.
 
-## Interaction and match modes
+### Match entry and instance lifecycle
 
-1. The ref asks, **“Hey! Would you like to play FootBomb?”**
-2. The quiz options are exactly **`VS [NPC]`**, **`VS Player`**, and **`No`**.
-3. **No** exits without creating an instance.
-4. **VS [NPC]** creates a private clone of the configured `Instance Map`, spawns both match bots before transferring the human player, and assigns the human to Player 1. The Player 2 bot is a fixed MegaMan opponent; the instance does not offer player matchmaking.
-5. **VS Player** lets the first player wait at the ref. The next player to interact is asked to join. Accepting creates an instance and spawns both bots before transferring either player. The waiting player is assigned Player 1; the joining player is assigned Player 2.
-6. Each human player receives their own bot assignment, camera follow, top/bottom screen-space cursor markers, and selected-Navi name label. The label is horizontally centered using the rendered font width and placed below the bot's screen-centered sprite. The cursors are visual indicators; pressing **Up** or **Down** changes that player's assigned bot's Navi skin and updates the label. Pressing **Confirm** announces the selected Navi and asks whether to use it. **Yes** confirms the choice and displays a confirmation message; **No** or cancelling the quiz returns the player to the selector.
-7. The Navi selector supports seven skins: **MegaMan, Roll, Normal Navi (Green), ProtoMan, Glyde, GutsMan, and Prog**. The NPC opponent in VS NPC mode remains MegaMan as its opponent identity. The available bot assets and animation definitions are listed below.
-8. The selector displays **`Press A To Confirm Navi`** at the top center of the 240×160 virtual screen. The prompt and selected-Navi name use the displayer's font metrics to calculate horizontal placement. The selected-Navi name is drawn at virtual-screen y=112, below the bot.
-9. FootBomb hides the standard player HUD with `Net.toggle_player_hud(player_id)` while the player's FootBomb representation is active. On leaving the instance or disconnecting, the player's cursor UI, selector text, HUD visibility, camera follow state, shared-controller ownership, and engine input lock are cleaned up. Empty instances and their match bots are removed.
-10. After every human confirms their Navi, FootBomb assigns one bot as **Kicker** and the other as **Defender**, messages each human with their role and a short-start notice, then fades each player's camera to black using `fadePlayerCamera({ r = 0, g = 0, b = 0, a = 255 }, 0.8 )`. No overlay texture is used for this fade.
-11. In VS NPC matches, the NPC selects a random available Navi skin when the match bots are created and keeps that skin.
+- The map's `FootBomb Ref` NPC is the interaction entry point. The current configured instance map defaults to `footbomb`; see `constants.lua` for the exact property/configuration names.
+- FootBomb creates isolated map instances for matches and tracks the participating human players and match bots in per-instance state. The current state and lifecycle helpers are in `state.lua` and `main.lua`.
+- The map used as the instance source must contain point objects named exactly `Player 1 Spawn` and `Player 2 Spawn`. Keep those names unchanged if the map or spawn points are edited.
+- On player join, transfer, disconnect, and match cleanup, FootBomb coordinates instance membership, player HUD/input state, camera behavior, selector UI, bot/attachment cleanup, and input ownership. Check the lifecycle handlers in `main.lua` before adding another listener that manages the same resources.
+- The code uses the engine's `Async` API through its local async/await helpers. Do not treat the helper named `async` as the global `Async` table; they are different identifiers.
 
-## Required Tiled objects
+### Navi and bomb selection
 
-The source map configured by `Instance Map` must contain these two **point objects**, with names spelled exactly as shown:
+- Navi choices are data-driven in `navi_options.lua`; bomb appearance choices are data-driven in `bomb_options.lua`. Keep each configured sprite and animation path paired and confirm the referenced files exist in the deployed asset tree.
+- Selection input is routed through `scripts/input-controller/main.lua`. FootBomb claims an ownership key for the match/player and must release it during cleanup; avoid adding a second independent controller for the same player's inputs.
+- The selector UI is drawn through the current Net Games/Displayer paths. Cursor, selected-name, and confirmation UI should be hidden/rebuilt around prompts rather than leaving stale selector sprites visible.
+- Bot animation names and state mapping are centralized in `animation_states.lua`; parsed animation metadata and animation point diagnostics live in their dedicated modules. Keep changes to animation state names synchronized with the animation files and the main round flow.
 
-- `Player 1 Spawn`
-- `Player 2 Spawn`
+### Role panels and sliced-sprite layout
 
-The Player 1 bot is created at the first point and the Player 2 bot at the second point. For a two-human match, the matchmaking order assigns the waiting player to Player 1 and the joining player to Player 2. In VS NPC mode, the human bot uses Player 1 Spawn and the fixed MegaMan opponent uses Player 2 Spawn.
+The current role panel uses two separate textures and one shared 9-slice definition:
 
-The reviewed `areas/footbomb.tmx` already contains both point objects (IDs 157 and 158). If the map is moved or replaced, preserve these names and their point coordinates.
-
-## Assets
-
-### Match-bot Navi assets
-
-The refactored roster is defined in `navi_options.lua`. Each option associates a Navi name with its bot sprite and animation assets.
-
-| Navi | Sprite | Animation |
+| Role | Texture | Shared slicing metadata |
 |---|---|---|
-| MegaMan | `/server/assets/net-game-footbomb/bots/megaman.png` | `/server/assets/net-game-footbomb/bots/megaman.animation` |
-| Roll | `/server/assets/net-game-footbomb/bots/roll.png` | `/server/assets/net-game-footbomb/bots/roll.animation` |
-| Normal Navi (Green) | `/server/assets/net-game-footbomb/bots/normal-navi-green.png` | `/server/assets/net-game-footbomb/bots/normal-navi-green.animation` |
-| ProtoMan | `/server/assets/net-game-footbomb/bots/protoman-bn5.png` | `/server/assets/net-game-footbomb/bots/protoman-bn5.animation` |
-| Glyde | `/server/assets/net-game-footbomb/bots/glyde.png` | `/server/assets/net-game-footbomb/bots/glyde.animation` |
-| GutsMan | `/server/assets/net-game-footbomb/bots/gutsman.png` | `/server/assets/net-game-footbomb/bots/gutsman.animation` |
-| Prog | `/server/assets/net-game-footbomb/bots/prog.png` | `/server/assets/net-game-footbomb/bots/prog.animation` |
+| Kicker | `/server/assets/net-game-footbomb/ui/kicker-role-box-9slice.png` | `/server/assets/net-game-footbomb/ui/role-box-9slice.animation` |
+| Defender | `/server/assets/net-game-footbomb/ui/defender-role-box-9slice.png` | `/server/assets/net-game-footbomb/ui/role-box-9slice.animation` |
 
-These paths are the configured bot assets for the refactored roster. Confirm that the files exist at those exact paths on the target server before deploying.
+`main.lua` creates role-specific styles once with `Displayer.Builder.sliceStyle9(...)`, then builds the role panel with the sliced-panel builder. The kicker receives the kicker texture; the defender receives the defender texture. The layout configuration is in `constants.lua` (`ROLE_PANEL_PADDING`, `ROLE_PANEL_CHILD_PADDING`, `ROLE_PANEL_SLICE_SCALE`, and related fields). Panel padding contributes to the panel's measured size; child padding contributes to spacing between child elements. When adjusting panel width/height or alignment, account for both rather than treating padding as purely visual decoration.
 
-### Selector and dialogue assets
+The sliced-sprite implementation is `scripts/displayer/sliced-sprite.lua`; the public wrapper is `scripts/displayer/displayer.lua`. The wrapper's builder functions and the sliced-panel implementation should be treated as the API source for style options, sizing, updates, and removal.
 
-The cursor markers use:
+### World attachment and animation/event flow
 
-- `/server/assets/net-games/cursors/green_cursor.png`
-- `/server/assets/net-games/cursors/orange_cursor.png`
+FootBomb imports `scripts/world-attachment` and uses it to position attached visual elements such as the ball relative to the bot/world position. Keep the attachment owner and cleanup paired with the instance lifecycle; avoid competing position writers for the same sprite. The code uses per-round `EzBus` events for semantic phases and an SFX driver that subscribes to those round events. Round event buses are torn down at the end of the round so listeners do not leak into later rounds. `EzEmitter` is also imported for event communication; inspect the actual call sites before changing event names or ownership.
 
-The ref NPC's configured mug and animation assets should resolve through the server's NPC asset setup. The refactored defaults include `ref-prog` as the default asset name and `/server/assets/net-game-footbomb/bots/mug.animation` as the mug animation path.
+The round phase names, animation state definitions, and animation point calculations are in the current FootBomb source. Do not infer client-side rendering or asset download behavior solely from a server-side animation request; verify the relevant engine and client contracts separately.
 
-### Bomb skins
+### Current source files
 
-The bomb skin choices are defined separately in `bomb_options.lua`. This keeps bomb appearance configuration independent of the Navi roster and selector logic. The current configuration includes **three bomb skins**.
-
-The bomb selector is configuration/UI only at this stage: choosing a skin does not imply that a complete bomb gameplay loop, collision behavior, scoring, or match-ending flow has been implemented.
-
-## Tiled properties
-
-The custom type reuses standard NPC properties from `scripts/ezlibs-types.json`, including `Direction`, `Asset Name`, `Animation Name`, `Mug Animation Name`, `Dont Face Player`, and dialogue-related properties.
-
-FootBomb-specific property:
-
-| Property | Default | Purpose |
-|---|---|---|
-| `Instance Map` | `footbomb` | Source map cloned for each match. |
-
-The runtime uses the fixed FootBomb prompt and three-option quiz requested for this interaction, rather than the legacy `Intro Message`, `Question`, `Started Message`, and `Declined Message` values.
-
-## Module layout
-
-The FootBomb implementation is split into modules under `scripts/ezlibs-custom/footbomb/`.
-
-| Module | Responsibility |
+| File | Responsibility visible in source |
 |---|---|
-| `main.lua` | Main FootBomb runtime: NPC interaction, matchmaking, instance lifecycle, bot creation, Navi selection, player representation, camera follow, and cleanup. |
-| `constants.lua` | Shared configuration values and constants used by the runtime. |
-| `navi_options.lua` | Navi roster and the associated sprite/animation configuration for the seven selectable skins. |
-| `bomb_options.lua` | Configuration for the three available bomb skins. |
-| `animation_states.lua` | Shared names for the animation states used by FootBomb. |
-| `README.md` | Refactor notes, module overview, and current-scope documentation. |
+| `main.lua` | NPC interaction, matchmaking, instances, selector flow, role transitions, round orchestration, UI and cleanup. |
+| `constants.lua` | Asset paths, timing/layout values, and shared configuration. |
+| `state.lua` | Per-instance and per-player state containers. |
+| `navi_options.lua` | Navi roster and sprite/animation configuration. |
+| `bomb_options.lua` | Bomb skin choices and asset configuration. |
+| `animation_states.lua` | Animation-state identifiers used by FootBomb. |
+| `animation_points.lua` | Animation frame/point lookup helpers. |
+| `animation_diagnostics.lua` | Animation diagnostics and trace helpers. |
+| `result_timeline.lua` | Round result timing/sequence calculations. |
+| `sfx_driver.lua` | SFX reactions to round phase events. |
 
-Internal module imports use the canonical prefix `scripts/ezlibs-custom/footbomb/...`. Keep the module files together at that path so the `require` statements resolve.
+### Tiled and asset maintenance
 
-### Centralized animation states
-
-`animation_states.lua` centralizes the animation-state names referenced by FootBomb instead of repeating state-name strings throughout the runtime.
-
-The current constants include:
-
-| Constant | State value | Use |
-|---|---|---|
-| `IDLE_D` | `IDLE_D` | General downward-facing idle state used by the module. |
-| `FOOTBOMB_IDLE_DEFENSE` | `FOOTBOMB_IDLE_DEFENSE` | FootBomb defense idle state. |
-| `FOOTBOMB_READY_DEFENSE` | `FOOTBOMB_READY_DEFENSE` | FootBomb ready/defense state. |
-| `FOOTBOMB_JUMP_RIGHT` | `FOOTBOMB_JUMP_RIGHT` | FootBomb jump-right state. |
-| `BOMB_PREVIEW` | `Preview` | Bomb preview animation state. |
-
-The seven Navi animation assets were inspected for the shared FootBomb states. They provide the same `FOOTBOMB_*` states and `IDLE_D`, allowing the runtime to use centralized state names across the roster. The animation state `Preview` is used for the bomb preview configuration.
-
-If an additional Navi or bomb animation asset is introduced, check its `.animation` file and update `animation_states.lua` or the relevant option module as appropriate. Centralization reduces spelling drift, but it cannot make a missing animation state exist in an asset.
-
-## Integration and shared input
-
-- `scripts/ezlibs-scripts/ezmapinstance.lua` owns cloned instance tracking and player transfers.
-- `scripts/ezlibs-scripts/object_registry.lua` registers the `FootBomb Ref` object handler.
-- `scripts/ezlibs-custom/custom.lua` dispatches actor interaction, player transfer, and disconnect events to this module.
-- `scripts/input-controller/main.lua` provides a shared per-player controller registry, logical Up/Down press edges, and exclusive input ownership. Its versioned `_G` singleton prevents duplicate controller registries/event subscriptions when evaluated more than once in the same Lua global environment. Consumers should require the canonical path `scripts/input-controller/main`.
-- The Navi selector calls `Net.lock_player_input(player_id)` when the FootBomb representation is set up. This supports the locked-input/`virtual_input` pattern used by Simon Says. The selector force-claims the shared controller, clears stale input edges when selection starts, and requires Up/Down/Confirm/Cancel to be released before accepting fresh presses.
-- Opening the Navi confirmation dialogue suspends selector input, consumes the Confirm edge that opened the textbox, and requires release again when returning to selection. This prevents a textbox confirm/dismiss press from also triggering the selector. On cleanup, FootBomb releases only its own controller claim and calls `Net.unlock_player_input(player_id)`; controller ownership and the engine input lock are separate mechanisms.
-- The camera controller shares the same InputAPI instance and listens for ownership changes. FootBomb intentionally does not activate the free-camera controller: it moves the real player actor off-map, unlocks the player camera, and follows the assigned bot using `Net.move_player_camera`. `scripts/camera/main.lua` also refuses to activate the free camera from tile interactions inside areas whose IDs begin with `footbomb_` or `footbomb-`.
-- MenuAPI claims the shared controller while its menu stack is open and only polls input while it owns the lease.
-- `Net.toggle_player_hud(player_id)` hides the standard HUD during the FootBomb selector/game view and is toggled back during representation cleanup.
-- `scripts/net-games/main.lua` provides per-player UI elements and the `draw_text`, `update_text`, and `remove_text` methods used for the selected-Navi label and selector prompt. The displayer API uses a uniform `scale` value rather than independent `ScaleX`/`ScaleY` values.
-
-## Current scope and known constraints
-
-FootBomb currently implements the NPC interaction, private VS NPC instances, two-player matchmaking, named spawn-point placement, bot creation, Navi skin selection, cursor markers, camera following, selection confirmation, role assignment, and the camera fade before the match.
-
-The following gameplay features are **not yet implemented**:
-
-- Forwarding gameplay movement/input from the hidden player actor to their assigned bot.
-- The FootBomb rules and active ball gameplay loop.
-- Scoring and match-result tracking.
-- The end-of-match flow.
-
-The current bomb-skin configuration does not, by itself, implement bomb gameplay. Treat the refactor as a modularized selector and match setup rather than a complete playable FootBomb game.
-
-## Runtime and verification notes
-
-- The refactor was checked for ZIP integrity and its intended module layout.
-- The seven Navi animation assets were inspected for shared FootBomb animation states.
-- A Lua interpreter or `luac` was not available for syntax checking during the refactor, and the refactored module was not verified in a live server runtime.
-- Camera follow and bot skin recreation should be tested in the target server after changes to those areas.
-- Verify the configured map objects, bot assets, cursor assets, NPC mug assets, and animation states on the actual server before deployment.
-
-This documentation describes the refactored source configuration and intended integration. It does not imply that unimplemented gameplay features or untested host-server behavior are functional.
+- Preserve the exact spawn-point names `Player 1 Spawn` and `Player 2 Spawn` in the source map.
+- Preserve exact path spelling/case for all Navi, bomb, UI, and audio assets.
+- Keep the shared `role-box-9slice.animation` definition alongside both role-specific PNG textures in the runtime asset root.
+- Verify all literal and dynamically assembled paths against `assets-and-file-paths.md` and the source constants.
+- This documentation is based on static inspection of the current archive dated 2026-10-25; it does not claim a live server test.
 
 ---
 
-<a id="nebulous-liberations"></a>
 ## 🌌 Part 2 — Nebulous Liberations
 
 ### 🌌 Nebulous Liberations — Complete Documentation
@@ -1208,6 +1125,6 @@ These are source-level corrections. They still require validation in the target 
 
 ---
 
-## Current archive coverage (2026-10-23)
+## Current archive coverage (2026-10-25)
 
-This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.
+This documentation bundle was refreshed against the current `internal_test_server.zip` Library snapshot on 2026-10-25. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

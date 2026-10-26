@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_vert_prompt_lime.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_vert_prompt_lime.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,47 +11,76 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_vert_prompt_lime.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_vert_prompt_lime.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_vert_prompt_lime.lua.md`
+- **Source SHA-256 prefix:** `fe4e2a1387e6`
+
+## Source header notes
+
+- prog_vert_prompt_lime.lua
+- LIME variant of prog_vert_prompt_pink.lua.
+- Key requirement: identical in-game flow, but implemented
+- using Talk.lua + TalkVertMenu.lua (reusable wrapper).
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/libs/direction` |
+| `scripts/net-games/dialogue/startup` |
+| `scripts/net-games/dialogue/dialogue` |
+| `scripts/net-games/npcs/talk` |
+| `scripts/net-games/npcs/talk_vert_menu` |
+| `scripts/net-games/npcs/talk_presets` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `actor_interaction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/dialogue` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/startup` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk_presets` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk_vert_menu` | Import string found in source; runtime resolution depends on the server package layout. |
+| `play_sfx` | `player_id, path` |
+| `shallow_copy` | `t` |
+| `build_options` | `` |
+| `on_yes` | `` |
+| `on_no` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`provide_asset_for_player`, `play_sound_for_player`, `play_sound`, `get_object_by_name`, `create_bot`, `get_bot_name`, `on`, `get_player_position`, `set_bot_direction`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
+| `SFX` | `{` |
+| `DESC` | `"/server/assets/net-games/sfx/card_desc.ogg",` |
+| `CONFIRM` | `"/server/assets/net-games/sfx/card_confirm.ogg",` |
+| `DESC_CLOSE` | `"/server/assets/net-games/sfx/card_desc_close.ogg",` |
+| `BOT_NAME` | `Net.get_bot_name(bot_id)` |
+| `TALK_CFG` | `{` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `build_options` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_no` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_yes` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `play_sfx` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `shallow_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Uppercase constants
+| Path |
+|---|
+| `/server/assets/net-games/sfx/card_desc.ogg` |
+| `/server/assets/net-games/sfx/card_confirm.ogg` |
+| `/server/assets/net-games/sfx/card_desc_close.ogg` |
+| `/server/assets/ow/prog/prog_ow_lime.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
 
-`CONFIRM`, `DESC`, `DESC_CLOSE`
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 171 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/eztriggers/ezbottriggers.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/eztriggers/ezbottriggers.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,45 +11,55 @@ ezbottriggers.lua Bot-only variant of eztriggers. Mirrors the rectangle/ellipse 
 ## Module location
 
 - **Source:** `ezlibs-scripts/eztriggers/ezbottriggers.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/eztriggers/ezbottriggers.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/eztriggers/ezbottriggers.lua.md`
+- **Source SHA-256 prefix:** `291eee989a43`
+
+## Source header notes
+
+- ezbottriggers.lua
+- Bot-only variant of eztriggers.
+- Mirrors the rectangle/ellipse trigger API of eztriggers, but tracks bots
+- instead of players. It does not touch eztriggers or its player-only state,
+- so the two modules can be used side by side on the same source objects.
+- Fed by eznpcs via ezbus events:
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/ezbus` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
+| `resolve_trigger_key` | `trigger_object, trigger_id` |
+| `ezbottriggers.add_radius_trigger` | `area_id, trigger_object, diameter_x, diameter_y, center_x, center_y, trigger_id` |
+| `ezbottriggers.add_rectangle_trigger` | `area_id, trigger_object, width, height, trigger_id` |
+| `set_bot_overlap` | `trigger_info, bot_id, is_inside, reason, x, y, z` |
+| `ezbottriggers.handle_bot_move` | `bot_id, x, y, z, area_id` |
+| `ezbottriggers.clear_radius_overlaps_for_bot` | `bot_id, reason` |
+| `ezbottriggers.clear_rectangle_overlaps_for_bot` | `bot_id, reason` |
+| `ezbottriggers.handle_bot_created` | `bot_id, area_id, x, y, z` |
+| `ezbottriggers.handle_bot_removed` | `bot_id` |
 
-## Event-bus event names
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`EventEmitter`, `get_bot_area`, `get_bot_position`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `bot_created` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-| `bot_moved` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-| `bot_removed` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+| `DEBUG_BOT_TRIGGER_GEOMETRY` | `false` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `ezbottriggers.add_radius_trigger` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbottriggers.add_rectangle_trigger` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbottriggers.clear_radius_overlaps_for_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbottriggers.clear_rectangle_overlaps_for_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbottriggers.handle_bot_created` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbottriggers.handle_bot_move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbottriggers.handle_bot_removed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_trigger_key` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_bot_overlap` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 292 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

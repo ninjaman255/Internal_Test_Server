@@ -2,36 +2,55 @@
 
 > **Source reference**
 >
-> Generated from `libs/encounters.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `libs/encounters.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Encounters source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `libs/encounters.lua`
-- **Relative reference:** `script-reference/libs/encounters.lua.md`
+- **Reference:** `script-reference/libs/encounters.lua.md`
+- **Source SHA-256 prefix:** `a6ce960265fb`
 
-## Functions defined in this file
+## Function declarations
 
-| Function | Notes |
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `lib.drop_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `lib.handle_player_move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `lib.initiate_direct_encounter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `lib.setup` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `lib.setup_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `lib.track_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `lib.track_player` | `player_id` |
+| `lib.drop_player` | `player_id` |
+| `lib.setup` | `encounter_table` |
+| `lib.setup_area` | `area_id, area_table` |
+| `lib.handle_player_move` | `player_id, x, y, z` |
+| `lib.initiate_direct_encounter` | `player_id, asset_path` |
 
-## Uppercase constants
+## Engine `Net` calls
 
-`BIG_TILE_MOVEMENT`
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`get_player_position`, `get_player_area`, `provide_asset`, `is_player_busy`, `initiate_encounter`
 
-- Approximate source size: 143 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Selected uppercase constants
 
-## Related documentation
+| Name | Source expression |
+|---|---|
+| `BIG_TILE_MOVEMENT` | `1, -- users can't walk/run this far without help from the server` |
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/basic_mob1.zip` |
+| `/server/assets/basic_mob2.zip` |
+| `/server/assets/basic_mob3.zip` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

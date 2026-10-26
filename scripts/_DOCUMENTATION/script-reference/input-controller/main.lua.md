@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `input-controller/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `input-controller/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,52 +11,68 @@ main.lua – Unified input API
 ## Module location
 
 - **Source:** `input-controller/main.lua`
-- **Relative reference:** `script-reference/input-controller/main.lua.md`
+- **Reference:** `script-reference/input-controller/main.lua.md`
+- **Source SHA-256 prefix:** `f5522cd74635`
+
+## Source header notes
+
+- main.lua – Unified input API
+- Keep one API registry and one set of Net event handlers if this module is
+- evaluated more than once in the same Lua global environment.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/utils/utility` |
+| `scripts/input-controller/d-pad` |
+| `scripts/input-controller/input-controller` |
+| `scripts/input-controller/buttons` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `player_disconnect` |
+| `virtual_input` |
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/input-controller/buttons` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/d-pad` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/input-controller` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/utils/utility` | Import string found in source; runtime resolution depends on the server package layout. |
+| `make_controller` | `player_id, opts` |
+| `API.set_controller_class` | `class` |
+| `API.get_controller_class` | `` |
+| `API.get_controller` | `player_id` |
+| `API.get_controller_identity` | `player_id` |
+| `API.create_controller` | `player_id, opts` |
+| `API.spawn_controller` | `player_id, opts` |
+| `API.reload_controller` | `player_id, opts` |
+| `API.set_repeat_delays` | `player_id, first_repeat_delay, repeat_delay` |
+| `API.restore_repeat_delays` | `player_id` |
+| `API.activate_controller` | `player_id` |
+| `API.deactivate_controller` | `player_id` |
+| `API.destroy_controller` | `player_id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
-| `virtual_input` | `Net:on(...)` subscription found in source. |
+| `SINGLETON_KEY` | `"__internal_test_server_input_controller_api_v1"` |
+| `API` | `{}` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `API.activate_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.create_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.deactivate_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.destroy_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.get_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.get_controller_class` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.get_controller_identity` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.reload_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.restore_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.set_controller_class` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.set_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `API.spawn_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `make_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 192 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

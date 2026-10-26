@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/timer-system.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/timer-system.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,59 +11,66 @@ Timer System with Global and Player-specific Timers
 ## Module location
 
 - **Source:** `displayer/timer-system.lua`
-- **Relative reference:** `script-reference/displayer/timer-system.lua.md`
+- **Reference:** `script-reference/displayer/timer-system.lua.md`
+- **Source SHA-256 prefix:** `4f27a428ded6`
 
-## Net event subscriptions
+## Source header notes
 
-| Event | Evidence |
+- Timer System with Global and Player-specific Timers
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `tick` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `Timer:init` | `` |
+| `Timer:handlePlayerJoin` | `player_id` |
+| `Timer:handlePlayerLeave` | `player_id` |
+| `Timer:updateTimers` | `delta` |
+| `Timer:emitToAllPlayers` | `event_name, data` |
+| `Timer:pausePlayerTimer` | `player_id, timer_id` |
+| `Timer:resumePlayerTimer` | `player_id, timer_id` |
+| `Timer:pausePlayerCountdown` | `player_id, countdown_id` |
+| `Timer:resumePlayerCountdown` | `player_id, countdown_id` |
+| `Timer:removePlayerTimer` | `player_id, timer_id` |
+| `Timer:removePlayerCountdown` | `player_id, countdown_id` |
+| `Timer:createGlobalTimer` | `timer_id, duration, callback, loop` |
+| `Timer:createGlobalCountdown` | `countdown_id, duration, callback, loop` |
+| `Timer:pauseGlobalTimer` | `timer_id` |
+| `Timer:resumeGlobalTimer` | `timer_id` |
+| `Timer:pauseGlobalCountdown` | `countdown_id` |
+| `Timer:resumeGlobalCountdown` | `countdown_id` |
+| `Timer:removeGlobalTimer` | `timer_id` |
+| `Timer:removeGlobalCountdown` | `countdown_id` |
+| `Timer:getGlobalTimer` | `timer_id` |
+| `Timer:getGlobalCountdown` | `countdown_id` |
+| `Timer:syncGlobalTimers` | `player_id` |
+| `Timer:createPlayerTimer` | `player_id, timer_id, duration, callback, loop` |
+| `Timer:createPlayerCountdown` | `player_id, countdown_id, duration, callback, loop` |
+| `Timer:getAllGlobalTimers` | `` |
+| `Timer:getAllGlobalCountdowns` | `` |
+| `Timer:clearAllGlobalTimers` | `` |
+| `Timer:clearAllGlobalCountdowns` | `` |
+| `Timer:getPlayerTimer` | `player_id, timer_id` |
+| `Timer:getPlayerCountdown` | `player_id, countdown_id` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `Timer:clearAllGlobalCountdowns` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:clearAllGlobalTimers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:createGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:createGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:createPlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:createPlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:emitToAllPlayers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:getAllGlobalCountdowns` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:getAllGlobalTimers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:getGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:getGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:getPlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:getPlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:handlePlayerJoin` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:handlePlayerLeave` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:pauseGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:pauseGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:pausePlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:pausePlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:removeGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:removeGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:removePlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:removePlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:resumeGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:resumeGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:resumePlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:resumePlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:syncGlobalTimers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Timer:updateTimers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`on`, `emit`
 
-- Approximate source size: 486 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

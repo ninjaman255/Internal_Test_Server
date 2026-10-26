@@ -2,69 +2,81 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezmystery.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezmystery.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Ezmystery source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezmystery.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezmystery.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezmystery.lua.md`
+- **Source SHA-256 prefix:** `b9c66c6181f5`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/ezlibs-scripts/ezcache` |
+| `scripts/ezlibs-scripts/helpers` |
+| `scripts/ezlibs-scripts/ezlocks` |
+| `scripts/ezlibs-scripts/condition` |
+| `scripts/ezlibs-scripts/ezencounters/main` |
+| `math` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/avatar_utils/main` |
+| `scripts/ezlibs-scripts/avatar_utils/avatar_utils` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `avatar_change` |
+| `object_interaction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `math` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/avatar_utils/avatar_utils` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/avatar_utils/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/condition` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezcache` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezencounters/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlocks` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/helpers` | Import string found in source; runtime resolution depends on the server package layout. |
+| `is_property_true` | `val` |
+| `resource_name` | `cost_type` |
+| `object_is_mystery_data` | `object` |
+| `fetch_player_avatar_and_details` | `player_id` |
+| `ezmystery.handle_player_disconnect` | `player_id` |
+| `ezmystery.hide_random_data` | `player_id` |
+| `ezmystery.handle_player_transfer` | `player_id` |
+| `ezmystery.handle_player_join` | `player_id` |
+| `run_quiz_from_list` | `player_id, area_id, quiz_list_id, failure_message` |
+| `try_collect_datum` | `player_id, area_id, object` |
+| `read_datum_information` | `area_id, object` |
+| `collect_datum` | `player_id, object, datum_id_override, is_quiz` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `avatar_change` | `Net:on(...)` subscription found in source. |
-| `object_interaction` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Event-bus event names
+`get_player_secret`, `on`, `get_player_area`, `get_object_by_id`, `list_objects`, `get_area_custom_property`, `get_player_direction`
 
-| Event | Evidence |
-|---|---|
-| `explode` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-| `mystery_collected` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+## Engine `Async` calls
 
-## Functions defined in this file
+`message_player`, `quiz_player`, `question_player`, `sleep`
 
-| Function | Notes |
-|---|---|
-| `collect_datum` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezmystery.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezmystery.handle_player_join` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezmystery.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezmystery.hide_random_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fetch_player_avatar_and_details` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `is_property_true` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `object_is_mystery_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `read_datum_information` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resource_name` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run_quiz_from_list` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `try_collect_datum` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Literal asset/path strings
 
-## Source notes
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- Approximate source size: 398 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/sfx/item_get.ogg` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

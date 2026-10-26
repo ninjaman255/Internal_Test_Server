@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/text-layout.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/text-layout.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,37 +11,40 @@ Public text measurement/layout helper for Displayer. All input and output coordi
 ## Module location
 
 - **Source:** `displayer/text-layout.lua`
-- **Relative reference:** `script-reference/displayer/text-layout.lua.md`
+- **Reference:** `script-reference/displayer/text-layout.lua.md`
+- **Source SHA-256 prefix:** `140b18513660`
+
+## Source header notes
+
+- Public text measurement/layout helper for Displayer.
+- All input and output coordinates are virtual 240x160 coordinates.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/font-system` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/font-system` | Import string found in source; runtime resolution depends on the server package layout. |
+| `normalize_scale` | `value, fallback` |
+| `normalize_text` | `text` |
+| `TextLayout.parseMarkup` | `text` |
+| `push_char` | `ch` |
+| `glyph_advance` | `font, char, scale` |
+| `TextLayout.measureLine` | `text, options` |
+| `split_long_word` | `word, max_width, options` |
+| `wrap_paragraph` | `paragraph, max_width, options` |
+| `split_preserve_empty` | `text, sep` |
+| `TextLayout.layout` | `text, options` |
+| `TextLayout.measure` | `text, options` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `TextLayout.layout` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextLayout.measure` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextLayout.measureLine` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextLayout.parseMarkup` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `glyph_advance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `push_char` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `split_long_word` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `split_preserve_empty` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `wrap_paragraph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 292 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

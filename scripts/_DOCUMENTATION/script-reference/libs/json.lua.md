@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `libs/json.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `libs/json.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,40 +11,46 @@ json.lua Copyright (c) 2020 rxi Permission is hereby granted, free of charge, to
 ## Module location
 
 - **Source:** `libs/json.lua`
-- **Relative reference:** `script-reference/libs/json.lua.md`
+- **Reference:** `script-reference/libs/json.lua.md`
+- **Source SHA-256 prefix:** `3ee318e52d99`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- json.lua
+- Copyright (c) 2020 rxi
+- Permission is hereby granted, free of charge, to any person obtaining a copy of
+- this software and associated documentation files (the "Software"), to deal in
+- the Software without restriction, including without limitation the rights to
+- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `codepoint_to_utf8` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_set` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `decode_error` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_nil` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_number` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_string` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `escape_char` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `json.decode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `json.encode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `next_char` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_array` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_literal` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_number` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_object` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_string` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_unicode_escape` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `escape_char` | `c` |
+| `encode_nil` | `...` |
+| `encode_table` | `val, stack, indent_unit, level` |
+| `encode_string` | `val, ...` |
+| `encode_number` | `val, ...` |
+| `json.encode` | `val, pretty` |
+| `create_set` | `...` |
+| `next_char` | `str, idx, set, negate` |
+| `decode_error` | `str, idx, msg` |
+| `codepoint_to_utf8` | `n` |
+| `parse_unicode_escape` | `s` |
+| `parse_string` | `str, i` |
+| `parse_number` | `str, i` |
+| `parse_literal` | `str, i` |
+| `parse_array` | `str, i` |
+| `parse_object` | `str, i` |
+| `json.decode` | `str` |
+| `encode` | `val, stack, indent_unit, level` |
+| `parse` | `str, idx` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 439 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

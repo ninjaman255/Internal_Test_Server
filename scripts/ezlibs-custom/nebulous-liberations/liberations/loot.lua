@@ -1,81 +1,64 @@
 local Enemy = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy")
 
+-- All Loot.activate functions use say_* for informational text so that a
+-- missed client-side textbox cannot block the loot promise. Game-state
+-- changes (heal, damage, order points, money, invincibility) apply
+-- immediately; only real animations are awaited.
 local Loot = {
   HEART = {
     animation = "HEART",
     breakable = true,
     activate = function(instance, player_session)
-      return Async.create_promise(function(resolve)
-        player_session.player:message_with_mug("I found\na heart!").and_then(function()
-          player_session:heal(player_session.max_health / 2)
-          resolve()
-        end)
-      end)
+      player_session.player:say_with_mug("I found\na heart!")
+      return player_session:heal(player_session.max_health / 2)
     end
   },
   CHIP = {
     animation = "CHIP",
     breakable = true,
     activate = function(instance, player_session)
-      return Async.create_promise(function(resolve)
-        player_session.player:message_with_mug("I found a\nBattleChip!").and_then(function()
-          resolve()
-        end)
-      end)
+      player_session.player:say_with_mug("I found a\nBattleChip!")
+      return Async.create_promise(function(resolve) resolve() end)
     end
   },
   MONEY = {
     animation = "MONEY",
     breakable = true,
     activate = function(instance, player_session)
-      return Async.create_promise(function(resolve)
-        player_session.player:message_with_mug("I found some\nMonies!").and_then(function()
-          player_session.get_monies = true
-          resolve()
-        end)
-      end)
+      player_session.player:say_with_mug("I found some\nMonies!")
+      player_session.get_monies = true
+      return Async.create_promise(function(resolve) resolve() end)
     end
   },
   BUGFRAG = {
     animation = "BUGFRAG",
     breakable = true,
     activate = function(instance, player_session)
-      return Async.create_promise(function(resolve)
-        player_session.player:message_with_mug("I found a\nBugFrag!").and_then(function()
-          resolve()
-        end)
-      end)
+      player_session.player:say_with_mug("I found a\nBugFrag!")
+      return Async.create_promise(function(resolve) resolve() end)
     end
   },
   ORDER_POINT = {
     animation = "ORDER_POINT",
     breakable = false,
     activate = function(instance, player_session)
-      return Async.create_promise(function(resolve)
-        player_session.player:message_with_mug("I found\nOrder Points!")
-
-        local previous_points = instance.order_points
-        instance.order_points = math.min(instance.order_points + 3, instance.MAX_ORDER_POINTS)
-
-        local recovered_points = instance.order_points - previous_points
-        player_session.player:message(recovered_points .. "\nOrder Pts Recovered!").and_then(function()
-          resolve()
-        end)
-      end)
+      player_session.player:say_with_mug("I found\nOrder Points!")
+      local previous_points = instance.order_points
+      instance:set_order_points(instance.order_points + 3)
+      local recovered_points = instance.order_points - previous_points
+      player_session.player:say(recovered_points .. "\nOrder Pts Recovered!")
+      return Async.create_promise(function(resolve) resolve() end)
     end
   },
   INVINCIBILITY = {
     animation = "INVINCIBILITY",
     breakable = false,
     activate = function(instance, player_session)
-      return Async.create_promise(function(resolve)
-        player_session.player:message("Team becomes invincible for\n 1 phase!!").and_then(function()
-          for _, other_session in pairs(instance.player_sessions) do
-            other_session.invincible = true
-          end
-          resolve()
-        end)
-      end)
+      player_session.player:say("Team becomes invincible for\n 1 phase!!")
+      for _, other_session in pairs(instance.player_sessions) do
+        other_session.invincible = true
+      end
+      return Async.create_promise(function(resolve) resolve() end)
     end
   },
   MAJOR_HIT = {
@@ -83,18 +66,14 @@ local Loot = {
     breakable = false,
     activate = function(instance, player_session)
       local co = coroutine.create(function()
-        Async.await(player_session.player:message("Damages the closest Guardian the most!"))
-
+        player_session.player:say("Damages the closest Guardian the most!")
         local enemy = player_session:find_closest_guardian()
-
         if not enemy then
-          Async.await(player_session.player:message("No Guardians found"))
+          player_session.player:say("No Guardians found")
           return
         end
-
         Async.await(Enemy.destroy(instance, enemy))
       end)
-
       return Async.promisify(co)
     end
   },
@@ -103,12 +82,10 @@ local Loot = {
     breakable = false,
     activate = function(instance, player_session)
       local co = coroutine.create(function()
-        Async.await(player_session.player:message_with_mug("I found a Key!"))
-
+        player_session.player:say_with_mug("I found a Key!")
         local gates = player_session:find_matching_gates()
-
         if #gates == 0 then
-          Async.await(player_session.player:message_with_mug("But it doesn't open anything..."))
+          player_session.player:say_with_mug("But it doesn't open anything...")
           return
         end
         local id = gates[1].custom_properties["Gate Key"]
@@ -128,7 +105,6 @@ local Loot = {
             Net.move_player_camera(player_session.player.id, point.x, point.y, point.z, hold_time)
             total_camera_time = total_camera_time + slide_time + hold_time
             if point == points[1] then
-              -- Async.await(player_session.player:message_with_mug("The gate opened!"))
               Net.move_player_camera(player_session.player.id, point.x, point.y, point.z, hold_time)
               total_camera_time = total_camera_time + hold_time
               unlock_gates()
@@ -141,7 +117,6 @@ local Loot = {
           unlock_gates()
         end
       end)
-
       return Async.promisify(co)
     end
   }
@@ -149,15 +124,12 @@ local Loot = {
 
 Loot.DEFAULT_POOL = {
   Loot.HEART,
-  -- Loot.CHIP,
   Loot.MONEY,
-  -- Loot.BUGFRAG,
   Loot.ORDER_POINT,
 }
 
 Loot.BONUS_POOL = {
   Loot.HEART,
-  -- Loot.CHIP,
   Loot.ORDER_POINT,
   Loot.INVINCIBILITY,
   Loot.MAJOR_HIT,
@@ -185,8 +157,6 @@ Loot.FULL_POOL = {
 
 local RISE_DURATION = .1
 
--- private functions
-
 local function spawn_item_bot(bot_data, property_animation)
   local shadow_id = Net.create_bot(
     {
@@ -203,20 +173,21 @@ local function spawn_item_bot(bot_data, property_animation)
 
   local id = Net.create_bot(bot_data)
 
+  if id == nil then
+    if shadow_id ~= nil then Net.remove_bot(shadow_id) end
+    return function() end
+  end
+
   Net.animate_bot_properties(id, property_animation)
 
-  function cleanup()
-    Net.remove_bot(shadow_id)
-    Net.remove_bot(id)
+  local function cleanup()
+    if shadow_id ~= nil then Net.remove_bot(shadow_id) end
+    if id ~= nil then Net.remove_bot(id) end
   end
 
   return cleanup
 end
 
--- public functions
-
--- returns a promise that resolves when the animation finishes
--- resolved value is a function that cleans up the bot
 function Loot.spawn_item_bot(item, area_id, x, y, z)
   local bot_data = {
     area_id = area_id,
@@ -238,18 +209,14 @@ function Loot.spawn_item_bot(item, area_id, x, y, z)
     },
   }
 
-  -- return a promise that resolves when the animation finishes
   return Async.create_promise(function(resolve)
     local cleanup = spawn_item_bot(bot_data, property_animation)
-
     Async.sleep(RISE_DURATION).and_then(function()
       resolve(cleanup)
     end)
   end)
 end
 
--- returns a promise that resolves when the animation finishes
--- resolved value is a function that cleans up the bot
 function Loot.spawn_randomized_item_bot(loot_pool, item_index, area_id, x, y, z)
   local target_duration = 2
   local frame_duration = .075
@@ -269,7 +236,6 @@ function Loot.spawn_randomized_item_bot(loot_pool, item_index, area_id, x, y, z)
   }
 
   local property_animation = {}
-
   local total_duration = 0
   local added_rise = false
 
@@ -286,7 +252,6 @@ function Loot.spawn_randomized_item_bot(loot_pool, item_index, area_id, x, y, z)
     total_duration = total_duration + frame_duration
 
     if not added_rise and total_duration >= RISE_DURATION then
-      -- animate rising
       key_frame.properties[#key_frame.properties] = { property = "Z", ease = "Linear", value = z + 1 }
       added_rise = true
     end
@@ -294,17 +259,14 @@ function Loot.spawn_randomized_item_bot(loot_pool, item_index, area_id, x, y, z)
     property_animation[#property_animation+1] = key_frame
   end
 
-  -- return a promise that resolves when the animation finishes
   return Async.create_promise(function(resolve)
     local cleanup = spawn_item_bot(bot_data, property_animation)
-
     Async.sleep(total_duration).and_then(function()
       resolve(cleanup)
     end)
   end)
 end
 
--- returns a promise, resolves when looting is completed
 function Loot.loot_item_panel(instance, player_session, panel, destroy_items)
   local slide_time = .1
 
@@ -321,8 +283,6 @@ function Loot.loot_item_panel(instance, player_session, panel, destroy_items)
   )
 
   local loot = panel.loot
-
-  -- prevent other players from looting this panel again
   local breakable = panel.loot.breakable
   panel.loot = nil
 
@@ -333,14 +293,13 @@ function Loot.loot_item_panel(instance, player_session, panel, destroy_items)
       Async.await(loot.activate(instance, player_session))
       remove_item_bot()
     else
-      Async.await(player_session.player:message_with_mug("Ah!! The item was destroyed!"))
+      player_session.player:say_with_mug("Ah!! The item was destroyed!")
       remove_item_bot()
     end
   end)
   return Async.promisify(co)
 end
 
--- returns a promise, resolves when looting is completed
 function Loot.loot_bonus_panel(instance, player_session, panel)
   local loot_index = math.random(#Loot.BONUS_POOL)
 

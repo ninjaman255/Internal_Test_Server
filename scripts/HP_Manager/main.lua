@@ -13,11 +13,11 @@ local games = require("scripts/net-games/main")
 local InputAPI = require("scripts/input-controller/main")
 local TextLayout = require("scripts/displayer/text-layout")
 --MANAGERS
-local WarpManage = require("scripts/HP_Manager/warp_manage")
-local BackgroundManage = require("scripts/HP_Manager/background_manage")
-local RealtimeManage = require("scripts/HP_Manager/realtime_manage")
+local WarpManage = require("scripts/hp_manager/warp_manage")
+local BackgroundManage = require("scripts/hp_manager/background_manage")
+local RealtimeManage = require("scripts/hp_manager/realtime_manage")
 --CONFIG FILE
-local constants = require("scripts/HP_Manager/constants/constants")
+local constants = require("scripts/hp_manager/constants/constants")
 
 local hp_sessions = {}
 local manager_claimed_controllers = {}
@@ -50,7 +50,7 @@ local optional_icons = {
     label = "Real Time Manager",
     path = constants.real_day_time,
     load_module = true,
-    icon = "/server/assets/HP_Manager/realtime_icon.png",
+    icon = "/server/assets/hp_manager/realtime_icon.png",
     x = 136,
     y = 30,
   },
@@ -59,7 +59,7 @@ local optional_icons = {
     label = "Music Manager",
     path = constants.jukebox,
     load_module = true,
-    icon = "/server/assets/HP_Manager/music_icon.png",
+    icon = "/server/assets/hp_manager/music_icon.png",
     x = 186,
     y = 30,
   }
@@ -171,10 +171,10 @@ local function get_server_os()
 end
 
 local system_wallpaper = {
-  windows = "/server/assets/HP_Manager/Wallpapers/windows_wallpaper.png",
-  linux = "/server/assets/HP_Manager/Wallpapers/linux_wallpaper.png",
-  macos = "/server/assets/HP_Manager/Wallpapers/macos_wallpaper.png",
-  unix = "/server/assets/HP_Manager/Wallpapers/linux_wallpaper.png"
+  windows = "/server/assets/hp_manager/wallpapers/windows_wallpaper.png",
+  linux = "/server/assets/hp_manager/wallpapers/linux_wallpaper.png",
+  macos = "/server/assets/hp_manager/wallpapers/macos_wallpaper.png",
+  unix = "/server/assets/hp_manager/wallpapers/linux_wallpaper.png"
 }
 
 local server_os = get_server_os()
@@ -191,11 +191,17 @@ end
 
 -- HP MANAGER OPEN
 local function open_hp_manager(player_id, selected_id)
-  selected_id = selected_id or "exit"
+    local initial_open = selected_id == nil
+    selected_id = selected_id or "exit"
 
-  local selected = desktop_option_indexes[selected_id] or desktop_option_indexes["exit"]
+    local selected = desktop_option_indexes[selected_id] or desktop_option_indexes["exit"]
 
-  hp_sessions[player_id] = { selected = selected, cursor_timer = 0, cursor_offset = 0 }
+    hp_sessions[player_id] = {
+        selected = selected,
+        cursor_timer = 0,
+        cursor_offset = 0,
+        input_delay = initial_open and 0.2 or 0
+    }
 
   Net.lock_player_input(player_id)
 
@@ -205,14 +211,14 @@ local function open_hp_manager(player_id, selected_id)
   local selected_option = desktop_options[selected]
 
   games.add_ui_element("hp_wallpaper", player_id, wallpaper, "", "", 0, 0, 0, 2, 2)
-  games.add_ui_element("hp_border", player_id, "/server/assets/HP_Manager/border.png", "", "", 0, 0, 10, 2, 2)
+  games.add_ui_element("hp_border", player_id, "/server/assets/hp_manager/border.png", "", "", 0, 0, 10, 2, 2)
 
   -- ICONS
-  games.add_ui_element("hp_emblem", player_id, "/server/assets/HP_Manager/emblem.png", "", "", exit_option.x,
+  games.add_ui_element("hp_emblem", player_id, "/server/assets/hp_manager/emblem.png", "", "", exit_option.x,
     exit_option.y, 15, 2, 2)
-  games.add_ui_element("hp_warp_icon", player_id, "/server/assets/HP_Manager/warp_icon.png", "", "", warp_option.x,
+  games.add_ui_element("hp_warp_icon", player_id, "/server/assets/hp_manager/warp_icon.png", "", "", warp_option.x,
     warp_option.y, 15, 2, 2)
-  games.add_ui_element("hp_background_icon", player_id, "/server/assets/HP_Manager/background_icon.png", "", "",
+  games.add_ui_element("hp_background_icon", player_id, "/server/assets/hp_manager/background_icon.png", "", "",
     background_option.x, background_option.y, 15, 2, 2)
 
   -- DRAW OPTIONAL ICONS
@@ -241,9 +247,7 @@ local function handle_manager_input(event)
   local player_id = event.player_id
   local session = hp_sessions[player_id]
 
-  if session == nil then
-    return
-  end
+if session == nil or session.input_delay > 0 then return end
 
   for _, button in next, event.events do
     if button.state == 1 or button.state == 2 then
@@ -523,7 +527,7 @@ end)
 Net:on("tick", function(event)
   for player_id, session in pairs(hp_sessions) do
     session.cursor_timer = session.cursor_timer + event.delta_time
-
+    session.input_delay = math.max(0, session.input_delay - event.delta_time)
     if session.cursor_timer >= 0.20 then
       session.cursor_timer = session.cursor_timer - 0.20
       session.cursor_offset = session.cursor_offset == 0 and 1 or 0

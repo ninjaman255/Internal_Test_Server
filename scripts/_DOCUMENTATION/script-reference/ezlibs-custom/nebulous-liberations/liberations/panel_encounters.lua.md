@@ -28,3 +28,10 @@
 - [Documentation index](../index.md)
 - [Scripts tree reference](../scripts-tree.md)
 - [Assets and file paths](../assets-and-file-paths.md)
+
+## Encounter Definition Integration
+
+- The default `Liberation Encounters` area custom property is indexed by the **base `area_id`**, not the cloned mission instance ID and not merely the display area name.
+- `resolve_encounter_value(reference)` uses `ezencounters.resolve_encounter` so named encounter definitions registered in the normal ezencounters tables can be used. If the reference is not a registered name, it is retained as a direct package path for compatibility.
+- `resolve_encounter(base_area_id)` resolves the default encounter configured on the source map. `Mission` stores `base_area_id` separately from its instance `area_id` and uses the former for this lookup.
+- `resolve_terrain` is still NebuLibs-specific; it computes the liberation player's terrain advantage and is merged into the encounter definition data at encounter start.

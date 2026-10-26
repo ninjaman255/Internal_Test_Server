@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/utils/ezutil.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/utils/ezutil.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,29 +11,32 @@ ezutil.lua Small, dependency-free helpers for Lua 5.2. This module does not depe
 ## Module location
 
 - **Source:** `ezlibs-scripts/utils/ezutil.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/utils/ezutil.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/utils/ezutil.lua.md`
+- **Source SHA-256 prefix:** `8fce621f2fd2`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- ezutil.lua
+- Small, dependency-free helpers for Lua 5.2.
+- This module does not depend on ezlibs host APIs.
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `ezutil.clamp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.deep_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.shallow_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.table_contains` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.table_count` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.table_is_empty` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.table_merge` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezutil.table_remove_value` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `ezutil.clamp` | `value, minimum, maximum` |
+| `ezutil.table_contains` | `list, value` |
+| `ezutil.table_remove_value` | `list, value, remove_all` |
+| `ezutil.table_count` | `value` |
+| `ezutil.table_is_empty` | `value` |
+| `ezutil.shallow_copy` | `source` |
+| `ezutil.deep_copy` | `source, seen` |
+| `ezutil.table_merge` | `target, source` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 96 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

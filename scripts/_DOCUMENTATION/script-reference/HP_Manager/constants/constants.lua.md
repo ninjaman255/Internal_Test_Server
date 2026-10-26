@@ -2,27 +2,37 @@
 
 > **Source reference**
 >
-> Generated from `HP_Manager/constants/constants.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `HP_Manager/constants/constants.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Constants source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `HP_Manager/constants/constants.lua`
-- **Relative reference:** `script-reference/HP_Manager/constants/constants.lua.md`
+- **Reference:** `script-reference/HP_Manager/constants/constants.lua.md`
+- **Source SHA-256 prefix:** `c0af0ace954b`
 
-## Functions defined in this file
+## Function declarations
 
-| Function | Notes |
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `file_exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `file_exists` | `path` |
 
-## Source notes
+## Literal asset/path strings
 
-- Approximate source size: 19 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Related documentation
+| Path |
+|---|
+| `assets/Backgrounds/` |
+| `/server/assets/Backgrounds/` |
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

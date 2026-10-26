@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `HP_Manager/realtime_manage.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `HP_Manager/realtime_manage.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,48 +11,69 @@
 ## Module location
 
 - **Source:** `HP_Manager/realtime_manage.lua`
-- **Relative reference:** `script-reference/HP_Manager/realtime_manage.lua.md`
+- **Reference:** `script-reference/HP_Manager/realtime_manage.lua.md`
+- **Source SHA-256 prefix:** `5a944e426eef`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/input-controller/main` |
+| `scripts/displayer/text-layout` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/text-layout` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `load_realtime_data` | `` |
+| `save_realtime_data` | `` |
+| `apply_realtime_data` | `` |
+| `draw_current_time` | `player_id, session` |
+| `draw_setting` | `player_id, area_id, index` |
+| `hide_settings_ui` | `player_id` |
+| `RealtimeManage.open` | `player_id, return_to_hp, real_day_time` |
+| `restore_original_settings` | `session` |
+| `handle_manager_input` | `event` |
+| `input_owner` | `player_id` |
+| `poll_manager_input` | `player_id, owner` |
+| `take` | `action, raw_name, allow_repeat` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`list_areas`, `set_area_custom_property`, `get_area_custom_property`, `get_player_area`, `lock_player_input`, `unlock_player_input`, `on`
 
-| Function | Notes |
-|---|---|
-| `RealtimeManage.open` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `apply_realtime_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_current_time` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_setting` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `handle_manager_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `hide_settings_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `input_owner` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `load_realtime_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `poll_manager_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `restore_original_settings` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `save_realtime_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `take` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Engine `Async` calls
 
-## Source notes
+`sleep`, `question_player`
 
-- Approximate source size: 503 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Literal asset/path strings
 
-## Related documentation
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+| Path |
+|---|
+| `/server/assets/HP_Manager/board.png` |
+| `/server/assets/net-games/cursors/text_cursor.png` |
+| `/server/assets/net-games/cursors/text_cursor.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

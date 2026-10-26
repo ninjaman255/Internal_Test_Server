@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/scrolling-text-list.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/scrolling-text-list.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,70 +11,93 @@
 ## Module location
 
 - **Source:** `displayer/scrolling-text-list.lua`
-- **Relative reference:** `script-reference/displayer/scrolling-text-list.lua.md`
+- **Reference:** `script-reference/displayer/scrolling-text-list.lua.md`
+- **Source SHA-256 prefix:** `e4794922eb60`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/font-system` |
+| `scripts/animation-engine/animation-engine` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `player_disconnect` |
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/animation-engine/animation-engine` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/font-system` | Import string found in source; runtime resolution depends on the server package layout. |
+| `normalize_scale` | `value, fallback` |
+| `getFontHeight` | `font_name, scale` |
+| `TextEntry:new` | `list_obj, player_id, list_id, index, text, config` |
+| `TextEntry:_createGlyphs` | `y_offset` |
+| `TextEntry:_updatePositions` | `y_offset` |
+| `TextEntry:setPosition` | `x, y` |
+| `TextEntry:setColor` | `r, g, b, a` |
+| `TextEntry:setScale` | `scale` |
+| `TextEntry:destroy` | `` |
+| `TextEntry:startScroll` | `delay, distance, speed` |
+| `TextEntry:_beginScroll` | `distance, speed` |
+| `ScrollingTextList:init` | `` |
+| `ScrollingTextList:setupPlayer` | `player_id` |
+| `ScrollingTextList:cleanupPlayer` | `player_id` |
+| `ScrollingTextList:_drawBackdrop` | `player_id, list_id, config` |
+| `ScrollingTextList:_computeGridPositions` | `config` |
+| `ScrollingTextList:createScrollingList` | `player_id, list_id, x, y, width, height, config` |
+| `list_object:onEntryFinished` | `` |
+| `list_object:getEntry` | `index` |
+| `list_object:addText` | `text` |
+| `list_object:setTexts` | `texts` |
+| `list_object:setScale` | `scale` |
+| `list_object:setSpeed` | `speed` |
+| `list_object:setPosition` | `x, y` |
+| `list_object:destroy` | `` |
+| `list_object:_recreateEntries` | `` |
+| `ScrollingTextList:updateAll` | `delta` |
+| `ScrollingTextList:getList` | `player_id, list_id` |
+| `ScrollingTextList:removeScrollingList` | `player_id, list_id` |
+| `ScrollingTextList:setListPosition` | `player_id, list_id, x, y` |
+| `ScrollingTextList:setListSpeed` | `player_id, list_id, speed` |
+| `ScrollingTextList:addTextToList` | `player_id, list_id, text` |
+| `ScrollingTextList:setListTexts` | `player_id, list_id, texts` |
+| `ScrollingTextList:getListState` | `player_id, list_id` |
+| `on_update` | `values` |
+| `on_complete` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`on`, `provide_asset_for_player`, `player_alloc_sprite`, `player_dealloc_sprite`, `player_draw_sprite`, `player_erase_sprite`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `ScrollingTextList:_computeGridPositions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:_drawBackdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:addTextToList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:cleanupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:createScrollingList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:getList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:getListState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:removeScrollingList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:setListPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:setListSpeed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:setListTexts` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:setupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingTextList:updateAll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:_beginScroll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:_createGlyphs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:_updatePositions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:setColor` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:setScale` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextEntry:startScroll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `getFontHeight` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:_recreateEntries` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:addText` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:getEntry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:onEntryFinished` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:setSpeed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:setTexts` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/net-games/displayer/empty_white.png` |
 
-- Approximate source size: 557 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

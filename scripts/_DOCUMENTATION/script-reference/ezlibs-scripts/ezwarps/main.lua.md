@@ -2,66 +2,67 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezwarps/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezwarps/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Main source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezwarps/main.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezwarps/main.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezwarps/main.lua.md`
+- **Source SHA-256 prefix:** `65d511df3bce`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/json` |
+| `scripts/ezlibs-scripts/ezwarps/arrow_animation_factory` |
+| `scripts/ezlibs-scripts/ezwarps/log_in_animation` |
+| `scripts/ezlibs-scripts/eztriggers/eztriggers` |
+| `scripts/ezlibs-scripts/object_registry` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/ezcache` |
+| `scripts/ezlibs-scripts/ezwarps/fall_in_animation` |
+| `scripts/ezlibs-scripts/ezwarps/lev_beast_in_animation` |
+| `scripts/ezlibs-scripts/ezwarps/lev_beast_out_animation` |
+| `scripts/ezlibs-scripts/ezwarps/fall_off_2` |
+| `scripts/ezlibs-scripts/ezpress` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezcache` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezpress` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eztriggers/eztriggers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezwarps/arrow_animation_factory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezwarps/fall_in_animation` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezwarps/fall_off_2` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezwarps/lev_beast_in_animation` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezwarps/lev_beast_out_animation` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezwarps/log_in_animation` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/json` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/object_registry` | Import string found in source; runtime resolution depends on the server package layout. |
+| `table_has_value` | `table, val` |
+| `log` | `message` |
+| `property_is_true` | `value` |
+| `add_landing` | `area_id, incoming_data, x, y, z, direction, warp_in, arrival_animation` |
+| `doAnimationForWarp` | `player_id,animation_name,is_leave_animation,warp_object` |
+| `add_interact_warp` | `object, object_id, area_id, area_name` |
+| `add_radius_warp` | `object, object_id, area_id, area_name` |
+| `add_custom_warp` | `object, object_id, area_id, area_name` |
+| `process_warp_object` | `area_id, object` |
+| `prepare_player_arrival` | `player_id,x,y,z,special_animation_name` |
+| `ezwarps.handle_player_request` | `player_id, data` |
+| `use_warp` | `player_id,warp_object,warp_meta` |
+| `ezwarps.handle_custom_warp` | `player_id, object_id` |
+| `ezwarps.handle_player_join` | `player_id` |
+| `ezwarps.player_is_in_animation` | `player_id` |
+| `ezwarps.handle_player_transfer` | `player_id` |
 
-## Event-bus event names
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `warp` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`lock_player_input`, `unlock_player_input`, `get_area_name`, `transfer_player`, `get_player_area`, `transfer_server`
 
-| Function | Notes |
-|---|---|
-| `add_custom_warp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `add_interact_warp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `add_landing` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `add_radius_warp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `doAnimationForWarp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezwarps.handle_custom_warp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezwarps.handle_player_join` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezwarps.handle_player_request` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezwarps.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezwarps.player_is_in_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `log` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `prepare_player_arrival` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `process_warp_object` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `property_is_true` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `table_has_value` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `use_warp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 339 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

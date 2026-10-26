@@ -2,38 +2,63 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/enemies/blizzardman.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/enemies/blizzardman.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Blizzardman source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/enemies/blizzardman.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemies/blizzardman.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemies/blizzardman.lua.md`
+- **Source SHA-256 prefix:** `28a9d0b998a3`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader` | Import string found in source; runtime resolution depends on the server package layout. |
+| `BlizzardMan:new` | `instance, position, direction` |
+| `BlizzardMan:spawn` | `direction` |
+| `BlizzardMan:get_death_message` | `` |
+| `BlizzardMan:take_turn` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `BlizzardMan:get_death_message` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `BlizzardMan:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `BlizzardMan:spawn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `BlizzardMan:take_turn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`create_bot`, `set_bot_minimap_color`, `get_bot_direction`, `animate_bot_properties`, `shake_player_camera`, `remove_bot`
 
-- Approximate source size: 156 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`await`, `sleep`, `promisify`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/bots/snowball.png` |
+| `/server/assets/NebuLibsAssets/bots/snowball.animation` |
+| `/server/assets/NebuLibsAssets/mugs/blizzardman.png` |
+| `/server/assets/NebuLibsAssets/mugs/blizzardman.animation` |
+| `/server/assets/encounters/big_brute_encounter.zip` |
+| `/server/assets/NebuLibsAssets/bots/blizzardman.png` |
+| `/server/assets/NebuLibsAssets/bots/blizzardman.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

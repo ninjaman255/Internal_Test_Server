@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `avatar_utils/avatar_utils.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `avatar_utils/avatar_utils.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,37 +11,51 @@ avatar_utils.lua Utility functions for handling player avatars and mugshots
 ## Module location
 
 - **Source:** `avatar_utils/avatar_utils.lua`
-- **Relative reference:** `script-reference/avatar_utils/avatar_utils.lua.md`
+- **Reference:** `script-reference/avatar_utils/avatar_utils.lua.md`
+- **Source SHA-256 prefix:** `46811ffe32d2`
+
+## Source header notes
+
+- avatar_utils.lua
+- Utility functions for handling player avatars and mugshots
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/avatar_utils/lua_yes_parser/lib` |
+| `scripts/avatar_utils/base64` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/avatar_utils/base64` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/avatar_utils/lua_yes_parser/lib` | Import string found in source; runtime resolution depends on the server package layout. |
+| `parse_duration` | `duration_str` |
+| `ensure_directory` | `filepath` |
+| `set_or_update_asset` | `asset_path, asset_content` |
+| `write_temp_file` | `content` |
+| `avatar_utils.copy_player_avatar_to` | `player_id, new_texture_path, new_animation_path, mug_texture_path, mug_animation_path` |
+| `avatar_utils.parse_animation_data` | `data` |
+| `avatar_utils.parse_animation_file` | `filepath` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `assert_no_nils` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `avatar_utils.copy_player_avatar_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `avatar_utils.parse_animation_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `avatar_utils.parse_animation_file` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_directory` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_arg_by_key` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `parse_duration` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_or_update_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `write_temp_file` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`has_asset`, `remove_asset`, `update_asset`, `get_player_avatar`, `get_player_mugshot`, `read_asset`
 
-- Approximate source size: 235 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Literal asset/path strings
 
-## Related documentation
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+| Path |
+|---|
+| `assets/avatars/sheet/secret.png` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

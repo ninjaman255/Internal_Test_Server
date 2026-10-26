@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_vert_prompt_emerald.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_vert_prompt_emerald.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,28 +11,45 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_vert_prompt_emerald.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_vert_prompt_emerald.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_vert_prompt_emerald.lua.md`
+- **Source SHA-256 prefix:** `924257c9b819`
+
+## Source header notes
+
+- prog_vert_prompt_emerald_shop.lua
+- Shop-themed variant of ProgVertPromptRed:
+- - identical flow + option generator
+- - overrides PromptVertical assets ONLY for this NPC instance
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/npcs/talk` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/npcs/talk` | Import string found in source; runtime resolution depends on the server package layout. |
+| `on_interact` | `player_id, _bot_id, bot_name` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `on_interact` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/ow/prog/prog_ow_emerald.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
+| `/server/assets/net-games/ui/prompt_vert_menu_shop_an.png` |
+| `/server/assets/net-games/ui/prompt_vert_menu_an.animation` |
+| `/server/assets/net-games/ui/prompt_vert_menu_shop_an_frame.png` |
+| `/server/assets/net-games/ui/highlight_shop.png` |
 
-- Approximate source size: 65 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

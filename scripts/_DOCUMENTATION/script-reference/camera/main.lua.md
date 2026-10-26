@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `camera/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `camera/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,40 +11,53 @@ main.lua (Entry Point)
 ## Module location
 
 - **Source:** `camera/main.lua`
-- **Relative reference:** `script-reference/camera/main.lua.md`
+- **Reference:** `script-reference/camera/main.lua.md`
+- **Source SHA-256 prefix:** `59db11d71c0d`
+
+## Source header notes
+
+- main.lua (Entry Point)
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/camera/camera-manager` |
+| `scripts/camera/camera-controller` |
+| `scripts/enum/predefined-enums` |
+| `scripts/input-controller/main` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `tile_interaction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/camera/camera-controller` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/camera/camera-manager` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/enum/predefined-enums` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `dbg` | `...` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`on`, `get_player_area`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tile_interaction` | `Net:on(...)` subscription found in source. |
+| `DBG` | `false` |
+| `CAMERA_FIRST_REPEAT_DELAY` | `0.05` |
+| `CAMERA_REPEAT_DELAY` | `0.03` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `dbg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `setupPlayerJoin` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `setupTileInteraction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 105 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

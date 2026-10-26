@@ -2,51 +2,74 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezexplosions.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezexplosions.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Ezexplosions source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezexplosions.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezexplosions.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezexplosions.lua.md`
+- **Source SHA-256 prefix:** `5da457d0a412`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/ezlogger` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
+| `async` | `fn` |
+| `await` | `value` |
+| `update_tracked_position` | `exploding_effect` |
+| `finish_effect` | `self, reason` |
+| `remove_explosion_bot` | `self, bot_id, reason` |
+| `remove_all_active_bots` | `self, reason` |
+| `explode` | `self, explosion_bot_id` |
+| `spawn` | `self` |
+| `ExplodingEffect:new` | `actor_id, opt_area_id, max_explosions, on_complete` |
+| `ExplodingEffect:remove` | `` |
+| `ezexplosions.explode` | `actor_id, area_id, max_explosions, on_complete` |
+| `ezexplosions.explode_and_wait` | `actor_id, area_id, max_explosions, timeout_seconds` |
 
-## Event-bus event names
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`is_bot`, `get_bot_area`, `get_bot_position`, `is_player`, `get_player_area`, `get_player_position`, `get_object_by_id`, `remove_bot`, `transfer_bot`, `play_sound`, `animate_bot`, `create_bot`
+
+## Engine `Async` calls
+
+`promisify`, `await`, `sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `explode` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+| `EXPLOSION_DURATION` | `.6` |
+| `EXPLOSION_TAIL_DURATION` | `0.2` |
+| `EXPLOSION_AXIS_RANGE` | `.5` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `ExplodingEffect:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ExplodingEffect:remove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `explode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezexplosions.explode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezexplosions.explode_and_wait` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `finish_effect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_all_active_bots` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_explosion_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `spawn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_tracked_position` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/sfx/explode.ogg` |
+| `/server/assets/ezlibs-assets/ezexplosions/explosion.png` |
+| `/server/assets/ezlibs-assets/ezexplosions/explosion.animation` |
 
-- Approximate source size: 329 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

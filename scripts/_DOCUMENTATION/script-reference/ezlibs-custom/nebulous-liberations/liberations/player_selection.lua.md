@@ -2,46 +2,65 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/player_selection.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/player_selection.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Player selection source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/player_selection.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/player_selection.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/player_selection.lua.md`
+- **Source SHA-256 prefix:** `156abe126743`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/selection` |
+| `scripts/libs/direction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/selection` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
+| `includes` | `table, value` |
+| `resolve_selection_direction` | `player_pos, panel_object` |
+| `PlayerSelection:new` | `instance, player_id` |
+| `filter` | `x, y, z` |
+| `PlayerSelection:select_panel` | `panel_object` |
+| `PlayerSelection:set_shape` | `shape, shape_offset_x, shape_offset_y` |
+| `PlayerSelection:get_panels` | `` |
+| `PlayerSelection:clear` | `` |
+| `PlayerSelection:count_panels` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_tileset`, `get_player_position`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `PlayerSelection:clear` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSelection:count_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSelection:get_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSelection:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSelection:select_panel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSelection:set_shape` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `filter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `includes` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_selection_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `LIBERATING_PANEL_GID` | `Net.get_tileset(instance.area_id, "/server/assets/tiles/selected tile.tsx").first_gid` |
+| `LIBERATING_PANEL_GID` | `LIBERATING_PANEL_GID,` |
+| `SELECTED_PANEL_GID` | `LIBERATING_PANEL_GID + 1` |
 
-## Uppercase constants
+## Literal asset/path strings
 
-`LIBERATING_PANEL_GID`, `SELECTED_PANEL_GID`
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/tiles/selected tile.tsx` |
 
-- Approximate source size: 115 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

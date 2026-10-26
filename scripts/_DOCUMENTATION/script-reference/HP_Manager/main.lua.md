@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `HP_Manager/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `HP_Manager/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,51 +11,80 @@
 ## Module location
 
 - **Source:** `HP_Manager/main.lua`
-- **Relative reference:** `script-reference/HP_Manager/main.lua.md`
+- **Reference:** `script-reference/HP_Manager/main.lua.md`
+- **Source SHA-256 prefix:** `fc16e0680a74`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/input-controller/main` |
+| `scripts/displayer/text-layout` |
+| `scripts/HP_Manager/warp_manage` |
+| `scripts/HP_Manager/background_manage` |
+| `scripts/HP_Manager/realtime_manage` |
+| `scripts/HP_Manager/constants/constants` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+| `object_interaction` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/HP_Manager/background_manage` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/HP_Manager/constants/constants` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/HP_Manager/realtime_manage` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/HP_Manager/warp_manage` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-layout` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `add_desktop_icons` | `` |
+| `draw_option_name` | `player_id, option` |
+| `get_server_os` | `` |
+| `close_hp_manage` | `player_id` |
+| `open_hp_manager` | `player_id, selected_id` |
+| `handle_manager_input` | `event` |
+| `input_owner` | `player_id` |
+| `release_manager_input` | `player_id` |
+| `poll_manager_input` | `player_id, owner` |
+| `take` | `action, raw_name, allow_repeat` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `object_interaction` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`lock_player_input`, `unlock_player_input`, `fade_player_camera`, `on`, `get_player_area`, `get_object_by_id`
 
-| Function | Notes |
-|---|---|
-| `add_desktop_icons` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `close_hp_manage` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_option_name` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_server_os` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `handle_manager_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `input_owner` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `open_hp_manager` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `poll_manager_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `release_manager_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `take` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Engine `Async` calls
 
-## Source notes
+`sleep`
 
-- Approximate source size: 539 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Literal asset/path strings
 
-## Related documentation
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+| Path |
+|---|
+| `/server/assets/HP_Manager/realtime_icon.png` |
+| `/server/assets/HP_Manager/music_icon.png` |
+| `/server/assets/HP_Manager/Wallpapers/windows_wallpaper.png` |
+| `/server/assets/HP_Manager/Wallpapers/linux_wallpaper.png` |
+| `/server/assets/HP_Manager/Wallpapers/macos_wallpaper.png` |
+| `/server/assets/HP_Manager/border.png` |
+| `/server/assets/HP_Manager/emblem.png` |
+| `/server/assets/HP_Manager/warp_icon.png` |
+| `/server/assets/HP_Manager/background_icon.png` |
+| `/server/assets/net-games/cursors/text_cursor.png` |
+| `/server/assets/net-games/cursors/text_cursor.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

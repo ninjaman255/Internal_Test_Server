@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `cosmo.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `cosmo.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,41 +11,77 @@
 ## Module location
 
 - **Source:** `cosmo.lua`
-- **Relative reference:** `script-reference/cosmo.lua.md`
+- **Reference:** `script-reference/cosmo.lua.md`
+- **Source SHA-256 prefix:** `dfeb809cc17a`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/net-games/helpers/net-helpers` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `actor_interaction` |
+| `player_join` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/helpers/net-helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `log` | `message` |
+| `spawn_cosmo_from_tiled` | `` |
+| `enable_cosmetic` | `player_id` |
+| `disable_cosmetic` | `player_id` |
+| `is_enabled` | `player_id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`list_areas`, `list_objects`, `get_object_by_id`, `is_bot`, `create_bot`, `message_player`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
+| `COSMO_OBJECT_NAME` | `"CosmeticRoll"` |
+| `COSMO_BOT_ID` | `"cosmo"` |
+| `COSMO_TEXTURE` | `"/server/assets/demo/roll.png"` |
+| `COSMO_ANIMATION` | `"/server/assets/demo/roll.animation"` |
+| `COSMETIC_ID` | `"confetti"` |
+| `COSMETIC_TEXTURE` | `"/server/assets/demo/shock.png"` |
+| `COSMETIC_ANIMATION` | `"/server/assets/demo/shock.anim"` |
+| `COSMETIC_STATE` | `"cosmetic"` |
+| `COSMETIC_SCREEN_X` | `2` |
+| `COSMETIC_SCREEN_Y` | `-40` |
+| `COSMETIC_VISIBLE` | `true` |
+| `COSMETIC_PLAYER_XOFFSET` | `-2` |
+| `COSMETIC_PLAYER_YOFFSET` | `-2` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `disable_cosmetic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `enable_cosmetic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `is_enabled` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `log` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `spawn_cosmo_from_tiled` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/demo/roll.png` |
+| `/server/assets/demo/roll.animation` |
+| `/server/assets/demo/shock.png` |
+| `/server/assets/demo/shock.anim` |
 
-- Approximate source size: 165 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

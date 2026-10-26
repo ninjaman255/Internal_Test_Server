@@ -2,28 +2,55 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/utils/recover_effect.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/utils/recover_effect.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Recover effect source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/utils/recover_effect.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/utils/recover_effect.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/utils/recover_effect.lua.md`
+- **Source SHA-256 prefix:** `e306990f3c4a`
 
-## Functions defined in this file
+## Function declarations
 
-| Function | Notes |
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `RecoverEffect:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `RecoverEffect:remove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `RecoverEffect:new` | `actor_id, area_wide_sfx` |
+| `RecoverEffect:remove` | `` |
 
-## Source notes
+## Engine `Net` calls
 
-- Approximate source size: 55 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Related documentation
+`is_bot`, `get_bot_area`, `get_bot_position`, `is_player`, `get_player_area`, `get_player_position`, `play_sound`, `play_sound_for_player`, `create_bot`, `animate_bot`, `remove_bot`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Engine `Async` calls
+
+`create_promise`, `sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
+|---|---|
+| `SFX_PATH` | `"/server/assets/NebuLibsAssets/sound effects/recover.ogg"` |
+
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/sound effects/recover.ogg` |
+| `/server/assets/NebuLibsAssets/bots/recover.png` |
+| `/server/assets/NebuLibsAssets/bots/recover.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

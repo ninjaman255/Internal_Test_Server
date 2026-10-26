@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/font-system.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/font-system.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,55 +11,112 @@
 ## Module location
 
 - **Source:** `displayer/font-system.lua`
-- **Relative reference:** `script-reference/displayer/font-system.lua.md`
+- **Reference:** `script-reference/displayer/font-system.lua.md`
+- **Source SHA-256 prefix:** `5bce5bcdca6a`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/boom/main` |
+| `scripts/utils/async` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_request` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/boom/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/utils/async` | Import string found in source; runtime resolution depends on the server package layout. |
+| `load_animation_metrics` | `anim_path` |
+| `FontSystem:loadAllFonts` | `` |
+| `FontSystem:getGlyphState` | `font_name, char` |
+| `FontSystem:getGlyphDimensions` | `font_name, char` |
+| `FontSystem:isBattleFont` | `font_name` |
+| `FontSystem:getVirtualAdvance` | `font_name, char, scale` |
+| `FontSystem:getScreenAdvance` | `font_name, char, scale` |
+| `FontSystem:setupPlayer` | `player_id` |
+| `FontSystem:provideAllFontAssets` | `player_id` |
+| `FontSystem:cleanupPlayer` | `player_id` |
+| `FontSystem:ensureAssetAllocated` | `player_id, font_name` |
+| `FontSystem:nextInstanceId` | `player_id, prefix` |
+| `FontSystem:drawGlyph` | `player_id, font_name, char, x, y, options` |
+| `FontSystem:updateGlyph` | `player_id, instance_id, updates` |
+| `FontSystem:eraseGlyph` | `player_id, instance_id` |
+| `FontSystem:eraseGlyphsByPrefix` | `player_id, prefix` |
+| `FontSystem:allocateAllFontsForPlayer` | `player_id` |
+| `FontSystem:init` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`provide_asset_for_player`, `player_erase_sprite`, `player_dealloc_sprite`, `player_alloc_sprite`, `player_draw_sprite`, `on`
+
+## Engine `Async` calls
+
+`sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_request` | `Net:on(...)` subscription found in source. |
+| `FONTS` | `{` |
+| `THICK` | `{` |
+| `THIN` | `{` |
+| `WIDE` | `{` |
+| `TINY` | `{` |
+| `BATTLE` | `{` |
+| `GRADIENT` | `{` |
+| `GRADIENT_GOLD` | `{` |
+| `GRADIENT_ORANGE` | `{` |
+| `GRADIENT_GREEN` | `{` |
+| `GRADIENT_TALL` | `{` |
+| `SHIMMER` | `{` |
+| `THICK_BLACK` | `{` |
+| `THIN_BLACK` | `{` |
+| `WIDE_BLACK` | `{` |
+| `TINY_BLACK` | `{` |
+| `BATTLE_BLACK` | `{` |
+| `GRADIENT_BLACK` | `{` |
+| `GRADIENT_GOLD_BLACK` | `{` |
+| `GRADIENT_ORANGE_BLACK` | `{` |
+| `GRADIENT_GREEN_BLACK` | `{` |
+| `GRADIENT_TALL_BLACK` | `{` |
+| `SHIMMER_BLACK` | `{` |
+| `GLYPH_METRICS` | `{}          -- font_name -> state -> { w, h, ox, oy }` |
+| `AVAILABLE_STATES` | `{}       -- font_name -> set of state names` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `FontSystem:allocateAllFontsForPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:cleanupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:drawGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:ensureAssetAllocated` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:eraseGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:eraseGlyphsByPrefix` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:getGlyphDimensions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:getGlyphState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:isBattleFont` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:loadAllFonts` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:nextInstanceId` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:provideAllFontAssets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:setupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `FontSystem:updateGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `load_animation_metrics` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Uppercase constants
+| Path |
+|---|
+| `/server/assets/net-games/fonts/fonts_compressed.png` |
+| `/server/assets/net-games/fonts/fonts_thick.animation` |
+| `/server/assets/net-games/fonts/fonts_thin.animation` |
+| `/server/assets/net-games/fonts/fonts_wide.animation` |
+| `/server/assets/net-games/fonts/fonts_tiny.animation` |
+| `/server/assets/net-games/fonts/fonts_battle.animation` |
+| `/server/assets/net-games/fonts/fonts_gradient.animation` |
+| `/server/assets/net-games/fonts/fonts_shimmer.png` |
+| `/server/assets/net-games/fonts/fonts_shimmer.animation` |
+| `/server/assets/net-games/fonts/fonts_dark_compressed.png` |
+| `/server/assets/net-games/fonts/fonts_black_shimmer.png` |
 
-`BATTLE`, `BATTLE_BLACK`, `GRADIENT`, `GRADIENT_BLACK`, `GRADIENT_GOLD`, `GRADIENT_GOLD_BLACK`, `GRADIENT_GREEN`, `GRADIENT_GREEN_BLACK`, `GRADIENT_ORANGE`, `GRADIENT_ORANGE_BLACK`, `GRADIENT_TALL`, `GRADIENT_TALL_BLACK`, `SHIMMER`, `SHIMMER_BLACK`, `THICK`, `THICK_BLACK`, `THIN`, `THIN_BLACK`, `TINY`, `TINY_BLACK`, `WIDE`, `WIDE_BLACK`
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 648 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

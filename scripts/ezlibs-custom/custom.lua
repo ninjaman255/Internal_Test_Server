@@ -166,6 +166,7 @@ local forwarded_methods = {
     "handle_actor_interaction",
     "handle_textbox_response",
     "handle_battle_results",
+    "handle_battle_exit",
     "handle_player_avatar_change",
     "handle_player_transfer",
     "handle_player_request",

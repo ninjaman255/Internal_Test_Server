@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `logger/logger.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `logger/logger.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,47 +11,64 @@ logger.lua – Flexible logging module with per‑logger configuration. Uses app
 ## Module location
 
 - **Source:** `logger/logger.lua`
-- **Relative reference:** `script-reference/logger/logger.lua.md`
+- **Reference:** `script-reference/logger/logger.lua.md`
+- **Source SHA-256 prefix:** `978f363d00cb`
+
+## Source header notes
+
+- logger.lua – Flexible logging module with per‑logger configuration.
+- Uses append‑only JSON Lines format – each entry is written as a new line.
+- Supports buffering, periodic writes, and optional deduplication of repeated messages.
+- No longer depends on persistence.lua.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/libs/json` |
+| `scripts/enum/predefined-enums` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/enum/predefined-enums` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/json` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ensure_directory_exists` | `filePath` |
+| `timestamp` | `` |
+| `encode_entry` | `entry` |
+| `escape` | `s` |
+| `createLogger` | `config` |
+| `LoggerMT:shouldLog` | `level` |
+| `LoggerMT:addEntry` | `level, msg, data` |
+| `LoggerMT:flush` | `` |
+| `LoggerMT:debug` | `msg, data` |
+| `LoggerMT:info` | `msg, data` |
+| `LoggerMT:warn` | `msg, data` |
+| `LoggerMT:error` | `msg, data` |
+| `LoggerMT:forceFlush` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+| `ENUMS` | `require('scripts/enum/predefined-enums')` |
+| `CHECK_INTERVAL` | `0.5` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `LoggerMT:addEntry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:debug` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:error` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:flush` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:forceFlush` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:info` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:shouldLog` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LoggerMT:warn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `createLogger` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_entry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_directory_exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `escape` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `timestamp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 198 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

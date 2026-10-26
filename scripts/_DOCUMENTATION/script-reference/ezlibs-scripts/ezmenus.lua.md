@@ -2,36 +2,47 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezmenus.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezmenus.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Ezmenus source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezmenus.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezmenus.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezmenus.lua.md`
+- **Source SHA-256 prefix:** `c9c06ad13acf`
 
-## Net event subscriptions
+## `Net:on` subscriptions
 
-| Event | Evidence |
+| Event |
+|---|
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
+| `ezmenus.open_menu` | `player_id, board_name, color, posts` |
+| `board_emitter.close_async` | `` |
+| `board_emitter.selection_once` | `` |
+| `handle_cancel` | `event` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `board_emitter.close_async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `board_emitter.selection_once` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezmenus.open_menu` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `handle_cancel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`open_board`, `close_bbs`, `remove_listener`, `on`
 
-- Approximate source size: 45 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`sleep`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

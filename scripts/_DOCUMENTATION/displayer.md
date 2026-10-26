@@ -2,7 +2,7 @@
 
 > **Documentation scope and accuracy**
 >
-> This reference documents the source contained in the `displayer.zip` archive. API behavior and examples are based on the included files. Server/runtime APIs and external dependencies are described only where their use is visible in source; this is not a claim of live integration testing.
+> This reference documents the source contained in the current `internal_test_server.zip` archive. API behavior and examples are based on the included files. Server/runtime APIs and external dependencies are described only where their use is visible in source; this is not a claim of live integration testing.
 
 
 > **Scope and accuracy:** This document describes the Lua implementation in this archive under `scripts/displayer/`. Public API names and behavior are based on the wrapper and implementation files in this directory. `Net`, `Async`, `async`, `boom`, and the animation engine are runtime/dependency APIs, not Lua 5.2 standard-library features. Their presence here documents how this library calls them; it does not define the complete engine contract.
@@ -286,6 +286,37 @@ Displayer.TextPanel.get(player_id, panel_id)
 
 The underlying `SlicedSprite` module also exposes `draw3`, `draw5`, `draw9`, `erase`, and `drawTextPanel`. These draw panel frames using configured sliced assets and use `text-layout.lua`/`font-system.lua` for text measurement and rendering. Style definitions and slice layout are implementation-defined in `sliced-sprite.lua`; pass styles known to that file rather than assuming arbitrary style names work.
 
+### Sliced-panel builders, layout, and padding (current API)
+
+The current wrapper exposes `Displayer.Builder.sliceStyle3(...)`, `sliceStyle5(...)`, and `sliceStyle9(texture_path, anim_path, overrides)`. The 9-slice builder maps the default animation states `CORNER_UL`, `EDGE_UC`, `CORNER_UR`, `EDGE_CL`, `CENTER`, `EDGE_RC`, `CORNER_LL`, `EDGE_LC`, and `CORNER_LR`; per-part entries in `overrides` replace those state names. Asset loading remains in the sliced-sprite implementation.
+
+The current panel builders are `textPanelOptions(overrides)`, `rowPanelOptions(overrides)`, `columnPanelOptions(overrides)`, and `gridPanelOptions(columns, overrides)`, alongside `panelTextChild(text, overrides)` and `panelSpritesChild(sprites, overrides)`. The normalization helpers `panelPadding(value, vertical)` and `panelChildPadding(value, vertical)` expose the same edge-padding conversion used internally. `textPanelOptions` supports vertical/column, horizontal/row, and grid layouts. It normalizes panel and child padding into edge tables and includes padding/spacing in auto-size calculations.
+
+Padding accepts a uniform number or a table such as `{ horizontal = 6, vertical = 8 }` or `{ left = 6, right = 6, top = 8, bottom = 8 }`. Horizontal values set left/right insets; vertical values set top/bottom insets. Panel padding is the inset between the sliced frame's inner edge and its layout content, so increasing it can increase the measured auto-size and shift content inward. Child padding is applied to each child and participates in child measurement/spacing; it can increase the total panel size as well as the visible gap between neighboring children. Do not assume padding is merely a paint-time offset.
+
+Example based on the current builder API:
+
+```lua
+local style = Displayer.Builder.sliceStyle9(
+    "/server/assets/example/panel.png",
+    "/server/assets/example/panel.animation"
+)
+local options = Displayer.Builder.textPanelOptions({
+    layout = "row",
+    padding = { horizontal = 6, vertical = 8 },
+    child_padding = 2,
+    spacing = 8,
+    auto_size = true,
+    children = {
+        Displayer.Builder.panelTextChild("Kicker"),
+        Displayer.Builder.panelSpritesChild(sprite_definitions),
+    },
+})
+```
+
+This example illustrates the option shapes only; the asset paths and sprite definitions must exist in the target project. For a concrete integration, see the current FootBomb role panel implementation in `ezlibs-custom/footbomb/main.lua` and its constants.
+
+
 <a id="part-10"></a>
 ## 🧰 Part 10 — Builder Helpers and Utility Methods
 
@@ -396,6 +427,6 @@ Use the exact option keys accepted by the implementation version in the archive;
 
 ---
 
-## Current archive coverage (2026-10-23)
+## Current archive coverage (2026-10-25)
 
-This documentation bundle was refreshed against the supplied `scripts_internal_test_server.zip` snapshot. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.
+This documentation bundle was refreshed against the current `internal_test_server.zip` Library snapshot on 2026-10-25. For exact per-file imports, event subscriptions, function declarations, and source location, use the linked [per-script reference library](script-reference/README.md). These references supplement rather than replace the subsystem explanations above.

@@ -2,44 +2,74 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/loot.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/loot.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Loot source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/loot.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/loot.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/loot.lua.md`
+- **Source SHA-256 prefix:** `b811f9ea4c4b`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy` | Import string found in source; runtime resolution depends on the server package layout. |
+| `unlock_gates` | `` |
+| `spawn_item_bot` | `bot_data, property_animation` |
+| `cleanup` | `` |
+| `Loot.spawn_item_bot` | `item, area_id, x, y, z` |
+| `Loot.spawn_randomized_item_bot` | `loot_pool, item_index, area_id, x, y, z` |
+| `Loot.loot_item_panel` | `instance, player_session, panel, destroy_items` |
+| `Loot.loot_bonus_panel` | `instance, player_session, panel` |
+| `activate` | `instance, player_session` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`slide_player_camera`, `move_player_camera`, `create_bot`, `animate_bot_properties`, `remove_bot`
+
+## Engine `Async` calls
+
+`create_promise`, `await`, `promisify`, `sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `Loot.loot_bonus_panel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Loot.loot_item_panel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Loot.spawn_item_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Loot.spawn_randomized_item_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `activate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cleanup` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `spawn_item_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `unlock_gates` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `HEART` | `{` |
+| `CHIP` | `{` |
+| `MONEY` | `{` |
+| `BUGFRAG` | `{` |
+| `ORDER_POINT` | `{` |
+| `INVINCIBILITY` | `{` |
+| `MAJOR_HIT` | `{` |
+| `KEY` | `{` |
+| `RISE_DURATION` | `.1` |
 
-## Uppercase constants
+## Literal asset/path strings
 
-`BUGFRAG`, `CHIP`, `HEART`, `INVINCIBILITY`, `KEY`, `MAJOR_HIT`, `MONEY`, `ORDER_POINT`
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/bots/item.png` |
+| `/server/assets/NebuLibsAssets/bots/item.animation` |
 
-- Approximate source size: 372 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

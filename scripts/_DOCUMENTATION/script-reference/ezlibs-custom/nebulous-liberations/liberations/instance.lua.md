@@ -76,3 +76,9 @@ instance.lua
 - [Documentation index](../index.md)
 - [Scripts tree reference](../scripts-tree.md)
 - [Assets and file paths](../assets-and-file-paths.md)
+
+## Encounter Resolution
+
+Encounter definitions are resolved through `PanelEncounters`, which delegates name/path lookup to `ezencounters`. A mission keeps both `area_id` (the cloned runtime map) and `base_area_id` (the source map). The `Liberation Encounters` default is selected using `base_area_id`, so cloned instance IDs do not accidentally change the encounter table lookup.
+
+For enemy-specific encounters, dark-hole encounters, and per-panel `EncounterPath` overrides, a registered ezencounters name is resolved to its canonical definition. The definition's `path` is passed to the existing NebuLibs player session, and the remaining definition fields are merged with liberation-specific `terrain` and `health` data. This preserves NebuLibs' battle result semantics (`results.success`, enemy health synchronization, panel liberation and loot) while sharing encounter definitions.

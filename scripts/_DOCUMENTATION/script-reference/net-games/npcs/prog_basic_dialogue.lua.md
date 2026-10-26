@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_basic_dialogue.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_basic_dialogue.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,36 +11,63 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_basic_dialogue.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_basic_dialogue.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_basic_dialogue.lua.md`
+- **Source SHA-256 prefix:** `4210ad86b934`
+
+## Source header notes
+
+- prog_basic_dialogue.lua
+- Tiled-spawned NPC that triggers net-games Dialogue
+- (BLACK BOX style + normal THICK font)
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/libs/direction` |
+| `scripts/net-games/dialogue/dialogue` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `actor_interaction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/dialogue` | Import string found in source; runtime resolution depends on the server package layout. |
+| `dbg` | `msg` |
+| `on_finish` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_object_by_name`, `create_bot`, `on`, `get_player_position`, `set_bot_direction`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
+| `DEBUG` | `false` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `dbg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_finish` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/ow/prog/prog_ow.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
+| `/server/assets/net-games/sfx/text.ogg` |
+| `/server/assets/ow/prog/prog_mug.png` |
+| `/server/assets/ow/prog/prog_mug.animation` |
 
-- Approximate source size: 124 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

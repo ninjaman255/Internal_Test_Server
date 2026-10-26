@@ -1,8 +1,15 @@
 -- enemy_templates.lua
+--
+-- Enemy behaviour, health, and assets live here. Encounters do NOT live
+-- here: they are always resolved from the area's Liberation Encounters
+-- custom property via PanelEncounters.resolve_encounter(base_area_id),
+-- which routes through ezencounters. Do not add a per-template encounter
+-- path — it will be ignored by instance.lua.
 local EnemySelection = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection")
 local EnemyHelpers = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers")
 local Preloader = require("scripts/ezlibs-custom/nebulous-liberations/liberations/preloader")
 local Constants = require("scripts/ezlibs-custom/nebulous-liberations/liberations/constants")
+local Direction = require("scripts/libs/direction")
 
 local EnemyTemplates = {}
 
@@ -27,11 +34,20 @@ function EnemyTemplates.create(instance, position, direction, template_name)
         y = math.floor(position.y),
         z = math.floor(position.z),
         selection = EnemySelection:new(instance),
-        encounter = template.encounter,
         mug = template.mug,
         is_boss = template.is_boss or false,
         ai_type = template.ai_type or "simple_charge",
         ai_params = template.ai_params or {},
+        -- These fields are read from `self` at runtime (spawn, attack,
+        -- death) and must be copied explicitly; the enemy instance table
+        -- does not otherwise inherit from the template.
+        texture_path = template.texture_path,
+        animation_path = template.animation_path,
+        attack_texture = template.attack_texture,
+        attack_animation_path = template.attack_animation_path,
+        attack_damage = template.attack_damage,
+        death_message = template.death_message,
+        preload_assets = template.preload_assets,
     }
     setmetatable(enemy, EnemyTemplates.metatable)
     EnemyTemplates.metatable.__index = EnemyTemplates.metatable
@@ -56,6 +72,7 @@ end
 -- Metatable with default methods
 EnemyTemplates.metatable = {
     spawn = function(self, direction)
+        self.direction = direction
         self.id = Net.create_bot({
             texture_path = self.texture_path,
             animation_path = self.animation_path,
@@ -83,7 +100,13 @@ EnemyTemplates.metatable = {
         end
     end,
 }
+local function sign(a)
+  if a < 0 then
+    return -1
+  end
 
+  return 1
+end
 -- AI implementations
 EnemyTemplates.ai = {}
 
@@ -100,7 +123,7 @@ function EnemyTemplates.ai.simple_charge(self)
 
         local function attempt_axis(xstep, ystep, diff)
             return Async.create_promise(function(resolve)
-                local step = (xstep ~= 0 and math.sign(xdiff)) or (ystep ~= 0 and math.sign(ydiff)) or 0
+                local step = (xstep ~= 0 and sign(xdiff)) or (ystep ~= 0 and sign(ydiff)) or 0
                 local limit = math.min(math.abs(diff), 2)
                 local offset = 0
                 for i = limit, 1, -1 do
@@ -186,7 +209,6 @@ EnemyTemplates.register("BigBrute", {
     max_health = 120,
     texture_path = "/server/assets/NebuLibsAssets/bots/bigbrute.png",
     animation_path = "/server/assets/NebuLibsAssets/bots/bigbrute.animation",
-    encounter = "/server/assets/encounters/big_brute_encounter.zip",
     shape = { {1,1,1}, {1,0,1}, {1,1,1} },
     shape_offset_x = 0,
     shape_offset_y = -2,
@@ -194,7 +216,7 @@ EnemyTemplates.register("BigBrute", {
     attack_texture = "/server/assets/NebuLibsAssets/bots/beast breath.png",
     attack_animation_path = "/server/assets/NebuLibsAssets/bots/beast breath.animation",
     ai_type = "simple_charge",
-    preload_assets = { "/server/assets/NebuLibsAssets/bots/beast breath.png", "/server/assets/NebuLibsAssets/bots/beast breath.animation" },
+    preload_assets = { "/server/assets/NebuLibsAssets/bots/bigbrute.animation","/server/assets/NebuLibsAssets/bots/beast breath.png", "/server/assets/NebuLibsAssets/bots/beast breath.animation","/server/assets/NebuLibsAssets/bots/bigbrute.png", },
 })
 
 EnemyTemplates.register("BlizzardMan", {
@@ -203,7 +225,6 @@ EnemyTemplates.register("BlizzardMan", {
     max_health = 400,
     texture_path = "/server/assets/NebuLibsAssets/bots/blizzardman.png",
     animation_path = "/server/assets/NebuLibsAssets/bots/blizzardman.animation",
-    encounter = "/server/assets/encounters/big_brute_encounter.zip",
     shape = { {1,1,1}, {1,0,1}, {1,1,1}, {1,1,1} },
     shape_offset_x = 0,
     shape_offset_y = -2,
@@ -226,7 +247,6 @@ EnemyTemplates.register("ShadeMan", {
     max_health = 600,
     texture_path = "/server/assets/NebuLibsAssets/bots/shademan.png",
     animation_path = "/server/assets/NebuLibsAssets/bots/shademan.animation",
-    encounter = "/server/assets/ezlibs-assets/ezencounters/Shademan.zip",
     shape = { {1} },
     shape_offset_x = 0,
     shape_offset_y = -1,
@@ -238,6 +258,7 @@ EnemyTemplates.register("ShadeMan", {
         animation_path = "/server/assets/NebuLibsAssets/mugs/shademan.animation",
     },
     death_message = "Grr! I can't\nbelieve I've been\ndisgraced again...!\nGyaaaahh!!",
+    preload_assets = { "/server/assets/NebuLibsAssets/bots/shademan.animation", "/server/assets/NebuLibsAssets/bots/shademan.png", "/server/assets/NebuLibsAssets/mugs/shademan.png","/server/assets/NebuLibsAssets/mugs/shademan.animation",}
 })
 
 return EnemyTemplates

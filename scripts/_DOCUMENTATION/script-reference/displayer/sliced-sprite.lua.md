@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/sliced-sprite.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/sliced-sprite.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,64 +11,96 @@ scripts/displayer/sliced-sprite.lua Reusable 3-slice, configurable 5-slice, and 
 ## Module location
 
 - **Source:** `displayer/sliced-sprite.lua`
-- **Relative reference:** `script-reference/displayer/sliced-sprite.lua.md`
+- **Reference:** `script-reference/displayer/sliced-sprite.lua.md`
+- **Source SHA-256 prefix:** `44a3239241f0`
+
+## Source header notes
+
+- scripts/displayer/sliced-sprite.lua
+- Reusable 3-slice, configurable 5-slice, and 9-slice sprite rendering.
+- Also provides a text panel that combines slices with automatic mixed
+- text + sprite layout (vertical stacking or horizontal row).
+- IMPORTANT:
+- Net.player_draw_sprite has no source-rectangle / UV / crop fields here.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/boom/main` |
+| `scripts/displayer/text-layout` |
+| `scripts/displayer/font-system` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/boom/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/font-system` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-layout` | Import string found in source; runtime resolution depends on the server package layout. |
+| `normalize_text_scale` | `value, fallback` |
+| `round` | `value` |
+| `fail` | `message` |
+| `player_state` | `player_id` |
+| `load_animation` | `anim_path` |
+| `animation_state_metrics` | `anim_path, anim_state` |
+| `copy_part` | `raw` |
+| `resolve_part` | `style, raw, label` |
+| `ensure_asset` | `player_id, part` |
+| `erase_object_ids` | `player_id, object_ids` |
+| `sprite_native_dimensions` | `def` |
+| `sprite_rendered_dimensions` | `def, sprite_scale` |
+| `draw_sprite_instance` | `player_id, object_id, def, x, y, sprite_scale, options` |
+| `begin_instance` | `player_id, logical_id, signature, suffixes` |
+| `draw_piece` | `player_id, object_id, part, x, y, width, height, options` |
+| `resolve_strip_parts` | `style, count, default_middle_stretch` |
+| `strip_signature` | `kind, orientation, parts` |
+| `draw_strip` | `player_id, logical_id, x, y, width, height, style, options, count, kind, default_middle_stretch` |
+| `SlicedSprite.draw3` | `player_id, logical_id, x, y, width, height, style, options` |
+| `SlicedSprite.draw5` | `player_id, logical_id, x, y, width, height, style, options` |
+| `resolve_nine` | `style` |
+| `nine_signature` | `parts` |
+| `same_number` | `a, b` |
+| `SlicedSprite.draw9` | `player_id, logical_id, x, y, width, height, style, options` |
+| `SlicedSprite.erase` | `player_id, logical_id` |
+| `SlicedSprite.cleanupPlayer` | `player_id` |
+| `normalize_edges` | `value, fallback` |
+| `normalize_alignment` | `value, fallback` |
+| `alignment_offset` | `alignment, available, used` |
+| `main_axis_distribution` | `alignment, available, used, count, base_spacing` |
+| `TextPanel:new` | `player_id, logical_id, x, y, text, style, options` |
+| `TextPanel:_measure_child` | `child, inner_max_width` |
+| `TextPanel:_draw_text_child` | `player_id, child, m, base_x, base_y, z, glyph_ids` |
+| `TextPanel:_draw_sprites_child` | `player_id, child, m, base_x, base_y, z, sprite_ids, child_idx` |
+| `TextPanel:_redraw` | `` |
+| `draw_child` | `m, slot_x, slot_y, slot_w, slot_h` |
+| `TextPanel:getSize` | `` |
+| `TextPanel:setText` | `new_text` |
+| `TextPanel:setChildren` | `children` |
+| `TextPanel:setPosition` | `x, y` |
+| `TextPanel:setOptions` | `new_options` |
+| `TextPanel:destroy` | `` |
+| `SlicedSprite.drawTextPanel` | `player_id, logical_id, x, y, text, style, options` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`player_draw_sprite`, `provide_asset_for_player`, `player_alloc_sprite`, `player_erase_sprite`, `player_dealloc_sprite`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
+| `NINE_ORDER` | `{` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `SlicedSprite.cleanupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SlicedSprite.draw3` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SlicedSprite.draw5` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SlicedSprite.draw9` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SlicedSprite.drawTextPanel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SlicedSprite.erase` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextPanel:_redraw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextPanel:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextPanel:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextPanel:setOptions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextPanel:setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextPanel:setText` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `animation_state_metrics` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `begin_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `copy_part` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_piece` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_strip` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_object_ids` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fail` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `load_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `nine_signature` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `player_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_nine` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_part` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_strip_parts` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `round` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `same_number` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `strip_signature` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 890 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

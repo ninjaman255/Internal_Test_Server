@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezcutscenes/ezcutscenes.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezcutscenes/ezcutscenes.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,52 +11,74 @@ ezcutscenes.lua Tiled-authored cutscene system. A Cutscene object names a chain 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezcutscenes/ezcutscenes.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezcutscenes/ezcutscenes.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezcutscenes/ezcutscenes.lua.md`
+- **Source SHA-256 prefix:** `178228af4874`
+
+## Source header notes
+
+- ezcutscenes.lua
+- Tiled-authored cutscene system.
+- A Cutscene object names a chain of Cutscene Step objects. Each step
+- performs one action (move an actor, show a message, ask a quiz, etc.).
+- Steps chain via `Next Step` refs; branching steps use `Next 1/2/3` and
+- `Fail Next`.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/object_registry` |
+| `scripts/ezlibs-scripts/ezcache` |
+| `scripts/ezlibs-scripts/eznpcs/eznpcs` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/eztriggers/eztriggers` |
+| `scripts/ezlibs-scripts/utils/eztiledutils` |
+| `scripts/ezlibs-scripts/ezcutscenes/step_types` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezcache` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezcutscenes/step_types` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eznpcs/eznpcs` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eztriggers/eztriggers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/object_registry` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/utils/eztiledutils` | Import string found in source; runtime resolution depends on the server package layout. |
+| `get_props` | `object` |
+| `resolve_object_cached` | `area_id, object_id` |
+| `choose_next_step_ref` | `step_props, step_type_name, result` |
+| `run_step_chain` | `context, first_step_ref` |
+| `run_cutscene` | `player_id, area_id, cutscene_object, trigger_context` |
+| `ezcutscenes.start` | `player_id, area_id, cutscene_ref, trigger_context` |
+| `ezcutscenes.cancel` | `player_id` |
+| `ezcutscenes.is_active` | `player_id` |
+| `ezcutscenes.get_cutscene` | `area_id, name` |
+| `ezcutscenes.handle_player_disconnect` | `player_id` |
+| `ezcutscenes.handle_player_transfer` | `player_id` |
+| `resolve_object` | `id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`lock_player_input`, `get_object_by_id`, `unlock_player_input`, `is_player`, `on`
+
+## Engine `Async` calls
+
+`message_player`, `await`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
+| `MAX_STEPS_PER_RUN` | `250` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `choose_next_step_ref` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcutscenes.cancel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcutscenes.get_cutscene` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcutscenes.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcutscenes.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcutscenes.is_active` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezcutscenes.start` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_props` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_object` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_object_cached` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run_cutscene` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run_step_chain` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 349 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

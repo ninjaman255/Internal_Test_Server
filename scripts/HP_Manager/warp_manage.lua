@@ -9,10 +9,10 @@ local WarpManage = {}
 local board_color = { r = 30, g = 30, b = 30 }
 local warp_sessions = {}
 
-local data_file = "scripts/HP_Manager/data/warp_data.dat"
+local data_file = "scripts/hp_manager/data/warp_data.dat"
 local warp_data = {}
 
-local constants = require("scripts/HP_Manager/constants/constants")
+local constants = require("scripts/hp_manager/constants/constants")
 
 -- LOAD WARP DATA
 local function load_warp_data()

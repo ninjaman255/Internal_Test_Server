@@ -1,5 +1,7 @@
 local ezmemory = require("scripts/ezlibs-scripts/ezmemory")
 local helpers = require('scripts/ezlibs-scripts/helpers')
+local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
+local log = ezlogger.get("nebulous-liberations")
 
 -- private functions
 
@@ -15,6 +17,14 @@ local function create_textbox_promise(self)
   end)
 end
 
+local function stats_indicate_panic(stats)
+  if not stats then return false end
+  if stats.reason ~= nil and stats.reason ~= 1 then return true end
+  if stats.escape == true then return true end
+  if stats.fled == true then return true end
+  return false
+end
+
 -- public
 local Player = {}
 
@@ -27,6 +37,8 @@ function Player:new(player_id)
     mug = Net.get_player_mugshot(player_id),
     textbox_promise_resolvers = {},
     resolve_battle = nil,
+    pending_battle_stats = nil,
+    battle_exit_fallback_token = nil,
     avatar_details = nil,
     moved = false,
     x = position.x,
@@ -41,35 +53,46 @@ function Player:new(player_id)
   return player
 end
 
--- all messages to this player should be made through the session while the session is alive
 function Player:message(message, texture_path, animation_path)
   Net.message_player(self.id, message, texture_path, animation_path)
-
   return create_textbox_promise(self)
 end
 
--- all messages to this player should be made through the session while the session is alive
 function Player:message_with_mug(message)
   return self:message(message, self.mug.texture_path, self.mug.animation_path)
 end
 
--- all questions to this player should be made through the session while the session is alive
+-- Fire-and-forget informational message. Does NOT push a resolver, so it
+-- cannot hang the caller if the client never renders/dismisses the textbox
+-- (which can happen right after a battle exit). Use this for flavor text.
+function Player:say(message, texture_path, animation_path)
+  if self.disconnected then return end
+  Net.message_player(self.id, message, texture_path, animation_path)
+end
+
+function Player:say_with_mug(message)
+  self:say(message, self.mug.texture_path, self.mug.animation_path)
+end
+
 function Player:question(question, texture_path, animation_path)
   Net.question_player(self.id, question, texture_path, animation_path)
-
   return create_textbox_promise(self)
 end
 
--- all questions to this player should be made through the session while the session is alive
 function Player:question_with_mug(question)
   return self:question(question, self.mug.texture_path, self.mug.animation_path)
 end
 
--- all quizzes to this player should be made through the session while the session is alive
 function Player:quiz(a, b, c, texture_path, animation_path)
   Net.quiz_player(self.id, a, b, c, texture_path, animation_path)
-
   return create_textbox_promise(self)
+end
+
+-- Mugshot-flavored quiz. Used by the liberation flow so the player's own
+-- portrait accompanies the "Liberation / Pass / Cancel" prompts; the
+-- order-points value is now shown by PointsGauge, not by the mugshot.
+function Player:quiz_with_mug(a, b, c)
+  return self:quiz(a, b, c, self.mug.texture_path, self.mug.animation_path)
 end
 
 function Player:is_battling()
@@ -89,7 +112,6 @@ local function create_default_results()
   }
 end
 
--- all encounters to this player should be made through the session while the session is alive
 function Player:initiate_encounter(asset_path, data)
   if self.disconnected then
     return Async.create_promise(function(resolve)
@@ -100,7 +122,7 @@ function Player:initiate_encounter(asset_path, data)
   if self:is_battling() then
     error("This player is already in a battle")
   end
-  
+
   Net.initiate_encounter(self.id, asset_path, data)
 
   return Async.create_promise(function(resolve)
@@ -108,38 +130,107 @@ function Player:initiate_encounter(asset_path, data)
   end)
 end
 
--- will throw if a textbox is sent to the player using Net directly
 function Player:handle_textbox_response(response)
+  local pending = self.textbox_promise_resolvers and #self.textbox_promise_resolvers or 0
   local resolve = table.remove(self.textbox_promise_resolvers, 1)
-  --may cause silent errors in liberation stuff.
-  --maybe undo this change (if resolve ~= nil) when debugging.
   if resolve ~= nil then
+    log:debug_data("textbox_response: resolver consumed", {
+      player_id = self.id,
+      response = response,
+      pending_before = pending,
+      pending_after = self.textbox_promise_resolvers and #self.textbox_promise_resolvers or 0,
+    })
     resolve(response)
   else
-    print('resolve was nil')
+    log:debug_data("textbox_response: stray (no pending resolver)", {
+      player_id = self.id,
+      response = response,
+    })
   end
 end
 
 function Player:handle_battle_results(stats)
+  local is_panic = stats_indicate_panic(stats)
+  log:info_data("handle_battle_results: captured", {
+    player_id = self.id,
+    has_stats = stats ~= nil,
+    has_pending_resolve = self.resolve_battle ~= nil,
+    reason = stats and tostring(stats.reason) or nil,
+    escape = stats and tostring(stats.escape) or nil,
+    fled = stats and tostring(stats.fled) or nil,
+    panicked = is_panic,
+  })
+  if not self.resolve_battle then
+    return
+  end
+  self.pending_battle_stats = stats
+
+  local fallback_delay = is_panic and 3.0 or 20.0
+  local token = {}
+  self.battle_exit_fallback_token = token
+  local player_id = self.id
+  Async.sleep(fallback_delay).and_then(function()
+    if self.battle_exit_fallback_token ~= token then
+      return
+    end
+    if not self.resolve_battle then
+      return
+    end
+    log:warn_data("battle_exit did not fire; resolving via fallback", {
+      player_id = player_id,
+      delay_seconds = fallback_delay,
+      panicked = is_panic,
+    })
+    self.battle_exit_fallback_token = nil
+    local resolve = self.resolve_battle
+    self.resolve_battle = nil
+    local pending = self.pending_battle_stats or stats
+    self.pending_battle_stats = nil
+    resolve(pending or create_default_results())
+  end)
+end
+
+function Player:handle_battle_exit(stats)
+  self.battle_exit_fallback_token = nil
+
+  local resolved = stats or self.pending_battle_stats
+  local source
+  if stats ~= nil then
+    source = "battle_exit_event"
+  elseif self.pending_battle_stats ~= nil then
+    source = "pending_from_results"
+  else
+    source = "defaults"
+  end
+  self.pending_battle_stats = nil
+  log:info_data("handle_battle_exit: resolving", {
+    player_id = self.id,
+    has_stats_arg = stats ~= nil,
+    source = source,
+    has_pending_resolve = self.resolve_battle ~= nil,
+  })
   if not self.resolve_battle then
     return
   end
   local resolve = self.resolve_battle
   self.resolve_battle = nil
-
-  resolve(stats)
+  resolve(resolved or create_default_results())
 end
 
 function Player:handle_disconnect()
   self.disconnected = true
+  self.battle_exit_fallback_token = nil
 
   for _, resolve in ipairs(self.textbox_promise_resolvers) do
     resolve()
   end
 
   if self.resolve_battle then
-    self:handle_battle_results(create_default_results())
+    local resolve = self.resolve_battle
+    self.resolve_battle = nil
+    resolve(self.pending_battle_stats or create_default_results())
   end
+  self.pending_battle_stats = nil
 
   self.textbox_promise_resolvers = nil
 

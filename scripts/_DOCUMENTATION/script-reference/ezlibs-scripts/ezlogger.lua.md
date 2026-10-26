@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezlogger.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezlogger.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,68 +11,88 @@ ezlogger.lua Shared append-only JSONL logging for ezlibs modules. Lua 5.2 compat
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezlogger.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezlogger.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezlogger.lua.md`
+- **Source SHA-256 prefix:** `b2e65b5ae22e`
+
+## Source header notes
+
+- ezlogger.lua
+- Shared append-only JSONL logging for ezlibs modules.
+- Lua 5.2 compatible. Log files are written below:
+- scripts/ezlibs-scripts/_DEBUGGING/<module>/
+- Default module log: debugging.log
+- Player log:         <safe-player-secret>.log
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/json` |
+| `scripts/ezlibs-scripts/urlencode` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/json` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/urlencode` | Import string found in source; runtime resolution depends on the server package layout. |
+| `safe_component` | `value, fallback` |
+| `copy_options` | `source` |
+| `timestamp` | `` |
+| `join_arguments` | `...` |
+| `normalize_path` | `path` |
+| `directory_of` | `path` |
+| `mkdir_recursive_lfs` | `path, lfs` |
+| `ensure_directory` | `path` |
+| `encode_string` | `value` |
+| `encode_entry` | `entry` |
+| `Logger:_should_log` | `level` |
+| `Logger:flush` | `` |
+| `Logger:_log` | `level, message, data` |
+| `Logger:debug` | `...` |
+| `Logger:info` | `...` |
+| `Logger:warn` | `...` |
+| `Logger:error` | `...` |
+| `Logger:debug_data` | `message, data` |
+| `Logger:info_data` | `message, data` |
+| `Logger:warn_data` | `message, data` |
+| `Logger:error_data` | `message, data` |
+| `Logger:forceFlush` | `` |
+| `Logger:set_min_level` | `level` |
+| `cache_key` | `module_name, scope, path` |
+| `make_logger` | `module_name, scope, file_path, options` |
+| `module_name_of` | `name` |
+| `ezlogger.get` | `module_name, options` |
+| `Logger:for_safe_secret` | `safe_secret, options` |
+| `resolve_safe_player_secret` | `player_id` |
+| `Logger:for_player` | `player_id, options` |
+| `Logger:for_area` | `area_id, options` |
+| `ezlogger.configure` | `options` |
+| `ezlogger.flush_all` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_player_secret`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `ROOT` | `'scripts/ezlibs-scripts/_DEBUGGING'` |
+| `LEVEL_PRIORITY` | `{` |
+| `TICK_CHECK_INTERVAL` | `0.5` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `Logger:_log` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:_should_log` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:debug` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:debug_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:error` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:error_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:flush` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:for_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:for_safe_secret` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:forceFlush` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:info` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:info_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:set_min_level` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:warn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Logger:warn_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cache_key` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `copy_options` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `directory_of` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_entry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `encode_string` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_directory` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezlogger.configure` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezlogger.flush_all` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezlogger.get` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `join_arguments` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `make_logger` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `mkdir_recursive_lfs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `module_name_of` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_path` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_safe_player_secret` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_component` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `timestamp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 456 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,82 +2,106 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/eznpcs/ezpushback.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/eznpcs/ezpushback.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
-ezpushback.lua A Pushback NPC uses the regular eznpcs NPC pipeline, with a moving rectangle trigger that follows its bot. On collision, a temporary bot uses the player's own avatar, plays a movement animation, and carries the player to its endpoint. Visibility during pushback: the real player's scale is set to (0, 0) with Net.animate_player_properties (duration 0). The engine exposes no reader for player scale, so on cleanup we do NOT restore a saved snapshot — instead we recompute the correct scale from world state at that moment: 1. Compression Tile at the player's current position (ezpress.get_tile_state_at) 2. Area "Size Mode" (ezpress.get_area_scale_state, or direct read) 3. Normal (1, 
+ezpushback.lua A Pushback NPC uses the regular eznpcs NPC pipeline, with a moving rectangle trigger that follows its bot. On collision, a temporary bot uses the player's own avatar, plays a movement animation, and carries the player to its endpoint. Visibility during pushback: the real player's scale is set to (0, 0) with Net.animate_player_properties (duration 0). The engine exposes no reader for player scale, so on cleanup we do NOT restore a saved snapshot — instead we recompute the correct scale from world state at that moment: 1. Compression Tile at the player's current position (ezpress.get_tile_state_at) 2. Area "Size Mode" (ezpress.get_area_scale_state, or direct read) 3. Normal (1,
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/eznpcs/ezpushback.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/eznpcs/ezpushback.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/eznpcs/ezpushback.lua.md`
+- **Source SHA-256 prefix:** `3145abe9c34d`
+
+## Source header notes
+
+- ezpushback.lua
+- A Pushback NPC uses the regular eznpcs NPC pipeline, with a moving rectangle
+- trigger that follows its bot. On collision, a temporary bot uses the player's
+- own avatar, plays a movement animation, and carries the player to its endpoint.
+- Visibility during pushback: the real player's scale is set to (0, 0) with
+- Net.animate_player_properties (duration 0). The engine exposes no reader for
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/eztriggers/eztriggers` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/ezemitter` |
+| `scripts/ezlibs-scripts/object_registry` |
+| `scripts/ezlibs-scripts/eznpcs/eznpcs` |
+| `scripts/ezlibs-scripts/utils/eztiledutils` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezemitter` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eznpcs/eznpcs` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eztriggers/eztriggers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/object_registry` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/utils/eztiledutils` | Import string found in source; runtime resolution depends on the server package layout. |
+| `number_property` | `props, name, default, min_value` |
+| `safe_call` | `fn, ...` |
+| `get_area_players` | `area_id` |
+| `provide_avatar_to_area` | `area_id, avatar` |
+| `remove_bot` | `bot_id` |
+| `event_for` | `entry, player_id, extra` |
+| `emit_entry` | `entry, name, event` |
+| `get_ezpress` | `` |
+| `set_player_scale_immediate` | `player_id, sx, sy` |
+| `read_area_size_mode_state` | `area_id` |
+| `resolve_target_scale_state` | `area_id, pos` |
+| `restore_player_scale` | `player_id, area_id` |
+| `map_vector_to_screen` | `dx, dy` |
+| `screen_vector_to_map` | `sx, sy` |
+| `atan2` | `y, x` |
+| `snap_to_canonical_map` | `dx, dy` |
+| `direction_vector` | `direction` |
+| `get_push_vector` | `entry, player_pos, npc_pos, player_direction` |
+| `calculate_target` | `entry, player_pos, npc_pos, player_direction` |
+| `cleanup_push` | `player_id, state, reason, restore_player` |
+| `perform_pushback` | `entry, player_id` |
+| `update_entry_geometry` | `entry` |
+| `ezpushback.attach_behavior` | `area_id, object_id, props, bot_id, x, y, z, name` |
+| `register_pushback_npc` | `area_id, object` |
+| `ezpushback.get_emitter` | `area_id, object_id` |
+| `ezpushback.get_emitter_for_bot` | `bot_id` |
+| `ezpushback.set_collision_enabled` | `area_id, object_id, enabled` |
+| `ezpushback.handle_player_move` | `player_id, x, y, z` |
+| `ezpushback.on_tick` | `delta_time` |
+| `ezpushback.handle_player_join` | `player_id` |
+| `ezpushback.handle_player_transfer` | `player_id` |
+| `ezpushback.handle_player_disconnect` | `player_id` |
 
-## Event-bus event names
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`animate_player_properties`, `list_players`, `provide_asset_for_player`, `remove_bot`, `get_area_custom_property`, `get_player_area`, `get_player_position`, `move_player_camera`, `is_player`, `unlock_player_input`, `get_bot_position`, `get_player_avatar`, `get_player_direction`, `is_player_input_locked`, `lock_player_input`, `get_player_name`, `create_bot`, `animate_bot`, `animate_bot_properties`, `move_bot`, `transfer_player`, `list_areas`
+
+## Engine `Async` calls
+
+`sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `bot_removed` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-| `ezpushback_` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-| `npc_spawned_from_spawner` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+| `DEFAULT_WIDTH` | `1.5` |
+| `DEFAULT_HEIGHT` | `1.5` |
+| `DEFAULT_PUSH_DISTANCE` | `1.0` |
+| `DEFAULT_PUSH_DURATION` | `0.28` |
+| `DEFAULT_MOVE_STATE` | `'MOVE'` |
+| `DEFAULT_COOLDOWN` | `0.75` |
+| `SCALE_STATES` | `{` |
+| `ISO_TILE_WIDTH` | `64` |
+| `ISO_TILE_HEIGHT` | `32` |
+| `CANONICAL_DIRECTIONS` | `{` |
+| `OPPOSITE_DIRECTION` | `{` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `atan2` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `build_pushback_entry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `calculate_target` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `cleanup_push` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `direction_vector` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `emit_entry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `event_for` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.get_emitter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.get_emitter_for_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.handle_player_join` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.handle_player_move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.on_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezpushback.set_collision_enabled` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_area_players` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_ezpress` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_push_vector` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `map_vector_to_screen` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `number_property` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `perform_pushback` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide_avatar_to_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `read_area_size_mode_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `register_pushback_npc` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_target_scale_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `restore_player_scale` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_call` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `screen_vector_to_map` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_player_scale_immediate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `snap_to_canonical_map` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_entry_geometry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 826 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

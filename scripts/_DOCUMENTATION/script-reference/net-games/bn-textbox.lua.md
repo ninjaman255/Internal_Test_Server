@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/bn-textbox.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/bn-textbox.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,30 +11,41 @@ bn_textbox.lua Simple BN-style text box with typewriter, optional nameplate, mug
 ## Module location
 
 - **Source:** `net-games/bn-textbox.lua`
-- **Relative reference:** `script-reference/net-games/bn-textbox.lua.md`
+- **Reference:** `script-reference/net-games/bn-textbox.lua.md`
+- **Source SHA-256 prefix:** `552f66876260`
+
+## Source header notes
+
+- bn_textbox.lua
+- Simple BN-style text box with typewriter, optional nameplate, mugshot, and backdrop.
+- Uses the existing Dialogue.start system for reliable behavior and input handling.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/dialogue/dialogue` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/dialogue/dialogue` | Import string found in source; runtime resolution depends on the server package layout. |
+| `shallow_copy` | `t` |
+| `build_ui` | `player_id, opts` |
+| `BNTextbox.show` | `player_id, text, opts` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `BNTextbox.show` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `build_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `shallow_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/net-games/sfx/text.ogg` |
 
-- Approximate source size: 141 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,32 +2,47 @@
 
 > **Source reference**
 >
-> Generated from `avatar_utils/lua_yes_parser/src/enums.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `avatar_utils/lua_yes_parser/src/enums.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Enums source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `avatar_utils/lua_yes_parser/src/enums.lua`
-- **Relative reference:** `script-reference/avatar_utils/lua_yes_parser/src/enums.lua.md`
+- **Reference:** `script-reference/avatar_utils/lua_yes_parser/src/enums.lua.md`
+- **Source SHA-256 prefix:** `3decc38959d5`
 
-## Functions defined in this file
+## Selected uppercase constants
 
-| Function | Notes |
+| Name | Source expression |
 |---|---|
-| `glyphForType` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `glyphIsReserved` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `UNSET` | `'',` |
+| `COMMA` | `',',` |
+| `SPACE` | `' '` |
+| `STANDARD` | `'standard',` |
+| `GLOBAL` | `'global',` |
+| `COMMENT` | `'comment',` |
+| `ATTRIBUTE` | `'attribute'` |
+| `NONE` | `string.byte(''),` |
+| `EQUAL` | `string.byte('='),` |
+| `BANG` | `string.byte('!'),` |
+| `HASH` | `string.byte('#'),` |
+| `SPACE` | `string.byte(' '),` |
+| `COMMA` | `string.byte(','),` |
+| `QUOTE` | `string.byte('"')` |
+| `BADTOKEN_AT` | `'Element using attribute prefix out-of-place.',` |
+| `BADTOKEN_BANG` | `'Element using global prefix out-of-place.',` |
+| `EOL_NO_DATA` | `'Nothing to parse (EOL).',` |
+| `EOL_MISSING_ELEMENT` | `'Missing element identifier (EOL).',` |
+| `EOL_MISSING_ATTRIBUTE` | `'Missing attribute identifier (EOL).',` |
+| `EOL_MISSING_GLOBAL` | `'Missing global identifier (EOL).',` |
+| `UNTERMINATED_QUOTE` | `'Missing end quote in expression.',` |
+| `RUNTIME` | `'Unexpected runtime error.' -- Reserved for misc. parsing issues` |
 
-## Uppercase constants
+## Usage and maintenance notes
 
-`ATTRIBUTE`, `BADTOKEN_AT`, `BADTOKEN_BANG`, `BANG`, `COMMA`, `COMMENT`, `EOL_MISSING_ATTRIBUTE`, `EOL_MISSING_ELEMENT`, `EOL_MISSING_GLOBAL`, `EOL_NO_DATA`, `EQUAL`, `GLOBAL`, `HASH`, `NONE`, `QUOTE`, `RUNTIME`, `SPACE`, `STANDARD`, `UNSET`, `UNTERMINATED_QUOTE`
-
-## Source notes
-
-- Approximate source size: 68 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

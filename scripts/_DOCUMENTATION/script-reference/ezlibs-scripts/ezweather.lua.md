@@ -2,47 +2,61 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezweather.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezweather.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Ezweather source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezweather.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezweather.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezweather.lua.md`
+- **Source SHA-256 prefix:** `feab3c87a13e`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/ezbus` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ezweather.start_rain_in_area` | `area_id` |
+| `ezweather.start_snow_in_area` | `area_id` |
+| `ezweather.start_fog_in_area` | `area_id` |
+| `fade_camera_for_players_in_area` | `area_id` |
+| `ezweather.get_area_weather` | `area_id` |
+| `ezweather.clear_weather_in_area` | `area_id` |
+| `ezweather.handle_player_transfer` | `player_id` |
+| `ezweather.handle_player_join` | `player_id` |
 
-## Event-bus event names
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `weather_changed` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`list_areas`, `get_area_custom_properties`, `set_song`, `set_area_custom_property`, `list_players`, `fade_player_camera`, `get_player_area`
 
-| Function | Notes |
-|---|---|
-| `ezweather.clear_weather_in_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezweather.get_area_weather` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezweather.handle_player_join` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezweather.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezweather.start_fog_in_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezweather.start_rain_in_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezweather.start_snow_in_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fade_camera_for_players_in_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Literal asset/path strings
 
-## Source notes
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- Approximate source size: 149 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/ezweather/rain.animation` |
+| `/server/assets/ezlibs-assets/ezweather/rain.png` |
+| `/server/assets/ezlibs-assets/ezweather/snow.animation` |
+| `/server/assets/ezlibs-assets/ezweather/snow.png` |
+| `/server/assets/ezlibs-assets/ezweather/fog.animation` |
+| `/server/assets/ezlibs-assets/ezweather/fog.png` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

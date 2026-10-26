@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `test-runner/expect.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `test-runner/expect.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,42 +11,48 @@ expect.lua A minimal assertion library for use with the test runner. Example: lo
 ## Module location
 
 - **Source:** `test-runner/expect.lua`
-- **Relative reference:** `script-reference/test-runner/expect.lua.md`
+- **Reference:** `script-reference/test-runner/expect.lua.md`
+- **Source SHA-256 prefix:** `374fd6fde944`
+
+## Source header notes
+
+- expect.lua
+- A minimal assertion library for use with the test runner.
+- Example:
+- local expect = require("scripts.test-runner.expect")
+- return function()
+- expect(2 + 2).toBe(4)
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts.test-runner.expect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts.test-runner.expect` | Import string found in source; runtime resolution depends on the server package layout. |
+| `deep_equal` | `a, b` |
+| `check` | `x, y` |
+| `format` | `v` |
+| `expect` | `actual` |
+| `fail` | `msg` |
+| `toBe` | `expected` |
+| `toEqual` | `expected` |
+| `toBeTruthy` | `` |
+| `toBeFalsy` | `` |
+| `toBeNil` | `` |
+| `toBeDefined` | `` |
+| `toBeGreaterThan` | `n` |
+| `toBeLessThan` | `n` |
+| `toThrow` | `expected_msg` |
+| `notToBe` | `expected` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `check` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `deep_equal` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `expect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `fail` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `format` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `notToBe` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBe` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBeDefined` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBeFalsy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBeGreaterThan` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBeLessThan` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBeNil` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toBeTruthy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toEqual` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `toThrow` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 124 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

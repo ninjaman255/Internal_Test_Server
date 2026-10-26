@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-game-tourney/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-game-tourney/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,35 +11,40 @@ main.lua
 ## Module location
 
 - **Source:** `net-game-tourney/main.lua`
-- **Relative reference:** `script-reference/net-game-tourney/main.lua.md`
+- **Reference:** `script-reference/net-game-tourney/main.lua.md`
+- **Source SHA-256 prefix:** `34893ff63dff`
+
+## Source header notes
+
+- main.lua
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
-|---|---|
-| `scripts/net-game-tourney/tournament-manager` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-game-tourney/tournament-ui` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/net-game-tourney/tournament-manager` |
+| `scripts/net-game-tourney/tournament-ui` |
 
-## Net event subscriptions
+## `Net:on` subscriptions
 
-| Event | Evidence |
-|---|---|
-| `battle_results` | `Net:on(...)` subscription found in source. |
-| `object_interaction` | `Net:on(...)` subscription found in source. |
-| `player_area_transfer` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| Event |
+|---|
+| `player_join` |
+| `object_interaction` |
+| `battle_results` |
+| `player_area_transfer` |
+| `player_disconnect` |
+| `tick` |
 
-## Source notes
+## Engine `Net` calls
 
-- Approximate source size: 70 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Related documentation
+`on`, `get_player_area`, `get_object_by_id`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `animation-engine/animation-sequences.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `animation-engine/animation-sequences.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,55 +11,60 @@ animation-sequences.lua General purpose animation sequences that mimic duels.lua
 ## Module location
 
 - **Source:** `animation-engine/animation-sequences.lua`
-- **Relative reference:** `script-reference/animation-engine/animation-sequences.lua.md`
+- **Reference:** `script-reference/animation-engine/animation-sequences.lua.md`
+- **Source SHA-256 prefix:** `cf9a104363e4`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- animation-sequences.lua
+- General purpose animation sequences that mimic duels.lua behaviors
+- Works with any sprite_id and object properties
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `AnimationSequences.attack` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.bob` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.color_pulse` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.color_pulse_from_current` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.color_pulse_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.complexSummon` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.fade` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.fade_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.highlightCard` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.isAnimating` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.marquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.menuCursor` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.move_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.move_to_discrete_first` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.positionChange` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.pulse` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.reset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.rotate_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.scale_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.series` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.set` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.shake` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.slideIn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.stopAll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.summon` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.tint` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.tint_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.tween` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationSequences.typewriter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `anim_opts.on_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_done` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `AnimationSequences.attack` | `object, recoil_offset, lunge_offset, options` |
+| `AnimationSequences.slideIn` | `object, start_x, start_y, end_x, end_y, options` |
+| `AnimationSequences.bob` | `object, options` |
+| `AnimationSequences.pulse` | `object, options` |
+| `AnimationSequences.color_pulse` | `object, start_color, target_color, options` |
+| `AnimationSequences.color_pulse_from_current` | `object, target_color, options` |
+| `AnimationSequences.shake` | `object, options` |
+| `AnimationSequences.fade` | `object, target_alpha, options` |
+| `AnimationSequences.tint` | `object, target_r, target_g, target_b, options` |
+| `AnimationSequences.menuCursor` | `object, options` |
+| `AnimationSequences.highlightCard` | `object, options` |
+| `AnimationSequences.tween` | `object, target_props, duration, options` |
+| `AnimationSequences.move_to` | `object, target_x, target_y, duration, options` |
+| `AnimationSequences.scale_to` | `object, target_scale, duration, options` |
+| `AnimationSequences.rotate_to` | `object, target_angle, duration, options` |
+| `AnimationSequences.fade_to` | `object, target_alpha, duration, options` |
+| `AnimationSequences.tint_to` | `object, target_r, target_g, target_b, duration, options` |
+| `AnimationSequences.color_pulse_to` | `object, target_r, target_g, target_b, target_a, duration, easing, on_complete, loop, ping_pong, easing_back, discrete, tag` |
+| `AnimationSequences.move_to_discrete_first` | `object, target_x, target_y, duration, options` |
+| `AnimationSequences.series` | `objects, animator, options` |
+| `safe_done` | `` |
+| `AnimationSequences.marquee` | `object, distance, duration, options` |
+| `AnimationSequences.typewriter` | `sprites, options` |
+| `AnimationSequences.stopAll` | `tag` |
+| `AnimationSequences.isAnimating` | `tag` |
+| `AnimationSequences.reset` | `object, initial_values` |
+| `on_update` | `values, t, phase` |
+| `run` | `done` |
+| `anim_opts.on_complete` | `...` |
+| `on_complete` | `values, interrupted` |
 
-## Source notes
+## Engine `Net` calls
 
-- Approximate source size: 1250 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Related documentation
+`play_sound_for_player`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

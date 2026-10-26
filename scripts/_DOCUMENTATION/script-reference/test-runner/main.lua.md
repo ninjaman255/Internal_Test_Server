@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `test-runner/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `test-runner/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,31 +11,43 @@ test-runner.lua Simple test runner for scripts in "scripts/tests/". Usage: local
 ## Module location
 
 - **Source:** `test-runner/main.lua`
-- **Relative reference:** `script-reference/test-runner/main.lua.md`
+- **Reference:** `script-reference/test-runner/main.lua.md`
+- **Source SHA-256 prefix:** `a8e034f52eba`
+
+## Source header notes
+
+- test-runner.lua
+- Simple test runner for scripts in "scripts/tests/".
+- Usage:
+- local runner = require("scripts.tests.test-runner")  -- adjust path as needed
+- runner.run({"math_test", "string_test"})  -- run specific tests
+- runner.run()                               -- run all tests found
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts.tests.test-runner` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts.tests.test-runner` | Import string found in source; runtime resolution depends on the server package layout. |
+| `list_test_files` | `` |
+| `load_test` | `name` |
+| `run_test` | `name` |
+| `run` | `test_list` |
 
-## Functions defined in this file
+## Selected uppercase constants
 
-| Function | Notes |
+| Name | Source expression |
 |---|---|
-| `list_test_files` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `load_test` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `run_test` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `TEST_DIR` | `"scripts/test-runner/tests/"` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 116 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

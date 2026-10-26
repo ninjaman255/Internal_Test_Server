@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `camera/camera-manager.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `camera/camera-manager.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,40 +11,41 @@ CameraManager.lua
 ## Module location
 
 - **Source:** `camera/camera-manager.lua`
-- **Relative reference:** `script-reference/camera/camera-manager.lua.md`
+- **Reference:** `script-reference/camera/camera-manager.lua.md`
+- **Source SHA-256 prefix:** `6bdd2b97bb80`
+
+## Source header notes
+
+- CameraManager.lua
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/camera/camera-controller` |
+| `scripts/enum/predefined-enums` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/camera/camera-controller` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/enum/predefined-enums` | Import string found in source; runtime resolution depends on the server package layout. |
+| `dbg` | `...` |
+| `CameraManager:init` | `handle_on_join, tile_interaction, setup_inputs` |
+| `CameraManager:setup_event_listeners` | `handle_on_join, tile_interaction, setup_inputs` |
+| `CameraManager:get_controller` | `player_id` |
+| `CameraManager:activate_camera` | `player_id, mode, lock_input` |
+| `CameraManager:deactivate_camera` | `player_id, keep_camera_position` |
+| `CameraManager:is_camera_active` | `player_id` |
+| `CameraManager:has_pending_move` | `player_id` |
+| `CameraManager:move_camera` | `player_id, x, y, z` |
+| `CameraManager:pan_camera` | `player_id, dx, dy, dz` |
+| `CameraManager:get_camera_position` | `player_id` |
+| `CameraManager:get_pending_camera_position` | `player_id` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `CameraManager:activate_camera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:deactivate_camera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:get_camera_position` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:get_controller` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:get_pending_camera_position` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:has_pending_move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:is_camera_active` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:move_camera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:pan_camera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraManager:setup_event_listeners` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `dbg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 154 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

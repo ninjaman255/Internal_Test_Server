@@ -29,7 +29,7 @@ local time_modes = { "sync", "cus", "off" }
 
 
 local realtime_data = {}
-local realtime_data_file = "scripts/HP_Manager/data/realtime_data.dat"
+local realtime_data_file = "scripts/hp_manager/data/realtime_data.dat"
 
 -- REALTIME DATA LOAD
 local function load_realtime_data()
@@ -204,7 +204,7 @@ function RealtimeManage.open(player_id, return_to_hp, real_day_time)
     Net.lock_player_input(player_id)
 
     games.add_ui_element("realtime_settings_board", player_id,
-        "/server/assets/HP_Manager/board.png", "", "", 80, 43, 20, 2, 2)
+        "/server/assets/hp_manager/board.png", "", "", 80, 43, 20, 2, 2)
 
     local title = "Real Time Settings"
     local title_width = TextLayout.measureLine(title, {
@@ -462,13 +462,7 @@ Net:on("tick", function()
     end
     -- Release only this manager's claim when it no longer has an active session.
     for player_id, ctrl in pairs(InputAPI._controllers or {}) do
-        -- Only release when this manager actually owns the controller. Calling
-        -- release_input for unrelated owners is rejected and used to spam the
-        -- InputController console diagnostics every tick.
-        if realtime_sessions[player_id] == nil
-            and ctrl:has_input_control(input_owner(player_id)) then
-            ctrl:release_input(input_owner(player_id))
-        end
+        if realtime_sessions[player_id] == nil then ctrl:release_input(input_owner(player_id)) end
     end
 end)
 

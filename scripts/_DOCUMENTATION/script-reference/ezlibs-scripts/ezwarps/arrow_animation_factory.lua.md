@@ -2,38 +2,54 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezwarps/arrow_animation_factory.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezwarps/arrow_animation_factory.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Arrow animation factory source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezwarps/arrow_animation_factory.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezwarps/arrow_animation_factory.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezwarps/arrow_animation_factory.lua.md`
+- **Source SHA-256 prefix:** `979f83bbdd61`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezweather` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezweather` | Import string found in source; runtime resolution depends on the server package layout. |
+| `create_arrow_animation` | `is_arriving,direction_str` |
+| `animate` | `player_id` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_player_position`, `get_player_area`, `fade_player_camera`, `move_player_camera`, `unlock_player_camera`, `slide_player_camera`, `animate_player_properties`
+
+## Engine `Async` calls
+
+`sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `animate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_arrow_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `UP_LEFT` | `"Up Left",` |
+| `UP_RIGHT` | `"Up Right",` |
+| `DOWN_LEFT` | `"Down Left",` |
+| `DOWN_RIGHT` | `"Down Right",` |
 
-## Uppercase constants
+## Usage and maintenance notes
 
-`DOWN_LEFT`, `DOWN_RIGHT`, `UP_LEFT`, `UP_RIGHT`
-
-## Source notes
-
-- Approximate source size: 93 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

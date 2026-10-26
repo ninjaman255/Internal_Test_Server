@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/talk_presets.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/talk_presets.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,24 +11,50 @@
 ## Module location
 
 - **Source:** `net-games/npcs/talk_presets.lua`
-- **Relative reference:** `script-reference/net-games/npcs/talk_presets.lua.md`
+- **Reference:** `script-reference/net-games/npcs/talk_presets.lua.md`
+- **Source SHA-256 prefix:** `ce19a27c0f67`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- talk_presets.lua
+- Creator-facing presets for Dialogue NPCs (PROG-defaulted)
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `P.get_vert_menu_flow` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `P.get_vert_menu_layout` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `_shallow_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `_shallow_copy` | `t` |
+| `P.get_vert_menu_layout` | `key` |
+| `P.get_vert_menu_flow` | `key` |
 
-## Source notes
+## Literal asset/path strings
 
-- Approximate source size: 336 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Related documentation
+| Path |
+|---|
+| `/server/assets/ow/prog/prog_mug.png` |
+| `/server/assets/ow/prog/prog_mug.animation` |
+| `/server/assets/ow/prog/prog_mug_red.png` |
+| `/server/assets/ow/prog/prog_mug_sapphire.png` |
+| `/server/assets/ow/prog/prog_mug_emerald.png` |
+| `/server/assets/ow/prog/prog_mug_yellow.png` |
+| `/server/assets/ow/prog/prog_mug_orange.png` |
+| `/server/assets/ow/prog/prog_mug_purple.png` |
+| `/server/assets/ow/prog/prog_mug_pink.png` |
+| `/server/assets/ow/prog/prog_mug_turquoise.png` |
+| `/server/assets/ow/prog/prog_mug_charcoal_grey.png` |
+| `/server/assets/ow/prog/prog_mug_lime.png` |
+| `/server/assets/ow/prog/prog_mug_white.png` |
+| `/server/assets/net-games/sfx/text.ogg` |
+| `/server/assets/net-games/sfx/card_desc.ogg` |
+| `/server/assets/net-games/sfx/card_confirm.ogg` |
+| `/server/assets/net-games/sfx/card_desc_close.ogg` |
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

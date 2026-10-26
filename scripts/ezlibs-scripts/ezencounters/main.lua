@@ -45,6 +45,26 @@ end
 
 local area_encounter_tables = load_encounters_for_areas()
 
+-- Public lookup for systems that need the canonical encounter definition but
+-- must retain their own battle/session wrapper (for example, NebuLibs terrain
+-- and health handling). The returned table is the registered definition itself.
+ezencounters.get_encounter_by_name = function(encounter_name)
+    if encounter_name == nil then return nil end
+    return named_encounters[tostring(encounter_name)]
+end
+
+-- Resolve a name or a direct encounter package path into the shape used by
+-- Net.initiate_encounter. Named definitions always win over treating a string
+-- as a raw path; callers may pass additional battle data to merge separately.
+ezencounters.resolve_encounter = function(encounter_reference)
+    if encounter_reference == nil then return nil end
+    local reference = tostring(encounter_reference)
+    local definition = named_encounters[reference]
+    if definition then return definition end
+    if reference ~= "" then return { path = reference } end
+    return nil
+end
+
 local function should_record_step(player_id)
     local player_area = Net.get_player_area(player_id)
     if not player_last_position[player_id] then

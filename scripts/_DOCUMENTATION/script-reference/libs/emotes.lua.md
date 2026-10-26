@@ -2,25 +2,44 @@
 
 > **Source reference**
 >
-> Generated from `libs/emotes.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `libs/emotes.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Emotes source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `libs/emotes.lua`
-- **Relative reference:** `script-reference/libs/emotes.lua.md`
+- **Reference:** `script-reference/libs/emotes.lua.md`
+- **Source SHA-256 prefix:** `d05c61d450f1`
 
-## Uppercase constants
+## Selected uppercase constants
 
-`ALERT`, `BLANK`, `COB`, `COOL`, `HAPPY`, `HEART`, `KEY`, `LOL`, `MAD`, `PVP`, `QUESTION`, `SAD`, `SHOCKED`, `SMUG`, `SPIRIT`, `UNCOOL`, `VOMIT`, `YES`, `ZZZ`
+| Name | Source expression |
+|---|---|
+| `HAPPY` | `0,` |
+| `BLANK` | `1,` |
+| `MAD` | `2,` |
+| `SAD` | `3,` |
+| `SMUG` | `4,` |
+| `SHOCKED` | `5,` |
+| `COB` | `6,` |
+| `PVP` | `7,` |
+| `ZZZ` | `8,` |
+| `KEY` | `9,` |
+| `QUESTION` | `10,` |
+| `ALERT` | `11,` |
+| `HEART` | `12,` |
+| `LOL` | `14,` |
+| `YES` | `15,` |
+| `VOMIT` | `17,` |
+| `COOL` | `18,` |
+| `UNCOOL` | `19,` |
+| `SPIRIT` | `20,` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 25 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

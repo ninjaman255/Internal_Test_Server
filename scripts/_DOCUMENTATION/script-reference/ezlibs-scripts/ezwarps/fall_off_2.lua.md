@@ -2,27 +2,46 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezwarps/fall_off_2.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezwarps/fall_off_2.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Fall off 2 source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezwarps/fall_off_2.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezwarps/fall_off_2.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezwarps/fall_off_2.lua.md`
+- **Source SHA-256 prefix:** `70490c5ab9e8`
 
-## Functions defined in this file
+## Function declarations
 
-| Function | Notes |
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `animate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `animate` | `player_id,warp_object` |
 
-## Source notes
+## Engine `Net` calls
 
-- Approximate source size: 43 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Related documentation
+`get_player_position`, `get_player_area`, `animate_player_properties`, `play_sound`, `shake_player_camera`, `unlock_player_input`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Engine `Async` calls
+
+`sleep`
+
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/ezwarps/earthquake.ogg` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

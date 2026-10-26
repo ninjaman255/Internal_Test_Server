@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/text-display.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/text-display.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,93 +11,118 @@ Unified text renderer for static text, marquee text, and BN-style typewriter box
 ## Module location
 
 - **Source:** `displayer/text-display.lua`
-- **Relative reference:** `script-reference/displayer/text-display.lua.md`
+- **Reference:** `script-reference/displayer/text-display.lua.md`
+- **Source SHA-256 prefix:** `e67040061cb0`
+
+## Source header notes
+
+- Unified text renderer for static text, marquee text, and BN-style typewriter boxes.
+- Public coordinates are virtual 240x160 coordinates.
+- Hardened with deterministic marquee IDs, pixel-snapped updates, real paging,
+- explicit teardown, and a public layout/measurement API.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/font-system` |
+| `scripts/animation-engine/animation-engine` |
+| `scripts/displayer/text-layout` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/animation-engine/animation-engine` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/font-system` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-layout` | Import string found in source; runtime resolution depends on the server package layout. |
+| `normalize_loops` | `value` |
+| `normalize_scale` | `value, fallback` |
+| `pixel_snap_virtual` | `value` |
+| `copy_table` | `src` |
+| `safe_call` | `fn, ...` |
+| `deterministic_glyph_id` | `text_id, index` |
+| `DisplayInstance:new` | `owner, player_id, text_id, text, x, y, options` |
+| `DisplayInstance:relayout` | `` |
+| `DisplayInstance:_glyphOptions` | `glyph, extra` |
+| `DisplayInstance:_eraseGlyphId` | `id` |
+| `DisplayInstance:_eraseAllGlyphs` | `` |
+| `DisplayInstance:_drawStatic` | `` |
+| `DisplayInstance:_drawBackdrop` | `` |
+| `DisplayInstance:_eraseBackdrop` | `force` |
+| `DisplayInstance:_marqueeGlyphs` | `` |
+| `DisplayInstance:_drawMarqueeAt` | `offset, elapsed` |
+| `DisplayInstance:_cleanupMarquee` | `done` |
+| `pass` | `n` |
+| `DisplayInstance:_startMarquee` | `` |
+| `DisplayInstance:_pageMeta` | `page_index` |
+| `DisplayInstance:_currentGlyph` | `` |
+| `DisplayInstance:_cancelPendingCharacter` | `` |
+| `DisplayInstance:_scheduleNextChar` | `delay` |
+| `DisplayInstance:_startCurrentPage` | `` |
+| `DisplayInstance:_pageFinished` | `` |
+| `DisplayInstance:_drawTypewriterGlyph` | `glyph` |
+| `DisplayInstance:_printNextChar` | `` |
+| `DisplayInstance:_finishCurrentPageImmediately` | `` |
+| `DisplayInstance:_eraseCurrentPage` | `` |
+| `DisplayInstance:advance` | `` |
+| `DisplayInstance:reset` | `text, options` |
+| `DisplayInstance:close` | `` |
+| `TextDisplay:init` | `` |
+| `TextDisplay:layout` | `text, options` |
+| `TextDisplay:measure` | `text, options` |
+| `TextDisplay:cleanupPlayer` | `player_id` |
+| `TextDisplay:updateAll` | `_dt` |
+| `TextDisplay:draw` | `player_id, text_id, text, x, y, options` |
+| `TextDisplay:remove` | `player_id, text_id` |
+| `TextDisplay:get` | `player_id, text_id` |
+| `TextDisplay:getState` | `player_id, text_id` |
+| `TextDisplay:getData` | `player_id, text_id` |
+| `TextDisplay:setKeepAlive` | `player_id, text_id, value` |
+| `TextDisplay:advance` | `player_id, text_id` |
+| `TextDisplay:reset` | `player_id, text_id, text, options` |
+| `copy_options` | `options` |
+| `TextDisplay:drawStatic` | `player_id, text_id, text, x, y, options` |
+| `TextDisplay:removeStatic` | `player_id, text_id` |
+| `TextDisplay:drawMarquee` | `player_id, marquee_id, text, y, options` |
+| `TextDisplay:removeMarquee` | `player_id, marquee_id` |
+| `TextDisplay:createTextBox` | `player_id, box_id, text, x, y, width, height, options` |
+| `TextDisplay:advanceTextBox` | `player_id, box_id` |
+| `TextDisplay:closeTextBox` | `player_id, box_id` |
+| `TextDisplay:getTextBoxState` | `player_id, box_id` |
+| `TextDisplay:getTextBoxData` | `player_id, box_id` |
+| `TextDisplay:resetTextBox` | `player_id, box_id, text, options` |
+| `on_update` | `values` |
+| `on_complete` | `_, interrupted` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`has_asset`, `provide_asset_for_player`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `player_dealloc_sprite`, `play_sound_for_player`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `DEFAULT_BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `DisplayInstance:_cancelPendingCharacter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_cleanupMarquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_currentGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_drawBackdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_drawMarqueeAt` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_drawStatic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_drawTypewriterGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_eraseAllGlyphs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_eraseBackdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_eraseCurrentPage` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_eraseGlyphId` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_finishCurrentPageImmediately` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_glyphOptions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_marqueeGlyphs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_pageFinished` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_pageMeta` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_printNextChar` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_scheduleNextChar` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_startCurrentPage` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:_startMarquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:advance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:relayout` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `DisplayInstance:reset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:advance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:advanceTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:cleanupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:closeTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:createTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:draw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:drawMarquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:drawStatic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:get` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:getData` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:getState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:getTextBoxData` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:getTextBoxState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:layout` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:measure` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:remove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:removeMarquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:removeStatic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:reset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:resetTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:setKeepAlive` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `TextDisplay:updateAll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `copy_options` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `copy_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `deterministic_glyph_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_loops` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `pass` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `pixel_snap_virtual` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_call` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/net-games/displayer/empty_white.png` |
 
-- Approximate source size: 751 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

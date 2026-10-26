@@ -2,25 +2,55 @@
 
 > **Source reference**
 >
-> Generated from `libs/enums.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `libs/enums.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Enums source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `libs/enums.lua`
-- **Relative reference:** `script-reference/libs/enums.lua.md`
+- **Reference:** `script-reference/libs/enums.lua.md`
+- **Source SHA-256 prefix:** `201cde86c4cc`
 
-## Uppercase constants
+## Selected uppercase constants
 
-`ADD`, `AUDIO`, `BLOCKS`, `CANCEL`, `CARD`, `CHARACTER`, `COLOR`, `CONFIRM`, `CUST_MENU`, `DATA`, `ENCOUNTER`, `FRAGMENT`, `HEALTH`, `HELD`, `INTERACT`, `LEN`, `LIBRARY`, `MINIMAP`, `MONEY`, `MOVE_DOWN`, `MOVE_LEFT`, `MOVE_RIGHT`, `MOVE_UP`, `MULT`, `NONE`, `OPTION`, `PAUSE`, `PLAYER`, `PRESSED`, `RELEASED`, `RUN`, `SHOOT`, `SHOULDER_L`, `SHOULDER_R`, `SPECIAL`, `TEXT`, `TEXTURE`, `UI_DOWN`, `UI_LEFT`, `UI_RIGHT`, `UI_UP`, `USE_CARD`
+| Name | Source expression |
+|---|---|
+| `MULT` | `0,  -- Multiply (default)` |
+| `ADD` | `1,   -- Addititve` |
+| `COLOR` | `2, -- Colorize` |
+| `MONEY` | `0,` |
+| `CARD` | `1,` |
+| `HEALTH` | `2,` |
+| `FRAGMENT` | `3` |
+| `NONE` | `0,` |
+| `PRESSED` | `1,` |
+| `HELD` | `2,` |
+| `RELEASED` | `3` |
+| `RUN` | `"Run",` |
+| `INTERACT` | `"Interact",` |
+| `MINIMAP` | `"Minimap",` |
+| `SHOOT` | `"Shoot",` |
+| `USE_CARD` | `"Use Card",` |
+| `SPECIAL` | `"Special",` |
+| `CUST_MENU` | `"Cust Menu",` |
+| `PAUSE` | `"Pause",` |
+| `MOVE_UP` | `"Move Up",` |
+| `MOVE_DOWN` | `"Move Down",` |
+| `MOVE_LEFT` | `"Move Left",` |
+| `MOVE_RIGHT` | `"Move Right",` |
+| `SHOULDER_L` | `"Shoulder L",` |
+| `SHOULDER_R` | `"Shoulder R",` |
+| `UI_UP` | `"UI Up",` |
+| `UI_DOWN` | `"UI Down",` |
+| `UI_LEFT` | `"UI Left",` |
+| `UI_RIGHT` | `"UI Right",` |
+| `CONFIRM` | `"Confirm",` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 85 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

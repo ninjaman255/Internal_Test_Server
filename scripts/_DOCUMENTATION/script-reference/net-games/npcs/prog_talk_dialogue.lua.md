@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_talk_dialogue.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_talk_dialogue.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,23 +11,31 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_talk_dialogue.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_talk_dialogue.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_talk_dialogue.lua.md`
+- **Source SHA-256 prefix:** `9ba5eebb43cb`
+
+## Source header notes
+
+- prog_talk_dialogue.lua
+- Example: PROG-style prompt that branches into dialogue
+- Uses NEW Talk.npc + presets + purple frame dye
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/net-games/npcs/talk` |
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk` | Import string found in source; runtime resolution depends on the server package layout. |
+| `AREA_ID` | `"default"              -- your map/area id` |
+| `OBJECT` | `"prog_talk_prompt_npc" -- Tiled object name for this NPC` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 52 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

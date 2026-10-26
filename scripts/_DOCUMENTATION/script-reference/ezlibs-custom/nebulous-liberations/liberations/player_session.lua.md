@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/player_session.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/player_session.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,57 +11,86 @@ player_session.lua
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/player_session.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/player_session.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/player_session.lua.md`
+- **Source SHA-256 prefix:** `4026229fd864`
+
+## Source header notes
+
+- player_session.lua
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/ability` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/player_selection` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/loot` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` |
+| `scripts/ezlibs-custom/nebulous-liberations/utils/paralyze_effect` |
+| `scripts/ezlibs-custom/nebulous-liberations/utils/recover_effect` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/constants` |
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/libs/emotes` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/ability` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/constants` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/loot` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/player_selection` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/utils/paralyze_effect` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/utils/recover_effect` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/emotes` | Import string found in source; runtime resolution depends on the server package layout. |
+| `PlayerSession:new` | `instance, player` |
+| `PlayerSession:emote_state` | `` |
+| `PlayerSession:message_with_points` | `message` |
+| `PlayerSession:question_with_points` | `question` |
+| `PlayerSession:quiz_with_points` | `a, b, c` |
+| `PlayerSession:get_ability_permission` | `` |
+| `PlayerSession:get_pass_turn_permission` | `` |
+| `PlayerSession:initiate_encounter` | `encounter_path, data` |
+| `PlayerSession:heal` | `amount` |
+| `PlayerSession:hurt` | `amount` |
+| `PlayerSession:paralyze` | `` |
+| `PlayerSession:pass_turn` | `` |
+| `PlayerSession:complete_turn` | `` |
+| `PlayerSession:give_turn` | `` |
+| `PlayerSession:find_matching_gates` | `` |
+| `PlayerSession:find_gate_points` | `id` |
+| `PlayerSession:find_closest_guardian` | `` |
+| `PlayerSession:liberate_panels` | `panels, results` |
+| `PlayerSession:get_cash` | `panel, destroy_items` |
+| `PlayerSession:loot_panels` | `panels, remove_traps, destroy_items` |
+| `PlayerSession:liberate_and_loot_panels` | `panels, results, remove_traps, destroy_items` |
+| `PlayerSession:handle_disconnect` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `PlayerSession:complete_turn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:emote_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:find_closest_guardian` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:find_gate_points` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:find_matching_gates` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:get_ability_permission` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:get_cash` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:get_pass_turn_permission` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:give_turn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:handle_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:heal` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:hurt` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:initiate_encounter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:liberate_and_loot_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:liberate_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:loot_panels` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:message_with_points` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:paralyze` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:pass_turn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:question_with_points` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PlayerSession:quiz_with_points` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`set_player_emote`, `unlock_player_input`, `set_player_emotion`, `play_sound_for_player`, `lock_player_input`, `unlock_player_camera`, `get_player_money`, `set_player_money`, `slide_player_camera`
 
-- Approximate source size: 330 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`create_promise`, `sleep`, `await`, `promisify`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/mugs/order pts.png` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 0.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 1.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 2.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 3.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 4.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 5.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 6.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 7.animation` |
+| `/server/assets/NebuLibsAssets/mugs/order pts 8.animation` |
+| `/server/assets/NebuLibsAssets/sound effects/hurt.ogg` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

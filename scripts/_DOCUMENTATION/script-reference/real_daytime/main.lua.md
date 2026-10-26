@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `real_daytime/main.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `real_daytime/main.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,39 +11,56 @@
 ## Module location
 
 - **Source:** `real_daytime/main.lua`
-- **Relative reference:** `script-reference/real_daytime/main.lua.md`
+- **Reference:** `script-reference/real_daytime/main.lua.md`
+- **Source SHA-256 prefix:** `3344655d910a`
 
-## Net event subscriptions
+## Source header notes
 
-| Event | Evidence |
+- [[
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+| `get_area_settings` | `area_id` |
+| `get_current_time` | `settings` |
+| `get_day_phase` | `time` |
+| `get_day_date` | `time` |
+| `get_day_type` | `time` |
+| `restore_foreground` | `area_id, settings` |
+| `apply_day_phase` | `area_id, settings, phase` |
+| `clear_day_properties` | `area_id` |
+| `update_area` | `area_id` |
+| `AmbientManage.refresh_area` | `area_id` |
+| `AmbientManage.get_day_night_mode` | `area_id` |
+| `AmbientManage.get_timezone` | `area_id` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `AmbientManage.get_day_night_mode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AmbientManage.get_timezone` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AmbientManage.refresh_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `apply_day_phase` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `clear_day_properties` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_area_settings` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_current_time` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_day_date` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_day_phase` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_day_type` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `restore_foreground` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`get_area_custom_property`, `get_foreground`, `get_foreground_velocity`, `get_foreground_parallax`, `set_foreground`, `set_area_custom_property`, `list_areas`, `on`
 
-- Approximate source size: 260 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Literal asset/path strings
 
-## Related documentation
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+| Path |
+|---|
+| `/server/assets/real_daytime/dawn.png` |
+| `/server/assets/real_daytime/morning.png` |
+| `/server/assets/real_daytime/night.png` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

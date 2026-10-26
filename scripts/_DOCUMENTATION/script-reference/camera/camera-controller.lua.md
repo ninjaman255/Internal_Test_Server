@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `camera/camera-controller.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `camera/camera-controller.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,56 +11,78 @@ camera-controller.lua Unified camera controller with mode-based input handling. 
 ## Module location
 
 - **Source:** `camera/camera-controller.lua`
-- **Relative reference:** `script-reference/camera/camera-controller.lua.md`
+- **Reference:** `script-reference/camera/camera-controller.lua.md`
+- **Source SHA-256 prefix:** `68faf83ddac5`
+
+## Source header notes
+
+- camera-controller.lua
+- Unified camera controller with mode-based input handling.
+- Subscribes to the shared per-player InputController's emitter.
+- The camera applies its own repeat cadence to the shared InputController
+- while it is active, and restores the controller's configured defaults on
+- deactivate. This lets camera movement feel snappier without affecting any
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/input-controller/main` |
+| `scripts/enum/predefined-enums` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/enum/predefined-enums` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input-controller/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `dbg` | `...` |
+| `handle_player_controlled_movement` | `self` |
+| `emitter_off` | `emitter, event, cb` |
+| `CameraController:new` | `player_id, opts` |
+| `CameraController:_bind_input` | `` |
+| `make_handler` | `kind` |
+| `CameraController:_unbind_input` | `` |
+| `CameraController:_apply_repeat_delays` | `` |
+| `CameraController:_restore_repeat_delays` | `` |
+| `CameraController:set_camera_repeat_delays` | `first_repeat_delay, repeat_delay` |
+| `CameraController:_on_input_event` | `kind, ev` |
+| `CameraController:handle_input` | `` |
+| `CameraController:activate` | `mode, lock_player_input` |
+| `CameraController:deactivate` | `keep_camera_position` |
+| `CameraController:destroy` | `` |
+| `CameraController:returnToPlayer` | `` |
+| `CameraController:setMode` | `new_mode, custom_handlers` |
+| `CameraController:setCustomHandlers` | `handlers` |
+| `CameraController:moveTo` | `x, y, z` |
+| `CameraController:relativeMoveTo` | `dx, dy, dz` |
+| `CameraController:pan` | `dx, dy, dz` |
+| `CameraController:setPosition` | `new_x, new_y, new_z` |
+| `CameraController:getPosition` | `` |
+| `CameraController:getPendingPosition` | `` |
+| `CameraController:hasPendingMove` | `` |
+| `CameraController:fadePlayerCamera` | `color, durationInSeconds` |
+| `CameraController:shakePlayerCamera` | `strength, durationInSeconds` |
+| `controller._handler_owner_changed` | `change` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`lock_player_input`, `unlock_player_input`, `unlock_player_camera`, `get_player_position`, `track_with_player_camera`, `move_player_camera`, `fade_player_camera`, `shake_player_camera`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `CameraController:_apply_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:_bind_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:_on_input_event` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:_restore_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:_unbind_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:activate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:deactivate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:fadePlayerCamera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:getPendingPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:getPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:handle_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:hasPendingMove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:moveTo` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:pan` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:relativeMoveTo` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:returnToPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:setCustomHandlers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:setMode` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:set_camera_repeat_delays` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `CameraController:shakePlayerCamera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `controller._handler_owner_changed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `dbg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `emitter_off` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `handle_player_controlled_movement` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `make_handler` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `X_CAMERA_ADJUST` | `0.15` |
+| `Y_CAMERA_ADJUST` | `0.15` |
+| `DEFAULT_CAMERA_FIRST_REPEAT_DELAY` | `0.03` |
+| `DEFAULT_CAMERA_REPEAT_DELAY` | `0.03` |
+| `CAMERA_DIRECTIONS` | `{` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 556 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

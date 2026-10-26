@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezbus.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezbus.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,41 +11,41 @@ ezbus.lua - Named event-bus registry. Three usage modes are supported: 1. Named 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezbus.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezbus.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezbus.lua.md`
+- **Source SHA-256 prefix:** `85aa9acf06e0`
+
+## Source header notes
+
+- ezbus.lua - Named event-bus registry.
+- Three usage modes are supported:
+- 1. Named emitters (recommended for cross-script communication)
+- local EzBus = require("scripts/ezlibs-scripts/ezbus")
+- local round_bus = EzBus.get("footbomb:round:" .. instance_id)
+- round_bus:emit("round_complete", { ... })
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/ezemitter` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezemitter` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ezbus.get` | `name` |
+| `ezbus.destroy` | `name` |
+| `ezbus.destroy_all` | `` |
+| `ezbus.exists` | `name` |
+| `ezbus.list` | `` |
+| `__index` | `_, key` |
+| `__newindex` | `_, key, value` |
 
-## Event-bus event names
+## Usage and maintenance notes
 
-| Event | Evidence |
-|---|---|
-| `round_complete` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-
-## Functions defined in this file
-
-| Function | Notes |
-|---|---|
-| `__index` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__newindex` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbus.destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbus.destroy_all` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbus.exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbus.get` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezbus.list` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 107 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

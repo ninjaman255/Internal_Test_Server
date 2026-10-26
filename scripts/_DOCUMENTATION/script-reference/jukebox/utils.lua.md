@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `jukebox/utils.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `jukebox/utils.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,25 +11,27 @@ utils.lua Helper functions for OS detection, file listing, and string splitting.
 ## Module location
 
 - **Source:** `jukebox/utils.lua`
-- **Relative reference:** `script-reference/jukebox/utils.lua.md`
+- **Reference:** `script-reference/jukebox/utils.lua.md`
+- **Source SHA-256 prefix:** `5acb20c02354`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- utils.lua
+- Helper functions for OS detection, file listing, and string splitting.
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `utils.get_os` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `utils.listFiles` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `utils.listFilesDetailed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `utils.splitter` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `utils.splitter` | `inputstr, sep` |
+| `utils.get_os` | `` |
+| `utils.listFiles` | `directory` |
+| `utils.listFilesDetailed` | `directory` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 111 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

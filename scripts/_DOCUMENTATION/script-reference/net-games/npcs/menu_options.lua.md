@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/menu_options.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/menu_options.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,24 +11,26 @@ scripts/net-games/npcs/menu_options.lua Purpose: Build PromptVertical option tab
 ## Module location
 
 - **Source:** `net-games/npcs/menu_options.lua`
-- **Relative reference:** `script-reference/net-games/npcs/menu_options.lua.md`
+- **Reference:** `script-reference/net-games/npcs/menu_options.lua.md`
+- **Source SHA-256 prefix:** `2def12bf1934`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- scripts/net-games/npcs/menu_options.lua
+- Purpose: Build PromptVertical option tables without loops/math in each NPC file.
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `M.count` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `M.list` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `pad2` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `pad2` | `n` |
+| `M.count` | `count, cfg` |
+| `M.list` | `items, cfg` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 52 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

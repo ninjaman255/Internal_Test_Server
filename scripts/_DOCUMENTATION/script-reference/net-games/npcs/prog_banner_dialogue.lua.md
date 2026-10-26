@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_banner_dialogue.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_banner_dialogue.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,45 +11,68 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_banner_dialogue.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_banner_dialogue.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_banner_dialogue.lua.md`
+- **Source SHA-256 prefix:** `130ce6dcb12c`
+
+## Source header notes
+
+- prog_banner_dialogue.lua
+- Tiled-spawned NPC that triggers net-games Marquee
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/libs/direction` |
+| `scripts/displayer/displayer` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+| `actor_interaction` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/displayer` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
+| `dbg` | `msg` |
+| `ensure_backdrop_sprite` | `player_id` |
+| `draw_backdrop` | `player_id, backdrop, z` |
+| `erase_backdrop` | `player_id` |
+| `ensure_tick` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`provide_asset_for_player`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `get_object_by_name`, `create_bot`, `on`, `get_player_position`, `set_bot_direction`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `DEBUG` | `true` |
+| `BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
+| `TICK_ATTACHED` | `false` |
+| `TICK_ATTACHED` | `true` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `dbg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_backdrop_sprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Uppercase constants
+| Path |
+|---|
+| `/server/assets/net-games/displayer/empty_white.png` |
+| `/server/assets/ow/prog/prog_ow.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
 
-`TICK_ATTACHED`
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 164 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

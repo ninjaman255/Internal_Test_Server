@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `persistence/save-game.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `persistence/save-game.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,41 +11,60 @@ game_save.lua Extension of persistence.lua that provides a staging area for chan
 ## Module location
 
 - **Source:** `persistence/save-game.lua`
-- **Relative reference:** `script-reference/persistence/save-game.lua.md`
+- **Reference:** `script-reference/persistence/save-game.lua.md`
+- **Source SHA-256 prefix:** `8a1da8d304d6`
+
+## Source header notes
+
+- game_save.lua
+- Extension of persistence.lua that provides a staging area for changes.
+- Allows you to make multiple edits, then either commit them (save) or
+- discard them (revert) back to the last saved state.
+- Uses the new saveData() method to avoid internal state inconsistency.
+- Per‑player save files with sanitised secret.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/persistence/persistence` |
+| `scripts/utils/utility` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/persistence/persistence` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/utils/utility` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ensure_directory_exists` | `filePath` |
+| `ensure_save_file_exists` | `filePath` |
+| `sanitize_filename_component` | `str` |
+| `deep_copy` | `orig` |
+| `new` | `filePath` |
+| `self:load` | `` |
+| `self:edit` | `func` |
+| `self:save` | `` |
+| `self:revert` | `` |
+| `self:getData` | `` |
+| `self:isModified` | `` |
+| `self:getWorkingTable` | `` |
+| `get_game_save` | `player_id, index` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_player_secret`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `deep_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_directory_exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_save_file_exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_game_save` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `sanitize_filename_component` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:edit` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:getData` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:getWorkingTable` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:isModified` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:load` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:revert` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self:save` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `MAX_SAVE_INSTANCES` | `3` |
+| `SAVE_PATH_PATTERN` | `"scripts/save-files/%s/save%d.json"` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 187 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

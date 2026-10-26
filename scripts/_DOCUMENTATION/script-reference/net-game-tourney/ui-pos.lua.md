@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-game-tourney/ui-pos.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-game-tourney/ui-pos.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,24 +11,25 @@ ui-pos.lua
 ## Module location
 
 - **Source:** `net-game-tourney/ui-pos.lua`
-- **Relative reference:** `script-reference/net-game-tourney/ui-pos.lua.md`
+- **Reference:** `script-reference/net-game-tourney/ui-pos.lua.md`
+- **Source SHA-256 prefix:** `082dff734b96`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- ui-pos.lua
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `UIPositions.get_mugshot_positions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UIPositions.get_progress_bar_index` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UIPositions.get_progress_bar_positions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `UIPositions.get_mugshot_positions` | `round` |
+| `UIPositions.get_progress_bar_positions` | `tier` |
+| `UIPositions.get_progress_bar_index` | `round, match_index, winner_is_player1` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 139 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

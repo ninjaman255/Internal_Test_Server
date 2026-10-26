@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/talk.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/talk.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,62 +11,85 @@
 ## Module location
 
 - **Source:** `net-games/npcs/talk.lua`
-- **Relative reference:** `script-reference/net-games/npcs/talk.lua.md`
+- **Reference:** `script-reference/net-games/npcs/talk.lua.md`
+- **Source SHA-256 prefix:** `60cac723323e`
+
+## Source header notes
+
+- talk.lua
+- Minimal author API for Dialogue NPCs with PROG-default UI
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/libs/direction` |
+| `scripts/net-games/dialogue/dialogue` |
+| `scripts/net-games/npcs/talk_presets` |
+| `scripts/net-games/npcs/menu_options` |
+| `scripts/displayer/displayer` |
+| `scripts/net-games/npcs/talk_vert_menu` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `actor_interaction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/displayer` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/dialogue` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/menu_options` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk_presets` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk_vert_menu` | Import string found in source; runtime resolution depends on the server package layout. |
+| `shallow_copy` | `t` |
+| `deep_merge` | `dst, src` |
+| `normalize_script` | `lines_or_text` |
+| `stable_box_id` | `cfg` |
+| `force_indicator_on` | `player_id, box_id` |
+| `get_talk_vert_menu` | `` |
+| `build_ui` | `cfg, bot_name, opts` |
+| `get_pack_from_cfg` | `cfg` |
+| `resolve_layout` | `cfg, menu_cfg` |
+| `resolve_flow` | `cfg, menu_cfg` |
+| `resolve_sfx` | `cfg, menu_cfg` |
+| `resolve_options` | `menu_cfg` |
+| `infer_exit_index` | `options, explicit_exit_index` |
+| `Talk.start` | `player_id, script, cfg, bot_name, extra_opts` |
+| `Talk.prompt_yesno` | `player_id, question, cfg, bot_name, handlers` |
+| `Talk.vert_menu` | `player_id, bot_name, cfg, menu_cfg` |
+| `pick_text` | `...` |
+| `open_menu` | `` |
+| `Talk.prompt_then_talk` | `player_id, question, yes_script, no_script, cfg, bot_name` |
+| `Talk.npc` | `cfg` |
+| `Talk._build_ui` | `cfg, bot_name, opts` |
+| `on_yes` | `` |
+| `on_no` | `` |
+| `on_cancel` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`provide_asset_for_player`, `play_sound_for_player`, `play_sound`, `get_object_by_name`, `create_bot`, `get_bot_name`, `on`, `get_player_position`, `set_bot_direction`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
+| `BOT_NAME` | `Net.get_bot_name(bot_id)` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `Talk._build_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Talk.npc` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Talk.prompt_then_talk` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Talk.prompt_yesno` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Talk.start` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Talk.vert_menu` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `build_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `deep_merge` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `force_indicator_on` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_pack_from_cfg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_talk_vert_menu` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `infer_exit_index` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_script` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_cancel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_no` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_yes` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `open_menu` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `pick_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_flow` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_layout` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_options` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_sfx` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `shallow_copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `stable_box_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/ow/prog/prog_ow.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
 
-- Approximate source size: 579 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

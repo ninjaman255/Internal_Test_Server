@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/scrolling-sprite-list.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/scrolling-sprite-list.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,71 +11,92 @@
 ## Module location
 
 - **Source:** `displayer/scrolling-sprite-list.lua`
-- **Relative reference:** `script-reference/displayer/scrolling-sprite-list.lua.md`
+- **Reference:** `script-reference/displayer/scrolling-sprite-list.lua.md`
+- **Source SHA-256 prefix:** `64776120c6b9`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/animation-engine/animation-engine` |
+| `scripts/boom/main` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `player_disconnect` |
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/animation-engine/animation-engine` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/boom/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `SpriteEntry:new` | `list_obj, player_id, list_id, index, def` |
+| `SpriteEntry:setPosition` | `x, y` |
+| `SpriteEntry:setColor` | `r, g, b, a` |
+| `SpriteEntry:setScale` | `sx, sy` |
+| `SpriteEntry:setAnimationState` | `state` |
+| `SpriteEntry:redraw` | `` |
+| `SpriteEntry:destroy` | `` |
+| `SpriteEntry:startScroll` | `delay, distance, speed` |
+| `SpriteEntry:_beginScroll` | `distance, speed` |
+| `ScrollingSpriteList:init` | `` |
+| `ScrollingSpriteList:setupPlayer` | `player_id` |
+| `ScrollingSpriteList:cleanupPlayer` | `player_id` |
+| `getFirstState` | `anim_path` |
+| `ScrollingSpriteList:ensureSpriteAsset` | `player_id, sprite_def` |
+| `ScrollingSpriteList:_computeGridPositions` | `config` |
+| `ScrollingSpriteList:_drawBackdrop` | `player_id, list_id, config` |
+| `ScrollingSpriteList:createScrollingList` | `player_id, list_id, x, y, width, height, config` |
+| `list_object:onEntryFinished` | `` |
+| `list_object:getEntry` | `index` |
+| `list_object:addSprite` | `sprite_def` |
+| `list_object:setSprites` | `sprites` |
+| `list_object:setSpeed` | `speed` |
+| `list_object:setPosition` | `x, y` |
+| `list_object:destroy` | `` |
+| `list_object:_recreateEntries` | `` |
+| `ScrollingSpriteList:updateAll` | `delta` |
+| `ScrollingSpriteList:getList` | `player_id, list_id` |
+| `ScrollingSpriteList:removeScrollingList` | `player_id, list_id` |
+| `ScrollingSpriteList:setListPosition` | `player_id, list_id, x, y` |
+| `ScrollingSpriteList:setListSpeed` | `player_id, list_id, speed` |
+| `ScrollingSpriteList:addSpriteToList` | `player_id, list_id, sprite_def` |
+| `ScrollingSpriteList:setListSprites` | `player_id, list_id, sprites` |
+| `ScrollingSpriteList:getListState` | `player_id, list_id` |
+| `on_update` | `values` |
+| `on_complete` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`player_draw_sprite`, `player_erase_sprite`, `on`, `provide_asset_for_player`, `player_alloc_sprite`, `player_dealloc_sprite`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `ScrollingSpriteList:_computeGridPositions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:_drawBackdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:addSpriteToList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:cleanupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:createScrollingList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:ensureSpriteAsset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:getList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:getListState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:removeScrollingList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:setListPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:setListSpeed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:setListSprites` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:setupPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ScrollingSpriteList:updateAll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:_beginScroll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:redraw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:setAnimationState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:setColor` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:setScale` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `SpriteEntry:startScroll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `getFirstState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:_recreateEntries` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:addSprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:destroy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:getEntry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:onEntryFinished` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:setSpeed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `list_object:setSprites` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/net-games/displayer/empty_white.png` |
 
-- Approximate source size: 645 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

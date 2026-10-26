@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/footbomb/navi_options.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/footbomb/navi_options.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,23 +11,22 @@ Selectable Navi roster. Each entry references shared paths and state names.
 ## Module location
 
 - **Source:** `ezlibs-custom/footbomb/navi_options.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/footbomb/navi_options.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/footbomb/navi_options.lua.md`
+- **Source SHA-256 prefix:** `9411ad10a539`
+
+## Source header notes
+
+- Selectable Navi roster. Each entry references shared paths and state names.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
-|---|---|
-| `scripts/ezlibs-custom/footbomb/animation_states` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/footbomb/constants` | Import string found in source; runtime resolution depends on the server package layout. |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/footbomb/constants` |
+| `scripts/ezlibs-custom/footbomb/animation_states` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 15 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

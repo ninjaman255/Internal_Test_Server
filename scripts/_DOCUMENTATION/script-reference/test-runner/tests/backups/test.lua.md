@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `test-runner/tests/backups/test.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `test-runner/tests/backups/test.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,41 +11,58 @@
 ## Module location
 
 - **Source:** `test-runner/tests/backups/test.lua`
-- **Relative reference:** `script-reference/test-runner/tests/backups/test.lua.md`
+- **Reference:** `script-reference/test-runner/tests/backups/test.lua.md`
+- **Source SHA-256 prefix:** `216a88d51484`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/displayer` |
+| `scripts/color-picker/color-picker` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `battle_results` |
+| `player_disconnect` |
+| `player_join` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/color-picker/color-picker` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/displayer` | Import string found in source; runtime resolution depends on the server package layout. |
+| `schedule` | `delay, callback` |
+| `rainbowUpdate` | `text_index, char, elapsed` |
+| `next_step` | `` |
+| `test_Displayer` | `player_id` |
+| `perChar` | `idx, ch, ctx` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `battle_results` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`on`, `toggle_player_hud`
 
-| Function | Notes |
-|---|---|
-| `next_step` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `perChar` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `rainbowUpdate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `schedule` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `test_Displayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Literal asset/path strings
 
-## Source notes
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-- Approximate source size: 360 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Path |
+|---|
+| `/server/assets/net-games/sfx/text.ogg` |
+| `/server/assets/net-games/meters/order_points.png` |
+| `/server/assets/net-games/meters/order_points.animation` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

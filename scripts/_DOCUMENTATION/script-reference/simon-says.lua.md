@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `simon-says.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `simon-says.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,46 +11,88 @@
 ## Module location
 
 - **Source:** `simon-says.lua`
-- **Relative reference:** `script-reference/simon-says.lua.md`
+- **Reference:** `script-reference/simon-says.lua.md`
+- **Source SHA-256 prefix:** `2bec9fee8aa3`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/persistence/logger` |
+| `scripts/net-games/main` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_disconnect` |
+| `actor_interaction` |
+| `virtual_input` |
+| `countdown_ended` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/persistence/logger` | Import string found in source; runtime resolution depends on the server package layout. |
+| `async` | `p` |
+| `await` | `v` |
+| `removeValue` | `array, valueToRemove` |
+| `is_simon_button` | `name` |
+| `spawn_simon` | `` |
+| `simon_says_press` | `player_id` |
+| `end_game_cleanup` | `player_id, reason, simon` |
+| `greet_simon` | `actor_id, player_id` |
+| `jiggle` | `off_x, off_y` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`list_areas`, `list_objects`, `get_object_by_id`, `remove_object`, `create_bot`, `on`, `get_player_area`, `fade_player_camera`, `toggle_player_hud`, `unlock_player_input`, `message_player`, `lock_player_input`, `get_player_position`, `play_sound_for_player`
+
+## Engine `Async` calls
+
+`promisify`, `await`, `sleep`, `question_player`, `message_player`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
-| `countdown_ended` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `virtual_input` | `Net:on(...)` subscription found in source. |
+| `INPUT_CHOICES` | `{ "Interact", "Shoulder L","Shoulder R", "Move Down", "Move Left", "Move Right", "Move ...` |
+| `OVERLAY_Z_LIFT` | `4` |
+| `OVERLAY_XY_COMP` | `OVERLAY_Z_LIFT / 2   -- = 2` |
+| `INDICATOR_ORIGINAL_Z_OFFSET` | `2` |
+| `INDICATOR_STATE` | `{` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `end_game_cleanup` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `greet_simon` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `is_simon_button` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `jiggle` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `removeValue` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `simon_says_press` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `spawn_simon` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/simon-says/normal-navi-bn4_green` |
+| `/server/assets/simon-says/normal-navi-bn4_green-mug` |
+| `/server/assets/simon-says/indicators.png` |
+| `/server/assets/simon-says/indicators.animation` |
+| `/server/assets/simon-says/board.png` |
+| `/server/assets/simon-says/board.animation` |
+| `/server/assets/simon-says/count.ogg` |
+| `/server/assets/simon-says/game_start.ogg` |
+| `/server/assets/simon-says/chat.png` |
+| `/server/assets/simon-says/chat.animation` |
+| `/server/assets/simon-says/correct.ogg` |
+| `/server/assets/simon-says/succeed.ogg` |
+| `/server/assets/simon-says/wrong_answer.ogg` |
+| `/server/assets/simon-says/time_up.ogg` |
 
-- Approximate source size: 441 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/ui-safe.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/ui-safe.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,39 +11,51 @@ scripts/net-games/ui-safe.lua Small hardened sprite helper for reusable net-game
 ## Module location
 
 - **Source:** `net-games/ui-safe.lua`
-- **Relative reference:** `script-reference/net-games/ui-safe.lua.md`
+- **Reference:** `script-reference/net-games/ui-safe.lua.md`
+- **Source SHA-256 prefix:** `2271b874de22`
 
-## Net event subscriptions
+## Source header notes
 
-| Event | Evidence |
+- scripts/net-games/ui-safe.lua
+- Small hardened sprite helper for reusable net-games UI.
+- Public coordinates are virtual 240x160 coordinates.
+- Production lessons captured here:
+- * arbitrary assets are checked before provide_asset_for_player when possible;
+- * changing a texture/animation allocates a fresh physical sprite id to avoid
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
+| `player_state` | `player_id` |
+| `confirmed_missing` | `path` |
+| `UISafe.asset_exists` | `path` |
+| `UISafe.safe_provide` | `player_id, path` |
+| `same_draw` | `a, b` |
+| `erase_entry` | `player_id, entry` |
+| `allocate_entry` | `player_id, logical_id, texture_path, anim_path, anim_state` |
+| `virtual_to_screen` | `v, pixel_snap` |
+| `UISafe.draw` | `player_id, logical_id, texture_path, options` |
+| `UISafe.erase` | `player_id, logical_id` |
+| `UISafe.cleanup_player` | `player_id` |
+| `UISafe.invalidate` | `player_id, logical_id` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `UISafe.asset_exists` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UISafe.cleanup_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UISafe.draw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UISafe.erase` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UISafe.invalidate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `UISafe.safe_provide` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `allocate_entry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `confirmed_missing` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_entry` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `player_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `same_draw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `virtual_to_screen` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`has_asset`, `provide_asset_for_player`, `player_erase_sprite`, `player_dealloc_sprite`, `player_alloc_sprite`, `player_draw_sprite`, `on`
 
-- Approximate source size: 164 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

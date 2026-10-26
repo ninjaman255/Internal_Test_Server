@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/dialogue/constants.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/dialogue/constants.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,20 +11,27 @@ scripts/net-games/dialogue/constants.lua
 ## Module location
 
 - **Source:** `net-games/dialogue/constants.lua`
-- **Relative reference:** `script-reference/net-games/dialogue/constants.lua.md`
+- **Reference:** `script-reference/net-games/dialogue/constants.lua.md`
+- **Source SHA-256 prefix:** `6c0ee9d1d4af`
 
-## Uppercase constants
+## Source header notes
 
-`AUTO_ADVANCE`, `AUTO_ADVANCE_OR_CONFIRM`, `DIALOGUE_OWNS_INPUT`, `INPUT`, `OVERLAY_ONLY`, `TIMER`, `WAIT_FOR_CONFIRM`
+- scripts/net-games/dialogue/constants.lua
 
-## Source notes
+## Selected uppercase constants
 
-- Approximate source size: 21 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Name | Source expression |
+|---|---|
+| `INPUT` | `"input",  -- BN style: wait for confirm` |
+| `TIMER` | `"timer",  -- legacy/auto: delay then advance` |
+| `WAIT_FOR_CONFIRM` | `"wait_for_confirm",` |
+| `AUTO_ADVANCE` | `"auto_advance",` |
+| `AUTO_ADVANCE_OR_CONFIRM` | `"auto_advance_or_confirm",` |
+| `DIALOGUE_OWNS_INPUT` | `"dialogue_owns_input",` |
+| `OVERLAY_ONLY` | `"overlay_only",` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

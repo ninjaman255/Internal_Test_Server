@@ -63,3 +63,10 @@
 - [Documentation index](../index.md)
 - [Scripts tree reference](../scripts-tree.md)
 - [Assets and file paths](../assets-and-file-paths.md)
+
+## Shared Encounter Definition Lookup
+
+- `ezencounters.get_encounter_by_name(name)` returns the registered named encounter definition, or `nil` when the name is not registered.
+- `ezencounters.resolve_encounter(reference)` resolves a registered encounter name first. If no name matches, a non-empty reference is treated as a direct encounter package path and returned as `{ path = reference }`.
+- These lookup functions let systems with custom session wrappers reuse the canonical `encounters/<base-area-id>.lua` definitions while retaining their own battle result processing. The returned definition includes the configured `path`, `enemies`, `positions`, `tiles`, `teams`, and any other definition fields.
+- `ezencounters.begin_encounter_by_name` remains the full standard encounter lifecycle API. Custom systems that must pass additional session-specific data may resolve the definition and call their existing session wrapper with `definition.path` and a merged data table instead.

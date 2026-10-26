@@ -1,4 +1,7 @@
 -- ability.lua
+local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
+local log = ezlogger.get("nebulous-liberations")
+
 local PanelEncounters = require("scripts/ezlibs-custom/nebulous-liberations/liberations/panel_encounters")
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
@@ -23,13 +26,67 @@ local function panel_search(instance, player_session, results, remove_traps, des
 end
 
 local function initiate_encounter(instance, player_session)
-    local data = { terrain = PanelEncounters.resolve_terrain(instance, player_session.player) }
-    local encounter_path = PanelEncounters[instance.area_name]
-    return player_session:initiate_encounter(encounter_path, data)
+    -- Ability-triggered encounters resolve from the base area's configured
+    -- Liberation Encounters value via ezencounters, same as enemy encounters.
+    local encounter_definition = PanelEncounters.resolve_encounter(instance.base_area_id)
+    local ability_name = player_session.ability and player_session.ability.name
+    if not encounter_definition or not encounter_definition.path then
+        log:error_data("No encounter definition for ability", {
+            base_area_id = instance.base_area_id,
+            instance_area_id = instance.area_id,
+            area_name = instance.area_name,
+            player_id = player_session.player.id,
+            ability = ability_name,
+        })
+        return Async.create_promise(function(resolve)
+            resolve({
+                success = false,
+                enemies = {},
+                turns = 0,
+                ran = true,
+                health = player_session.health,
+                emotion = 0,
+                score = 0,
+            })
+        end)
+    end
+    local encounter_data = {}
+    for key, value in pairs(encounter_definition) do
+        if key ~= "path" and key ~= "weight" then
+            encounter_data[key] = value
+        end
+    end
+    encounter_data.terrain = PanelEncounters.resolve_terrain(instance, player_session.player)
+
+    log:info_data("Initiating ability encounter", {
+        base_area_id = instance.base_area_id,
+        instance_area_id = instance.area_id,
+        area_name = instance.area_name,
+        player_id = player_session.player.id,
+        ability = ability_name,
+        encounter_path = encounter_definition.path,
+        terrain = encounter_data.terrain,
+        phase = instance.phase,
+    })
+
+    return player_session:initiate_encounter(encounter_definition.path, encounter_data)
 end
 
 local function battle_to_liberate_and_loot(instance, player_session, r, remove_traps, destroy_items)
     initiate_encounter(instance, player_session).and_then(function(results)
+        log:info_data("Ability encounter results", {
+            base_area_id = instance.base_area_id,
+            instance_area_id = instance.area_id,
+            player_id = player_session.player.id,
+            ability = player_session.ability and player_session.ability.name,
+            success = results.success,
+            turns = results.turns,
+            ran = tostring(results.ran),
+            reason = tostring(results.reason),
+            escape = tostring(results.escape),
+            fled = tostring(results.fled),
+            health = results.health,
+        })
         if results.success then
             liberate_and_loot(instance, player_session, results, remove_traps, destroy_items)
         else

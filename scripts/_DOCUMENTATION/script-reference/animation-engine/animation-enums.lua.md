@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `animation-engine/animation-enums.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `animation-engine/animation-enums.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,20 +11,50 @@ animation-enums.lua (enhanced)
 ## Module location
 
 - **Source:** `animation-engine/animation-enums.lua`
-- **Relative reference:** `script-reference/animation-engine/animation-enums.lua.md`
+- **Reference:** `script-reference/animation-engine/animation-enums.lua.md`
+- **Source SHA-256 prefix:** `c44fc79c89f2`
 
-## Uppercase constants
+## Source header notes
 
-`ALPHA`, `ATTACK`, `BOB`, `COLOR_A`, `COLOR_B`, `COLOR_G`, `COLOR_PULSE`, `COLOR_R`, `DOWN`, `FADE`, `LEFT`, `ON_CLICK`, `ON_COMPLETE`, `ON_HIDE`, `ON_HOVER`, `ON_SHOW`, `ON_START`, `OUT`, `POSITION_CHANGE`, `POSITION_X`, `POSITION_Y`, `PULSE`, `RIGHT`, `ROTATION`, `SCALE`, `SCALE_X`, `SCALE_Y`, `SERIES`, `SET`, `SHAKE`, `SLIDE`, `SUMMON`, `TINT`
+- animation-enums.lua (enhanced)
 
-## Source notes
+## Selected uppercase constants
 
-- Approximate source size: 80 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Name | Source expression |
+|---|---|
+| `SUMMON` | `"summon",` |
+| `SET` | `"set",` |
+| `POSITION_CHANGE` | `"position_change",` |
+| `ATTACK` | `"attack",` |
+| `SLIDE` | `"slide",` |
+| `BOB` | `"bob",` |
+| `PULSE` | `"pulse",` |
+| `SHAKE` | `"shake",` |
+| `FADE` | `"fade",` |
+| `TINT` | `"tint",` |
+| `COLOR_PULSE` | `"color_pulse",` |
+| `SERIES` | `"series"` |
+| `POSITION_X` | `"x",` |
+| `POSITION_Y` | `"y",` |
+| `SCALE` | `"scale",` |
+| `SCALE_X` | `"scaleX",` |
+| `SCALE_Y` | `"scaleY",` |
+| `ROTATION` | `"rotation",` |
+| `ALPHA` | `"alpha",` |
+| `COLOR_R` | `"r",` |
+| `COLOR_G` | `"g",` |
+| `COLOR_B` | `"b",` |
+| `COLOR_A` | `"a"` |
+| `DOWN` | `"down",` |
+| `LEFT` | `"left",` |
+| `RIGHT` | `"right",` |
+| `OUT` | `"out"` |
+| `ON_CLICK` | `"on_click",` |
+| `ON_HOVER` | `"on_hover",` |
+| `ON_SHOW` | `"on_show",` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

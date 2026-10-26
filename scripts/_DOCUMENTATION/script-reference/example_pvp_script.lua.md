@@ -2,37 +2,42 @@
 
 > **Source reference**
 >
-> Generated from `example_pvp_script.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `example_pvp_script.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Example pvp script source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `example_pvp_script.lua`
-- **Relative reference:** `script-reference/example_pvp_script.lua.md`
+- **Reference:** `script-reference/example_pvp_script.lua.md`
+- **Source SHA-256 prefix:** `ad40c6d18b01`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
-|---|---|
-| `scripts/persistence/logger` | Import string found in source; runtime resolution depends on the server package layout. |
+| Import path |
+|---|
+| `scripts/persistence/logger` |
 
-## Net event subscriptions
+## `Net:on` subscriptions
 
-| Event | Evidence |
-|---|---|
-| `actor_interaction` | `Net:on(...)` subscription found in source. |
-| `player_connect` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `textbox_response` | `Net:on(...)` subscription found in source. |
-| `tile_interaction` | `Net:on(...)` subscription found in source. |
+| Event |
+|---|
+| `player_connect` |
+| `tile_interaction` |
+| `player_disconnect` |
+| `actor_interaction` |
+| `textbox_response` |
 
-## Source notes
+## Engine `Net` calls
 
-- Approximate source size: 105 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Related documentation
+`on`, `animate_player`, `get_player_mugshot`, `question_player`, `initiate_pvp`, `exclusive_player_emote`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/dialogue/dialogue.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/dialogue/dialogue.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,60 +11,83 @@ scripts/net-games/dialogue/dialogue.lua Hardened net-games dialogue lifecycle. K
 ## Module location
 
 - **Source:** `net-games/dialogue/dialogue.lua`
-- **Relative reference:** `script-reference/net-games/dialogue/dialogue.lua.md`
+- **Reference:** `script-reference/net-games/dialogue/dialogue.lua.md`
+- **Source SHA-256 prefix:** `6489da0b4308`
+
+## Source header notes
+
+- scripts/net-games/dialogue/dialogue.lua
+- Hardened net-games dialogue lifecycle.
+- Keeps the creator-side Displayer architecture while preserving production
+- behavior learned from shadis_hp: held-input handoff protection, real visual
+- teardown before unlock/on_complete, BN-style A/B behavior, and textbox reuse.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/main` |
+| `scripts/displayer/displayer` |
+| `scripts/displayer/text-display` |
+| `scripts/input/input` |
+| `scripts/net-games/dialogue/constants` |
+| `scripts/net-games/dialogue/prompt` |
+| `scripts/net-games/dialogue/prompt_vertical` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/displayer` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-display` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input/input` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/constants` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/prompt` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/dialogue/prompt_vertical` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/main` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ensure_backdrop_sprite` | `player_id` |
+| `draw_backdrop` | `player_id, backdrop, z` |
+| `erase_backdrop` | `player_id` |
+| `set_input_locked` | `player_id, locked` |
+| `ensure_listener` | `` |
+| `default_opts` | `` |
+| `merge` | `a, b` |
+| `mk_box_id` | `player_id, ui` |
+| `gate_handoff_input` | `player_id, seconds` |
+| `close_instance` | `player_id, reason` |
+| `finish_instance` | `player_id, inst` |
+| `attach_tick` | `` |
+| `Dialogue.is_active` | `player_id` |
+| `Dialogue.prompt_yesno` | `player_id, opts` |
+| `Dialogue.prompt_menu` | `player_id, opts` |
+| `Dialogue.start` | `player_id, script, opts` |
+| `Dialogue.close` | `player_id` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`has_asset`, `provide_asset_for_player`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `lock_player_input`, `unlock_player_input`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+| `LISTENER_ATTACHED` | `false` |
+| `BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
+| `LISTENER_ATTACHED` | `true` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `Dialogue.close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Dialogue.is_active` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Dialogue.prompt_menu` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Dialogue.prompt_yesno` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Dialogue.start` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `attach_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `close_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `default_opts` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_backdrop_sprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_listener` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `finish_instance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `gate_handoff_input` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `merge` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `mk_box_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_input_locked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Uppercase constants
+| Path |
+|---|
+| `/server/assets/net-games/displayer/empty_white.png` |
 
-`LISTENER_ATTACHED`
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 330 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

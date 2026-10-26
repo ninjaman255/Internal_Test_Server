@@ -2,39 +2,62 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/enemies/shademan.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/enemies/shademan.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Shademan source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/enemies/shademan.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemies/shademan.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemies/shademan.lua.md`
+- **Source SHA-256 prefix:** `fa98eeb7b60e`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader` |
+| `scripts/libs/direction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ShadeMan:new` | `instance, position, direction` |
+| `ShadeMan:spawn` | `direction` |
+| `ShadeMan:get_death_message` | `` |
+| `ShadeMan:take_turn` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `ShadeMan:get_death_message` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ShadeMan:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ShadeMan:spawn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ShadeMan:take_turn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`create_bot`, `set_bot_minimap_color`
 
-- Approximate source size: 105 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`await`, `sleep`, `message_player`, `promisify`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/mugs/shademan.png` |
+| `/server/assets/NebuLibsAssets/mugs/shademan.animation` |
+| `/server/assets/ezlibs-assets/ezencounters/Shademan.zip` |
+| `/server/assets/NebuLibsAssets/bots/shademan.png` |
+| `/server/assets/NebuLibsAssets/bots/shademan.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

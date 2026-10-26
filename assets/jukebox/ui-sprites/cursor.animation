@@ -1,0 +1,11 @@
+animation state="UP"
+frame duration="0.0833333" x="0" y="0" w="14" h="14" originx="0" originy="0"  
+
+animation state="DOWN"
+frame duration="0.0833333" x="0" y="0" w="14" h="14" originx="0" originy="0" flipy="1"
+
+animation state="RIGHT"
+frame duration="0.0833333" x="14" y="0" w="14" h="14" originx="0" originy="0"
+
+animation state="LEFT"
+frame duration="0.0833333" x="14" y="0" w="14" h="14" originx="0" originy="0" flipx="1"

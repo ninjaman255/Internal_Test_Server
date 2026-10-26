@@ -1,0 +1,11 @@
+!frame_rate 60
+!image_path "C:\Users\aaron\Documents\Code\Internal_Test_Server\assets\net-games\meters\liberation-order-points\points-3slice.png"
+
+anim LEFT
+frame dur=5f x=0 y=0 w=1 h=8 originx=0 originy=0
+
+anim CENTER
+frame dur=5f x=1 y=0 w=2 h=8 originx=0 originy=0
+
+anim RIGHT
+frame dur=5f x=3 y=0 w=1 h=8 originx=0 originy=0

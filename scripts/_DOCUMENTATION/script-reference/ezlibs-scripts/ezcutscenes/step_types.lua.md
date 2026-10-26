@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezcutscenes/step_types.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezcutscenes/step_types.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,44 +11,60 @@ ezcutscenes/step_types.lua Step implementations. Each handler is function(contex
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezcutscenes/step_types.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezcutscenes/step_types.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezcutscenes/step_types.lua.md`
+- **Source SHA-256 prefix:** `cf649395ee23`
+
+## Source header notes
+
+- ezcutscenes/step_types.lua
+- Step implementations. Each handler is
+- function(context, props, step_object) -> async<result>
+- where step_object is the resolved Cutscene Step object in Tiled. The
+- runner awaits the returned promise, inspects `result`, and chooses the
+- next step from the step's `Next Step` / `Next N` / `Fail Next` properties.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/eznpcs/eznpcs` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/utils/eztiledutils` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eznpcs/eznpcs` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/utils/eztiledutils` | Import string found in source; runtime resolution depends on the server package layout. |
+| `resolve_actor_bot` | `context, actor_ref` |
+| `resolve_point` | `context, target_ref` |
+| `resolve_target` | `context, props, step_object` |
+| `resolve_speaker_mugshot` | `context, props` |
+| `StepTypes.wait` | `context, props` |
+| `StepTypes.move_actor` | `context, props, step_object` |
+| `StepTypes.set_pose` | `context, props` |
+| `StepTypes.show_message` | `context, props` |
+| `StepTypes.ask_quiz` | `context, props` |
+| `StepTypes.prompt_player` | `context, props` |
+| `StepTypes.play_sound` | `context, props` |
+| `StepTypes.fade_camera` | `context, props` |
+| `StepTypes.move_camera` | `context, props, step_object` |
+| `StepTypes.emit_event` | `context, props` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `StepTypes.ask_quiz` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.emit_event` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.fade_camera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.move_actor` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.move_camera` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.play_sound` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.prompt_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.set_pose` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.show_message` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `StepTypes.wait` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_actor_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_point` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_speaker_mugshot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_target` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`play_sound_for_player`, `fade_player_camera`, `move_player_camera`
 
-- Approximate source size: 322 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`quiz_player`, `question_player`, `prompt_player`, `message_player`, `sleep`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

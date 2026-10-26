@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/utilities/lockable-table.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/utilities/lockable-table.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,56 +11,57 @@ lockable_table.lua
 ## Module location
 
 - **Source:** `net-games/utilities/lockable-table.lua`
-- **Relative reference:** `script-reference/net-games/utilities/lockable-table.lua.md`
+- **Reference:** `script-reference/net-games/utilities/lockable-table.lua.md`
+- **Source SHA-256 prefix:** `8696b797cd35`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- lockable_table.lua
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `LockableTable.isLockable` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LockableTable.new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `LockableTable.wrap` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__index` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__len` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__newindex` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__pairs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `can_modify` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_lockable_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `is_lockable` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:add` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:addMany` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:canAdd` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:canRemove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:clear` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:getLockedKeys` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:getLockedValues` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:getRaw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:isFullyLocked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:isKeyLocked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:isValueLocked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:keys` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:lockAll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:lockKey` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:lockValue` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:remove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:removeMany` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:replace` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:setRaw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:size` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:unlockAll` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:unlockKey` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:unlockValue` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `methods:values` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `is_lockable` | `t` |
+| `create_lockable_table` | `t` |
+| `can_modify` | `key, new_value` |
+| `methods:add` | `key, value, recursive` |
+| `methods:remove` | `key, recursive` |
+| `methods:addMany` | `pairs, recursive` |
+| `methods:removeMany` | `keys, recursive` |
+| `methods:canAdd` | `key` |
+| `methods:canRemove` | `key` |
+| `methods:update` | `key, value, recursive` |
+| `methods:replace` | `new_data, recursive` |
+| `methods:clear` | `recursive` |
+| `methods:getRaw` | `key` |
+| `methods:setRaw` | `key, value` |
+| `methods:lockKey` | `key, recursive` |
+| `methods:unlockKey` | `key, recursive` |
+| `methods:lockValue` | `value, recursive` |
+| `methods:unlockValue` | `value, recursive` |
+| `methods:lockAll` | `recursive` |
+| `methods:unlockAll` | `recursive` |
+| `methods:isKeyLocked` | `key` |
+| `methods:isValueLocked` | `value` |
+| `methods:isFullyLocked` | `` |
+| `methods:getLockedKeys` | `` |
+| `methods:getLockedValues` | `` |
+| `methods:size` | `` |
+| `methods:keys` | `` |
+| `methods:values` | `` |
+| `LockableTable.new` | `t` |
+| `LockableTable.isLockable` | `t` |
+| `LockableTable.wrap` | `t` |
+| `__index` | `tbl, key` |
+| `__newindex` | `tbl, key, value` |
+| `__pairs` | `` |
+| `__len` | `` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 352 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

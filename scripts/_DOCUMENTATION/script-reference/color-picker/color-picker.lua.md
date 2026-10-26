@@ -2,28 +2,29 @@
 
 > **Source reference**
 >
-> Generated from `color-picker/color-picker.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `color-picker/color-picker.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Color picker source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `color-picker/color-picker.lua`
-- **Relative reference:** `script-reference/color-picker/color-picker.lua.md`
+- **Reference:** `script-reference/color-picker/color-picker.lua.md`
+- **Source SHA-256 prefix:** `1fee33096ab1`
 
-## Functions defined in this file
+## Function declarations
 
-| Function | Notes |
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `ColorPicker:getRandom` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ColorPicker:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `ColorPicker:getRandom` | `which` |
+| `ColorPicker:new` | `` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 77 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

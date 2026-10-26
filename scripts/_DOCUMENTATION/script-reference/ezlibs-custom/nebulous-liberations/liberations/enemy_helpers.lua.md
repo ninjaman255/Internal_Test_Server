@@ -2,43 +2,63 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/enemy_helpers.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/enemy_helpers.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Enemy helpers source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/enemy_helpers.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers.lua.md`
+- **Source SHA-256 prefix:** `94551bc7fab6`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/utils/recover_effect` |
+| `scripts/libs/direction` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/utils/recover_effect` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
+| `EnemyHelpers.play_attack_animation` | `enemy` |
+| `EnemyHelpers.update_name` | `enemy` |
+| `EnemyHelpers.heal` | `enemy, amount` |
+| `EnemyHelpers.face_position` | `enemy, x, y` |
+| `EnemyHelpers.can_move_to` | `instance, x, y, z` |
+| `EnemyHelpers.move` | `instance, enemy, x, y, z, direction` |
+| `EnemyHelpers.offset_position_with_direction` | `position, direction` |
+| `EnemyHelpers.chebyshev_tile_distance` | `enemy, x, y` |
+| `EnemyHelpers.find_closest_player_session` | `instance, enemy` |
+| `EnemyHelpers.sync_health` | `enemy, results` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `EnemyHelpers.can_move_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.chebyshev_tile_distance` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.face_position` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.find_closest_player_session` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.heal` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.move` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.offset_position_with_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.play_attack_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.sync_health` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyHelpers.update_name` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`get_bot_direction`, `animate_bot`, `set_bot_name`, `set_bot_direction`, `slide_player_camera`, `get_bot_area`, `create_bot`, `get_width`, `transfer_bot`, `remove_bot`
 
-- Approximate source size: 198 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`create_promise`, `await`, `sleep`, `promisify`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/bots/blur.png` |
+| `/server/assets/NebuLibsAssets/bots/blur.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

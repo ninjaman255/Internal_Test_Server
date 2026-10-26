@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/dialogue/prompt.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/dialogue/prompt.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,59 +11,89 @@ scripts/net-games/dialogue/prompt.lua Hardened YES/NO prompt using the public Te
 ## Module location
 
 - **Source:** `net-games/dialogue/prompt.lua`
-- **Relative reference:** `script-reference/net-games/dialogue/prompt.lua.md`
+- **Reference:** `script-reference/net-games/dialogue/prompt.lua.md`
+- **Source SHA-256 prefix:** `28ab08eb068a`
+
+## Source header notes
+
+- scripts/net-games/dialogue/prompt.lua
+- Hardened YES/NO prompt using the public TextLayout service.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/displayer` |
+| `scripts/displayer/text-layout` |
+| `scripts/displayer/text-display` |
+| `scripts/input/input` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/displayer` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-display` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-layout` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input/input` | Import string found in source; runtime resolution depends on the server package layout. |
+| `has_asset` | `path` |
+| `safe_provide` | `player_id, path` |
+| `play_cursor_move_sfx` | `player_id` |
+| `ensure_backdrop_asset` | `player_id` |
+| `draw_backdrop` | `player_id, backdrop, z` |
+| `erase_backdrop` | `player_id` |
+| `ensure_cursor_asset` | `player_id` |
+| `selector_draw` | `player_id, draw_id, virtual_x, virtual_y, z, scale` |
+| `selector_erase` | `player_id, draw_id` |
+| `normalize_ui` | `ui` |
+| `build_prompt_text` | `question, ui` |
+| `options_visible` | `player_id, box_id` |
+| `find_option_virtual_positions` | `player_id, box_id, selection` |
+| `set_input_locked` | `player_id, locked` |
+| `mk_id` | `player_id` |
+| `PromptInstance:new` | `player_id, opts` |
+| `PromptInstance:render_initial` | `` |
+| `PromptInstance:render_cursor` | `` |
+| `PromptInstance:update` | `dt` |
+| `ensure_tick` | `` |
+| `Prompt.yesno` | `player_id, opts` |
+| `Prompt.close` | `player_id, _reason, opts` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`has_asset`, `provide_asset_for_player`, `play_sound_for_player`, `play_sound`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `lock_player_input`, `unlock_player_input`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `CURSOR_TEXTURE` | `"/server/assets/net-games/cursors/text_cursor.png"` |
+| `CURSOR_ANIM` | `"/server/assets/net-games/cursors/text_cursor.animation"` |
+| `CURSOR_MOVE_SFX_PATH` | `"/server/assets/net-games/sfx/cursor_move.ogg"` |
+| `BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
+| `OPTIONS_INDENT` | `"       "` |
+| `OPTIONS_TEXT` | `OPTIONS_INDENT .. "Yes    No"` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `Prompt.close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Prompt.yesno` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptInstance:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptInstance:render_cursor` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptInstance:render_initial` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptInstance:update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `build_prompt_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_backdrop_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_cursor_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `find_option_virtual_positions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `has_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `mk_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `options_visible` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `play_cursor_move_sfx` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `safe_provide` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `selector_draw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `selector_erase` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_input_locked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/net-games/cursors/text_cursor.png` |
+| `/server/assets/net-games/cursors/text_cursor.animation` |
+| `/server/assets/net-games/sfx/cursor_move.ogg` |
+| `/server/assets/net-games/displayer/empty_white.png` |
 
-- Approximate source size: 410 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

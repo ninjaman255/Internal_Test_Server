@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/dialogue/prompt_vertical.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/dialogue/prompt_vertical.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,83 +11,132 @@ scripts/net-games/dialogue/prompt_vertical.lua Vertical menu prompt helper for n
 ## Module location
 
 - **Source:** `net-games/dialogue/prompt_vertical.lua`
-- **Relative reference:** `script-reference/net-games/dialogue/prompt_vertical.lua.md`
+- **Reference:** `script-reference/net-games/dialogue/prompt_vertical.lua.md`
+- **Source SHA-256 prefix:** `3bfe625d59e0`
+
+## Source header notes
+
+- scripts/net-games/dialogue/prompt_vertical.lua
+- Vertical menu prompt helper for net-games Dialogue (adapted to new displayer)
+- NOTE: This version preserves the original logic but marks areas where the new
+- displayer no longer exposes internal fields (pages, current_page, backdrop indicator).
+- These parts will need to be reimplemented using the available APIs.
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/displayer` |
+| `scripts/input/input` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/displayer/displayer` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/input/input` | Import string found in source; runtime resolution depends on the server package layout. |
+| `mdbg` | `pid, msg` |
+| `merge_assets` | `overrides` |
+| `play_cursor_move_sfx` | `player_id` |
+| `ensure_backdrop_sprite` | `player_id` |
+| `draw_backdrop` | `player_id, backdrop, z` |
+| `erase_backdrop` | `player_id` |
+| `get_text_width` | `text, font, scale` |
+| `draw_text` | `inst, text, x, y, font, scale, z, id, tint` |
+| `erase_text` | `inst, id` |
+| `ensure_listener` | `` |
+| `set_input_locked` | `player_id, locked` |
+| `mk_id` | `player_id` |
+| `clamp` | `v, a, b` |
+| `ensure_tick` | `` |
+| `provide_ui_assets` | `player_id, assets` |
+| `alloc_ui_sprites` | `inst` |
+| `draw_sprite` | `inst, sprite_id, draw_id, x, y, z, s, anim_state` |
+| `draw_sprite_xy` | `inst, sprite_id, draw_id, x, y, z, sx, sy, anim_state` |
+| `draw_menu_frame_overlay` | `inst, draw_id, x, y, z, s, anim_state, frame_cfg` |
+| `erase_sprite` | `player_id, draw_id` |
+| `normalize_ui` | `ui` |
+| `normalize_layout` | `layout` |
+| `PromptMenuInstance:new` | `player_id, opts` |
+| `PromptMenuInstance:render_textbox` | `` |
+| `PromptMenuInstance:menu_origin` | `` |
+| `PromptMenuInstance:start_close` | `reason, keep_textbox` |
+| `PromptMenuInstance:render_menu_window` | `` |
+| `PromptMenuInstance:clear_menu_text` | `` |
+| `PromptMenuInstance:update_scroll_for_selection` | `force` |
+| `set_textbox_indicator_enabled` | `player_id, box_id, enabled` |
+| `PromptMenuInstance:menu_overlays_visible` | `` |
+| `PromptMenuInstance:set_locked` | `locked` |
+| `PromptMenuInstance:update_cursor_bob` | `dt` |
+| `ease_out_quad` | `x` |
+| `PromptMenuInstance:render_menu_contents` | `force` |
+| `PromptMenuInstance:start_text_intro` | `` |
+| `PromptMenuInstance:become_ready` | `` |
+| `PromptMenuInstance:select_current` | `` |
+| `PromptMenuInstance:do_cancel` | `` |
+| `PromptMenuInstance:restart_shop_item_intro` | `` |
+| `PromptMenuInstance:update` | `_dt` |
+| `PromptVertical.menu` | `player_id, opts` |
+| `PromptVertical._finalize_close` | `player_id, _reason, opts` |
+| `PromptVertical.close` | `player_id, _reason, opts` |
+| `self._post_close_cb` | `` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`provide_asset_for_player`, `play_sound_for_player`, `play_sound`, `player_alloc_sprite`, `player_draw_sprite`, `player_erase_sprite`, `lock_player_input`, `unlock_player_input`, `on`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+| `MENUDBG` | `true` |
+| `DEFAULT_ASSET` | `{` |
+| `MENU_W` | `238` |
+| `MENU_H` | `95` |
+| `CURSOR_MOVE_SFX_PATH` | `"/server/assets/net-games/sfx/cursor_move.ogg"` |
+| `BACKDROP_TEXTURE` | `"/server/assets/net-games/displayer/empty_white.png"` |
+| `LISTENER_ATTACHED` | `false` |
+| `LISTENER_ATTACHED` | `true` |
+| `STATE` | `{` |
+| `TEXT` | `"text",` |
+| `MENU` | `"menu",` |
+| `SUBPROMPT` | `"subprompt",` |
+| `CLOSING` | `"closing",` |
+| `MENU_BG` | `"pv_" .. base .. "_spr_menu_bg",` |
+| `MENU_FRAME` | `"pv_" .. base .. "_spr_menu_frame",` |
+| `HILITE` | `"pv_" .. base .. "_spr_hilite",` |
+| `CURSOR` | `"pv_" .. base .. "_spr_cursor",` |
+| `SCROLL` | `"pv_" .. base .. "_spr_scroll",` |
+| `SHOP_ITEM` | `"pv_" .. base .. "_spr_shop_item",` |
+| `SHOP_EXIT` | `"pv_" .. base .. "_spr_shop_exit",` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `PromptMenuInstance:become_ready` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:clear_menu_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:do_cancel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:menu_origin` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:menu_overlays_visible` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:render_menu_contents` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:render_menu_window` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:render_textbox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:restart_shop_item_intro` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:select_current` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:set_locked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:start_close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:start_text_intro` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:update_cursor_bob` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptMenuInstance:update_scroll_for_selection` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptVertical._finalize_close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptVertical.close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `PromptVertical.menu` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `alloc_ui_sprites` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `clamp` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_menu_frame_overlay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_sprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_sprite_xy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `draw_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ease_out_quad` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_backdrop_sprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_listener` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_sprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `erase_text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_text_width` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `mdbg` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `merge_assets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `mk_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_layout` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalize_ui` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `play_cursor_move_sfx` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `provide_ui_assets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `self._post_close_cb` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_input_locked` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `set_textbox_indicator_enabled` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Uppercase constants
+| Path |
+|---|
+| `/server/assets/net-games/ui/prompt_vert_menu_an.png` |
+| `/server/assets/net-games/ui/prompt_vert_menu_an.animation` |
+| `/server/assets/net-games/ui/prompt_vert_menu_an_frame.png` |
+| `/server/assets/net-games/ui/highlight_default.png` |
+| `/server/assets/net-games/cursors/green_cursor.png` |
+| `/server/assets/net-games/ui/scrollbar.png` |
+| `/server/assets/net-games/ui/card_shop_item.png` |
+| `/server/assets/net-games/ui/card_shop_exit.png` |
+| `/server/assets/net-games/sfx/cursor_move.ogg` |
+| `/server/assets/net-games/displayer/empty_white.png` |
 
-`CLOSING`, `CURSOR`, `HILITE`, `LISTENER_ATTACHED`, `MENU`, `MENU_BG`, `MENU_FRAME`, `SCROLL`, `SHOP_EXIT`, `SHOP_ITEM`, `SUBPROMPT`, `TEXT`
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 1200 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `HP_Manager/warp_manage.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `HP_Manager/warp_manage.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,42 +11,53 @@
 ## Module location
 
 - **Source:** `HP_Manager/warp_manage.lua`
-- **Relative reference:** `script-reference/HP_Manager/warp_manage.lua.md`
+- **Reference:** `script-reference/HP_Manager/warp_manage.lua.md`
+- **Source SHA-256 prefix:** `91541a51a6ed`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/HP_Manager/constants/constants` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `post_selection` |
+| `board_close` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/HP_Manager/constants/constants` | Import string found in source; runtime resolution depends on the server package layout. |
+| `load_warp_data` | `` |
+| `save_warp_data` | `` |
+| `async` | `func` |
+| `await` | `promise` |
+| `find_warp_controllers` | `area_id` |
+| `apply_saved_warps` | `area_id` |
+| `WarpManage.open` | `player_id, return_to_hp` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `board_close` | `Net:on(...)` subscription found in source. |
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `post_selection` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`list_objects`, `get_object_by_id`, `set_object_custom_property`, `get_player_area`, `open_board`, `on`, `close_bbs`, `list_areas`
 
-| Function | Notes |
-|---|---|
-| `WarpManage.open` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `apply_saved_warps` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `await` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `find_warp_controllers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `load_warp_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `save_warp_data` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Engine `Async` calls
 
-## Source notes
+`promisify`, `await`, `prompt_player`, `message_player`, `sleep`
 
-- Approximate source size: 416 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

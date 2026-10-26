@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezrushroads.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezrushroads.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,60 +11,89 @@ ezrushroads.lua Rush Roads minigame integrated with ezlibs Uses eztriggers for t
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezrushroads.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezrushroads.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezrushroads.lua.md`
+- **Source SHA-256 prefix:** `87468ce9d3f2`
+
+## Source header notes
+
+- ezrushroads.lua
+- Rush Roads minigame integrated with ezlibs
+- Uses eztriggers for tile detection and ezmemory for persistence
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/helpers` |
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/ezlibs-scripts/eztriggers/eztriggers` |
+| `scripts/ezlibs-scripts/ezbus` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/eztriggers/eztriggers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/helpers` | Import string found in source; runtime resolution depends on the server package layout. |
+| `get_table_length` | `tbl` |
+| `get_anim_state_from_direction` | `direction` |
+| `get_food_item_id` | `player_id` |
+| `get_player_rush_memory` | `player_id` |
+| `update_food_item` | `player_id, count` |
+| `ezrushroads.get_food` | `player_id` |
+| `ezrushroads.add_food` | `player_id, amount` |
+| `ezrushroads.remove_food` | `player_id, amount` |
+| `group_rush_roads_in_area` | `area_id` |
+| `dfs` | `start_id, group_id` |
+| `create_permanent_bot` | `area_id, road_id, linked_obj, direction` |
+| `process_rush_road` | `area_id, object` |
+| `ezrushroads.init` | `` |
+| `update_visibility_for_player` | `player_id, area_id` |
+| `create_temp_bots_for_player` | `player_id` |
+| `remove_temp_bots_for_player` | `player_id` |
+| `clear_active_animation` | `player_id` |
+| `ezrushroads.handle_player_join` | `player_id` |
+| `ezrushroads.handle_player_disconnect` | `player_id` |
+| `ezrushroads.handle_player_transfer` | `player_id` |
+| `ezrushroads.handle_object_interaction` | `player_id, object_id` |
 
-## Event-bus event names
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`remove_player_item`, `create_item`, `give_player_item`, `create_bot`, `get_object_by_id`, `list_areas`, `list_objects`, `exclude_object_for_player`, `include_object_for_player`, `include_actor_for_player`, `exclude_actor_for_player`, `remove_bot`, `move_bot`, `get_player_name`, `get_player_area`, `message_player`, `lock_player_input`, `unlock_player_input`, `animate_bot_properties`
+
+## Engine `Async` calls
+
+`promisify`, `await`, `question_player`, `sleep`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `rush_tile_departed` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
-| `rush_tile_entered` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+| `OFFMAP_X` | `-1000` |
+| `OFFMAP_Y` | `-1000` |
+| `FED_RUSH_TEXTURE` | `"/server/assets/ezlibs-assets/ezrushroads/fed_rush.png"` |
+| `RUSH_DL_ANIM` | `"/server/assets/ezlibs-assets/ezrushroads/rush_dl.anim"` |
+| `RUSH_DR_ANIM` | `"/server/assets/ezlibs-assets/ezrushroads/rush_dr.anim"` |
+| `BASE_FOOD_NAME` | `"Rush Food"` |
+| `BASE_FOOD_DESC` | `"You have %d Rush Food."` |
 
-## Functions defined in this file
+## Literal asset/path strings
 
-| Function | Notes |
-|---|---|
-| `async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `clear_active_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_permanent_bot` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `create_temp_bots_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `dfs` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.add_food` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.get_food` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.handle_object_interaction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.handle_player_disconnect` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.handle_player_join` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.handle_player_transfer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezrushroads.remove_food` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_anim_state_from_direction` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_food_item_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_player_rush_memory` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_table_length` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `group_rush_roads_in_area` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `process_rush_road` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_temp_bots_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_food_item` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `update_visibility_for_player` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/ezrushroads/rushy.png` |
+| `/server/assets/ezlibs-assets/ezrushroads/rushy.anim` |
+| `/server/assets/ezlibs-assets/ezrushroads/fed_rush.png` |
+| `/server/assets/ezlibs-assets/ezrushroads/rush_dl.anim` |
+| `/server/assets/ezlibs-assets/ezrushroads/rush_dr.anim` |
 
-- Approximate source size: 675 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

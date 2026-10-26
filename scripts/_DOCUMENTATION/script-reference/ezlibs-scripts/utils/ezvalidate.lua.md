@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/utils/ezvalidate.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/utils/ezvalidate.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,25 +11,27 @@ ezvalidate.lua Dependency-free validation helpers for Lua 5.2.
 ## Module location
 
 - **Source:** `ezlibs-scripts/utils/ezvalidate.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/utils/ezvalidate.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/utils/ezvalidate.lua.md`
+- **Source SHA-256 prefix:** `612295c86e05`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- ezvalidate.lua
+- Dependency-free validation helpers for Lua 5.2.
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `ezvalidate.is_type` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezvalidate.number_range` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezvalidate.required_fields` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezvalidate.table_field_types` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `ezvalidate.is_type` | `value, expected_type` |
+| `ezvalidate.number_range` | `value, minimum, maximum` |
+| `ezvalidate.required_fields` | `value, fields` |
+| `ezvalidate.table_field_types` | `value, expected` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 68 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

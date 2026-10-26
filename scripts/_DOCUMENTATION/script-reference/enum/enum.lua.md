@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `enum/enum.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `enum/enum.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,35 +11,40 @@ enum.lua A reusable Lua 5.2 module for creating enum-like tables. Supports custo
 ## Module location
 
 - **Source:** `enum/enum.lua`
-- **Relative reference:** `script-reference/enum/enum.lua.md`
+- **Reference:** `script-reference/enum/enum.lua.md`
+- **Source SHA-256 prefix:** `e3b1e7c9fb55`
 
-## Functions defined in this file
+## Source header notes
 
-| Function | Notes |
+- enum.lua
+- A reusable Lua 5.2 module for creating enum-like tables.
+- Supports custom key-value definitions, active value validation,
+- and copying for independent instances.
+- No external dependencies.
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `Enum.new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__index` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__newindex` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `__tostring` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `copy` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `getActive` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `getName` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `getValue` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `isValid` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `names` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `new` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `random` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `setActive` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `values` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `Enum.new` | `...` |
+| `getName` | `self, value` |
+| `getValue` | `self, key` |
+| `isValid` | `self, value` |
+| `names` | `self` |
+| `values` | `self` |
+| `getActive` | `self` |
+| `setActive` | `self, value` |
+| `random` | `self` |
+| `new` | `self` |
+| `copy` | `self` |
+| `__index` | `tbl, key` |
+| `__newindex` | `tbl, key, value` |
+| `__tostring` | `tbl` |
 
-## Source notes
+## Usage and maintenance notes
 
-- Approximate source size: 184 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

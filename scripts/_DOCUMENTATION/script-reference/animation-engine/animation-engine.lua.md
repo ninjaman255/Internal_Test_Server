@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `animation-engine/animation-engine.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `animation-engine/animation-engine.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,80 +11,89 @@ Reusable animation and interpolation engine. Hardened for server UI use: all tim
 ## Module location
 
 - **Source:** `animation-engine/animation-engine.lua`
-- **Relative reference:** `script-reference/animation-engine/animation-engine.lua.md`
+- **Reference:** `script-reference/animation-engine/animation-engine.lua.md`
+- **Source SHA-256 prefix:** `d841a22db32c`
+
+## Source header notes
+
+- Reusable animation and interpolation engine.
+- Hardened for server UI use: all timing is driven by Net tick delta_time.
+- No visible animation timing depends on os.clock().
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/animation-engine/animation-enums` |
+| `scripts/animation-engine/math-utils` |
+| `scripts/animation-engine/animation-sequences` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/animation-engine/animation-enums` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/animation-engine/animation-sequences` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/animation-engine/math-utils` | Import string found in source; runtime resolution depends on the server package layout. |
+| `now` | `` |
+| `copy_table` | `src` |
+| `log` | `message` |
+| `generate_animation_id` | `` |
+| `generate_sequence_id` | `` |
+| `remove_from_tag_sets` | `collection, id` |
+| `owner_tag` | `owner` |
+| `add_tag` | `collection, tag, id` |
+| `AnimationEngine.get_time` | `` |
+| `AnimationEngine.interpolate` | `start, target, t, easing, discrete` |
+| `normalized_loop` | `loop_value` |
+| `AnimationEngine.animate` | `start_values, target_values, duration, options` |
+| `complete_animation` | `id, anim, interrupted` |
+| `AnimationEngine.update` | `_dt` |
+| `AnimationEngine.stop_animation` | `id` |
+| `AnimationEngine.stop_animations_by_tag` | `tag` |
+| `AnimationEngine.tween` | `object, target_props, duration, options` |
+| `read_prop` | `key` |
+| `apply_prop` | `key, value` |
+| `resolve_sequence_value` | `seq, step_index, value` |
+| `AnimationEngine.create_sequence` | `steps, options` |
+| `AnimationEngine.start_sequence` | `id` |
+| `resolve_step_table` | `seq, step_index, source` |
+| `AnimationEngine._execute_sequence_step` | `seq_id` |
+| `done` | `` |
+| `AnimationEngine._sequence_step_complete` | `seq_id` |
+| `AnimationEngine.update_sequences` | `_dt` |
+| `AnimationEngine.stop_sequence` | `id` |
+| `AnimationEngine.stop_sequences_by_tag` | `tag` |
+| `AnimationEngine.animate_discrete_first` | `start_values, target_values, duration, options` |
+| `AnimationEngine.set_to` | `object, values` |
+| `AnimationEngine.delay` | `duration, callback` |
+| `AnimationEngine.cancel_delay` | `id` |
+| `AnimationEngine.update_callbacks` | `` |
+| `AnimationEngine.get_active_count` | `` |
+| `AnimationEngine.get_sequence_count` | `` |
+| `AnimationEngine.stop_by_owner` | `owner` |
+| `AnimationEngine.clear_all` | `` |
+| `AnimationEngine.tick` | `dt` |
+| `AnimationEngine.set_debug` | `enabled` |
+| `AnimationEngine.set_max_tick_dt` | `seconds` |
+| `AnimationEngine.set_interpolation_speeds` | `position, ro, color, scale` |
+| `AnimationEngine.add_easing_function` | `name, func` |
+| `on_update` | `values, t, phase` |
+| `on_complete` | `_, interrupted` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `tick` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`on`
 
-| Function | Notes |
-|---|---|
-| `AnimationEngine._execute_sequence_step` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine._sequence_step_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.add_easing_function` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.animate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.animate_discrete_first` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.cancel_delay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.clear_all` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.create_sequence` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.delay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.get_active_count` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.get_sequence_count` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.get_time` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.interpolate` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.set_debug` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.set_interpolation_speeds` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.set_max_tick_dt` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.set_to` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.start_sequence` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.stop_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.stop_animations_by_tag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.stop_by_owner` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.stop_sequence` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.stop_sequences_by_tag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.tick` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.tween` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.update_callbacks` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `AnimationEngine.update_sequences` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `add_tag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `apply_prop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `complete_animation` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `copy_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `done` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `generate_animation_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `generate_sequence_id` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `log` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `normalized_loop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `now` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_complete` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_update` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `owner_tag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `read_prop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `remove_from_tag_sets` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_sequence_value` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_step_table` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 647 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

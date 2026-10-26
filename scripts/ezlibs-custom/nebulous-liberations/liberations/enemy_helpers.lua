@@ -23,7 +23,7 @@ function EnemyHelpers.play_attack_animation(enemy)
 end
 
 function EnemyHelpers.update_name(enemy)
-  Net.set_bot_name(enemy.id, enemy.name .. ": " .. enemy.health)
+  Net.set_bot_name(enemy.id, enemy.battle_name .. ": " .. enemy.health)
 end
 
 function EnemyHelpers.heal(enemy, amount)

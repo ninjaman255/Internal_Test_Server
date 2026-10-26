@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `displayer/displayer.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `displayer/displayer.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,124 +11,150 @@
 ## Module location
 
 - **Source:** `displayer/displayer.lua`
-- **Relative reference:** `script-reference/displayer/displayer.lua.md`
+- **Reference:** `script-reference/displayer/displayer.lua.md`
+- **Source SHA-256 prefix:** `d16db7dbc470`
+
+## Source header notes
+
+- [[
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/displayer/font-system` |
+| `scripts/displayer/text-display` |
+| `scripts/displayer/timer-display` |
+| `scripts/displayer/nameplate` |
+| `scripts/displayer/scrolling-text-list` |
+| `scripts/displayer/scrolling-sprite-list` |
+| `scripts/displayer/timer-system` |
+| `scripts/displayer/sliced-sprite` |
+| `scripts/boom/main` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `player_join` |
+| `player_disconnect` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/boom/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/font-system` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/nameplate` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/scrolling-sprite-list` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/scrolling-text-list` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/sliced-sprite` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/text-display` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/timer-display` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/displayer/timer-system` | Import string found in source; runtime resolution depends on the server package layout. |
+| `Displayer:init` | `` |
+| `Displayer:_setupBuilderAPI` | `` |
+| `api.glyph` | `overrides` |
+| `api.staticText` | `overrides` |
+| `api.marquee` | `overrides` |
+| `api.textBox` | `overrides` |
+| `api.timerDisplay` | `overrides` |
+| `api.textList` | `overrides` |
+| `api.spriteList` | `overrides` |
+| `api.backdrop` | `x, y, width, height, padding_x, padding_y, r, g, b, opacity, a` |
+| `api.spriteDef` | `texture_path, anim_path, anim_state, overrides` |
+| `api.sliceStyle9` | `texture_path, anim_path, overrides` |
+| `api.sliceStyle3` | `texture_path, anim_path, states, orientation` |
+| `api.sliceStyle5` | `texture_path, anim_path, states, orientation` |
+| `api.text` | `mode, overrides` |
+| `api.textPanelStyle` | `kind, parts, orientation` |
+| `panelPadding` | `value, vertical` |
+| `api.panelPadding` | `value, vertical` |
+| `api.panelChildPadding` | `value, vertical` |
+| `api.textPanelOptions` | `overrides` |
+| `api.rowPanelOptions` | `overrides` |
+| `api.columnPanelOptions` | `overrides` |
+| `api.gridPanelOptions` | `columns, overrides` |
+| `api.textPanel` | `text, style, options` |
+| `api.panelTextChild` | `text, overrides` |
+| `api.panelSpritesChild` | `sprites, overrides` |
+| `Displayer:_setupFontAPI` | `` |
+| `Displayer:_setupTextAPI` | `` |
+| `Displayer:_setupTimerDisplayAPI` | `` |
+| `Displayer:_setupNameplateAPI` | `` |
+| `Displayer:_setupScrollingTextAPI` | `` |
+| `Displayer:_setupScrollingSpriteAPI` | `` |
+| `Displayer:_setupTimerAPI` | `` |
+| `Displayer:_setupTextPanelAPI` | `` |
+| `Displayer:_setupSlicedSpriteAPI` | `` |
+| `Displayer:formatTime` | `seconds, is_countdown` |
+| `Displayer:getScreenDimensions` | `` |
+| `api.drawGlyph` | `player_id, font_name, char, x, y, options` |
+| `api.updateGlyph` | `player_id, instance_id, updates` |
+| `api.eraseGlyph` | `player_id, instance_id` |
+| `api.getGlyphDimensions` | `font_name, char` |
+| `api.allocateAllFontsForPlayer` | `player_id` |
+| `api.draw` | `pid, tid, text, x, y, o` |
+| `api.drawStatic` | `pid, tid, text, x, y, o` |
+| `api.removeStatic` | `pid, tid` |
+| `api.drawMarquee` | `pid, mid, text, y, o` |
+| `api.removeMarquee` | `pid, mid` |
+| `api.createTextBox` | `pid, bid, text, x, y, w, h, o` |
+| `api.advanceTextBox` | `pid, bid` |
+| `api.closeTextBox` | `pid, bid` |
+| `api.getTextBoxState` | `pid, bid` |
+| `api.getTextBoxData` | `pid, bid` |
+| `api.setKeepAlive` | `pid, bid, keep` |
+| `api.createPlayerTimer` | `pid, did, x, y, o` |
+| `api.createPlayerCountdown` | `pid, did, x, y, o` |
+| `api.createGlobalTimer` | `did, x, y, o` |
+| `api.createGlobalCountdown` | `did, x, y, o` |
+| `api.remove` | `pid, did` |
+| `api.setPosition` | `pid, did, x, y` |
+| `api.attach` | `pid, pd, bid, bd, cfg` |
+| `api.erase` | `pid, pd, bd` |
+| `api.begin_close` | `pid, pd, bd, cfg` |
+| `api.createList` | `pid, lid, x, y, w, h, cfg` |
+| `api.addText` | `pid, lid, text` |
+| `api.setTexts` | `pid, lid, texts` |
+| `api.getState` | `pid, lid` |
+| `api.setSpeed` | `pid, lid, s` |
+| `api.removeList` | `pid, lid` |
+| `api.addSprite` | `pid, lid, d` |
+| `api.setSprites` | `pid, lid, s` |
+| `api.pausePlayerTimer` | `p, t` |
+| `api.resumePlayerTimer` | `p, t` |
+| `api.pausePlayerCountdown` | `p, c` |
+| `api.resumePlayerCountdown` | `p, c` |
+| `api.removePlayerTimer` | `p, t` |
+| `api.removePlayerCountdown` | `p, c` |
+| `api.getPlayerTimer` | `p, t` |
+| `api.getPlayerCountdown` | `p, c` |
+| `api.pauseGlobalTimer` | `t` |
+| `api.resumeGlobalTimer` | `t` |
+| `api.pauseGlobalCountdown` | `c` |
+| `api.resumeGlobalCountdown` | `c` |
+| `api.removeGlobalTimer` | `t` |
+| `api.removeGlobalCountdown` | `c` |
+| `api.getGlobalTimer` | `t` |
+| `api.getGlobalCountdown` | `c` |
+| `api.getAllGlobalTimers` | `` |
+| `api.getAllGlobalCountdowns` | `` |
+| `api.clearAllGlobalTimers` | `` |
+| `api.clearAllGlobalCountdowns` | `` |
+| `api.create` | `player_id, panel_id, text, x, y, style, options` |
+| `api.createWithChildren` | `player_id, panel_id, x, y, style, options` |
+| `api.updateText` | `player_id, panel_id, newText` |
+| `api.setChildren` | `player_id, panel_id, children` |
+| `api.setOptions` | `player_id, panel_id, newOptions` |
+| `api.getSize` | `player_id, panel_id` |
+| `api.get` | `player_id, panel_id` |
+| `api.draw3` | `pid, lid, x, y, w, h, style, o` |
+| `api.draw5` | `pid, lid, x, y, w, h, style, o` |
+| `api.draw9` | `pid, lid, x, y, w, h, style, o` |
+| `api.drawTextPanel` | `pid, lid, x, y, text, style, options` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
-|---|---|
-| `player_disconnect` | `Net:on(...)` subscription found in source. |
-| `player_join` | `Net:on(...)` subscription found in source. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Functions defined in this file
+`on`
 
-| Function | Notes |
-|---|---|
-| `Displayer:_setupBuilderAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupFontAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupNameplateAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupScrollingSpriteAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupScrollingTextAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupTextAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupTextPanelAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupTimerAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:_setupTimerDisplayAPI` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:formatTime` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:getScreenDimensions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `Displayer:init` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.addSprite` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.addText` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.advanceTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.allocateAllFontsForPlayer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.attach` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.backdrop` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.begin_close` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.clearAllGlobalCountdowns` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.clearAllGlobalTimers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.closeTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.create` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.createGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.createGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.createList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.createPlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.createPlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.createTextBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.draw` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.drawGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.drawMarquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.drawStatic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.erase` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.eraseGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.get` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getAllGlobalCountdowns` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getAllGlobalTimers` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getGlyphDimensions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getPlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getPlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getTextBoxData` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.getTextBoxState` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.glyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.marquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.pauseGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.pauseGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.pausePlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.pausePlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.remove` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removeGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removeGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removeList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removeMarquee` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removePlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removePlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.removeStatic` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.resumeGlobalCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.resumeGlobalTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.resumePlayerCountdown` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.resumePlayerTimer` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.setKeepAlive` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.setOptions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.setPosition` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.setSpeed` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.setSprites` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.setTexts` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.spriteDef` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.spriteList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.staticText` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.text` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.textBox` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.textList` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.textPanel` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.textPanelOptions` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.textPanelStyle` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.timerDisplay` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.updateGlyph` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `api.updateText` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 1148 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,62 +2,82 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/eznpcs/dialogue_types.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/eznpcs/dialogue_types.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Dialogue types source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/eznpcs/dialogue_types.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/eznpcs/dialogue_types.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/eznpcs/dialogue_types.lua.md`
+- **Source SHA-256 prefix:** `7c883aeb75f8`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/helpers` |
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/ezlibs-scripts/ezquests` |
+| `scripts/ezlibs-scripts/ezemail` |
+| `scripts/ezlibs-scripts/condition` |
+| `scripts/ezlibs-scripts/ezbus` |
+| `scripts/ezlibs-scripts/ezencounters/main` |
+| `scripts/ezlibs-scripts/ezexplosions` |
+| `scripts/ezlibs-scripts/utils/eztiledutils` |
+
+## `Net:on` subscriptions
+
+| Event |
+|---|
+| `tick` |
+| `battle_results` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/condition` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezbus` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezemail` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezencounters/main` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezexplosions` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezquests` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/utils/eztiledutils` | Import string found in source; runtime resolution depends on the server package layout. |
+| `now` | `` |
+| `player_won_from_stats` | `stats` |
+| `merge_result_fields` | `stats, exit_results` |
+| `has_asset` | `path` |
+| `ensure_ext` | `p, ext` |
+| `resolve_texture` | `raw` |
+| `resolve_anim` | `raw` |
+| `action` | `npc, player_id, dialogue, relay_object` |
 
-## Net event subscriptions
+## Engine `Net` calls
 
-| Event | Evidence |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`on`, `get_player_area`, `has_asset`, `is_player`, `kick_player`, `unlock_player_input`, `is_player_battling`
+
+## Engine `Async` calls
+
+`sleep`, `message_player`, `question_player`, `quiz_player`, `prompt_player`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `battle_results` | `Net:on(...)` subscription found in source. |
-| `tick` | `Net:on(...)` subscription found in source. |
+| `RESULT_FIELDS` | `{` |
+| `MUG_DIR` | `"/server/assets/ezlibs-assets/eznpcs/mug/"` |
 
-## Event-bus event names
+## Literal asset/path strings
 
-| Event | Evidence |
-|---|---|
-| `quest_event` | Bus operation found in source. Confirm direction/payload in implementation before relying on it. |
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Functions defined in this file
+| Path |
+|---|
+| `/server/assets/ezlibs-assets/eznpcs/mug/` |
 
-| Function | Notes |
-|---|---|
-| `action` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ensure_ext` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `has_asset` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `merge_result_fields` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `now` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `player_won_from_stats` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_anim` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `resolve_texture` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+## Usage and maintenance notes
 
-## Source notes
-
-- Approximate source size: 651 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

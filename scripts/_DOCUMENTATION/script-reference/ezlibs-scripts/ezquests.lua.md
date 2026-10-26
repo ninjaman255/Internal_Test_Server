@@ -2,43 +2,44 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-scripts/ezquests.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-scripts/ezquests.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
+
+## Purpose
+
+Ezquests source module. See the declarations and call sites below for its current responsibilities.
 
 ## Module location
 
 - **Source:** `ezlibs-scripts/ezquests.lua`
-- **Relative reference:** `script-reference/ezlibs-scripts/ezquests.lua.md`
+- **Reference:** `script-reference/ezlibs-scripts/ezquests.lua.md`
+- **Source SHA-256 prefix:** `e42cdc525c71`
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-scripts/ezlogger` |
+| `scripts/ezlibs-scripts/ezmemory` |
+| `scripts/ezlibs-scripts/helpers` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-scripts/ezlogger` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/ezmemory` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-scripts/helpers` | Import string found in source; runtime resolution depends on the server package layout. |
+| `ezquests.add_quest` | `quest` |
+| `ezquests.set_player_quest_flag` | `player_id,quest_name,flag_name,flag_state` |
+| `ezquests.get_player_quest_flag` | `player_id,quest_name,flag_name,flag_state` |
+| `ezquests.clear_player_quest_flags` | `player_id,quest_name` |
+| `ezquests.get_quest` | `quest_name` |
+| `ezquests.get_player_quest_state` | `player_id, quest_name` |
+| `ezquests.quest_event` | `player_id,quest_name,event_value` |
+| `handle_event_async` | `self,player_id,event_value` |
+| `determine_state` | `self,player_id` |
 
-## Functions defined in this file
+## Usage and maintenance notes
 
-| Function | Notes |
-|---|---|
-| `determine_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.add_quest` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.clear_player_quest_flags` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.get_player_quest_flag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.get_player_quest_state` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.get_quest` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.quest_event` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `ezquests.set_player_quest_flag` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `handle_event_async` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-
-## Source notes
-
-- Approximate source size: 122 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
-
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `net-games/npcs/prog_vert_prompt_charcoal_grey.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `net-games/npcs/prog_vert_prompt_charcoal_grey.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,38 +11,71 @@
 ## Module location
 
 - **Source:** `net-games/npcs/prog_vert_prompt_charcoal_grey.lua`
-- **Relative reference:** `script-reference/net-games/npcs/prog_vert_prompt_charcoal_grey.lua.md`
+- **Reference:** `script-reference/net-games/npcs/prog_vert_prompt_charcoal_grey.lua.md`
+- **Source SHA-256 prefix:** `fed28bbc131f`
+
+## Source header notes
+
+- prog_vert_prompt_charcoal_grey.lua
+- New NPC that mirrors Lime/Pink vertical menu flow,
+- but uses the new helpers:
+- - npc_api.lua (bind interaction + guards + face + sfx)
+- - menu_options.lua (count/list -> options table)
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/net-games/npcs/npc_api` |
+| `scripts/net-games/npcs/menu_options` |
+| `scripts/libs/direction` |
+| `scripts/net-games/npcs/talk` |
+| `scripts/net-games/npcs/talk_vert_menu` |
+| `scripts/net-games/npcs/talk_presets` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/libs/direction` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/menu_options` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/npc_api` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk_presets` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/net-games/npcs/talk_vert_menu` | Import string found in source; runtime resolution depends on the server package layout. |
+| `on_yes` | `` |
+| `on_no` | `` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
+
+`get_object_by_name`, `create_bot`, `get_bot_name`
+
+## Selected uppercase constants
+
+| Name | Source expression |
 |---|---|
-| `on_no` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `on_yes` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+| `NPC` | `require("scripts/net-games/npcs/npc_api")` |
+| `SFX` | `{` |
+| `DESC` | `"/server/assets/net-games/sfx/card_desc.ogg",` |
+| `CONFIRM` | `"/server/assets/net-games/sfx/card_confirm.ogg",` |
+| `DESC_CLOSE` | `"/server/assets/net-games/sfx/card_desc_close.ogg",` |
+| `BOT_NAME` | `Net.get_bot_name(bot_id)` |
+| `TALK_CFG` | `{` |
+| `OPTIONS` | `MenuOptions.count(40, {` |
+| `EXIT_INDEX` | `41` |
 
-## Uppercase constants
+## Literal asset/path strings
 
-`CONFIRM`, `DESC`, `DESC_CLOSE`
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
 
-## Source notes
+| Path |
+|---|
+| `/server/assets/net-games/sfx/card_desc.ogg` |
+| `/server/assets/net-games/sfx/card_confirm.ogg` |
+| `/server/assets/net-games/sfx/card_desc_close.ogg` |
+| `/server/assets/ow/prog/prog_ow_charcoal_grey.png` |
+| `/server/assets/ow/prog/prog_ow.animation` |
 
-- Approximate source size: 150 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Usage and maintenance notes
 
-## Related documentation
-
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

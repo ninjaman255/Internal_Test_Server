@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/nebulous-liberations/liberations/enemy_templates.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/nebulous-liberations/liberations/enemy_templates.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,38 +11,72 @@ enemy_templates.lua
 ## Module location
 
 - **Source:** `ezlibs-custom/nebulous-liberations/liberations/enemy_templates.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy_templates.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/nebulous-liberations/liberations/enemy_templates.lua.md`
+- **Source SHA-256 prefix:** `e8b3e4c8563c`
+
+## Source header notes
+
+- enemy_templates.lua
 
 ## Direct `require` dependencies
 
-| Import path | Notes |
+| Import path |
+|---|
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader` |
+| `scripts/ezlibs-custom/nebulous-liberations/liberations/constants` |
+
+## Function declarations
+
+These signatures are extracted from the current source. Local helpers are included; their presence does not make them public API.
+
+| Function | Parameters as declared |
 |---|---|
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/constants` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection` | Import string found in source; runtime resolution depends on the server package layout. |
-| `scripts/ezlibs-custom/nebulous-liberations/liberations/preloader` | Import string found in source; runtime resolution depends on the server package layout. |
+| `EnemyTemplates.register` | `name, template` |
+| `EnemyTemplates.create` | `instance, position, direction, template_name` |
+| `EnemyTemplates.ai.simple_charge` | `self` |
+| `attempt_axis` | `xstep, ystep, diff` |
+| `EnemyTemplates.ai.ranged` | `self` |
+| `spawn` | `self, direction` |
+| `get_death_message` | `self` |
+| `take_turn` | `self` |
 
-## Functions defined in this file
+## Engine `Net` calls
 
-| Function | Notes |
-|---|---|
-| `EnemyTemplates.ai.ranged` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyTemplates.ai.simple_charge` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyTemplates.create` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `EnemyTemplates.register` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `attempt_axis` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `get_death_message` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `spawn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
-| `take_turn` | Defined in this file; inspect implementation for arguments, return values, and side effects. |
+The following member names occur in this file; this is an inventory of call sites, not an independent engine API specification.
 
-## Source notes
+`create_bot`, `set_bot_minimap_color`, `get_bot_direction`, `shake_player_camera`, `remove_bot`
 
-- Approximate source size: 243 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+## Engine `Async` calls
 
-## Related documentation
+`create_promise`, `await`, `sleep`, `promisify`
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+## Literal asset/path strings
+
+Paths can be built dynamically elsewhere; this section includes only matching literal strings in this file.
+
+| Path |
+|---|
+| `/server/assets/NebuLibsAssets/bots/beast breath.png` |
+| `/server/assets/NebuLibsAssets/bots/beast breath.animation` |
+| `/server/assets/NebuLibsAssets/bots/bigbrute.png` |
+| `/server/assets/NebuLibsAssets/bots/bigbrute.animation` |
+| `/server/assets/encounters/big_brute_encounter.zip` |
+| `/server/assets/NebuLibsAssets/bots/blizzardman.png` |
+| `/server/assets/NebuLibsAssets/bots/blizzardman.animation` |
+| `/server/assets/NebuLibsAssets/bots/snowball.png` |
+| `/server/assets/NebuLibsAssets/bots/snowball.animation` |
+| `/server/assets/NebuLibsAssets/mugs/blizzardman.png` |
+| `/server/assets/NebuLibsAssets/mugs/blizzardman.animation` |
+| `/server/assets/NebuLibsAssets/bots/shademan.png` |
+| `/server/assets/NebuLibsAssets/bots/shademan.animation` |
+| `/server/assets/ezlibs-assets/ezencounters/Shademan.zip` |
+| `/server/assets/NebuLibsAssets/mugs/shademan.png` |
+| `/server/assets/NebuLibsAssets/mugs/shademan.animation` |
+
+## Usage and maintenance notes
+
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.

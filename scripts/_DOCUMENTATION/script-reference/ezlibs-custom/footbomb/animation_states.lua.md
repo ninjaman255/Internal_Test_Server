@@ -2,7 +2,7 @@
 
 > **Source reference**
 >
-> Generated from `ezlibs-custom/footbomb/animation_states.lua` in the supplied `scripts_internal_test_server.zip` archive (inspected 2026-10-23). This is a source-based reference, not a claim of live runtime testing.
+> Refreshed from the current `ezlibs-custom/footbomb/animation_states.lua` file in `internal_test_server.zip` on 2026-10-25. This page is derived from source inspection; it does not imply runtime testing.
 
 ## Purpose
 
@@ -11,20 +11,36 @@ Animation states shared by FootBomb's Navi assets. These names are intentionally
 ## Module location
 
 - **Source:** `ezlibs-custom/footbomb/animation_states.lua`
-- **Relative reference:** `script-reference/ezlibs-custom/footbomb/animation_states.lua.md`
+- **Reference:** `script-reference/ezlibs-custom/footbomb/animation_states.lua.md`
+- **Source SHA-256 prefix:** `656e5e39d071`
 
-## Uppercase constants
+## Source header notes
 
-`BIG_BOMB`, `BOMB_PREVIEW`, `FOOTBOMB_IDLE_DEFENSE`, `FOOTBOMB_JUMP_LEFT`, `FOOTBOMB_JUMP_LEFT_END`, `FOOTBOMB_JUMP_RIGHT`, `FOOTBOMB_JUMP_RIGHT_END`, `FOOTBOMB_READY_DEFENSE`, `IDLE_D`, `IDLE_U`, `IDLE_UR`, `SMALL_BOMB`, `WALK_U`, `WALK_UR`
+- Animation states shared by FootBomb's Navi assets.
+- These names are intentionally centralized: update the roster animation
+- files and this list together when the game adds or renames a state.
 
-## Source notes
+## Selected uppercase constants
 
-- Approximate source size: 19 lines.
-- Tables above are extracted from source patterns. A function may be assigned dynamically or exported under another name and therefore not appear in the function list.
-- Verify external engine APIs, asset availability, lifecycle ordering, and runtime behavior in the target server before changing integration code.
+| Name | Source expression |
+|---|---|
+| `IDLE_D` | `"IDLE_D",` |
+| `IDLE_UR` | `"IDLE_UR",` |
+| `IDLE_U` | `"IDLE_U",` |
+| `WALK_U` | `"WALK_U",` |
+| `WALK_UR` | `"WALK_UR",` |
+| `FOOTBOMB_IDLE_DEFENSE` | `"FOOTBOMB_IDLE_DEFENSE",` |
+| `FOOTBOMB_READY_DEFENSE` | `"FOOTBOMB_READY_DEFENSE",` |
+| `FOOTBOMB_JUMP_RIGHT` | `"FOOTBOMB_JUMP_RIGHT",` |
+| `FOOTBOMB_JUMP_RIGHT_END` | `"FOOTBOMB_JUMP_RIGHT_END",` |
+| `FOOTBOMB_JUMP_LEFT` | `"FOOTBOMB_JUMP_LEFT",` |
+| `FOOTBOMB_JUMP_LEFT_END` | `"FOOTBOMB_JUMP_LEFT_END",` |
+| `BOMB_PREVIEW` | `"Preview",` |
+| `SMALL_BOMB` | `"Small-Bomb",` |
+| `BIG_BOMB` | `"Big-Bomb",` |
 
-## Related documentation
+## Usage and maintenance notes
 
-- [Documentation index](../index.md)
-- [Scripts tree reference](../scripts-tree.md)
-- [Assets and file paths](../assets-and-file-paths.md)
+- Treat the source file as authoritative if this inventory and implementation disagree.
+- Confirm callers and initialization order before changing exported names or event lifecycles.
+- Engine-provided globals and APIs are not defined by Lua 5.2 itself.
