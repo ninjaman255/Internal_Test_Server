@@ -12,16 +12,23 @@ local Constants = require("scripts/ezlibs-custom/nebulous-liberations/liberation
 local ezmemory = require("scripts/ezlibs-scripts/ezmemory")
 local Emotes = require("scripts/libs/emotes")
 
--- HP penalty applied when the player force-exits a battle (panic / debug
--- escape). A normal fled/ran action is not penalised beyond the loss itself.
+-- Battle end reasons supplied by the battle engine.
+local BattleReason = {
+    DRAW = 0,
+    WIN = 1,
+    LOSE = 2,
+    RUN = 3,
+    USER_PANIC = 4,
+}
+
+-- The 20 HP penalty applies only when the player runs or explicitly panics.
+-- DRAW and LOSE are not forced exits and must not be penalized.
 local PANIC_HP_PENALTY = 20
 
 local function stats_indicate_panic(results)
     if not results then return false end
-    if results.reason ~= nil and results.reason ~= 1 then return true end
-    if results.escape == true then return true end
-    if results.fled == true then return true end
-    return false
+    local reason = tonumber(results.reason)
+    return reason == BattleReason.RUN or reason == BattleReason.USER_PANIC
 end
 
 local PlayerSession = {}
@@ -122,6 +129,7 @@ function PlayerSession:initiate_encounter(encounter_path, data)
             ezmemory.set_player_health(self.player.id, self.health)
             Net.set_player_emotion(self.player.id, results.emotion)
 
+            local reason = tonumber(results.reason)
             if stats_indicate_panic(results) then
                 local health_before_penalty = self.health
                 if self.health > 0 then
@@ -131,17 +139,16 @@ function PlayerSession:initiate_encounter(encounter_path, data)
                     self:paralyze()
                 end
                 results.success = false
+                local exit_message = reason == BattleReason.RUN and "Ran away!" or "Panicked out!"
                 self.player:say_with_mug(
-                    "Panicked out!\nLiberation failed. (-" ..
+                    exit_message .. "\nLiberation failed. (-" ..
                     tostring(PANIC_HP_PENALTY) .. " HP)"
                 )
-                log:info_data("Player panicked out of battle", {
+                log:info_data("Player ran or panicked out of battle", {
                     base_area_id = self.instance.base_area_id,
                     instance_area_id = self.instance.area_id,
                     player_id = self.player.id,
-                    reason = results.reason,
-                    escape = results.escape,
-                    fled = results.fled,
+                    reason = reason,
                     turns = results.turns,
                     health_before_penalty = health_before_penalty,
                     health_after_penalty = self.health,
@@ -154,14 +161,15 @@ function PlayerSession:initiate_encounter(encounter_path, data)
             if self.health == 0 then
                 self:paralyze()
             end
-            if total_enemy_health > 0 or results.ran then
-                results.success = false
+
+            -- A panel is liberated only for the explicit WIN reason. A draw,
+            -- loss, or missing/unknown reason must fail even if no surviving
+            -- enemy-health entries were returned by the battle engine.
+            results.success = reason == BattleReason.WIN
+            if not results.success then
                 self.player:say_with_mug("Oh, no!\nLiberation failed!")
-                resolve(results)
-            else
-                results.success = true
-                resolve(results)
             end
+            resolve(results)
         end)
     end)
 end
@@ -333,7 +341,7 @@ function PlayerSession:liberate_panels(panels, results)
     local co = coroutine.create(function()
         Async.await(Async.sleep(1))
         local msg
-        if results and results.turns == 1 and not results.ran then
+        if results and tonumber(results.reason) == 1 and results.turns == 1 and not results.ran then
             msg = "One turn liberation!"
         else
             msg = "Yeah!\nI liberated it!"

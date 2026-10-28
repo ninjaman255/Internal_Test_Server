@@ -6,33 +6,49 @@ local PanelEncounters = {}
 
 --[[
 Encounters are defined per base area by ezencounters itself. The file
-{ENCOUNTERS_PATH}{area_id}.lua — loaded by ezencounters/main.lua during
-startup — is the sole source of truth for a liberation's default battle.
-Its shape is the standard ezencounters table:
+{ENCOUNTERS_PATH}{area_id}.lua is the single source of truth for the
+liberation battle packages. Its schema separates the random pool from
+explicit boss and special encounters:
 
     return {
+        -- Ordinary/random encounters only.
         encounters = {
             {
-                name   = "ACDC4Liberation",
-                path   = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
+                name = "ACDC4Liberation",
+                path = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
                 weight = 1,
-                -- Any further fields on this entry are passed straight to
-                -- the mob package as battle data. package_build reads:
-                --   enemies, positions, player_positions, tiles, teams,
-                --   freedom_mission, music, obstacles, obstacle_positions.
+                enemies = { { name = "NormalNavi", rank = 1 } },
+            },
+        },
+
+        -- Used when engaging an enemy whose template has is_boss = true.
+        -- Never selected by ordinary random encounter rolls.
+        bosses = {
+            {
+                name = "ShadeManBattle",
+                path = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
+                weight = 1,
+                enemies = { { name = "ShadeMan", rank = 1 } },
+            },
+        },
+
+        -- Used for large viruses / special enemy templates such as BigBrute.
+        -- Never selected by ordinary random encounter rolls.
+        special_encounters = {
+            {
+                name = "BigBruteBattle",
+                path = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
+                weight = 1,
                 enemies = { { name = "BigBrute", rank = 1 } },
-                positions = {
-                    {0,0,0,0,0,1},
-                    {0,0,0,0,0,0},
-                    {0,0,0,0,0,0},
-                },
             },
         },
     }
 
-resolve_encounter(base_area_id) picks one entry from .encounters. With a
-single entry (the common case) it always returns that one; with multiple
-entries it picks weighted-randomly using each entry's `weight` (default 1).
+resolve_encounter(base_area_id) selects only from .encounters. Passing
+"bosses" or "special_encounters" explicitly selects from that section.
+When an optional section is absent/empty, it falls back to .encounters for
+backwards compatibility. Entries use weight (default 1) when a section
+contains multiple choices.
 
 The per-panel "Encounter Path" custom property still overrides the default
 by routing through resolve_encounter_value(), which defers to
@@ -133,9 +149,17 @@ local function load_area_encounter_table(base_area_id)
   return nil, nil
 end
 
-local function pick_encounter(encounter_table)
+local function pick_encounter(encounter_table, category)
   if type(encounter_table) ~= "table" then return nil end
-  local options = encounter_table.encounters
+  local section = (category == "bosses" or category == "special_encounters")
+      and category or "encounters"
+  local options = encounter_table[section]
+  if type(options) ~= "table" or #options == 0 then
+    -- Keep older area tables working until they define the optional section.
+    if section ~= "encounters" then
+      options = encounter_table.encounters
+    end
+  end
   if type(options) ~= "table" or #options == 0 then return nil end
   if #options == 1 then return options[1] end
 
@@ -170,7 +194,7 @@ function PanelEncounters.resolve_encounter_value(reference)
   return { path = tostring(reference) }
 end
 
-function PanelEncounters.resolve_encounter(base_area_id)
+function PanelEncounters.resolve_encounter(base_area_id, category)
   if base_area_id == nil then return nil end
   local area_name = Net.get_area_name(base_area_id)
   local table_data, key_used = load_area_encounter_table(base_area_id)
@@ -183,7 +207,7 @@ function PanelEncounters.resolve_encounter(base_area_id)
     return nil
   end
 
-  local picked = pick_encounter(table_data)
+  local picked = pick_encounter(table_data, category)
   if picked == nil then
     log:warn_data("Area encounter table has no encounters", {
       base_area_id = base_area_id,
@@ -197,6 +221,7 @@ function PanelEncounters.resolve_encounter(base_area_id)
       base_area_id = base_area_id,
       area_name = area_name,
       key_used = key_used,
+      category = category or "encounters",
       picked_name = picked.name,
     })
     return nil
@@ -207,6 +232,7 @@ function PanelEncounters.resolve_encounter(base_area_id)
     area_name = area_name,
     key_used = key_used,
     encounter_name = picked.name,
+    category = category or "encounters",
     path = picked.path,
   })
 
@@ -231,23 +257,28 @@ local function startup_diagnostic()
           area_name = Net.get_area_name(area_id),
           tried_path_prefix = ezconfig.ENCOUNTERS_PATH,
         })
-      elseif type(table_data.encounters) ~= "table" or #table_data.encounters == 0 then
-        log:warn_data("Liberation area encounter file has no encounters", {
+      elseif (type(table_data.encounters) ~= "table" or #table_data.encounters == 0)
+          and (type(table_data.bosses) ~= "table" or #table_data.bosses == 0)
+          and (type(table_data.special_encounters) ~= "table" or #table_data.special_encounters == 0) then
+        log:warn_data("Liberation area encounter file has no encounters, bosses, or special encounters", {
           area_id = area_id,
           area_name = Net.get_area_name(area_id),
           key_used = key_used,
         })
       else
-        for i, enc in ipairs(table_data.encounters) do
-          log:info_data("Liberation area encounter loaded", {
-            area_id = area_id,
-            area_name = Net.get_area_name(area_id),
-            key_used = key_used,
-            index = i,
-            name = enc.name,
-            path = enc.path,
-            weight = enc.weight,
-          })
+        for _, section_name in ipairs({"encounters", "bosses", "special_encounters"}) do
+          for i, enc in ipairs(table_data[section_name] or {}) do
+            log:info_data("Liberation area encounter loaded", {
+              area_id = area_id,
+              area_name = Net.get_area_name(area_id),
+              key_used = key_used,
+              section = section_name,
+              index = i,
+              name = enc.name,
+              path = enc.path,
+              weight = enc.weight,
+            })
+          end
         end
       end
     end

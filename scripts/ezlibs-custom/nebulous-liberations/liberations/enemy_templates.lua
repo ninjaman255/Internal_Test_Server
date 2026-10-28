@@ -36,6 +36,7 @@ function EnemyTemplates.create(instance, position, direction, template_name)
         selection = EnemySelection:new(instance),
         mug = template.mug,
         is_boss = template.is_boss or false,
+        is_special_encounter = template.is_special_encounter or false,
         ai_type = template.ai_type or "simple_charge",
         ai_params = template.ai_params or {},
         -- These fields are read from `self` at runtime (spawn, attack,
@@ -216,6 +217,7 @@ EnemyTemplates.register("BigBrute", {
     attack_texture = "/server/assets/NebuLibsAssets/bots/beast breath.png",
     attack_animation_path = "/server/assets/NebuLibsAssets/bots/beast breath.animation",
     ai_type = "simple_charge",
+    is_special_encounter = true,
     preload_assets = { "/server/assets/NebuLibsAssets/bots/bigbrute.animation","/server/assets/NebuLibsAssets/bots/beast breath.png", "/server/assets/NebuLibsAssets/bots/beast breath.animation","/server/assets/NebuLibsAssets/bots/bigbrute.png", },
 })
 

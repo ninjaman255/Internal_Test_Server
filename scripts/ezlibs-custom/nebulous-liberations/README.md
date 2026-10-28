@@ -582,7 +582,62 @@ The registry retains previously registered GIDs when the map bootstrap registers
 <a id="part-12"></a>
 ## Part 12 — liberations/panel_encounters.lua — Encounter Terrain
 
-`panel_encounters.lua` builds a lookup from area names to encounter asset paths by scanning area custom properties for `Liberation Encounters` when the module is first required.
+`panel_encounters.lua` resolves encounter definitions from the canonical ezencounters area table (`encounters/<base-area-id>.lua`). The `Liberation Encounters` area property is not the active source of battle package definitions in the current implementation.
+
+### Area encounter table sections
+
+Use the same schema for ordinary ezencounters and liberation maps:
+
+```lua
+return {
+    -- Eligible for random encounters / ordinary panel battles.
+    encounters = {
+        {
+            name = "AreaRandomBattle",
+            path = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
+            weight = 1,
+            enemies = { { name = "NormalNavi", rank = 1 } },
+        },
+    },
+
+    -- Explicitly selected for enemy templates marked is_boss = true.
+    -- Never rolled as an ordinary random encounter.
+    bosses = {
+        {
+            name = "ShadeManBattle",
+            path = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
+            weight = 1,
+            enemies = { { name = "ShadeMan", rank = 1 } },
+        },
+    },
+
+    -- Explicitly selected for large/special virus templates such as BigBrute.
+    -- Never rolled as an ordinary random encounter.
+    special_encounters = {
+        {
+            name = "BigBruteBattle",
+            path = "scripts/ezlibs-assets/ezencounters/ezencounters.zip",
+            weight = 1,
+            enemies = { { name = "BigBrute", rank = 1 } },
+        },
+    },
+}
+```
+
+Only `encounters` is used by random selection. The `bosses` and
+`special_encounters` entries are registered by name for explicit starts and
+are selected by a liberation enemy's template category. If an optional
+section is missing or empty, liberation resolution falls back to `encounters`
+for backwards compatibility. Keep `name` values unique across all loaded
+area tables because the named encounter registry is global.
+
+### Persistent enemy health across battles
+
+When an enemy's battle results include surviving entries in `results.enemies`,
+NebuLibs matches the result by enemy alias/name, updates the stored enemy
+health, and updates the visible bot name (for example, `BigBrute: 80`). The
+next encounter passes that stored value as `data.health`. Dark Hole battles
+use current health too; they no longer reset the enemy to `max_health`.
 
 ### Public API
 

@@ -17,12 +17,20 @@ local function create_textbox_promise(self)
   end)
 end
 
+local BattleReason = {
+  DRAW = 0,
+  WIN = 1,
+  LOSE = 2,
+  RUN = 3,
+  USER_PANIC = 4,
+}
+
+-- Only these two explicit end reasons are considered a forced exit.
+-- DRAW and LOSE are ordinary battle outcomes, not panics.
 local function stats_indicate_panic(stats)
   if not stats then return false end
-  if stats.reason ~= nil and stats.reason ~= 1 then return true end
-  if stats.escape == true then return true end
-  if stats.fled == true then return true end
-  return false
+  local reason = tonumber(stats.reason)
+  return reason == BattleReason.RUN or reason == BattleReason.USER_PANIC
 end
 
 -- public

@@ -26,6 +26,75 @@ local function includes(table, value)
     return false
 end
 
+-- Build a per-battle copy of an encounter definition. Enemy entries are copied
+-- individually because persistent liberation enemies may override `health`;
+-- mutating the cached area encounter definition would leak that HP into later
+-- encounters that use the same definition.
+local function normalize_enemy_name(value)
+    if value == nil then return nil end
+    return string.lower(tostring(value):gsub("%s*:%s*%-?%d+%s*$", ""))
+end
+
+local function build_encounter_data(encounter_definition, overrides, persistent_enemy)
+    local data = {}
+
+    for key, value in pairs(encounter_definition or {}) do
+        if key ~= "path" and key ~= "weight" then
+            if key == "enemies" and type(value) == "table" then
+                data.enemies = {}
+                for index, enemy_info in ipairs(value) do
+                    local enemy_copy = {}
+                    for enemy_key, enemy_value in pairs(enemy_info) do
+                        enemy_copy[enemy_key] = enemy_value
+                    end
+                    data.enemies[index] = enemy_copy
+                end
+            elseif key == "freedom_mission" and type(value) == "table" then
+                data.freedom_mission = {}
+                for mission_key, mission_value in pairs(value) do
+                    data.freedom_mission[mission_key] = mission_value
+                end
+            else
+                data[key] = value
+            end
+        end
+    end
+
+    for key, value in pairs(overrides or {}) do
+        if key == "freedom_mission" and type(value) == "table" then
+            local mission = {}
+            for mission_key, mission_value in pairs(data.freedom_mission or {}) do
+                mission[mission_key] = mission_value
+            end
+            for mission_key, mission_value in pairs(value) do
+                mission[mission_key] = mission_value
+            end
+            data.freedom_mission = mission
+        elseif key ~= "enemies" then
+            data[key] = value
+        end
+    end
+
+    local health_applied = false
+    if persistent_enemy and persistent_enemy.health ~= nil and type(data.enemies) == "table" then
+        local expected_name = normalize_enemy_name(persistent_enemy.battle_name or persistent_enemy.name)
+        if expected_name then
+            for _, enemy_info in ipairs(data.enemies) do
+                if type(enemy_info) == "table"
+                    and normalize_enemy_name(enemy_info.name) == expected_name then
+                    -- The ezencounters mob package consumes this field from
+                    -- data.enemies and calls character:set_health(...).
+                    enemy_info.health = persistent_enemy.health
+                    health_applied = true
+                    break
+                end
+            end
+        end
+    end
+
+    return data, health_applied
+end
+
 local debug = false
 
 local function is_panel(self, object)
@@ -177,16 +246,19 @@ local function liberate_panel(self, player_session)
             local enemy = panel.enemy
             local data = {
                 terrain = PanelEncounters.resolve_terrain(self, player),
-                health = enemy.max_health
+                health = enemy.health
             }
-            local encounter_definition = PanelEncounters.resolve_encounter(self.base_area_id)
+            local encounter_category = enemy.is_boss and "bosses"
+                or enemy.is_special_encounter and "special_encounters"
+                or nil
+            local encounter_definition = PanelEncounters.resolve_encounter(self.base_area_id, encounter_category)
             log:info_data("Initiating dark hole encounter", {
                 base_area_id = self.base_area_id,
                 instance_area_id = self.area_id,
                 area_name = self.area_name,
                 player_id = player.id,
                 enemy_name = enemy.battle_name,
-                enemy_health = enemy.max_health,
+                enemy_health = enemy.health,
                 encounter_path = encounter_definition and encounter_definition.path,
                 terrain = data.terrain,
                 phase = self.phase,
@@ -199,12 +271,19 @@ local function liberate_panel(self, player_session)
                 player_session:complete_turn()
                 return
             end
-            local encounter_data = {}
-            for key, value in pairs(encounter_definition) do
-                if key ~= "path" and key ~= "weight" then encounter_data[key] = value end
-            end
-            for key, value in pairs(data) do encounter_data[key] = value end
+            local encounter_data, encounter_health_applied = build_encounter_data(
+                encounter_definition, data, enemy)
+            log:info_data("Prepared dark hole encounter data", {
+                encounter_name = encounter_definition.name,
+                persistent_enemy = enemy.battle_name or enemy.name,
+                persistent_health = enemy.health,
+                enemy_entry_health_applied = encounter_health_applied,
+                freedom_mission = encounter_data.freedom_mission ~= nil,
+            })
             local results = Async.await(player_session:initiate_encounter(encounter_definition.path, encounter_data))
+            -- Preserve remaining health whenever the battle reports surviving
+            -- enemies. This also updates the visible bot name for the next turn.
+            local enemy_health_synced = EnemyHelpers.sync_health(enemy, results)
             log:info_data("Dark hole encounter results", {
                 base_area_id = self.base_area_id,
                 instance_area_id = self.area_id,
@@ -216,7 +295,9 @@ local function liberate_panel(self, player_session)
                 escape = tostring(results.escape),
                 fled = tostring(results.fled),
                 health = results.health,
-                enemy_count = #(results.enemies or {}),
+                enemy_count = #(results.enemies or results.Enemies or {}),
+                enemy_health_synced = enemy_health_synced,
+                retained_enemy_health = enemy.health,
             })
             if not results.success then
                 player_session:complete_turn()
@@ -244,7 +325,10 @@ local function liberate_panel(self, player_session)
                 encounter_definition = PanelEncounters.resolve_encounter_value(
                     panel.custom_properties[Constants.CustomProperties.EncounterPath])
             else
-                encounter_definition = PanelEncounters.resolve_encounter(self.base_area_id)
+                local encounter_category = enemy and enemy.is_boss and "bosses"
+                    or enemy and enemy.is_special_encounter and "special_encounters"
+                    or nil
+                encounter_definition = PanelEncounters.resolve_encounter(self.base_area_id, encounter_category)
             end
             if enemy then
                 data.health = enemy.health
@@ -275,12 +359,22 @@ local function liberate_panel(self, player_session)
                 player_session:complete_turn()
                 return
             end
-            local encounter_data = {}
-            for key, value in pairs(encounter_definition) do
-                if key ~= "path" and key ~= "weight" then encounter_data[key] = value end
-            end
-            for key, value in pairs(data) do encounter_data[key] = value end
+            local encounter_data, encounter_health_applied = build_encounter_data(
+                encounter_definition, data, enemy)
+            log:info_data("Prepared panel encounter data", {
+                encounter_name = encounter_definition.name,
+                persistent_enemy = enemy and (enemy.battle_name or enemy.name),
+                persistent_health = enemy and enemy.health,
+                enemy_entry_health_applied = encounter_health_applied,
+                freedom_mission = encounter_data.freedom_mission ~= nil,
+            })
             local results = Async.await(player_session:initiate_encounter(encounter_definition.path, encounter_data))
+            -- Synchronize before branching: survivors retain their health on
+            -- both wins and losses whenever the battle engine reports them.
+            local enemy_health_synced = false
+            if enemy then
+                enemy_health_synced = EnemyHelpers.sync_health(enemy, results)
+            end
             log:info_data("Panel encounter results", {
                 base_area_id = self.base_area_id,
                 instance_area_id = self.area_id,
@@ -293,12 +387,11 @@ local function liberate_panel(self, player_session)
                 escape = tostring(results.escape),
                 fled = tostring(results.fled),
                 health = results.health,
-                enemy_count = #(results.enemies or {}),
+                enemy_count = #(results.enemies or results.Enemies or {}),
+                enemy_health_synced = enemy_health_synced,
+                retained_enemy_health = enemy and enemy.health,
             })
             if not results.success then
-                if enemy then
-                    EnemyHelpers.sync_health(enemy, results)
-                end
                 player_session:complete_turn()
                 return
             end
@@ -464,7 +557,7 @@ local function take_enemy_turn(self)
             end
             Async.await(Async.sleep(slide_time))
             if enemy.is_boss then
-                Async.await(EnemyHelpers.heal(enemy, enemy.max_health / 2))
+                Async.await(EnemyHelpers.heal(enemy, enemy.max_health * .10))
             end
             log:debug_data("Enemy taking turn", {
                 base_area_id = self.base_area_id,

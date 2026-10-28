@@ -23,7 +23,9 @@ function EnemyHelpers.play_attack_animation(enemy)
 end
 
 function EnemyHelpers.update_name(enemy)
-  Net.set_bot_name(enemy.id, enemy.battle_name .. ": " .. enemy.health)
+  if not enemy or enemy.id == nil then return end
+  local display_name = enemy.battle_name or enemy.name or "Enemy"
+  Net.set_bot_name(enemy.id, tostring(display_name) .. ": " .. tostring(enemy.health or 0))
 end
 
 function EnemyHelpers.heal(enemy, amount)
@@ -185,14 +187,47 @@ function EnemyHelpers.find_closest_player_session(instance, enemy)
   return closest_session
 end
 
+local function normalize_enemy_name(value)
+  if value == nil then return nil end
+  local name = tostring(value)
+  -- Some battle packages expose the visible bot name (e.g. "BigBrute: 80")
+  -- instead of the registered enemy alias.
+  name = name:gsub("%s*:%s*%-?%d+%s*$", "")
+  return string.lower(name)
+end
+
 function EnemyHelpers.sync_health(enemy, results)
-  for _, data in ipairs(results.enemies) do
-    if enemy.battle_name == data.id then
-      enemy.health = data.health
-      EnemyHelpers.update_name(enemy)
-      break
+  if not enemy or type(results) ~= "table" then return false end
+  local reported_enemies = results.enemies or results.Enemies
+  if type(reported_enemies) ~= "table" or #reported_enemies == 0 then
+    return false
+  end
+
+  local expected_name = normalize_enemy_name(enemy.battle_name or enemy.name)
+  if not expected_name then return false end
+
+  for _, data in ipairs(reported_enemies) do
+    if type(data) == "table" then
+      local reported_names = {}
+      -- Lua's ipairs stops at the first nil, so append the fields explicitly.
+      for _, field_name in ipairs({"ID", "id", "name", "Name", "bot_name", "enemy_name", "EnemyName"}) do
+        local normalized = normalize_enemy_name(data[field_name])
+        if normalized then
+          reported_names[#reported_names + 1] = normalized
+        end
+      end
+      local reported_health = tonumber(data.Health)
+      if reported_health == nil then reported_health = tonumber(data.health) end
+      for _, reported_name in ipairs(reported_names) do
+        if reported_name == expected_name and reported_health ~= nil then
+          enemy.health = math.max(0, reported_health)
+          EnemyHelpers.update_name(enemy)
+          return true
+        end
+      end
     end
   end
+  return false
 end
 
 return EnemyHelpers

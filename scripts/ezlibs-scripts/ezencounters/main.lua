@@ -26,15 +26,29 @@ local load_encounters_for_areas = function ()
         local status, err = pcall(function () require(encounter_table_path) end)
         if status == true then
             area_encounter_tables[area_id] = require(encounter_table_path)
-            for index, encounter_info in ipairs(area_encounter_tables[area_id].encounters) do
-                if not provided_encounter_assets[encounter_info.path] then
-                    logger:info('[ezencounters] providing mob package '..encounter_info.path)
-                    Net.provide_asset(area_id, encounter_info.path)
-                    provided_encounter_assets[encounter_info.path] = true
-                end
-                if encounter_info.name then
-                    logger:info('[ezencounters] loaded named encounter '..encounter_info.name)
-                    named_encounters[encounter_info.name] = encounter_info
+            -- Only .encounters participates in random selection. Optional
+            -- .bosses and .special_encounters are registered for explicit
+            -- named starts, but must never enter the random encounter pool.
+            local encounter_sections = {
+                "encounters",
+                "bosses",
+                "special_encounters",
+            }
+            provided_encounter_assets[area_id] = provided_encounter_assets[area_id] or {}
+            for _, section_name in ipairs(encounter_sections) do
+                local section = area_encounter_tables[area_id][section_name]
+                if type(section) == "table" then
+                    for index, encounter_info in ipairs(section) do
+                        if encounter_info.path and not provided_encounter_assets[area_id][encounter_info.path] then
+                            logger:info('[ezencounters] providing mob package '..encounter_info.path..' to '..tostring(area_id))
+                            Net.provide_asset(area_id, encounter_info.path)
+                            provided_encounter_assets[area_id][encounter_info.path] = true
+                        end
+                        if encounter_info.name then
+                            logger:info('[ezencounters] loaded named encounter '..encounter_info.name..' ('..section_name..')')
+                            named_encounters[encounter_info.name] = encounter_info
+                        end
+                    end
                 end
             end
             logger:info('[ezencounters] loaded encounter table for '..area_id)
@@ -124,24 +138,41 @@ ezencounters.handle_player_move = function(player_id, x, y, z)
 end
 
 ezencounters.pick_encounter_from_table = function (encounter_table)
-    local total_weight = 0
-    for _, option in ipairs(encounter_table.encounters) do
-        total_weight = total_weight + option.weight
+    local options = type(encounter_table) == "table" and encounter_table.encounters or nil
+    if type(options) ~= "table" or #options == 0 then
+        return nil
     end
+
+    local total_weight = 0
+    for _, option in ipairs(options) do
+        total_weight = total_weight + (tonumber(option.weight) or 0)
+    end
+    if total_weight <= 0 then
+        return options[math.random(#options)]
+    end
+
     local crawler = math.random() * total_weight
-    for i, option in ipairs(encounter_table.encounters) do
-        crawler = crawler - option.weight
+    for i, option in ipairs(options) do
+        crawler = crawler - (tonumber(option.weight) or 0)
         if crawler <= 0 then
-            return encounter_table.encounters[i]
+            return options[i]
         end
     end
-    return encounter_table.encounters[1]
+    return options[1]
 end
 
 ezencounters.try_random_encounter = function (player_id,encounter_table)
-    if math.random() <= encounter_table.encounter_chance_per_step then
+    -- Bosses and special_encounters are deliberately never part of random
+    -- selection. An area containing only explicit encounters simply has no
+    -- random encounter roll.
+    if type(encounter_table.encounters) ~= "table" or #encounter_table.encounters == 0 then
+        return
+    end
+    if math.random() <= (tonumber(encounter_table.encounter_chance_per_step) or 0) then
         local encounter_info = ezencounters.pick_encounter_from_table(encounter_table)
-        ezencounters.begin_encounter(player_id, encounter_info)
+        if encounter_info then
+            ezencounters.begin_encounter(player_id, encounter_info)
+        end
     end
 end
 
