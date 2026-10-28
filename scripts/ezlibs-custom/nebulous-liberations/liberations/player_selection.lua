@@ -1,5 +1,6 @@
 local Selection = require("scripts/ezlibs-custom/nebulous-liberations/liberations/selection")
 local Direction = require("scripts/libs/direction")
+local PanelRegistry = require("scripts/ezlibs-custom/nebulous-liberations/liberations/panel_registry")
 
 local function includes(table, value)
   for _, v in ipairs(table) do
@@ -29,7 +30,8 @@ function PlayerSelection:new(instance, player_id)
     root_panel = nil,
     selection = Selection:new(instance),
     LIBERATING_PANEL_GID = LIBERATING_PANEL_GID,
-    SELECTED_PANEL_GID = LIBERATING_PANEL_GID + 1
+    SELECTED_PANEL_GID = LIBERATING_PANEL_GID + 1,
+    include_all_liberatable_panels = false
   }
 
   setmetatable(player_selection, self)
@@ -52,6 +54,10 @@ function PlayerSelection:new(instance, player_id)
         -- unless it is the root_panel
         return false
       end
+    end
+
+    if player_selection.include_all_liberatable_panels then
+      return PanelRegistry.is_liberatable(panel.visual_gid)
     end
 
     return (
@@ -84,6 +90,10 @@ function PlayerSelection:select_panel(panel_object)
 end
 
 -- shape = [m][n] bool array, n being odd, just below bottom center is player position
+function PlayerSelection:set_include_all_liberatable_panels(enabled)
+  self.include_all_liberatable_panels = enabled == true
+end
+
 function PlayerSelection:set_shape(shape, shape_offset_x, shape_offset_y)
   self.selection:set_shape(shape, shape_offset_x, shape_offset_y)
   self.selection:remove_indicators()

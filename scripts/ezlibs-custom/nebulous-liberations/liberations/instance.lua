@@ -244,9 +244,10 @@ local function liberate_panel(self, player_session)
                 Async.await(player:message_with_mug("A Dark Hole! Begin liberation!"))
             end
             local enemy = panel.enemy
+            -- A Dark Hole fight is transient. Its battle HP must not read from
+            -- or write back to the persistent bot standing on the Dark Hole.
             local data = {
-                terrain = PanelEncounters.resolve_terrain(self, player),
-                health = enemy.health
+                terrain = PanelEncounters.resolve_terrain(self, player)
             }
             local encounter_category = enemy.is_boss and "bosses"
                 or enemy.is_special_encounter and "special_encounters"
@@ -271,19 +272,19 @@ local function liberate_panel(self, player_session)
                 player_session:complete_turn()
                 return
             end
-            local encounter_data, encounter_health_applied = build_encounter_data(
-                encounter_definition, data, enemy)
+            local encounter_data = build_encounter_data(
+                encounter_definition, data, nil)
             log:info_data("Prepared dark hole encounter data", {
                 encounter_name = encounter_definition.name,
                 persistent_enemy = enemy.battle_name or enemy.name,
                 persistent_health = enemy.health,
-                enemy_entry_health_applied = encounter_health_applied,
+                persistent_health_applied = false,
                 freedom_mission = encounter_data.freedom_mission ~= nil,
             })
             local results = Async.await(player_session:initiate_encounter(encounter_definition.path, encounter_data))
-            -- Preserve remaining health whenever the battle reports surviving
-            -- enemies. This also updates the visible bot name for the next turn.
-            local enemy_health_synced = EnemyHelpers.sync_health(enemy, results)
+            -- Deliberately do not synchronize Dark Hole battle results to the
+            -- persistent bot. Only a battle started directly on an active bot
+            -- panel may change that bot's saved HP.
             log:info_data("Dark hole encounter results", {
                 base_area_id = self.base_area_id,
                 instance_area_id = self.area_id,
@@ -296,15 +297,20 @@ local function liberate_panel(self, player_session)
                 fled = tostring(results.fled),
                 health = results.health,
                 enemy_count = #(results.enemies or results.Enemies or {}),
-                enemy_health_synced = enemy_health_synced,
+                persistent_health_synced = false,
                 retained_enemy_health = enemy.health,
             })
             if not results.success then
                 player_session:complete_turn()
                 return
             end
+            -- On a successful Dark Hole battle, liberate every adjacent
+            -- liberatable panel, except panels occupied by any bot. The
+            -- selection filter is broadened only for this operation.
+            selection:set_include_all_liberatable_panels(true)
             selection:set_shape(DARK_HOLE_SHAPE, 0, -1)
             local panels = selection:get_panels()
+            selection:set_include_all_liberatable_panels(false)
             Async.await(player_session:liberate_panels(panels, results))
             Async.await(Enemy.destroy(self, panel.enemy))
             Async.await(player_session:loot_panels(panels, false, false))
@@ -396,7 +402,13 @@ local function liberate_panel(self, player_session)
                 return
             end
 
-            if results.turns >= 1 and not results.ran then
+            -- The 3x3 one-turn pattern is only earned by an actual one-turn
+            -- victory. For multi-turn wins, the original single-panel shape
+            -- remains in place.
+            if results.success
+                and tonumber(results.reason) == 1
+                and tonumber(results.turns) == 1
+                and not results.ran then
                 log:debug_data("liberate_panel: set_shape enter", {
                     base_area_id = self.base_area_id,
                     instance_area_id = self.area_id,
