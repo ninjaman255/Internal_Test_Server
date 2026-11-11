@@ -8,7 +8,7 @@
 -- This module intentionally does not create bots. It attaches behavior to bots
 -- created and owned by eznpcs, or to each instance spawned from a template.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('npc_behaviors')
+local logger = require('scripts/logger/logger').register('eznpcs'):register_subsystem("npc-behaviors")
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')

@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 --[[
 endless-runner.lua — Cinematic endless-runner with floors, HP, and combat.
 
@@ -37,6 +38,15 @@ paused.
 
 Encounter flow
 --------------
+The BASE area's encounters/<base_area>.lua uses the same section format as
+Nebulous Liberations: .encounters, .bosses, and .special_encounters.
+Each floor may choose `encounter_section = "bosses"` etc. The legacy
+`special = true` flag defaults to .bosses. A Tiled trigger may override with
+`Encounter Category`. Optional `Encounter 1` / `Encounter 2` names restrict
+selection only when those names exist in the active section; otherwise the
+section's weighted pool is used. `Pick Mode` supports first/cycle/random.
+No encounter definition is duplicated in a cloned area.
+
 Every encounter fires via `endless_runner_encounter_triggered`:
 fade to black → pause bot → battle → HP update → counter → resume
 (fade in) or advance floor.
@@ -52,14 +62,42 @@ Events (ezbus)
     endless_runner_encounter_started / finished
     endless_runner_floor_started / completed
     endless_runner_reward
+    endless_runner_monies_awarded / reward_failed
     endless_runner_run_completed / ended
     endless_runner_hp_changed
 --]]
 
 local EzMapInstance   = require("scripts/ezlibs-scripts/ezmapinstance")
+local ezmemory       = require("scripts/ezlibs-scripts/ezmemory")
 local eznpcs          = require("scripts/ezlibs-scripts/eznpcs/eznpcs")
 local ezbottriggers   = require("scripts/ezlibs-scripts/eztriggers/ezbottriggers")
 local AvatarRegistry  = require("scripts/avatar_registry/main")
+
+-- Dedicated JSONL trace for server-side battle handoff. Only checkpoint events
+-- are logged here, never every tick. Flush each checkpoint immediately so a
+-- client disconnect during package initialization leaves a useful last step.
+local RunnerLog = require("scripts/logger/logger").register("endless-runner", {
+    console = false,
+}):register_subsystem("battle-handoff")
+local function runner_checkpoint(player_id, stage, fields)
+    local data = { player_id = tostring(player_id), stage = tostring(stage) }
+    for key, value in pairs(fields or {}) do
+        -- Keep log payload scalar and safe for the installed ezlogger JSON API.
+        if type(value) == "string" or type(value) == "number"
+            or type(value) == "boolean" then
+            data[key] = value
+        elseif value ~= nil then
+            data[key] = tostring(value)
+        end
+    end
+    local ok, err = pcall(function()
+        RunnerLog:info_data("[endless-runner] " .. tostring(stage), data)
+        RunnerLog:forceFlush()
+    end)
+    if not ok then
+        print("[endless_runner] diagnostic log failed: " .. tostring(err))
+    end
+end
 
 local games
 do
@@ -133,12 +171,58 @@ local CHOICE_ACTIONS = {
 local tick_counter = 0
 local active_runners = {}
 local last_logged_state = {}
+-- Base-area entry watchers are registered once; completed runs do not
+-- immediately restart just because stop() restores the player to that area.
+local watched_area_options = {}
+local watcher_registered = false
+local watch_suppressed_until_leave = {}
+-- ezwarps emits a `warp` event *after* transferring the player. It includes
+-- the position sampled BEFORE the transfer, so this cache allows the area
+-- watcher to restore the actual departure area rather than the Runner lobby.
+local pending_entry_origins = {}
+local ENTRY_ORIGIN_MAX_AGE_SECONDS = 15
+-- Cancel any queued next-tick camera restoration if the player disconnects
+-- (or a newer run/cleanup replaces the previous task).
+local pending_camera_restore_tokens = {}
 
 local function log_for(player_id, message)
     local key = tostring(player_id) .. "|" .. message
     if last_logged_state[key] then return end
     last_logged_state[key] = true
     print("[endless_runner] " .. tostring(player_id) .. " " .. message)
+end
+
+-- Capture only warps into configured Runner entry areas. No other warp
+-- behavior is changed; these snapshots are consumed once by do_enter().
+do
+    local ok, ezbus = pcall(require, "scripts/ezlibs-scripts/ezbus")
+    if ok and ezbus and type(ezbus.on) == "function" then
+        ezbus:on("warp", function(event)
+            if type(event) ~= "table" then return end
+            local pid = event.player_id
+            local to_area = event.to_area
+            local from_area = event.from_area
+            local p = event.from_position
+            if not pid or not watched_area_options[to_area]
+                or type(from_area) ~= "string" or from_area == ""
+                or from_area == to_area or type(p) ~= "table" then
+                return
+            end
+            local x, y, z = tonumber(p.x), tonumber(p.y), tonumber(p.z) or 0
+            if not x or not y then return end
+            pending_entry_origins[pid] = {
+                to_area = to_area,
+                from_area = from_area,
+                position = { x = x, y = y, z = z },
+                from_warp_object_id = event.from_warp_object_id,
+                captured_at = os.time(),
+            }
+            runner_checkpoint(pid, "entry_origin_captured", {
+                from_area = from_area, to_area = to_area,
+                x = x, y = y, z = z,
+            })
+        end)
+    end
 end
 
 local function clear_log_for(player_id)
@@ -157,14 +241,49 @@ local function emit_bus(event_name, payload)
     end
 end
 
+-- Observe the shared battle reward result so money totals and telemetry stay
+-- consistent with what ezencounters actually awarded during battle_results.
+do
+    local ok, ezbus = pcall(require, "scripts/ezlibs-scripts/ezbus")
+    if ok and ezbus and type(ezbus.on) == "function" then
+        ezbus:on("encounter_finished", function(payload)
+            if not payload or payload.managed ~= true then return end
+            local runner = active_runners[payload.player_id]
+            if not runner or not runner.encounter_in_progress then return end
+            local base = runner.instance_record and runner.instance_record.base_area_id
+            if payload.area_id ~= nil and tostring(payload.area_id) ~= tostring(base) then
+                return
+            end
+            runner.last_encounter_rewards = payload.rewards
+            runner.last_encounter_reward_totals = payload.reward_totals
+            local amount = payload.reward_totals
+                and tonumber(payload.reward_totals.money) or 0
+            if amount > 0 then
+                runner.monies_earned = (runner.monies_earned or 0) + amount
+                emit_bus("endless_runner_monies_awarded", {
+                    player_id = payload.player_id,
+                    amount = amount,
+                    new_balance = Net.get_player_money
+                        and Net.get_player_money(payload.player_id) or nil,
+                    source = "encounter",
+                    encounter_name = payload.encounter_info and payload.encounter_info.name,
+                    floor_index = runner.current_floor_index,
+                    run_total = runner.monies_earned,
+                })
+            end
+        end)
+    end
+end
+
+
 -- ---------------------------------------------------------------------------
 -- Input lock
 -- ---------------------------------------------------------------------------
 
 local function ensure_input_locked(player_id, runner, reason)
     if not runner or not runner.locked_input then return false end
-    if type(Net.lock_player_input) ~= "function" then return false end
-    local ok = pcall(Net.lock_player_input, player_id)
+    if type(LegacyCapture.lock) ~= "function" then return false end
+    local ok = pcall(LegacyCapture.lock, player_id, "ezlibs-custom/endless-runner/endless-runner")
     if ok and reason then
         log_for(player_id, "input re-locked (" .. tostring(reason) .. ")")
     end
@@ -240,6 +359,126 @@ local function find_object_by_id(area_id, object_id)
         if ok and obj then return obj end
     end
     return nil
+end
+
+-- ---------------------------------------------------------------------------
+-- Return placement after leaving a Runner instance
+-- ---------------------------------------------------------------------------
+-- The exact departure coordinates from a Custom Warp can still be inside its
+-- trigger. After a completed/aborted run, use a nearby terrain tile center
+-- outside the surrounding warp geometry instead. This does NOT change the
+-- saved departure snapshot, the return-warp guard, or entry behavior.
+local RETURN_TILE_MIN_DISTANCE_SQ = 2.0 * 2.0
+local RETURN_TILE_MAX_SEARCH_RADIUS = 5
+local RETURN_WARP_CLEARANCE = 0.75
+
+local RETURN_WARP_TYPES = {
+    ["Custom Warp"] = true,
+    ["Radius Warp"] = true,
+    ["Interact Warp"] = true,
+    ["Server Warp"] = true,
+    ["Home Warp"] = true,
+}
+
+local function return_tile_has_terrain(area_id, x, y, z)
+    if type(Net.get_tile) ~= "function" then return false end
+    local ok, tile = pcall(Net.get_tile, area_id, x, y, z)
+    return ok and type(tile) == "table"
+        and type(tile.gid) == "number" and tile.gid > 0
+end
+
+local function return_tile_overlaps_warp(x, y, z, objects)
+    for _, obj in ipairs(objects) do
+        if tonumber(obj.z) == nil or (tonumber(obj.z) or 0) == z then
+            local ox, oy = tonumber(obj.x), tonumber(obj.y)
+            if ox and oy then
+                local clearance = RETURN_WARP_CLEARANCE
+                local props = obj.custom_properties or {}
+                if obj.type == "Radius Warp" then
+                    local radius = tonumber(props["Activation Radius"])
+                    if radius and radius > 0 then
+                        local dx, dy = x - ox, y - oy
+                        if dx * dx + dy * dy <= (radius + clearance) ^ 2 then
+                            return true
+                        end
+                    end
+                else
+                    local w, h = tonumber(obj.width) or 0, tonumber(obj.height) or 0
+                    if x >= ox - clearance and x <= ox + w + clearance
+                        and y >= oy - clearance and y <= oy + h + clearance then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function choose_runner_return_position(area_id, origin_pos, entry_warp_id)
+    local x, y = tonumber(origin_pos.x), tonumber(origin_pos.y)
+    local z = tonumber(origin_pos.z) or 0
+    if not x or not y or not entry_warp_id then
+        return origin_pos, "no_warp_origin"
+    end
+
+    -- Do not guess a position if the original warp is no longer available.
+    -- The existing per-player warp guard will still protect the old position.
+    local source_warp = find_object_by_id(area_id, entry_warp_id)
+    if not source_warp then return origin_pos, "warp_not_found" end
+
+    local warp_objects = {}
+    local ok_list, ids = pcall(Net.list_objects, area_id)
+    if not ok_list or type(ids) ~= "table" then
+        return origin_pos, "objects_unavailable"
+    end
+    for _, id in ipairs(ids) do
+        local obj = find_object_by_id(area_id, id)
+        if obj and RETURN_WARP_TYPES[obj.type] then
+            warp_objects[#warp_objects + 1] = obj
+        end
+    end
+    -- Some maps may not return the source warp from list_objects. Always
+    -- consider the specific triggering warp when screening candidates.
+    local source_listed = false
+    for _, obj in ipairs(warp_objects) do
+        if tostring(obj.id) == tostring(entry_warp_id) then
+            source_listed = true
+            break
+        end
+    end
+    if not source_listed then
+        warp_objects[#warp_objects + 1] = source_warp
+    end
+
+    local tile_x, tile_y = math.floor(x), math.floor(y)
+    for radius = 2, RETURN_TILE_MAX_SEARCH_RADIUS do
+        local best, best_score
+        for dy = -radius, radius do
+            for dx = -radius, radius do
+                if math.max(math.abs(dx), math.abs(dy)) == radius then
+                    local cx, cy = tile_x + dx + 0.5, tile_y + dy + 0.5
+                    local ox, oy = cx - x, cy - y
+                    local distance_sq = ox * ox + oy * oy
+                    if distance_sq >= RETURN_TILE_MIN_DISTANCE_SQ
+                        and return_tile_has_terrain(area_id, cx, cy, z)
+                        and not return_tile_overlaps_warp(cx, cy, z, warp_objects) then
+                        -- Favor the closest safe tile center to the original
+                        -- departure point; iteration makes ties deterministic.
+                        if not best_score or distance_sq < best_score then
+                            best = { x = cx, y = cy, z = z }
+                            best_score = distance_sq
+                        end
+                    end
+                end
+            end
+        end
+        if best then return best, "nearby_tile" end
+    end
+
+    -- Never return an unverified position outside the map. Fall back to
+    -- the exact recorded origin plus the existing entrance-warp guard.
+    return origin_pos, "no_terrain_candidate"
 end
 
 --- Return true if `obj` should be treated as a choice waypoint.
@@ -397,7 +636,23 @@ local function camera_follow_actor(player_id, actor_id)
     return ok and res ~= false
 end
 
+-- Net.get_player_area throws for disconnected players. Query safely before
+-- performing any camera work, including delayed cleanup callbacks.
+local function connected_player_area(player_id)
+    if type(Net.get_player_area) ~= "function" then return nil end
+    local ok, area = pcall(Net.get_player_area, player_id)
+    if not ok then return nil end
+    return area
+end
+
+-- Match FootBomb and the shared CameraController cleanup sequence:
+-- release any camera lock before asking the camera to follow the player.
 local function camera_follow_player(player_id)
+    if not connected_player_area(player_id) then return false end
+    if type(Net.unlock_player_camera) == "function" then
+        local unlocked, result = pcall(Net.unlock_player_camera, player_id)
+        if not unlocked or result == false then return false end
+    end
     if type(Net.track_with_player_camera) ~= "function" then return false end
     local ok, res = pcall(Net.track_with_player_camera, player_id)
     return ok and res ~= false
@@ -873,10 +1128,10 @@ Net:on("tick", function()
             end
 
             state.tick_count = (state.tick_count or 0) + 1
-            if r.locked_input and type(Net.lock_player_input) == "function" then
+            if r.locked_input and type(LegacyCapture.lock) == "function" then
                 if state.tick_count <= 2
                     or state.tick_count % CHOICE_INPUT_RELOCK_TICKS == 0 then
-                    pcall(Net.lock_player_input, r.player_id)
+                    pcall(LegacyCapture.lock, r.player_id, "ezlibs-custom/endless-runner/endless-runner")
                 end
             end
 
@@ -978,6 +1233,204 @@ local function update_instance_metadata(runner)
     runner.instance_record.metadata = md
 end
 
+-- ---------------------------------------------------------------------------
+-- Encounter selection: shared ezencounters / Nebulous Liberations area format
+-- ---------------------------------------------------------------------------
+
+-- The base-area encounter file is the single source of truth. Instance IDs
+-- must NOT be used to load an encounter table: they are unique per floor.
+-- Section spelling is the same as ezencounters and PanelEncounters.
+local ENCOUNTER_SECTIONS = {
+    encounters = true,
+    bosses = true,
+    special_encounters = true,
+}
+
+local function normalize_encounter_section(value)
+    if value == nil then return nil end
+    local section = tostring(value):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if section == "normal" or section == "random" or section == "regular" then
+        section = "encounters"
+    elseif section == "boss" then
+        section = "bosses"
+    elseif section == "special" or section == "special encounter" then
+        section = "special_encounters"
+    end
+    return ENCOUNTER_SECTIONS[section] and section or nil
+end
+
+local function runner_encounter_section(runner, trigger_obj)
+    local props = trigger_obj and trigger_obj.custom_properties or {}
+    -- Explicit Tiled property takes priority over the floor default.
+    local trigger_section = props["Encounter Category"] or props["Encounter Section"]
+    if trigger_section ~= nil then
+        local section = normalize_encounter_section(trigger_section)
+        if not section then
+            print("[endless_runner] WARNING: invalid Encounter Category '"
+                .. tostring(trigger_section) .. "'; using floor setting")
+        else
+            return section
+        end
+    end
+    local floor_def = current_floor(runner)
+    local floor_section = floor_def and (floor_def.encounter_section or floor_def.encounter_category)
+    if floor_section ~= nil then
+        local section = normalize_encounter_section(floor_section)
+        if section then return section end
+        print("[endless_runner] WARNING: invalid floor encounter_section '"
+            .. tostring(floor_section) .. "'; using encounters")
+    end
+    -- Legacy 'special' flag historically marks a boss floor in custom.lua.
+    if floor_def and floor_def.special == true then return "bosses" end
+    return "encounters"
+end
+
+local function load_runner_encounter_table(runner)
+    local base = runner and runner.instance_record and runner.instance_record.base_area_id
+    if not base then return nil, "missing base_area_id" end
+    local ok_cfg, cfg = pcall(require, "scripts/ezlibs-scripts/ezconfig")
+    if not ok_cfg or type(cfg) ~= "table" or type(cfg.ENCOUNTERS_PATH) ~= "string" then
+        return nil, "ezconfig.ENCOUNTERS_PATH unavailable"
+    end
+    local candidates = { tostring(base) }
+    if type(Net.get_area_name) == "function" then
+        local ok_name, area_name = pcall(Net.get_area_name, base)
+        if ok_name and area_name and tostring(area_name) ~= tostring(base) then
+            candidates[#candidates + 1] = tostring(area_name)
+        end
+    end
+    local load_error
+    for _, key in ipairs(candidates) do
+        local module_name = cfg.ENCOUNTERS_PATH .. key
+        local ok_table, definition = pcall(require, module_name)
+        if ok_table and type(definition) == "table" then return definition end
+        load_error = tostring(module_name) .. ": "
+            .. (ok_table and "module did not return a table" or tostring(definition))
+    end
+    return nil, "could not load encounter table for base area '"
+        .. tostring(base) .. "' (" .. tostring(load_error) .. ")"
+end
+
+local function pick_weighted_encounter(options)
+    if type(options) ~= "table" or #options == 0 then return nil end
+    if #options == 1 then return options[1] end
+    local total = 0
+    for _, option in ipairs(options) do
+        local weight = tonumber(option.weight)
+        if weight == nil then weight = 1 end
+        if weight > 0 then total = total + weight end
+    end
+    if total <= 0 then return options[math.random(#options)] end
+    local roll = math.random() * total
+    for _, option in ipairs(options) do
+        local weight = tonumber(option.weight)
+        if weight == nil then weight = 1 end
+        if weight > 0 then
+            roll = roll - weight
+            if roll <= 0 then return option end
+        end
+    end
+    return options[#options]
+end
+
+-- The explicitly requested section never borrows names from another section.
+-- If a legacy area has no boss/special section, match Nebulous Liberations'
+-- fallback to .encounters. A section with entries is always authoritative.
+local function select_runner_encounter(runner, trigger_obj, trigger_id, encounter_names, pick_mode)
+    local table_data, err = load_runner_encounter_table(runner)
+    if not table_data then return nil, nil, nil, err end
+
+    local section = runner_encounter_section(runner, trigger_obj)
+    local choices = table_data[section]
+    if (type(choices) ~= "table" or #choices == 0) and section ~= "encounters" then
+        choices = table_data.encounters
+        if type(choices) == "table" and #choices > 0 then
+            print("[endless_runner] WARNING: section '" .. section
+                .. "' is empty; falling back to regular encounters")
+            section = "encounters"
+        end
+    end
+    if type(choices) ~= "table" or #choices == 0 then
+        return nil, section, nil, "no encounters in section '" .. section .. "'"
+    end
+
+    local allowed = {}
+    for _, definition in ipairs(choices) do
+        if type(definition) == "table" and definition.name then
+            allowed[tostring(definition.name)] = definition
+        end
+    end
+    local named = {}
+    for _, name in ipairs(encounter_names or {}) do
+        if allowed[name] then named[#named + 1] = allowed[name] end
+    end
+
+    local pool = #named > 0 and named or choices
+    local source = #named > 0 and "trigger_names" or "area_section"
+    if encounter_names and #encounter_names > 0 and #named == 0 then
+        print("[endless_runner] trigger names have no matches in '" .. section
+            .. "'; selecting from the section instead")
+    end
+
+    local mode = tostring(pick_mode or "random"):lower()
+    local chosen
+    if mode == "first" then
+        chosen = pool[1]
+    elseif mode == "cycle" then
+        runner.encounter_cycle_index = runner.encounter_cycle_index or {}
+        local key = tostring(trigger_id or "__default") .. ":" .. section
+        local index = (runner.encounter_cycle_index[key] or 0) + 1
+        if index > #pool then index = 1 end
+        runner.encounter_cycle_index[key] = index
+        chosen = pool[index]
+    else
+        chosen = pick_weighted_encounter(pool)
+    end
+    if not chosen or not chosen.name or not chosen.path then
+        return nil, section, source, "selected encounter has no name/path"
+    end
+    return chosen, section, source
+end
+
+-- Money is awarded by ezmemory, which synchronizes the Net balance and
+-- persistent player record. Only emit success after that API has succeeded.
+local function award_runner_monies(runner, raw_amount, source, encounter_name)
+    local amount = tonumber(raw_amount)
+    if not amount or amount ~= amount or amount < 0 or amount % 1 ~= 0 then
+        print("[endless_runner] invalid money reward: " .. tostring(raw_amount))
+        return false
+    end
+    if amount == 0 then return true end
+
+    local ok, balance, err = pcall(ezmemory.add_player_money, runner.player_id, amount)
+    if not ok or balance == nil then
+        local reason = ok and err or balance
+        print("[endless_runner] money reward failed for " .. tostring(runner.player_id)
+            .. ": " .. tostring(reason))
+        emit_bus("endless_runner_reward_failed", {
+            player_id = runner.player_id,
+            amount = amount,
+            source = source,
+            encounter_name = encounter_name,
+            floor_index = runner.current_floor_index,
+            reason = tostring(reason),
+        })
+        return false
+    end
+
+    runner.monies_earned = (runner.monies_earned or 0) + amount
+    emit_bus("endless_runner_monies_awarded", {
+        player_id = runner.player_id,
+        amount = amount,
+        new_balance = balance,
+        source = source,
+        encounter_name = encounter_name,
+        floor_index = runner.current_floor_index,
+        run_total = runner.monies_earned,
+    })
+    return true
+end
+
 local function apply_floor_rewards(runner, floor_def)
     if not runner or not floor_def then return end
     if floor_def.heal and floor_def.heal > 0 then
@@ -988,6 +1441,8 @@ local function apply_floor_rewards(runner, floor_def)
         if type(reward) == "table" then
             if reward.type == "hp" and type(reward.amount) == "number" then
                 runner_heal(runner, reward.amount)
+            elseif reward.type == "money" or reward.type == "monies" then
+                award_runner_monies(runner, reward.amount, "floor_reward")
             else
                 emit_bus("endless_runner_reward", {
                     player_id = runner.player_id, reward = reward,
@@ -996,6 +1451,32 @@ local function apply_floor_rewards(runner, floor_def)
             end
         end
     end
+end
+
+-- Clear persistent per-area and per-player map memory when a cloned runner
+-- area is removed. Every floor has a new instance ID, so failing to do this
+-- accumulates memory files and per-player hidden_objects entries over time.
+local function remove_runner_instance(instance_id)
+    if not instance_id then return false, "instance_id missing" end
+    local removed, err = EzMapInstance.remove(instance_id)
+    runner_checkpoint(nil, "instance_remove", {
+        instance = tostring(instance_id), removed = removed == true, error = err,
+    })
+    if removed then
+        for _, runner in pairs(active_runners) do
+            if runner.provided_encounter_assets then
+                runner.provided_encounter_assets[instance_id] = nil
+            end
+        end
+    end
+    if removed and type(ezmemory.clear_area_memory) == "function" then
+        local ok, clear_err = pcall(ezmemory.clear_area_memory, instance_id)
+        if not ok then
+            print("[endless_runner] WARNING: could not clear instance memory "
+                .. tostring(instance_id) .. ": " .. tostring(clear_err))
+        end
+    end
+    return removed, err
 end
 
 -- ---------------------------------------------------------------------------
@@ -1074,6 +1555,7 @@ function advance_floor(player_id, options)
                     player_id = player_id,
                     floors_cleared = runner.current_floor_index - 1,
                     final_hp = runner.hp,
+                    monies_earned = runner.monies_earned or 0,
                 })
                 EndlessRunner.stop(player_id, {
                     restore_position = true,
@@ -1110,9 +1592,10 @@ function advance_floor(player_id, options)
                 .. (tostring(player_id):gsub("[^%w_%-]", "_"))
                 .. "_f" .. tostring(runner.current_floor_index)
 
-            if runner.instance_record then
-                pcall(EzMapInstance.remove, runner.instance_record.id)
-            end
+            -- Keep the old area alive until the player has safely arrived
+            -- in the next instance. Removing it while occupied can disconnect
+            -- the player or invalidate the ongoing transfer.
+            local previous_record = runner.instance_record
 
             local record = EzMapInstance.create(base_area, new_instance_id, {
                 host_id = player_id, player_ids = {},
@@ -1126,7 +1609,7 @@ function advance_floor(player_id, options)
             if not record then
                 log_for(player_id, "advance_floor: create failed for " .. base_area)
                 EndlessRunner.stop(player_id, {
-                    restore_position = true, remove_instance = false,
+                    restore_position = true, remove_instance = true,
                     reason = "floor_create_failed",
                 })
                 return
@@ -1135,7 +1618,7 @@ function advance_floor(player_id, options)
             await(Async.sleep(0))
             local spawn_obj = wait_for_spawn(record.id, 5)
             if not spawn_obj then
-                pcall(EzMapInstance.remove, record.id)
+                pcall(remove_runner_instance, record.id)
                 EndlessRunner.stop(player_id, {
                     restore_position = true, reason = "floor_no_spawn",
                 })
@@ -1147,7 +1630,7 @@ function advance_floor(player_id, options)
 
             local entry = AvatarRegistry.get_or_copy(player_id)
             if not entry then
-                pcall(EzMapInstance.remove, record.id)
+                pcall(remove_runner_instance, record.id)
                 EndlessRunner.stop(player_id, {
                     restore_position = true, reason = "floor_no_avatar",
                 })
@@ -1164,7 +1647,7 @@ function advance_floor(player_id, options)
                     solid = false, warp_in = false, animation = "IDLE_DR",
                 })
             if not npc then
-                pcall(EzMapInstance.remove, record.id)
+                pcall(remove_runner_instance, record.id)
                 EndlessRunner.stop(player_id, {
                     restore_position = true, reason = "floor_no_bot",
                 })
@@ -1223,10 +1706,32 @@ function advance_floor(player_id, options)
                 .. " registered " .. warp_n .. " warp, " .. enc_n
                 .. " encounter, " .. choice_n .. " choice")
 
-            seamless_warp(player_id, record.id,
+            local transferred = seamless_warp(player_id, record.id,
                 spawn_obj.x, spawn_obj.y, spawn_obj.z or 0)
+            if not transferred then
+                -- The player is still in the previous area. Roll back the
+                -- runner's pointers so stop() can return them safely.
+                unregister_runner_triggers(runner)
+                pcall(eznpcs.remove_npc, npc)
+                pcall(remove_runner_instance, record.id)
+                runner.instance_record = previous_record
+                runner.instance_id = previous_record and previous_record.id or nil
+                runner.npc = nil
+                EndlessRunner.stop(player_id, {
+                    restore_position = true, remove_instance = true,
+                    reason = "floor_transfer_failed",
+                })
+                return
+            end
             EzMapInstance.register_player(record.id, player_id)
-            if runner.locked_input then pcall(Net.lock_player_input, player_id) end
+            if previous_record then
+                local removed, remove_error = remove_runner_instance(previous_record.id)
+                if not removed then
+                    print("[endless_runner] WARNING: previous floor cleanup failed: "
+                        .. tostring(remove_error))
+                end
+            end
+            if runner.locked_input then pcall(LegacyCapture.lock, player_id, "ezlibs-custom/endless-runner/endless-runner") end
 
             await(Async.sleep(0))
             await(Async.sleep(0))
@@ -1300,66 +1805,249 @@ end
 -- Encounter lifecycle
 -- ---------------------------------------------------------------------------
 
-local default_encounter_starter = function(player_id, encounter_name, trigger_obj)
-    local ok, ezencounters = pcall(require, "scripts/ezlibs-scripts/ezencounters")
-    if not ok or type(ezencounters) ~= "table" then return nil, "ezencounters unavailable" end
-    if type(ezencounters.begin_encounter_by_name) ~= "function" then
-        return nil, "ezencounters.begin_encounter_by_name missing"
+-- This package has a distinct package ID and requires only the four enemy mods
+-- used by this server's current Runner encounter table. Added/unrecognized
+-- aliases automatically fall back to the original full ezencounters package.
+local RUNNER_BATTLE_PACKAGE =
+    "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip"
+local RUNNER_BATTLE_ENEMIES = {
+    Boomer = true, WindBox = true, Quaker = true, Fishy = true,
+}
+local function runner_uses_minimal_package(definition)
+    if type(definition) ~= "table" or type(definition.enemies) ~= "table"
+        or #definition.enemies == 0 then
+        return false
     end
-    return ezencounters.begin_encounter_by_name(player_id, encounter_name, trigger_obj)
+    for _, enemy in ipairs(definition.enemies) do
+        if type(enemy) ~= "table" or not RUNNER_BATTLE_ENEMIES[enemy.name] then
+            return false
+        end
+    end
+    return true
 end
 
-function EndlessRunner.start_encounter(player_id, encounter_name, trigger_obj)
+local default_encounter_starter = function(player_id, encounter_name, trigger_obj, runtime_data)
+    -- The player is in a cloned area, whereas ezencounters indexes named
+    -- definitions by *base* area. A global lookup is unsafe because names may
+    -- occur in multiple area encounter tables.
+    local ok, ezencounters = pcall(require, "scripts/ezlibs-scripts/ezencounters/main")
+    if not ok or type(ezencounters) ~= "table" then
+        return nil, "ezencounters unavailable"
+    end
+    if type(ezencounters.get_encounter_by_name) ~= "function"
+        or type(ezencounters.begin_encounter) ~= "function" then
+        return nil, "ezencounters lookup/start API unavailable"
+    end
+    local runner = active_runners[player_id]
+    local base_area_id = runner and runner.instance_record
+        and runner.instance_record.base_area_id
+    local encounter_info = ezencounters.get_encounter_by_name(
+        encounter_name, base_area_id)
+    if not encounter_info then
+        return nil, "no encounter '" .. tostring(encounter_name)
+            .. "' registered for base area '" .. tostring(base_area_id) .. "'"
+    end
+    -- Use a copy: never mutate the registered base-area definition used by
+    -- regular encounters or by Nebulous Liberations.
+    local battle_definition = {}
+    for key, value in pairs(encounter_info) do battle_definition[key] = value end
+    if runner_uses_minimal_package(encounter_info) then
+        battle_definition.path = RUNNER_BATTLE_PACKAGE
+    end
+
+    local clone_area_id = Net.get_player_area(player_id)
+    runner_checkpoint(player_id, "encounter_resolved", {
+        name = encounter_name,
+        base_area = tostring(base_area_id),
+        clone_area = tostring(clone_area_id),
+        package = tostring(battle_definition.path),
+        enemies = #(encounter_info.enemies or {}),
+        using_minimal_package = battle_definition.path == RUNNER_BATTLE_PACKAGE,
+    })
+
+    if not battle_definition.path then
+        runner_checkpoint(player_id, "package_path_missing", {name=encounter_name})
+        return nil, "encounter has no battle package path"
+    end
+    -- Assets originally registered against the base area are not guaranteed
+    -- to be published to its clones. Cache per active clone, not per base.
+    if runner and clone_area_id then
+        runner.provided_encounter_assets = runner.provided_encounter_assets or {}
+        local provided = runner.provided_encounter_assets[clone_area_id] or {}
+        runner.provided_encounter_assets[clone_area_id] = provided
+        if not provided[battle_definition.path] then
+            runner_checkpoint(player_id, "package_provide_begin", {
+                clone_area = tostring(clone_area_id),
+                package = battle_definition.path,
+            })
+            local ok_asset, asset_err = pcall(
+                Net.provide_asset, clone_area_id, battle_definition.path)
+            if not ok_asset then
+                runner_checkpoint(player_id, "package_provide_failed", {error=tostring(asset_err)})
+                return nil, "failed to provide encounter package: " .. tostring(asset_err)
+            end
+            provided[battle_definition.path] = true
+            runner_checkpoint(player_id, "package_provide_done", {
+                clone_area = tostring(clone_area_id),
+                package = battle_definition.path,
+            })
+        else
+            runner_checkpoint(player_id, "package_already_provided", {
+                clone_area = tostring(clone_area_id),
+                package = battle_definition.path,
+            })
+        end
+    end
+    runner_checkpoint(player_id, "begin_encounter_called", {
+        package = battle_definition.path,
+        name = encounter_name,
+    })
+    return ezencounters.begin_encounter(player_id, battle_definition, trigger_obj, runtime_data)
+end
+
+function EndlessRunner.start_encounter(player_id, encounter_name, trigger_obj, encounter_section)
     return async(function()
         local runner = active_runners[player_id]
         if not runner or runner.pending then return false end
         if runner.encounter_in_progress then return false end
         if Net.is_player_battling and Net.is_player_battling(player_id) then return false end
-        if not encounter_name or tostring(encounter_name) == "" then return false end
+        if not encounter_name or tostring(encounter_name) == "" then
+            -- A direct start without a name draws from the floor's area table.
+            local definition, section, _, selection_error = select_runner_encounter(
+                runner, trigger_obj, "__direct", nil, "random")
+            if not definition then
+                log_for(player_id, "encounter selection failed: " .. tostring(selection_error))
+                return false
+            end
+            encounter_name, encounter_section = definition.name, section
+        end
+        encounter_section = encounter_section or runner_encounter_section(runner, trigger_obj)
 
+        runner_checkpoint(player_id, "encounter_selected", {
+            name = encounter_name,
+            section = encounter_section,
+            instance = tostring(runner.instance_id),
+            hp = runner.hp,
+        })
         runner.encounter_in_progress = true
         fade_to_black(player_id)
         await(Async.sleep(ENCOUNTER_FADE_WAIT))
         await(EndlessRunner.pause_bot(player_id))
+        runner_checkpoint(player_id, "bot_paused_before_battle", {
+            area = tostring(Net.get_player_area(player_id)),
+        })
 
         emit_bus("endless_runner_encounter_started", {
             player_id = player_id, encounter_name = encounter_name,
+            encounter_section = encounter_section,
             trigger = trigger_obj,
         })
 
         local starter = runner.encounter_starter or default_encounter_starter
+        -- The shared reward processor is called at battle_results time, while
+        -- the native reward screen is active. This runtime override takes
+        -- priority over area/encounter/enemy defaults, but does not mutate
+        -- the cached encounter definition.
+        local floor_def = current_floor(runner)
+        local floor_rewards = floor_def and floor_def.encounter_rewards
+        if floor_rewards == nil then
+            local money = floor_def and floor_def.encounter_monies
+            if money == nil then money = runner.encounter_monies end
+            if money ~= nil then floor_rewards = { money = { base = money } } end
+        end
+        local runtime_data = {
+            _base_area_id = runner.instance_record and runner.instance_record.base_area_id,
+            rewards = floor_rewards,
+        }
+        runner.last_encounter_reward_totals = nil
+        runner.last_encounter_rewards = nil
         local stats, err = nil, nil
         do
-            local ok, result1, result2 = pcall(starter, player_id, encounter_name, trigger_obj)
+            runner_checkpoint(player_id, "starter_call_begin", {name=encounter_name})
+            local ok, result1, result2 = pcall(starter, player_id, encounter_name, trigger_obj, runtime_data)
+            runner_checkpoint(player_id, "starter_call_returned", {
+                ok = ok,
+                result_type = type(result1),
+                error = not ok and tostring(result1) or nil,
+            })
             if not ok then
                 err = tostring(result1)
             elseif result1 == nil then
                 err = tostring(result2 or "encounter returned nil")
+            elseif type(result1) == "table" and (result1.health ~= nil
+                    or result1.reason ~= nil or result1.ran ~= nil) then
+                -- Custom starters may return immediate stats instead of a promise.
+                stats = result1
             else
-                stats = await(result1)
+                -- An Async.initiate_encounter rejection must never leave the
+                -- runner's avatar paused and the camera permanently faded.
+                runner_checkpoint(player_id, "battle_await_begin", {name=encounter_name})
+                local awaited, resolved, async_error = pcall(function()
+                    return await(result1)
+                end)
+                runner_checkpoint(player_id, "battle_await_finished", {
+                    awaited = awaited,
+                    stats_type = type(resolved),
+                    error = not awaited and tostring(resolved) or nil,
+                })
+                if awaited then
+                    stats = resolved
+                    if stats == nil then err = tostring(async_error or "battle returned nil") end
+                else
+                    err = tostring(resolved)
+                end
             end
         end
 
         runner.encounter_in_progress = false
 
+        -- An async battle may finish after a disconnect, cancelled run, or
+        -- another session replacing this one. Never pay or advance a stale run.
+        if active_runners[player_id] ~= runner then return false end
+
         if not stats then
+            runner_checkpoint(player_id, "encounter_failed", {error=tostring(err)})
             log_for(player_id, "start_encounter failed: " .. tostring(err))
             EndlessRunner.resume_bot(player_id)
             fade_to_clear(player_id)
             return false
         end
 
+        if type(stats) ~= "table" then
+            runner_checkpoint(player_id, "encounter_invalid_result", {type=type(stats)})
+            log_for(player_id, "encounter returned non-table stats")
+            EndlessRunner.resume_bot(player_id)
+            fade_to_clear(player_id)
+            return false
+        end
+
+        runner_checkpoint(player_id, "battle_result_received", {
+            health = stats.health, reason = stats.reason, ran = stats.ran,
+        })
         local hp_before = runner.hp
         if type(stats.health) == "number" then
             runner_apply_hp(runner, stats.health)
         end
         local hp_after = runner.hp
-        local died = stats.health == 0 or (type(hp_after) == "number" and hp_after <= 0)
-        local fled = stats.ran == true
+        local reason = tonumber(stats.reason)
+        local died = reason == 2 or stats.health == 0
+            or (type(hp_after) == "number" and hp_after <= 0)
+        local fled = stats.ran == true or reason == 3 or reason == 4
+        local won = not (died or fled)
+            and (reason == 1
+                or (reason == nil and type(stats.health) == "number" and stats.health > 0))
+
+        -- No second ezmemory payout here. The ezencounters battle_results
+        -- listener already sent and persisted the native reward packet.
+        -- A custom starter that bypasses ezencounters must explicitly use its
+        -- register_external_battle API to participate in shared rewards.
 
         emit_bus("endless_runner_encounter_finished", {
             player_id = player_id, encounter_name = encounter_name,
-            stats = stats, won = not (died or fled),
+            encounter_section = encounter_section,
+            stats = stats, won = won,
+            rewards = runner.last_encounter_rewards,
+            reward_totals = runner.last_encounter_reward_totals,
             hp = hp_after, hp_before = hp_before,
         })
 
@@ -1369,6 +2057,15 @@ function EndlessRunner.start_encounter(player_id, encounter_name, trigger_obj)
             EndlessRunner.stop(player_id, {
                 restore_position = true, remove_instance = true,
                 reason = died and "hp_depleted" or "fled",
+            })
+            return false
+        end
+
+        if not won then
+            log_for(player_id, "encounter result has no confirmed victory; stopping run")
+            EndlessRunner.stop(player_id, {
+                restore_position = true, remove_instance = true,
+                reason = "invalid_encounter_result",
             })
             return false
         end
@@ -1481,40 +2178,33 @@ function register_encounter_trigger(runner, trigger_obj, is_ellipse)
 
     local pick_mode = tostring(props["Pick Mode"] or "random"):lower()
     local encounter_list = extract_encounter_list(props)
-    if #encounter_list == 0 then
-        print("[endless_runner] WARNING: encounter trigger " .. tostring(trigger_obj.id)
-            .. " has no encounter list")
-    else
-        print("[endless_runner] encounter trigger " .. tostring(trigger_obj.id)
-            .. " — " .. tostring(#encounter_list) .. " encounter(s), pick=" .. pick_mode)
-    end
+    -- Trigger names are optional. The base area's .encounters/.bosses/
+    -- .special_encounters section is used when none match the active section.
+    print("[endless_runner] encounter trigger " .. tostring(trigger_obj.id)
+        .. " — " .. tostring(#encounter_list) .. " explicit name(s), pick=" .. pick_mode)
 
     emitter:on("entered", function(event)
         if not event or event.bot_id ~= runner.npc.bot_id then return end
+        if runner.encounter_in_progress or runner.pending or runner.floor_transition_in_progress then return end
         if once and runner.fired_triggers[trigger_id] then return end
-        runner.fired_triggers[trigger_id] = true
-        if #encounter_list == 0 then return end
 
-        local picked
-        if pick_mode == "first" then
-            picked = encounter_list[1]
-        elseif pick_mode == "cycle" then
-            runner.encounter_cycle_index = runner.encounter_cycle_index or {}
-            local ci = (runner.encounter_cycle_index[trigger_id] or 0) + 1
-            if ci > #encounter_list then ci = 1 end
-            runner.encounter_cycle_index[trigger_id] = ci
-            picked = encounter_list[ci]
-        else
-            picked = encounter_list[math.random(1, #encounter_list)]
+        local selected, section, source, selection_error = select_runner_encounter(
+            runner, trigger_obj, trigger_id, encounter_list, pick_mode)
+        if not selected then
+            log_for(runner.player_id, "encounter trigger " .. tostring(trigger_obj.id)
+                .. " failed: " .. tostring(selection_error))
+            return
         end
+        if once then runner.fired_triggers[trigger_id] = true end
 
         local payload = {
             player_id = runner.player_id,
             bot_id = runner.npc.bot_id,
             instance_id = runner.instance_id,
-            base_area_id = runner.instance_record
-                and runner.instance_record.base_area_id,
-            encounter_name = picked,
+            base_area_id = runner.instance_record and runner.instance_record.base_area_id,
+            encounter_name = selected.name,
+            encounter_section = section,
+            encounter_source = source,
             encounter_list = encounter_list,
             trigger_object_id = trigger_obj.id,
             trigger_object_name = trigger_obj.name,
@@ -1523,12 +2213,13 @@ function register_encounter_trigger(runner, trigger_obj, is_ellipse)
             trigger_y = trigger_obj.y,
             trigger_z = trigger_obj.z or 0,
         }
-        log_for(runner.player_id, "encounter triggered: " .. tostring(picked)
-            .. " via " .. tostring(trigger_obj.type) .. " " .. tostring(trigger_obj.id))
+        log_for(runner.player_id, "encounter triggered: " .. tostring(selected.name)
+            .. " [" .. section .. "] via " .. tostring(trigger_obj.type)
+            .. " " .. tostring(trigger_obj.id))
         emit_bus("endless_runner_encounter_triggered", payload)
-        if type(runner.encounter_starter) ~= "function" then
-            EndlessRunner.start_encounter(runner.player_id, picked, trigger_obj)
-        end
+        -- A custom starter may accept runtime_data as its optional fourth
+        -- argument to preserve floor-specific reward overrides.
+        EndlessRunner.start_encounter(runner.player_id, selected.name, trigger_obj, section)
     end)
 
     return emitter, trigger_id
@@ -1544,6 +2235,16 @@ function unregister_runner_triggers(runner)
         if ezbottriggers.rectangle_triggers[area_id] then
             ezbottriggers.rectangle_triggers[area_id][trigger_id] = nil
         end
+    end
+    -- A new instance is created for every floor; empty per-area registries
+    -- must not accumulate for the lifetime of the server.
+    if ezbottriggers.radius_triggers[area_id]
+        and not next(ezbottriggers.radius_triggers[area_id]) then
+        ezbottriggers.radius_triggers[area_id] = nil
+    end
+    if ezbottriggers.rectangle_triggers[area_id]
+        and not next(ezbottriggers.rectangle_triggers[area_id]) then
+        ezbottriggers.rectangle_triggers[area_id] = nil
     end
     runner.triggers = {}
 end
@@ -1564,6 +2265,30 @@ local function do_enter(player_id, base_area_id, options)
 
     local origin_area = Net.get_player_area(player_id)
     local origin_pos  = Net.get_player_position(player_id)
+    local origin_source = "current_area"
+    local entry_warp_object_id = nil
+
+    -- When a warp led to this watched entry area, prefer its departure
+    -- snapshot. The location returned by Net.get_player_area() here is
+    -- already the Runner lobby and cannot be used to return from Panic.
+    local incoming_origin = pending_entry_origins[player_id]
+    pending_entry_origins[player_id] = nil
+    if incoming_origin
+        and incoming_origin.to_area == origin_area
+        and (os.time() - incoming_origin.captured_at) <= ENTRY_ORIGIN_MAX_AGE_SECONDS then
+        origin_area = incoming_origin.from_area
+        origin_pos = incoming_origin.position
+        entry_warp_object_id = incoming_origin.from_warp_object_id
+        origin_source = "warp_departure"
+    end
+    runner_checkpoint(player_id, "entry_origin_selected", {
+        source = origin_source,
+        entry_warp_id = entry_warp_object_id and tostring(entry_warp_object_id),
+        return_area = tostring(origin_area),
+        x = origin_pos and origin_pos.x,
+        y = origin_pos and origin_pos.y,
+        z = origin_pos and origin_pos.z,
+    })
 
     if options.on_prepare then pcall(options.on_prepare, player_id) end
 
@@ -1572,13 +2297,13 @@ local function do_enter(player_id, base_area_id, options)
 
     local input_locked = false
     if should_lock_input then
-        pcall(Net.lock_player_input, player_id)
+        pcall(LegacyCapture.lock, player_id, "ezlibs-custom/endless-runner/endless-runner")
         input_locked = true
         log_for(player_id, "input locked")
     end
 
     local function fail(msg)
-        if input_locked then pcall(Net.unlock_player_input, player_id) end
+        if input_locked then pcall(LegacyCapture.unlock, player_id, "ezlibs-custom/endless-runner/endless-runner") end
         log_for(player_id, "enter() FAILED: " .. tostring(msg))
         return false, msg
     end
@@ -1605,7 +2330,7 @@ local function do_enter(player_id, base_area_id, options)
         local existing = EzMapInstance.get(preferred_id)
         if existing then
             log_for(player_id, "removing stale instance " .. preferred_id)
-            pcall(EzMapInstance.remove, preferred_id)
+            pcall(remove_runner_instance, preferred_id)
         end
     end
 
@@ -1630,7 +2355,7 @@ local function do_enter(player_id, base_area_id, options)
     await(Async.sleep(0))
     local spawn_obj, waited = wait_for_spawn(record.id, 5)
     if not spawn_obj then
-        pcall(EzMapInstance.remove, record.id)
+        pcall(remove_runner_instance, record.id)
         return fail("no '" .. SPAWN_TYPE .. "' in instance " .. tostring(record.id)
             .. " after " .. tostring(waited) .. " ticks")
     end
@@ -1640,14 +2365,14 @@ local function do_enter(player_id, base_area_id, options)
     local spawn_props = spawn_obj.custom_properties or {}
     local first_wp_id = spawn_props["Next Waypoint 1"] or spawn_props["First Waypoint"]
     if not first_wp_id then
-        pcall(EzMapInstance.remove, record.id)
+        pcall(remove_runner_instance, record.id)
         return fail("spawn object has no 'Next Waypoint 1'")
     end
 
     log_for(player_id, "copying avatar")
     local entry = AvatarRegistry.get_or_copy(player_id)
     if not entry then
-        pcall(EzMapInstance.remove, record.id)
+        pcall(remove_runner_instance, record.id)
         return fail("AvatarRegistry failed to copy avatar")
     end
     await(Async.sleep(0))
@@ -1664,7 +2389,7 @@ local function do_enter(player_id, base_area_id, options)
             animation = options.initial_animation or "IDLE_DR",
         })
     if not npc then
-        pcall(EzMapInstance.remove, record.id)
+        pcall(remove_runner_instance, record.id)
         return fail("could not create avatar bot")
     end
     exclude_bot_from_other_players(npc.bot_id, player_id)
@@ -1697,11 +2422,14 @@ local function do_enter(player_id, base_area_id, options)
         offscreen_offset = offscreen_offset,
         origin_area = origin_area,
         origin_pos = origin_pos,
+        entry_warp_object_id = entry_warp_object_id,
         floor_plan = floor_plan,
         current_floor_index = 1,
         encounters_defeated_this_floor = 0,
         floor_transition_in_progress = false,
         heal_per_floor = tonumber(options.heal_per_floor) or 0,
+        encounter_monies = tonumber(options.encounter_monies) or 0,
+        monies_earned = 0,
         hp = starting_hp,
         max_hp = max_hp,
         hp_hooks = hp_hooks,
@@ -1762,8 +2490,8 @@ local function do_enter(player_id, base_area_id, options)
     if slot and slot.cancelled then
         unregister_runner_triggers(runner)
         pcall(eznpcs.remove_npc, npc)
-        pcall(EzMapInstance.remove, record.id)
-        if input_locked then pcall(Net.unlock_player_input, player_id) end
+        pcall(remove_runner_instance, record.id)
+        if input_locked then pcall(LegacyCapture.unlock, player_id, "ezlibs-custom/endless-runner/endless-runner") end
         return fail("cancelled before warp")
     end
 
@@ -1772,7 +2500,7 @@ local function do_enter(player_id, base_area_id, options)
         spawn_obj.x, spawn_obj.y, spawn_obj.z or 0) then
         unregister_runner_triggers(runner)
         pcall(eznpcs.remove_npc, npc)
-        pcall(EzMapInstance.remove, record.id)
+        pcall(remove_runner_instance, record.id)
         return fail("seamless_warp failed")
     end
     EzMapInstance.register_player(record.id, player_id)
@@ -1846,6 +2574,12 @@ function EndlessRunner.enter(player_id, base_area_id, options)
         end)
     end
     clear_log_for(player_id)
+    runner_checkpoint(player_id, "runner_enter_requested", {
+        base_area = tostring(base_area_id),
+    })
+    -- Direct API starts are intentional even if a previous auto-run finished
+    -- in the same area. The watcher itself respects the suppression flag.
+    watch_suppressed_until_leave[player_id] = nil
     active_runners[player_id] = { pending = true, cancelled = false, player_id = player_id }
     return async(function()
         local ok, result = do_enter(player_id, base_area_id, options)
@@ -1864,16 +2598,27 @@ function EndlessRunner.stop(player_id, options)
     if runner.pending then runner.cancelled = true; return true end
 
     local reason = options.reason or "manual"
+    -- A disconnect can run after Net has already removed the player.
+    -- Never transfer, unlock the camera, or schedule a retry in that case.
+    pending_camera_restore_tokens[player_id] = nil
+    local player_is_available = reason ~= "disconnect"
+        and connected_player_area(player_id) ~= nil
+    runner_checkpoint(player_id, "runner_stop", {
+        reason = reason,
+        area = tostring(runner.instance_id),
+        battle_in_progress = runner.encounter_in_progress == true,
+    })
 
     if runner.choice_state then
         runner.choice_state.resolved = true
         cleanup_choice_ui(runner)
         runner.choice_state = nil
     end
-    if runner.camera_tracking then
-        if camera_follow_player(player_id) then log_for(player_id, "camera restored") end
-        runner.camera_tracking = false
-    end
+    -- Stop the Runner's camera defender immediately; do not retarget the
+    -- camera until AFTER the player is back in their departure area.
+    local needs_camera_restore = runner.camera_tracking == true
+        and player_is_available
+    runner.camera_tracking = false
     unregister_runner_triggers(runner)
     if runner.npc then
         pcall(eznpcs.cancel_bot_hold, runner.npc)
@@ -1881,27 +2626,123 @@ function EndlessRunner.stop(player_id, options)
         runner.npc = nil
         runner.bot_paused = false
     end
-    local should_restore = options.restore_position or options.remove_instance
+    local should_restore = player_is_available
+        and (options.restore_position or options.remove_instance)
     if should_restore and runner.origin_area and runner.origin_pos then
-        pcall(Net.transfer_player, player_id, runner.origin_area, false,
-            runner.origin_pos.x, runner.origin_pos.y, runner.origin_pos.z or 0)
+        -- Suppress the specific entrance Custom Warp before returning to its
+        -- original coordinates. The guard clears once the player walks 1.5
+        -- tiles away. Other warps and deliberate re-entry remain available.
+        if runner.entry_warp_object_id then
+            local warp_ok, ezwarps = pcall(require, "scripts/ezlibs-scripts/ezwarps/main")
+            local armed = false
+            if warp_ok and ezwarps and type(ezwarps.guard_return_warp) == "function" then
+                local ok, result = pcall(ezwarps.guard_return_warp,
+                    player_id, runner.origin_area,
+                    runner.entry_warp_object_id, runner.origin_pos)
+                armed = ok and result == true
+            end
+            runner_checkpoint(player_id, "return_warp_guard", {
+                area = runner.origin_area,
+                warp_id = tostring(runner.entry_warp_object_id),
+                armed = armed,
+            })
+        end
+        -- A run often begins when a player warps into the base area. Returning
+        -- there must not instantly start the same run again on the next tick.
+        if watched_area_options[runner.origin_area] then
+            watch_suppressed_until_leave[player_id] = {
+                area_id = runner.origin_area,
+                seen_in_base = false,
+            }
+        end
+        -- The recorded origin may lie inside the Custom Warp. Prefer a
+        -- nearby tile center that exists and is clear of warp geometry.
+        -- Keep runner.origin_pos untouched for future diagnostics/guarding.
+        local return_pos, position_source = choose_runner_return_position(
+            runner.origin_area, runner.origin_pos, runner.entry_warp_object_id)
+        runner_checkpoint(player_id, "return_position_selected", {
+            source = position_source,
+            area = runner.origin_area,
+            original_x = runner.origin_pos.x,
+            original_y = runner.origin_pos.y,
+            x = return_pos.x,
+            y = return_pos.y,
+            z = return_pos.z or 0,
+        })
+        runner_checkpoint(player_id, "return_transfer_begin", {
+            reason = reason, return_area = runner.origin_area,
+            x = return_pos.x,
+            y = return_pos.y,
+            z = return_pos.z or 0,
+        })
+        local ok, result = pcall(Net.transfer_player,
+            player_id, runner.origin_area, false,
+            return_pos.x, return_pos.y, return_pos.z or 0)
+        runner_checkpoint(player_id, "return_transfer_finished", {
+            return_area = runner.origin_area,
+            ok = ok and result ~= false,
+            error = not ok and tostring(result) or nil,
+        })
     end
     if runner.locked_input then
-        pcall(Net.unlock_player_input, player_id)
+        if player_is_available then
+            pcall(LegacyCapture.unlock, player_id, "ezlibs-custom/endless-runner/endless-runner")
+        end
         runner.locked_input = false
     end
     if options.remove_instance and runner.instance_record then
-        EzMapInstance.remove(runner.instance_id)
+        remove_runner_instance(runner.instance_id)
+    end
+
+    -- Transfer (if requested) and clone removal are finished before camera
+    -- restoration. Also reapply tracking on the following tick because the
+    -- client can apply area-transfer camera state after the transfer call.
+    -- Only retry while the player has not entered a new Runner session.
+    if needs_camera_restore then
+        local restored = camera_follow_player(player_id)
+        runner_checkpoint(player_id, "camera_return_follow", {
+            reason = reason,
+            restored = restored,
+            expected_area = runner.origin_area,
+            current_area = connected_player_area(player_id),
+        })
+        if restored then log_for(player_id, "camera restored to player") end
     end
 
     emit_bus("endless_runner_run_ended", {
         player_id = player_id, reason = reason,
         floor_index = runner.current_floor_index,
         final_hp = runner.hp, max_hp = runner.max_hp,
+        monies_earned = runner.monies_earned or 0,
     })
 
     active_runners[player_id] = nil
+    pending_entry_origins[player_id] = nil
     clear_log_for(player_id)
+
+    if needs_camera_restore then
+        local expected_area = runner.origin_area
+        local retry_token = {}
+        pending_camera_restore_tokens[player_id] = retry_token
+        async(function()
+            await(Async.sleep(0))
+            -- Cancellation also handles a disconnect followed by an immediate
+            -- reconnect, where the same player ID could become valid again.
+            if pending_camera_restore_tokens[player_id] ~= retry_token then return end
+            pending_camera_restore_tokens[player_id] = nil
+            if active_runners[player_id] then return end
+            local current_area = connected_player_area(player_id)
+            if not current_area then return end
+            if expected_area and current_area ~= expected_area then return end
+            local restored = camera_follow_player(player_id)
+            runner_checkpoint(player_id, "camera_return_follow_retry", {
+                reason = reason,
+                restored = restored,
+                expected_area = expected_area,
+                current_area = current_area,
+            })
+        end)
+    end
     return true
 end
 
@@ -1933,6 +2774,7 @@ function EndlessRunner.get_state(player_id)
         floor_def = current_floor(r),
         encounters_defeated_this_floor = r.encounters_defeated_this_floor,
         hp = r.hp, max_hp = r.max_hp,
+        monies_earned = r.monies_earned or 0,
         locked_input = r.locked_input,
         camera_tracking = r.camera_tracking,
         warped_offscreen = r.warped_offscreen,
@@ -2118,18 +2960,38 @@ function EndlessRunner.watch_areas(base_area_ids, options)
     local target = normalize_watch_targets(base_area_ids)
     if not target then return end
     options = options or {}
+    for area_id in pairs(target) do watched_area_options[area_id] = options end
+    if watcher_registered then return end
+    watcher_registered = true
     Net:on("tick", function()
-        for _, area_id in ipairs(Net.list_areas() or {}) do
-            if target[area_id] then
-                local players = Net.list_players(area_id) or {}
-                for _, pid in ipairs(players) do
-                    if not active_runners[pid] then
-                        log_for(pid, "detected in base area '" .. tostring(area_id)
-                            .. "', starting runner")
-                        async(function()
-                            await(EndlessRunner.enter(pid, area_id, options))
-                        end)
-                    end
+        -- Suppression is released only after physically leaving the base area;
+        -- it does not prevent deliberately calling EndlessRunner.enter().
+        for pid, suppression in pairs(watch_suppressed_until_leave) do
+            local ok, current_area = pcall(Net.get_player_area, pid)
+            if not ok or current_area == nil then
+                watch_suppressed_until_leave[pid] = nil
+            elseif current_area == suppression.area_id then
+                suppression.seen_in_base = true
+            elseif suppression.seen_in_base then
+                -- Wait for a confirmed return to the base before considering
+                -- subsequent departure a new, intentional entry opportunity.
+                watch_suppressed_until_leave[pid] = nil
+            end
+        end
+        for area_id, enter_options in pairs(watched_area_options) do
+            for _, pid in ipairs(Net.list_players(area_id) or {}) do
+                local suppressed = watch_suppressed_until_leave[pid]
+                if not active_runners[pid]
+                    and not (suppressed and suppressed.area_id == area_id) then
+                    log_for(pid, "detected in base area '" .. tostring(area_id)
+                        .. "', starting runner")
+                    async(function()
+                        local ok, message = await(EndlessRunner.enter(pid, area_id, enter_options))
+                        if not ok then
+                            print("[endless_runner] auto-enter failed for " .. tostring(pid)
+                                .. ": " .. tostring(message))
+                        end
+                    end)
                 end
             end
         end
@@ -2258,8 +3120,15 @@ end
 
 Net:on("player_disconnect", function(event)
     local pid = event.player_id
+    -- Invalidate already-queued camera callbacks, even if stop() completed
+    -- and the runner was removed before this disconnect event arrived.
+    if pid then pending_camera_restore_tokens[pid] = nil end
     if pid and active_runners[pid] then
         pcall(EndlessRunner.stop, pid, { remove_instance = true, reason = "disconnect" })
+    end
+    if pid then
+        watch_suppressed_until_leave[pid] = nil
+        pending_entry_origins[pid] = nil
     end
 end)
 

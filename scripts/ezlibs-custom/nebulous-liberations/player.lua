@@ -1,7 +1,8 @@
 local ezmemory = require("scripts/ezlibs-scripts/ezmemory")
 local helpers = require('scripts/ezlibs-scripts/helpers')
-local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
-local log = ezlogger.get("nebulous-liberations")
+local SharedLogger = require("scripts/logger/logger")
+local log = SharedLogger.register("nebulous-liberations"):register_subsystem("player")
+local OptionMenu = require("scripts/ezlibs-custom/nebulous-liberations/liberations/option_menu")
 
 -- private functions
 
@@ -24,6 +25,34 @@ local BattleReason = {
   RUN = 3,
   USER_PANIC = 4,
 }
+
+-- Diagnostic helper for inspecting the complete battle-results payload.
+-- This intentionally does not assume any undocumented battle-effect fields.
+local function debug_print_battle_data(value, prefix, depth)
+  prefix = prefix or "battle"
+  depth = depth or 0
+
+  if type(value) ~= "table" then
+    print("[Battle Debug] " .. prefix .. " = " .. tostring(value))
+    return
+  end
+
+  if depth >= 8 then
+    print("[Battle Debug] " .. prefix .. " = <maximum depth>")
+    return
+  end
+
+  for key, entry in pairs(value) do
+    local field = prefix .. "." .. tostring(key)
+
+    if type(entry) == "table" then
+      print("[Battle Debug] " .. field .. " = {")
+      debug_print_battle_data(entry, field, depth + 1)
+    else
+      print("[Battle Debug] " .. field .. " = " .. tostring(entry))
+    end
+  end
+end
 
 -- Only these two explicit end reasons are considered a forced exit.
 -- DRAW and LOSE are ordinary battle outcomes, not panics.
@@ -103,20 +132,25 @@ function Player:quiz_with_mug(a, b, c)
   return self:quiz(a, b, c, self.mug.texture_path, self.mug.animation_path)
 end
 
+-- Controller-driven sliced option menu used by mission interactions.
+-- Returns a zero-based index to preserve the existing mission response handling.
+function Player:select_mission_option(options, title)
+  return OptionMenu.select(self.id, options, title)
+end
+
 function Player:is_battling()
   return self.resolve_battle ~= nil
 end
 
+-- A missing battle_results payload must never be interpreted as a victory,
+-- a run, or a new HP value. The player session retains its current HP when
+-- health is absent and never applies the panic penalty for a missing result.
 local function create_default_results()
   return {
-    reason = 1,
-    health = 1,
-    time = 0,
-    ran = true,
-    emotion = 0,
+    reason = BattleReason.DRAW,
+    ran = false,
     enemies = {},
-    turns = 3,
-    score = 0,
+    missing_battle_results = true,
   }
 end
 
@@ -158,6 +192,11 @@ function Player:handle_textbox_response(response)
 end
 
 function Player:handle_battle_results(stats)
+  -- Print the actual payload before any result handling changes it.
+  print("[Battle Debug] battle_results received for player " .. tostring(self.id))
+  print("[Battle Debug] stats type = " .. type(stats))
+  debug_print_battle_data(stats, "results")
+
   local is_panic = stats_indicate_panic(stats)
   log:info_data("handle_battle_results: captured", {
     player_id = self.id,
@@ -201,12 +240,16 @@ end
 function Player:handle_battle_exit(stats)
   self.battle_exit_fallback_token = nil
 
-  local resolved = stats or self.pending_battle_stats
+  -- battle_exit can contain only an ID or other partial data. Preserve the
+  -- complete battle_results payload whenever it exists, rather than letting
+  -- an incomplete exit event replace the authoritative WIN/LOSE reason and HP.
+  local pending = self.pending_battle_stats
+  local resolved = pending or stats
   local source
-  if stats ~= nil then
-    source = "battle_exit_event"
-  elseif self.pending_battle_stats ~= nil then
+  if pending ~= nil then
     source = "pending_from_results"
+  elseif stats ~= nil then
+    source = "battle_exit_event"
   else
     source = "defaults"
   end
@@ -236,7 +279,9 @@ function Player:handle_disconnect()
   if self.resolve_battle then
     local resolve = self.resolve_battle
     self.resolve_battle = nil
-    resolve(self.pending_battle_stats or create_default_results())
+    -- Disconnecting while an encounter promise is pending cannot award an
+    -- encounter victory, even when a results event arrived before the exit.
+    resolve(create_default_results())
   end
   self.pending_battle_stats = nil
 

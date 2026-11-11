@@ -2,6 +2,7 @@ local EnemySelection = require("scripts/ezlibs-custom/nebulous-liberations/liber
 local EnemyHelpers = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers")
 local Preloader = require("scripts/ezlibs-custom/nebulous-liberations/liberations/preloader")
 local Direction = require("scripts/libs/direction")
+local GuardInterception = require("scripts/ezlibs-custom/nebulous-liberations/liberations/guard_interception")
 
 local ShadeMan = {}
 
@@ -10,13 +11,14 @@ function ShadeMan:new(instance, position, direction)
     instance = instance,
     id = nil,
     health = 600,
+    is_boss = true,
     max_health = 600,
     x = math.floor(position.x),
     y = math.floor(position.y),
     z = math.floor(position.z),
     mug = {
-      texture_path = "/server/assets/NebuLibsAssets/mugs/shademan.png",
-      animation_path = "/server/assets/NebuLibsAssets/mugs/shademan.animation",
+      texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/mugs/shademan.png",
+      animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/mugs/shademan.animation",
     },
     encounter = "/server/assets/ezlibs-assets/ezencounters/Shademan.zip",
     selection = EnemySelection:new(instance)
@@ -38,8 +40,8 @@ end
 function ShadeMan:spawn(direction)
   self.direction = direction
   self.id = Net.create_bot({
-    texture_path = "/server/assets/NebuLibsAssets/bots/shademan.png",
-    animation_path = "/server/assets/NebuLibsAssets/bots/shademan.animation",
+    texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/npcs/shademan.png",
+    animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/npcs/shademan.animation",
     area_id = self.instance.area_id,
     direction = direction,
     warp_in = false,
@@ -93,8 +95,11 @@ function ShadeMan:take_turn()
     )
     Async.await(EnemyHelpers.move(self.instance, self, targetx, targety, player.player.z, target_direction))
     self.selection:indicate()
+    local attack_records = GuardInterception.prepare_attack(self.instance, self, { player }, 0.25)
+    Async.await(Async.sleep(0.12))
     EnemyHelpers.play_attack_animation(self)
-    player:hurt(60)
+    GuardInterception.apply_damage(attack_records, 60, self)
+    GuardInterception.finish_attack(self.instance, attack_records)
     Async.await(Async.sleep(.7))
     Async.await(EnemyHelpers.move(self.instance, self, warp_back_pos.x, warp_back_pos.y, warp_back_pos.z, warp_back_direction))
     self.selection:remove_indicators()

@@ -303,12 +303,35 @@ function EzMapInstance.create(base_area_id, preferred_instance_id, options)
     end
 
     emit_event(record, EzMapInstance.EVENT.CREATED)
+    for _, player_id in ipairs(player_ids) do
+        if player_id ~= nil then
+            emit_event(record, EzMapInstance.EVENT.PLAYER_JOINED, player_id)
+        end
+    end
     return record
 end
 
 --- Return an instance record by its cloned area ID.
 function EzMapInstance.get(instance_id)
     return instances[instance_id]
+end
+
+--- True when this module currently owns a registered instance record.
+function EzMapInstance.exists(instance_id)
+    return instances[instance_id] ~= nil
+end
+
+--- True when the record exists and its cloned area is still listed by Net.
+--- If Net.list_areas is unavailable, the registered record remains authoritative.
+function EzMapInstance.is_valid(instance_id)
+    local record = instances[instance_id]
+    if not record or record.removed then
+        return false
+    end
+    if not Net or type(Net.list_areas) ~= "function" then
+        return true
+    end
+    return area_id_is_listed(record.area_id)
 end
 
 --- Return the instance record currently associated with a player ID.
@@ -416,10 +439,21 @@ function EzMapInstance.unregister_player(instance_id, player_id)
     return true
 end
 
---- Transfer a player to the cloned area at an explicit position.
+-- Naming aliases make membership intent clearer for callers while preserving
+-- the original register/unregister API used by FootBomb.
+function EzMapInstance.add_player(instance_id, player_id)
+    return EzMapInstance.register_player(instance_id, player_id)
+end
+
+function EzMapInstance.remove_player(instance_id, player_id)
+    return EzMapInstance.unregister_player(instance_id, player_id)
+end
+
+--- Transfer a player to the cloned area at an explicit position and optional facing direction.
 --- Coordinates are required because spawn selection belongs to the caller.
+--- direction is passed through to Net.transfer_player as its final argument.
 --- Emits "player_joined" (via register_player) and "player_transferred".
-function EzMapInstance.transfer_player(instance_id, player_id, x, y, z, warp_in)
+function EzMapInstance.transfer_player(instance_id, player_id, x, y, z, warp_in, direction)
     local record = instances[instance_id]
     if not record then
         return false, "instance not found"
@@ -431,9 +465,14 @@ function EzMapInstance.transfer_player(instance_id, player_id, x, y, z, warp_in)
         return false, "Net.transfer_player is unavailable"
     end
 
-    local should_warp_in = warp_in or true
+    -- Only nil selects the default. Lua's `warp_in or true` would turn an
+    -- explicit false into true, preventing callers from requesting no warp-in.
+    local should_warp_in = warp_in
+    if should_warp_in == nil then
+        should_warp_in = true
+    end
 
-    local ok, transfer_result = pcall(Net.transfer_player, player_id, instance_id, should_warp_in, x, y, z)
+    local ok, transfer_result = pcall(Net.transfer_player, player_id, instance_id, should_warp_in, x, y, z, direction)
     if not ok then
         return false, "Net.transfer_player failed: " .. tostring(transfer_result)
     end

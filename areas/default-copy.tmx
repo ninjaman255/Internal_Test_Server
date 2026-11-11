@@ -22,7 +22,7 @@
  <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
  <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
  <tileset firstgid="68" source="../assets/tiles/gate.tsx"/>
- <tileset firstgid="73" source="../assets/HP_Manager/Tilesets/machine.tsx"/>
+ <tileset firstgid="73" source="../assets/hp_manager/Tilesets/machine.tsx"/>
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

@@ -112,7 +112,7 @@ The returned `frame` table has the following public methods. These names/signatu
 |---|---|
 | `frame.move_frozen_player(player_id, x, y, z)` | Moves a player while the framework's frozen-player behavior is active. |
 | `frame.animate_frozen_player(player_id, anim_state)` | Changes the frozen player's animation state. |
-| `frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset)` | Creates/updates a cosmetic sprite associated with a player. |
+| `frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale, owner_sprite_state, owner_sprite_enabled, movement_duration)` | Creates a cosmetic world bot for other players and, by default, an owner sprite. `owner_sprite_state` optionally selects the owner sprite animation state. Set `owner_sprite_enabled` to `false` to disable the owner sprite while retaining the world bot. `movement_duration` optionally controls how quickly the world bot follows its owner; omitted calls retain the default 0.1-second interpolation. Existing calls preserve the default owner sprite and movement behavior. |
 | `frame.remove_cosmetic(cosmetic_id, player_id)` | Removes a cosmetic. |
 | `frame.add_map_element(name, player_id, texture, animation, animation_state, x, y, z, exclude)` | Adds a map/UI sprite element. |
 | `frame.change_map_element(name, player_id, animation_state, loop)` | Changes its animation state/loop behavior. |

@@ -1,7 +1,8 @@
+local PlayerControl = require("scripts/player-control/main")
 -- FootBomb Controller and match-instance entry point.
 -- Loaded by scripts/ezlibs-scripts/main.lua through custom.lua.
 
-local logger = require("scripts/ezlibs-scripts/ezlogger").get("footbomb")
+local logger = require("scripts/logger/logger").register("footbomb"):register_subsystem("main")
 local object_registry = require("scripts/ezlibs-scripts/object_registry")
 local EzMapInstance = require("scripts/ezlibs-scripts/ezmapinstance")
 local games = require("scripts/net-games/main")
@@ -744,7 +745,7 @@ local function transfer_match_players(instance, player_ids, spawn_points)
         local spawn = spawn_points[slot]
         local ok, result = pcall(
             EzMapInstance.transfer_player,
-            instance.id, player_id, spawn.x, spawn.y, spawn.z, false
+            instance.id, player_id, spawn.x, spawn.y, spawn.z, true
         )
         if ok and result ~= false then
             transferred[#transferred + 1] = player_id
@@ -1336,28 +1337,14 @@ local function remove_representation(player_id)
     if rep.score_player_two_text_id then pcall(games.remove_text, rep.score_player_two_text_id, player_id) end
     if rep.role_text_id then pcall(games.remove_text, rep.role_text_id, player_id) end
     if rep.role_panel_id then pcall(Displayer.SlicedPanel.remove, player_id, rep.role_panel_id) end
-    if rep.hud_hidden and type(Net.toggle_player_hud) == "function" then
-        pcall(Net.toggle_player_hud, player_id)
-        rep.hud_hidden = false
-    end
-    local input = rep.input or InputAPI.get_controller(player_id)
-    if input and rep.input_owner then
-        pcall(input.release_input, input, rep.input_owner)
-    end
-    if type(Net.unlock_player_camera) == "function" then
-        pcall(Net.unlock_player_camera, player_id)
-    end
-    if type(Net.track_with_player_camera) == "function" then
-        pcall(Net.track_with_player_camera, player_id)
-    end
-    if type(Net.unlock_player_input) == "function" then
-        local ok, err = pcall(Net.unlock_player_input, player_id)
-        if not ok then
-            log("Could not unlock player input during FootBomb cleanup: "
-                .. tostring(err))
-        end
-    end
+    -- PlayerControl alone owns the match's logical focus, input capture, HUD
+    -- suppression and camera. No raw Net unlocks or forced input releases.
     State.player_representations[player_id] = nil
+    if rep.control then
+        local control=rep.control
+        rep.control=nil
+        control:close()
+    end
 end
 
 local fade_player_to_black
@@ -1448,37 +1435,29 @@ local function setup_player_representation(player_id, instance, bot_record)
             .. tostring(player_id)
     }
     State.player_representations[player_id] = rep
+    local control, control_err=PlayerControl.begin(player_id,{
+        owner=rep.input_owner, profile="minigame", hud="hidden",
+        camera="exclusive", handoff_free_camera=true,
+    })
+    if not control then
+        log("FootBomb could not acquire controls: "..tostring(control_err))
+        State.player_representations[player_id]=nil
+        return
+    end
+    rep.control=control
+    -- The manager uses one unique owner token for logical input dispatch.
+    rep.input_owner=control.state.owner
+    rep.input=control.state.ctrl
+    control:on_close(function()
+        if State.player_representations[player_id]==rep then
+            remove_representation(player_id)
+        end
+    end)
     fade_player_to_black(player_id)
-    if type(Net.toggle_player_hud) == "function" then
-        local ok, err = pcall(Net.toggle_player_hud, player_id)
-        if ok then rep.hud_hidden = true
-        else
-            log("Could not hide player HUD for "
-                .. tostring(player_id) .. ": " .. tostring(err))
-        end
-    end
-    if type(Net.lock_player_input) == "function" then
-        local ok, err = pcall(Net.lock_player_input, player_id)
-        if ok then
-            log("selector locked player input for virtual_input player="
-                .. tostring(player_id))
-        else
-            log("Could not lock player input for selector player="
-                .. tostring(player_id) .. ": " .. tostring(err))
-        end
-    end
-    if rep.input then
-        local claimed = rep.input:claim_input(rep.input_owner, true)
-        if claimed then
-            rep.input:consume(rep.input_owner)
-            rep.input:require_release(
-                { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
-                rep.input_owner
-            )
-        else
-            log("Could not claim input for player " .. tostring(player_id))
-        end
-    end
+    rep.input:require_release(
+        { "Up", "Down", "Left", "Right", "Confirm", "Cancel" },
+        rep.input_owner
+    )
     move_player_off_map(player_id, instance.area_id)
     if type(Net.unlock_player_camera) == "function" then
         pcall(Net.unlock_player_camera, player_id)
@@ -4600,6 +4579,8 @@ Net:on("tick", function(event)
         if Net.get_player_area(player_id) == rep.area_id then
             update_direction_selector_bob(player_id, rep)
             local input = rep.input or InputAPI.get_controller(player_id)
+            -- Managed focus automatically resumes after a foreign owner
+            -- voluntarily releases it; no per-tick claim/reclaim loop.
             if input and rep.input_owner
                 and input:has_input_control(rep.input_owner)
                 and rep.direction_selection_active

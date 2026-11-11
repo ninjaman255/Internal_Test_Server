@@ -1,3 +1,4 @@
+local log = require("scripts/logger/logger").register("jukebox"):register_subsystem("utils")
 local utils = {}
 
 -- Detects the operating system (windows or unix).
@@ -29,7 +30,7 @@ function utils.listFiles(directory)
         end
         handle:close()
     else
-        print("Error listing files in directory.")
+        log:error("Error listing files in directory.")
     end
     return songTable
 end
@@ -48,7 +49,7 @@ function utils.listDirectories(directory)
 
     local handle = io.popen(cmd)
     if not handle then
-        print("[Jukebox] Failed to list directories: " .. directory)
+        log:error("[Jukebox] Failed to list directories: " .. directory)
         return directories
     end
 

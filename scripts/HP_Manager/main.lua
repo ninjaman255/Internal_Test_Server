@@ -1,3 +1,9 @@
+-- Avoid duplicate Net:on registrations if this script is loaded through
+-- multiple server entrypoints in the same Lua environment.
+if rawget(_G, "__hp_manager_main_initialized") then
+  return rawget(_G, "__hp_manager_main_initialized")
+end
+
 --[[
 * ---------------------------------------------------------- *
                  HP_Manager v0.1 by Darkware
@@ -10,7 +16,8 @@
 
 --DEPENDENCES
 local games = require("scripts/net-games/main")
-local InputAPI = require("scripts/input-controller/main")
+local PlayerControl = require("scripts/player-control/main")
+local log = require("scripts/logger/logger").register("hp_manager"):register_subsystem("desktop")
 local TextLayout = require("scripts/displayer/text-layout")
 --MANAGERS
 local WarpManage = require("scripts/hp_manager/warp_manage")
@@ -20,7 +27,13 @@ local RealtimeManage = require("scripts/hp_manager/realtime_manage")
 local constants = require("scripts/hp_manager/constants/constants")
 
 local hp_sessions = {}
-local manager_claimed_controllers = {}
+local desktop_control = {}
+
+-- A native save dialog may deliver a late Confirm/Cancel packet after its
+-- callback. A returning desktop is deliberately less eager than a fresh one.
+local INITIAL_SETTLE_SECONDS = 0.20
+local RETURN_SETTLE_SECONDS = 0.40
+local RETURN_SWALLOW_SECONDS = 0.35
 
 local desktop_options = {
   {
@@ -83,7 +96,7 @@ local function add_desktop_icons()
         if ok then
           extensions[option.id] = mod
         else
-          print("[HP_Manager] failed to load module " ..
+          log:error("[HP_Manager] failed to load module " ..
             tostring(option.id) .. " at " .. tostring(path) ..
             ": " .. tostring(mod))
         end
@@ -171,10 +184,10 @@ local function get_server_os()
 end
 
 local system_wallpaper = {
-  windows = "/server/assets/hp_manager/wallpapers/windows_wallpaper.png",
-  linux = "/server/assets/hp_manager/wallpapers/linux_wallpaper.png",
-  macos = "/server/assets/hp_manager/wallpapers/macos_wallpaper.png",
-  unix = "/server/assets/hp_manager/wallpapers/linux_wallpaper.png"
+  windows = "/server/assets/hp_manager/Wallpapers/windows_wallpaper.png",
+  linux = "/server/assets/hp_manager/Wallpapers/linux_wallpaper.png",
+  macos = "/server/assets/hp_manager/Wallpapers/macos_wallpaper.png",
+  unix = "/server/assets/hp_manager/Wallpapers/linux_wallpaper.png"
 }
 
 local server_os = get_server_os()
@@ -191,6 +204,42 @@ end
 
 -- HP MANAGER OPEN
 local function open_hp_manager(player_id, selected_id)
+    if hp_sessions[player_id] then return true end
+    local control = desktop_control[player_id]
+    if selected_id == nil and control and control:is_alive() then
+        return false -- already open or a child interaction is in progress
+    end
+    -- Only interaction with the world object may create a new root session.
+    -- A late return callback after an area transfer must never reopen a UI.
+    if selected_id ~= nil and (not control or not control:is_alive()) then
+        return false
+    end
+    if not control or not control:is_alive() then
+        local err
+        control, err = PlayerControl.begin(player_id, {
+            owner = "hp_manager:desktop", profile = "desktop",
+            handoff_free_camera = true
+        })
+        if not control then
+            log:error("[HP_Manager] cannot capture input: " .. tostring(err))
+            return false
+        end
+        desktop_control[player_id] = control
+        control:on_close(function()
+          -- Unexpected PlayerControl disposal must not leave a ghost desktop.
+          if desktop_control[player_id] == control then
+            desktop_control[player_id] = nil
+            hp_sessions[player_id] = nil
+            pcall(close_hp_manage, player_id)
+          end
+        end)
+        control.area_id = Net.get_player_area(player_id)
+    end
+    if control.area_id ~= Net.get_player_area(player_id) then
+        control:close()
+        desktop_control[player_id] = nil
+        return false
+    end
     local initial_open = selected_id == nil
     selected_id = selected_id or "exit"
 
@@ -198,12 +247,12 @@ local function open_hp_manager(player_id, selected_id)
 
     hp_sessions[player_id] = {
         selected = selected,
+        control = control,
         cursor_timer = 0,
         cursor_offset = 0,
-        input_delay = initial_open and 0.2 or 0
+        input_delay = initial_open and INITIAL_SETTLE_SECONDS or RETURN_SETTLE_SECONDS
     }
 
-  Net.lock_player_input(player_id)
 
   local exit_option = desktop_options_by_id["exit"]
   local warp_option = desktop_options_by_id["warp"]
@@ -240,6 +289,117 @@ local function open_hp_manager(player_id, selected_id)
 
   -- OPTION NAME
   draw_option_name(player_id, selected_option)
+  return true
+end
+
+-- If UI construction fails halfway through, close the managed capture and
+-- remove any partial sprites so the HP Manager object can be used again.
+local function safe_open_hp_manager(player_id, selected_id)
+  local ok, result = pcall(open_hp_manager, player_id, selected_id)
+  if ok then return result end
+  log:error("[HP_Manager] opening desktop failed: " .. tostring(result))
+  pcall(close_hp_manage, player_id)
+  hp_sessions[player_id] = nil
+  local control = desktop_control[player_id]
+  desktop_control[player_id] = nil
+  if control then pcall(function() control:close() end) end
+  return false
+end
+
+-- A native question resolves before the previous UI frame is guaranteed to
+-- disappear on the client. Resume on a later turn of the existing Async loop,
+-- and refuse callbacks from an expired player/area/desktop interaction.
+local function resume_desktop(player_id, option_id, expected_control, after_resume)
+  local function resume()
+    if desktop_control[player_id] ~= expected_control or
+       not expected_control or not expected_control:is_alive() then
+      log:debug("[HP_Manager] stale " .. tostring(option_id) .. " return ignored")
+      return
+    end
+    if expected_control.area_id ~= Net.get_player_area(player_id) then return end
+    -- Both editor modules expose idempotent UI erasure. A late native UI
+    -- update must not leave an old child panel on top of the desktop.
+    if option_id == "background" then
+      pcall(BackgroundManage.clear_ui, player_id)
+    elseif option_id == "real_daytime" then
+      pcall(RealtimeManage.clear_ui, player_id)
+    end
+    local opened = safe_open_hp_manager(player_id, option_id)
+    if opened then
+      -- The native question's response can race with the first desktop
+      -- input poll. Clear any queued edges and require a fresh press before
+      -- the returned desktop may open another child. This is deliberately
+      -- limited to this player and this still-active parent session.
+      local current = hp_sessions[player_id]
+      if current and current.control == expected_control then
+        current.input_delay = RETURN_SETTLE_SECONDS
+        local guard_ok, guard_err = pcall(function()
+          local controller, owner = expected_control:input()
+          if controller and owner then
+            controller:require_release({"Confirm", "Cancel", "Up", "Down", "Left", "Right",
+                "ShoulderL", "ShoulderR"}, owner)
+            controller:swallow(RETURN_SWALLOW_SECONDS, owner)
+          end
+        end)
+        if not guard_ok then
+          log:warn("[HP_Manager] desktop input rearm failed: " .. tostring(guard_err))
+        end
+      end
+      log:debug("[HP_Manager] desktop return input settled from " .. tostring(option_id) ..
+        " for " .. tostring(RETURN_SETTLE_SECONDS) .. "s")
+      log:info("[HP_Manager] resumed desktop after " .. tostring(option_id))
+    else
+      log:error("[HP_Manager] unable to resume desktop after " .. tostring(option_id))
+    end
+    if after_resume then
+      local ok, err = pcall(after_resume, player_id)
+      if not ok then log:error("[HP_Manager] post-return failed: " .. tostring(err)) end
+    end
+  end
+  local function guarded_resume()
+    local ok, err = pcall(resume)
+    if not ok then
+      log:error("[HP_Manager] desktop resume exception: " .. tostring(err))
+      if desktop_control[player_id] == expected_control then
+        -- A broken UI render must never keep an invisible input owner alive.
+        hp_sessions[player_id] = nil
+        desktop_control[player_id] = nil
+        pcall(close_hp_manage, player_id)
+        pcall(function() expected_control:close() end)
+      end
+    end
+  end
+  local ok, err = pcall(function()
+    Async.sleep(0.08).and_then(guarded_resume)
+  end)
+  if not ok then
+    log:error("[HP_Manager] deferring desktop resume failed: " .. tostring(err))
+    guarded_resume()
+  end
+end
+
+local function launch_child(player_id, option_id, callback, abort_child)
+  local ok, result, detail = pcall(callback)
+  if not ok or result == false then
+    log:error("[HP_Manager] " .. tostring(option_id) .. " failed to open: " ..
+      tostring(ok and detail or result))
+    -- A child may have acquired focus before an asset/UI operation failed.
+    -- Dispose it before restoring desktop focus.
+    if abort_child then
+      local abort_ok, abort_err = pcall(abort_child, player_id)
+      if not abort_ok then log:error("[HP_Manager] child abort failed: " .. tostring(abort_err)) end
+    end
+    if not safe_open_hp_manager(player_id, option_id) then
+      -- If the child left behind a context, close the parent rather than
+      -- leaving a frozen desktop with an invisible active input owner.
+      local c = desktop_control[player_id]
+      if c then pcall(function() c:close() end) end
+      desktop_control[player_id] = nil
+      hp_sessions[player_id] = nil
+    end
+    return false
+  end
+  return true
 end
 
 -- HP MANAGER INPUT
@@ -287,7 +447,10 @@ if session == nil or session.input_delay > 0 then return end
 
           hp_sessions[player_id] = nil
 
-          Net.unlock_player_input(player_id)
+          if desktop_control[player_id] then
+              desktop_control[player_id]:close()
+              desktop_control[player_id] = nil
+          end
 
           return
         end
@@ -320,25 +483,33 @@ if session == nil or session.input_delay > 0 then return end
 
             hp_sessions[player_id] = nil
 
-            Net.unlock_player_input(player_id)
+            if desktop_control[player_id] then
+              desktop_control[player_id]:close()
+              desktop_control[player_id] = nil
+          end
 
             return
           end
 
           -- WARP MANAGER
           if option.id == "warp" then
+            local expected_control = desktop_control[player_id]
             hp_sessions[player_id] = nil
 
             Net.fade_player_camera(player_id, { r = 0, g = 0, b = 0, a = 255 }, 0.05)
 
             Async.sleep(0.05).and_then(function()
+              if desktop_control[player_id] ~= expected_control or
+                 not expected_control or not expected_control:is_alive() then return end
               close_hp_manage(player_id)
 
-              WarpManage.open(player_id, function(player_id)
-                open_hp_manager(player_id, option.id)
-
-                Net.fade_player_camera(player_id, { r = 0, g = 0, b = 0, a = 0 }, 0.05)
-              end)
+              launch_child(player_id, option.id, function()
+                return WarpManage.open(player_id, function(pid)
+                  resume_desktop(pid, option.id, expected_control, function(p)
+                    Net.fade_player_camera(p, { r = 0, g = 0, b = 0, a = 0 }, 0.05)
+                  end)
+                end, { parent = expected_control })
+              end, WarpManage.abort)
             end)
 
             return
@@ -346,14 +517,19 @@ if session == nil or session.input_delay > 0 then return end
 
           -- BACKGROUND MANAGER
           if option.id == "background" then
+            local expected_control = desktop_control[player_id]
             hp_sessions[player_id] = nil
 
             Async.sleep(0.05).and_then(function()
+              if desktop_control[player_id] ~= expected_control or
+                 not expected_control or not expected_control:is_alive() then return end
               close_hp_manage(player_id)
 
-              BackgroundManage.open(player_id, function(player_id)
-                open_hp_manager(player_id, option.id)
-              end)
+              launch_child(player_id, option.id, function()
+                return BackgroundManage.open(player_id, function(pid)
+                  resume_desktop(pid, option.id, expected_control)
+                end, { parent = expected_control })
+              end, BackgroundManage.abort)
             end)
 
             return
@@ -361,14 +537,19 @@ if session == nil or session.input_delay > 0 then return end
 
           -- REAL DAY TIME MANAGER
           if option.id == "real_daytime" then
+            local expected_control = desktop_control[player_id]
             hp_sessions[player_id] = nil
 
             Async.sleep(0.05).and_then(function()
+              if desktop_control[player_id] ~= expected_control or
+                 not expected_control or not expected_control:is_alive() then return end
               close_hp_manage(player_id)
 
-              RealtimeManage.open(player_id, function(player_id)
-                open_hp_manager(player_id, option.id)
-              end, extensions.real_daytime)
+              launch_child(player_id, option.id, function()
+                return RealtimeManage.open(player_id, function(pid)
+                  resume_desktop(pid, option.id, expected_control)
+                end, extensions.real_daytime, { parent = expected_control })
+              end, RealtimeManage.abort)
             end)
 
             return
@@ -381,9 +562,10 @@ if session == nil or session.input_delay > 0 then return end
           -- player has closed it. HP_Manager never manipulates the jukebox
           -- internals or creates fake objects.
           if option.id == "jukebox" then
+            local expected_control = desktop_control[player_id]
             local jukebox_module = extensions.jukebox
             if not jukebox_module or type(jukebox_module.open) ~= "function" then
-              print("[HP_Manager] jukebox extension loaded but has no open() function; " ..
+              log:warn("[HP_Manager] jukebox extension loaded but has no open() function; " ..
                 "cannot open the music manager")
               return
             end
@@ -391,20 +573,15 @@ if session == nil or session.input_delay > 0 then return end
             hp_sessions[player_id] = nil
 
             Async.sleep(0.05).and_then(function()
+              if desktop_control[player_id] ~= expected_control or
+                 not expected_control or not expected_control:is_alive() then return end
               close_hp_manage(player_id)
 
-              local opened_ok = jukebox_module.open(player_id, function(pid)
-                -- Jukebox UI closed. Reopen the desktop with the jukebox
-                -- option still selected so the player lands where they left.
-                open_hp_manager(pid, option.id)
-              end)
-
-              if opened_ok == false then
-                -- Jukebox refused to open (player gone, area missing,
-                -- assets failed, etc.). Restore the desktop so the player
-                -- isn't stranded with no UI.
-                open_hp_manager(player_id, option.id)
-              end
+              launch_child(player_id, option.id, function()
+                return jukebox_module.open(player_id, function(pid)
+                  resume_desktop(pid, option.id, expected_control)
+                end, { parent = expected_control })
+              end, jukebox_module.close)
             end)
 
             return
@@ -417,115 +594,72 @@ end
 
 
 
--- InputController ownership/polling adapter. InputController owns the only
--- virtual_input listener; HP_Manager reads logical actions from the shared API.
-local input_owner_prefix = "hp-manager:"
-local function input_owner(player_id)
-    return input_owner_prefix .. tostring(player_id)
-end
-
-local function release_manager_input(player_id)
-    local ctrl = manager_claimed_controllers[player_id]
-    if ctrl then
-        -- release_input only releases this manager's claim; it cannot release
-        -- a claim belonging to another module.
-        ctrl:release_input(input_owner(player_id))
-        manager_claimed_controllers[player_id] = nil
-    end
-end
-
-local function poll_manager_input(player_id, owner)
-    local ctrl = InputAPI.get_controller(player_id)
-    if not ctrl then
-        return nil
-    end
-
-    if not ctrl:has_input_control(owner) then
-        -- Do not steal input from another active UI/game.
-        if ctrl:get_input_owner() ~= nil then
-            return nil
-        end
-        if not ctrl:claim_input(owner) then
-            return nil
-        end
-        manager_claimed_controllers[player_id] = ctrl
-        ctrl:require_release({
-            "Up", "Down", "Left", "Right",
-            "Confirm", "Cancel", "ShoulderL", "ShoulderR"
-        }, owner)
-        return nil -- ignore the ownership handoff frame
-    end
-
-    manager_claimed_controllers[player_id] = ctrl
-
-    local events = {}
-    local function take(action, raw_name, allow_repeat)
-        if ctrl:is_action_pressed(action, owner) then
-            events[#events + 1] = { name = raw_name, state = 1 }
-        elseif allow_repeat and ctrl:is_action_repeated(action, owner) then
-            events[#events + 1] = { name = raw_name, state = 2 }
-        end
-    end
-
-    take("Up", "Move Up", true)
-    take("Down", "Move Down", true)
-    take("Left", "Move Left", true)
-    take("Right", "Move Right", true)
-    take("Confirm", "Confirm", false)
-    take("Cancel", "Cancel", false)
-    take("ShoulderL", "Shoulder L", false)
-    take("ShoulderR", "Shoulder R", false)
-
-    return { player_id = player_id, events = events }
-end
-
+-- Controller input is dispatched through the PlayerControl desktop session.
+-- Child screens keep the parent capture alive but exclusively own focus.
+local desktop_actions = {
+  {"Up", "Move Up", true}, {"Down", "Move Down", true},
+  {"Left", "Move Left", true}, {"Right", "Move Right", true},
+  {"Confirm", "Confirm", false}, {"Cancel", "Cancel", false},
+  {"ShoulderL", "Shoulder L", false}, {"ShoulderR", "Shoulder R", false}
+}
 Net:on("tick", function()
-    local active = {}
-    for player_id, session in pairs(hp_sessions) do
-        if session and not session.closing then
-            active[#active + 1] = player_id
-        end
+  for pid, session in pairs(hp_sessions) do
+    if session and session.control and not session.closing then
+      local ok, err = pcall(function()
+        local synthetic = session.control:poll(desktop_actions)
+        if synthetic and #synthetic.events > 0 then handle_manager_input(synthetic) end
+      end)
+      if not ok then
+        log:error("[HP_Manager] desktop input error: " .. tostring(err))
+        pcall(close_hp_manage, pid)
+        hp_sessions[pid] = nil
+        local active = desktop_control[pid]
+        desktop_control[pid] = nil
+        if active then pcall(function() active:close() end) end
+      end
     end
-
-    for _, player_id in ipairs(active) do
-        local synthetic = poll_manager_input(player_id, input_owner(player_id))
-        if synthetic and #synthetic.events > 0 then
-            handle_manager_input(synthetic)
-        end
-    end
-
-    -- Release only controllers this module previously claimed, without reading
-    -- InputAPI's private _controllers registry.
-    for player_id in pairs(manager_claimed_controllers) do
-        if hp_sessions[player_id] == nil then
-            release_manager_input(player_id)
-        end
-    end
+  end
 end)
 
 -- HP MANAGER INTERACTION
 Net:on("object_interaction", function(event)
-  if event.button ~= 0 then return end
+  if event.button ~= nil and event.button ~= 0 then return end
 
   local player_id = event.player_id
   local area_id = Net.get_player_area(player_id)
   local object = Net.get_object_by_id(area_id, event.object_id)
 
   if object == nil then return end
-  if (object.type or object.class) ~= "HP_Manager" then return end
-
-  open_hp_manager(player_id)
+  if object.type ~= "HP_Manager" and object.class ~= "HP_Manager" then return end
+  local existing = desktop_control[player_id]
+  if existing and existing:is_alive() then return end
+  log:debug("[HP_Manager] object interaction area=" .. tostring(area_id) ..
+        " object=" .. tostring(event.object_id))
+  safe_open_hp_manager(player_id)
 end)
+log:info("[HP_Manager] registered HP_Manager object_interaction listener")
 
 -- CLEANUP
 Net:on("player_disconnect", function(event)
-  release_manager_input(event.player_id)
   hp_sessions[event.player_id] = nil
+  desktop_control[event.player_id] = nil
+end)
+
+Net:on("player_area_transfer", function(event)
+  local pid = event.player_id
+  local control = desktop_control[pid]
+  if control then
+    close_hp_manage(pid)
+    hp_sessions[pid] = nil
+    desktop_control[pid] = nil
+    control:close()
+  end
 end)
 
 -- CURSOR ANIMATION
 Net:on("tick", function(event)
   for player_id, session in pairs(hp_sessions) do
+    local ok, err = pcall(function()
     session.cursor_timer = session.cursor_timer + event.delta_time
     session.input_delay = math.max(0, session.input_delay - event.delta_time)
     if session.cursor_timer >= 0.20 then
@@ -539,5 +673,17 @@ Net:on("tick", function(event)
           { x = option.cursor_x + session.cursor_offset, y = option.cursor_y, z = 30 })
       end
     end
+    end)
+    if not ok then
+      log:error("[HP_Manager] desktop animation error: " .. tostring(err))
+      pcall(close_hp_manage, player_id)
+      hp_sessions[player_id] = nil
+      local active = desktop_control[player_id]
+      desktop_control[player_id] = nil
+      if active then pcall(function() active:close() end) end
+    end
   end
 end)
+-- Exposed only as a module-initialization sentinel. HP Manager is event-driven.
+rawset(_G, "__hp_manager_main_initialized", true)
+return true

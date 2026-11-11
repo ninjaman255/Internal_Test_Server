@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezchristmas')
+local logger = require('scripts/logger/logger').register('ezchristmas')
 local ezchristmas = {}
 local ezweather = require('scripts/ezlibs-scripts/ezweather')
 

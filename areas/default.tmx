@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="40" height="40" tilewidth="64" tileheight="32" infinite="0" nextlayerid="14" nextobjectid="216">
  <properties>
+  <property name="Ambient_day_night" value="off"/>
+  <property name="Ambient_timezone" type="int" value="0"/>
   <property name="Background Animation" value="/server/assets/demo/clockman.animation"/>
   <property name="Background Texture" value="/server/assets/demo/clockman.png"/>
   <property name="Background Vel X" value="0.20"/>
@@ -22,7 +24,7 @@
  <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
  <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
  <tileset firstgid="68" source="../assets/tiles/gate.tsx"/>
- <tileset firstgid="73" source="../assets/HP_Manager/Tilesets/machine.tsx"/>
+ <tileset firstgid="73" source="../assets/hp_manager/Tilesets/machine.tsx"/>
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -370,7 +372,7 @@
     <property name="Type" value="quiz"/>
    </properties>
   </object>
-  <object id="136" name="Quiz List" type="Quiz List" x="800" y="784">
+  <object id="136" name="Quiz List" type="Quiz List" x="776" y="768">
    <properties>
     <property name="Failure Message" value="YOU FAILED"/>
     <property name="Next 1" type="object" value="137"/>
@@ -674,7 +676,7 @@
    </properties>
    <point/>
   </object>
-  <object id="195" name="Shademan Dialogue" type="Dialogue" x="672" y="656">
+  <object id="195" name="Shademan Dialogue" type="Dialogue" x="672" y="640">
    <properties>
     <property name="Dialogue Type" value="battle_npc"/>
     <property name="Encounter Name" value="BossTest"/>
@@ -831,7 +833,7 @@
   </object>
   <object id="215" type="Custom Warp" gid="6" x="608" y="704" width="61" height="32">
    <properties>
-    <property name="Direction" value="Up Right"/>
+    <property name="Direction" propertytype="Direction" value="Up Right"/>
     <property name="Dont Teleport" type="bool" value="false"/>
     <property name="Target Area" value="endless-runner"/>
     <property name="Target Object" value="202"/>

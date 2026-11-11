@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 --[[
 * ---------------------------------------------------------- *
              CyberSimon Says (minigame) by Indiana
@@ -5,10 +6,10 @@
 * ---------------------------------------------------------- *
 ]]--
 
-local createLogger = require("scripts/persistence/logger")
+local createLogger = require("scripts/logger/logger").createLogger
 
 local Log = createLogger({  
-    filePath = "scripts/_DEBUGGING/Simon-Says/debugging.log",
+    filePath = "scripts/_DEBUGGING/Simon-Says/_FULL-log.log",
     minLevel = "debug",
     flushInterval = 5.0,
     maxBufferSize = 50,
@@ -223,7 +224,7 @@ local function end_game_cleanup(player_id, reason, simon)
     games.remove_countdown("simon_says", player_id)
     games.remove_text("simon_says_answers", player_id)
 
-    Net.toggle_player_hud(player_id)
+    LegacyCapture.show_hud(player_id, "simon-says")
 
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=0}, 0.5)
     await(Async.sleep(0.75))
@@ -231,7 +232,7 @@ local function end_game_cleanup(player_id, reason, simon)
     if simon then simon.occupied = false end
     simon_players[player_id] = nil
 
-    Net.unlock_player_input(player_id)
+    LegacyCapture.unlock(player_id, "simon-says")
   end)
 end
 
@@ -271,7 +272,7 @@ local function greet_simon(actor_id, player_id)
       return
     end
 
-    Net.lock_player_input(player_id)
+    LegacyCapture.lock(player_id, "simon-says")
     Log:debug(player_id.." Played with simon")
 
     simon_players[player_id] = simon_players[player_id] or {}
@@ -286,7 +287,7 @@ local function greet_simon(actor_id, player_id)
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=255}, 0.5)
     await(Async.sleep(0.75))
 
-    Net.toggle_player_hud(player_id)
+    LegacyCapture.hide_hud(player_id, "simon-says")
 
     games.add_ui_element(
       "board",
@@ -306,7 +307,7 @@ local function greet_simon(actor_id, player_id)
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=0}, 0.5)
     await(Async.sleep(0.75))
 
-    Net.unlock_player_input(player_id)
+    LegacyCapture.unlock(player_id, "simon-says")
 
     Net.message_player(player_id, "Now it's time for... \"CyberSimon Says\"! Yeahh! Whoo! Whoo!",
       simon.custom_properties["NPC Mug Texture"], simon.custom_properties["NPC Mug Animation"])
@@ -335,7 +336,7 @@ local function greet_simon(actor_id, player_id)
       simon.z + OVERLAY_Z_LIFT
     )
 
-    Net.lock_player_input(player_id)
+    LegacyCapture.lock(player_id, "simon-says")
 
     games.resume_countdown("simon_says", player_id)
 

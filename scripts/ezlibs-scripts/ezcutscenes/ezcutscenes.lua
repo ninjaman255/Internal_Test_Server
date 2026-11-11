@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- ezcutscenes.lua
 -- Tiled-authored cutscene system.
 --
@@ -29,7 +30,7 @@
 --   The third option means map makers can place the step node at the
 --   destination and skip the separate target point.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezcutscenes')
+local logger = require('scripts/logger/logger').register('ezcutscenes'):register_subsystem("cutscenes")
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
@@ -160,7 +161,7 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
     end
 
     local promise = async(function()
-        pcall(Net.lock_player_input, player_id)
+        pcall(LegacyCapture.lock, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
         pcall(ezbus.emit, ezbus, "cutscene_started", {
             player_id = player_id,
             area_id = area_id,
@@ -180,7 +181,7 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
             eznpcs.cancel_bot_hold(bot_id)
         end
 
-        pcall(Net.unlock_player_input, player_id)
+        pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
 
         if active_cutscenes[player_id] == context then
             active_cutscenes[player_id] = nil
@@ -341,7 +342,7 @@ function ezcutscenes.handle_player_transfer(player_id)
     if context then
         context.cancelled = true
         active_cutscenes[player_id] = nil
-        pcall(Net.unlock_player_input, player_id)
+        pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
     end
 end
 

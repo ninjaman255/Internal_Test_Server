@@ -1,7 +1,7 @@
 local constants = {
   --BACKGROUNDS FOLDER FILEPATH FOR BACKGROUND MANAGE
-  background_folder = "assets/backgrounds/",
-  background_asset_folder = "/server/assets/backgrounds/",
+  background_folder = "assets/Backgrounds/",
+  background_asset_folder = "/server/assets/Backgrounds/",
   --OPTIONAL EXTENSIONS FILEPATH
   real_day_time = "scripts/real_daytime/main.lua",
   jukebox = "scripts/jukebox/main.lua"

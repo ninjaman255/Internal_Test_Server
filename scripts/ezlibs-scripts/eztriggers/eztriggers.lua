@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('eztriggers')
+local logger = require('scripts/logger/logger').register('eztriggers'):register_subsystem("location-triggers")
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 

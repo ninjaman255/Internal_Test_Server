@@ -102,4 +102,28 @@ end
 
 CameraManager:init(setupPlayerJoin, setupTileInteraction)
 
+Net:on("player_area_transfer", function(event)
+    local controller = CameraManager.PlayerControllers[event.player_id]
+    if controller and controller.is_active then
+        controller:deactivate(true)
+    end
+end)
+
+-- Track only the duration we requested; do not assume that Net confirms
+-- the rendered camera completed at precisely this time.
+Net:on("tick",function(event)
+    for _, controller in pairs(CameraManager.PlayerControllers) do
+        if controller and controller.tick then controller:tick(event.delta_time) end
+    end
+end)
+
+Net:on("player_disconnect", function(event)
+    local controller = CameraManager.PlayerControllers[event.player_id]
+    if controller then
+        if controller.is_active then controller:deactivate(true) end
+        if type(controller.destroy) == "function" then controller:destroy() end
+        CameraManager.PlayerControllers[event.player_id] = nil
+    end
+end)
+
 return CameraManager

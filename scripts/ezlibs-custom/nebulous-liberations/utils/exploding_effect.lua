@@ -34,7 +34,7 @@ local function explode(self, explosion_bot_id)
     return
   end
 
-  Net.play_sound(self.area_id, "/server/assets/NebuLibsAssets/sound effects/explode.ogg")
+  Net.play_sound(self.area_id, "/server/assets/ezlibs-custom/nebulous-liberations/sound effects/explode.ogg")
 
   if math.random(2) == 1 then
     Net.animate_bot(explosion_bot_id, "EXPLODE")
@@ -52,8 +52,8 @@ end
 local function spawn(self, area_id, position)
   for i = 1, TOTAL_EXPLOSIONS, 1 do
     local explosion_bot_id = Net.create_bot({
-      texture_path = "/server/assets/NebuLibsAssets/bots/explosion.png",
-      animation_path = "/server/assets/NebuLibsAssets/bots/explosion.animation",
+      texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/effects/explosion.png",
+      animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/effects/explosion.animation",
       area_id = self.area_id,
       warp_in = false,
       x = self.position.x,

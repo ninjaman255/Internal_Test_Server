@@ -1,6 +1,20 @@
 local Selection = require("scripts/ezlibs-custom/nebulous-liberations/liberations/selection")
 local Direction = require("scripts/libs/direction")
 local PanelRegistry = require("scripts/ezlibs-custom/nebulous-liberations/liberations/panel_registry")
+local Constants = require("scripts/ezlibs-custom/nebulous-liberations/liberations/constants")
+
+-- Tiled's "Dark Hole Buffed Virus" is normalized to "Dark Hole" when the
+-- mission registers panels. Check the source type as well for older maps and
+-- any callers that still supply the original Tiled object type.
+local function is_dark_hole_panel(panel)
+  if not panel then return false end
+
+  local panel_types = Constants.PanelTypes
+  return panel.type == panel_types.DarkHole
+    or panel.type == panel_types.DarkHoleBuffedVirus
+    or panel.source_type == panel_types.DarkHole
+    or panel.source_type == panel_types.DarkHoleBuffedVirus
+end
 
 local function includes(table, value)
   for _, v in ipairs(table) do
@@ -22,7 +36,7 @@ end
 local PlayerSelection = {}
 
 function PlayerSelection:new(instance, player_id)
-  local LIBERATING_PANEL_GID = Net.get_tileset(instance.area_id, "/server/assets/tiles/selected tile.tsx").first_gid
+  local LIBERATING_PANEL_GID = Net.get_tileset(instance.area_id, "/server/assets/ezlibs-custom/nebulous-liberations/tiles/selected tile.tsx").first_gid
 
   local player_selection = {
     player_id = player_id,
@@ -45,7 +59,15 @@ function PlayerSelection:new(instance, player_id)
     end
 
     if panel == player_selection.root_panel then
+      -- A Dark Hole must always be selectable when it is the actual target.
       return true
+    end
+
+    -- One-turn and Dark Hole area liberations can select a 3x3 region, but
+    -- they must never clear a *different* Dark Hole in the same region.
+    -- This also applies while include_all_liberatable_panels is enabled.
+    if is_dark_hole_panel(panel) then
+      return false
     end
 
     for _, enemy in ipairs(instance.enemies) do
@@ -104,7 +126,12 @@ function PlayerSelection:get_panels()
   local panels = {}
 
   for _, object in pairs(self.selection.objects) do
-    panels[#panels+1] = self.instance:get_panel_at(object.x, object.y, object.z)
+    local panel = self.instance:get_panel_at(object.x, object.y, object.z)
+    -- Defense in depth: stale indicators must not accidentally remove an
+    -- adjacent Dark Hole if a panel changed after the selection was drawn.
+    if panel and (panel == self.root_panel or not is_dark_hole_panel(panel)) then
+      panels[#panels+1] = panel
+    end
   end
 
   return panels

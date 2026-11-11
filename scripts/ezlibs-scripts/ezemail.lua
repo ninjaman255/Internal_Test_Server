@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezemail')
+local logger = require('scripts/logger/logger').register('ezemail')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')

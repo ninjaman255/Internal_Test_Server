@@ -4,6 +4,18 @@ Auto-generated from `generate-ezlibs-tiled.lua`. Do not edit by hand.
 
 ## Enums
 
+### BossRequirementType
+
+- `All`
+- `Any`
+
+### BossSpawnMode
+
+- `Immediate`
+- `On Dark Hole Cleared`
+- `Manual`
+- `After Boss Defeated`
+
 ### ButtonBehavior
 
 - `Pressure Plate`
@@ -118,6 +130,40 @@ Auto-generated from `generate-ezlibs-tiled.lua`. Do not edit by hand.
 - `navi_element`
 - `navi_list`
 
+### LiberationAIType
+
+- `Auto`
+- `simple_charge`
+- `ranged`
+- `shockwave_line`
+
+### LiberationBattleScaleScope
+
+- `Auto`
+- `Matching`
+- `All`
+
+### LiberationEncounterCategory
+
+- `Auto`
+- `encounters`
+- `special_encounters`
+- `bosses`
+
+### LiberationEncounterMode
+
+- `Auto`
+- `Fixed`
+- `Pool`
+- `Category`
+
+### LiberationEnemyCategory
+
+- `All`
+- `Dark Hole`
+- `Buffed Virus`
+- `Boss`
+
 ### MysteryType
 
 - `keyitem`
@@ -181,7 +227,7 @@ Lockable Security Cube that gates progression.
 | Property | Type | Required | Default | Category | Description |
 |---|---|---|---|---|---|
 | `Unlocking Animation Time` | number |  | 0 | appearance | Seconds to play the unlock animation; 0 skips it. |
-| `Unlocking Asset Name` | string |  | `bn5cubegreen_bot` | appearance | Asset played during the unlock animation. |
+| `Unlocking Asset Name` | string |  | `bn5cubegreen` | appearance | Asset played during the unlock animation. |
 | `Unlocking Sound Path` | string |  | `/server/assets/ezlibs-assets/sfx/panel_change.ogg` | appearance | Sound asset to play when the checkpoint unlocks. |
 | `Consume` | bool |  | false | gameplay | Whether to consume the key on unlock. |
 | `Description` | string |  | `It's a Security Cube` | gameplay | Shown to the player before the unlock check. |
@@ -928,4 +974,263 @@ One action in a cutscene chain. Chain via Next Step; branch via Next N / Fail Ne
 - `Target Z`: Only used when Target is empty and Type is Move Actor or Move Camera. If Target X/Y/Z are all empty, the step node's own Tiled position is used. Only meaningful when `Type` in {`Move Actor`, `Move Camera`}.
 - `Wait Seconds`: Only used when Type == 'Wait'. Only meaningful when `Type` == `Wait`.
 - `Event Name`: Only used by Emit Event. Only meaningful when `Type` == `Emit Event`.
+
+### Music Definition
+**Category:** gameplay
+Reusable encounter music settings. Path is a song name relative to the encounter package's music directory, without the .mid extension. Empty Path disables the music override.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Loop End` | number |  | 0 | appearance | Music loop end value passed to mob:stream_music(). Defaults to 0. |
+| `Loop Start` | number |  | 0 | appearance | Music loop start value passed to mob:stream_music(). Defaults to 0. |
+| `Path` | string |  | `""` | appearance | Song filename without extension, resolved under the encounter package's music directory with the .mid extension. Empty disables music playback. |
+
+### Liberation Config
+**Category:** gameplay
+Configuration object for a liberation mission. Liberation Tileset, Max Order Points, and Encounter Music are read from this object. Target phase/player counts, background, and other legacy settings are still read from area custom properties.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Encounter Music` | object |  | `""` | appearance | Tiled Object reference to a Music Definition used for every encounter in this liberation mission. |
+| `Honor HPMem` | bool |  | false | gameplay |  |
+| `Liberation Tileset` | string |  | `""` | gameplay |  |
+| `Max Order Points` | number |  | 9 | gameplay | Maximum order points available in this liberation mission. Defaults to 9 when omitted; values below 1 are clamped to 1. |
+| `Minimum Target Phase Count` | number |  | 1 | gameplay |  |
+| `Respawn Area` | string |  | `""` | gameplay |  |
+| `Target Phase Count` | number |  | 13 | gameplay |  |
+| `Target Player Count` | number |  | 3 | gameplay |  |
+| `Victory Lap Song` | string |  | `""` | gameplay |  |
+| `Waiting Area` | string |  | `""` | gameplay |  |
+
+### Liberation Gate
+**Category:** gameplay
+Interactive gate that starts the liberation mission named by `Liberation Map File Name`.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Liberation Map File Name` | string |  | `""` | gameplay | Area ID of the liberation mission this gate starts. Must match the mission map's area ID. |
+
+### Spawn Point
+**Category:** gameplay
+Player arrival point for Liberation missions. The assigned player faces this direction after transfer; Next Spawn links to the next player's Spawn Point.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Facing Direction` | string (Direction) |  | `Down` | appearance | Direction the player assigned to this Spawn Point faces immediately after transferring into the Liberation instance. Supports all eight directions; defaults to Down. |
+| `Next Spawn` | object |  | `""` | gameplay | Optional Tiled Object reference to the next Spawn Point in the player assignment order. If empty, the mission returns to the default object named Spawn. |
+
+### Boss Dark Panel
+**Category:** gameplay
+A Liberation boss spawn point. Select an enemy template, spawn mode, optional boss dependency, position offsets, facing, health override, and display name.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `AI Type` | string (LiberationAIType) |  | `Auto` | gameplay |  |
+| `Auto Face Player` | bool |  | false | gameplay | When true, the boss faces the nearest player on spawn. When false, Direction is respected. |
+| `Battle Attack Multiplier` | float |  | 0 | gameplay |  |
+| `Battle Defense Multiplier` | float |  | 0 | gameplay |  |
+| `Battle Scale` | float |  | 0 | gameplay |  |
+| `Battle Scale Scope` | string (LiberationBattleScaleScope) |  | `Auto` | gameplay |  |
+| `Boss` | string |  | `""` | gameplay | Required enemy template key registered in Liberation enemy_templates.lua. |
+| `Boss Display Name` | string |  | `""` | gameplay | Optional name shown above the spawned bot. Empty uses the enemy template's display name. |
+| `Boss Health Override` | number |  | 0 | gameplay | Optional positive maximum HP for this boss overworld bot and its matching battle enemy when the character package supports deferred HP. Zero keeps the template's default maximum; the current HP tracks persistent mission health. |
+| `Boss ID` | string |  | `""` | gameplay | Unique group identifier. Dark Holes and Indestructible Panels use the same value to associate with this boss. If empty, the Tiled object ID is used internally. |
+| `Direction` | string (Direction) |  | `Down` | gameplay | Initial facing direction. Auto Face Player overrides this when enabled. |
+| `Encounter Category` | string (LiberationEncounterCategory) |  | `Auto` | gameplay |  |
+| `Encounter Mode` | string (LiberationEncounterMode) |  | `Auto` | gameplay |  |
+| `Enemy Config` | object |  | 0 | gameplay |  |
+| `Max HP` | int |  | 0 | gameplay |  |
+| `OW Attack Damage` | int |  | 0 | gameplay |  |
+| `OW Bot Encounter` | string |  | `""` | gameplay |  |
+| `OW Damage Multiplier` | float |  | 0 | gameplay |  |
+| `OW Encounter Pool` | object |  | 0 | gameplay |  |
+| `OW Scale` | float |  | 0 | gameplay |  |
+| `Spawn Enabled` | bool |  | true | gameplay | When false, this boss definition is registered but will not spawn automatically. It can still be spawned manually. |
+| `Spawn Mode` | string (BossSpawnMode) |  | `Immediate` | gameplay | Immediate: mission startup. On Dark Hole Cleared: after all Dark Holes with this Boss ID are liberated. Manual: only when Mission:spawn_boss(Boss ID) is called. After Boss Defeated: after the boss selected by Trigger Boss is defeated. |
+| `Spawn Offset X` | number |  | 0 | gameplay | Horizontal tile offset from this object's position. |
+| `Spawn Offset Y` | number |  | 0 | gameplay | Vertical tile offset from this object's position. |
+| `Spawn Offset Z` | number |  | 0 | gameplay | Layer offset from this object's position. |
+| `Starting HP` | int |  | 0 | gameplay |  |
+| `Trigger Boss` | object |  | `""` | gameplay | Required Tiled Object reference when Spawn Mode is After Boss Defeated. Select the other Boss Dark Panel object that must be defeated first. |
+| `scale` | number |  | 1 | gameplay | Optional visual scale for this boss overworld bot and matching battle enemy. 1 is normal size; custom max HP requires a deferred-HP-compatible enemy package. |
+
+### Dark Hole Encounter List
+**Category:** gameplay
+Reusable list of named encounters from this area's special_encounters section, used only when liberating a linked Dark Hole. Leave entries blank to ignore them.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Name 1` | string |  | `""` | gameplay |  |
+| `Name 10` | string |  | `""` | gameplay |  |
+| `Name 11` | string |  | `""` | gameplay |  |
+| `Name 12` | string |  | `""` | gameplay |  |
+| `Name 13` | string |  | `""` | gameplay |  |
+| `Name 14` | string |  | `""` | gameplay |  |
+| `Name 15` | string |  | `""` | gameplay |  |
+| `Name 16` | string |  | `""` | gameplay |  |
+| `Name 17` | string |  | `""` | gameplay |  |
+| `Name 18` | string |  | `""` | gameplay |  |
+| `Name 19` | string |  | `""` | gameplay |  |
+| `Name 2` | string |  | `""` | gameplay |  |
+| `Name 20` | string |  | `""` | gameplay |  |
+| `Name 3` | string |  | `""` | gameplay |  |
+| `Name 4` | string |  | `""` | gameplay |  |
+| `Name 5` | string |  | `""` | gameplay |  |
+| `Name 6` | string |  | `""` | gameplay |  |
+| `Name 7` | string |  | `""` | gameplay |  |
+| `Name 8` | string |  | `""` | gameplay |  |
+| `Name 9` | string |  | `""` | gameplay |  |
+
+**Template properties:** `Name N` — add additional numbered instances manually in Tiled.
+
+### Dark Hole
+**Category:** gameplay
+Placed Liberation panel. Spawns/Direction define its overworld bot. OW Bot Encounter or OW Encounter Pool select that bot's battle, while Liberation Encounters selects the separate panel-liberation battle.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Battle Scale` | float |  | 0 | appearance | Battle visual scale. Zero inherits effective OW Scale. |
+| `Battle Scale Scope` | string (LiberationBattleScaleScope) |  | `Auto` | appearance | Matching affects matching enemy aliases or one-entry battles. All affects every enemy in the battle. |
+| `OW Scale` | float |  | 0 | appearance | Persistent overworld bot scale. Zero inherits template/shared/default settings. |
+| `AI Type` | string (LiberationAIType) |  | `Auto` | gameplay |  |
+| `Battle Attack Multiplier` | float |  | 0 | gameplay |  |
+| `Battle Defense Multiplier` | float |  | 0 | gameplay |  |
+| `Boss ID 1` | string |  | `""` | gameplay | First linked boss group. |
+| `Boss ID 2` | string |  | `""` | gameplay | Optional second linked boss group. |
+| `Direction` | string (Direction) |  | `Down` | gameplay | Overworld bot spawn direction and adjacent tile. Defaults to Down. |
+| `Encounter Category` | string (LiberationEncounterCategory) |  | `Auto` | gameplay | Area encounter table section; Auto follows the overworld template's Boss/Special/Normal classification. |
+| `Encounter Mode` | string (LiberationEncounterMode) |  | `Auto` | gameplay | Auto: named encounter, then pool, then category. Fixed: named encounter. Pool: weighted encounter pool. Category: random encounter in the category. Failed Fixed/Pool lookups fall back to category. |
+| `Enemy Config` | object |  | 0 | gameplay |  |
+| `Liberation Encounters` | object |  | 0 | gameplay | Optional object reference to a Dark Hole Encounter List for liberation battles. Uses special_encounters and preserves that encounter's authored HP; takes priority over OW bot encounter selection when nonempty. |
+| `Max HP` | int |  | 0 | gameplay | Maximum persistent overworld bot HP. Zero inherits from shared/category/template settings. Battle mods may restrict native maxima. |
+| `OW Attack Damage` | int |  | 0 | gameplay |  |
+| `OW Bot Encounter` | string |  | `""` | gameplay | Fixed encounter name in the selected Encounter Category. Auto mode prefers this name before the pool or category selection. |
+| `OW Damage Multiplier` | float |  | 0 | gameplay |  |
+| `OW Encounter Pool` | object |  | 0 | gameplay | Object reference to a Liberation Encounter Pool. Each Name/Weight pair is resolved inside that area's selected encounter category. |
+| `Spawns` | string |  | `""` | gameplay | Registered overworld enemy template key (e.g. Mettaur). Required unless provided by the referenced Enemy Config. Encounter names select battles, not bot templates. |
+| `Starting HP` | int |  | 0 | gameplay | Initial overworld bot HP; zero inherits. Capped at effective Max HP. |
+
+### Dark Hole Buffed Virus
+**Category:** gameplay
+Dark Hole variant sharing the same OW template, encounter selection, HP and scaling fields. Use OW Scale/Battle Scale instead of the legacy scale property.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Battle Scale` | float |  | 0 | appearance | Battle scale; zero follows effective OW Scale. |
+| `Battle Scale Scope` | string (LiberationBattleScaleScope) |  | `Auto` | appearance | Matching (safe default) or All enemies. |
+| `OW Scale` | float |  | 0 | appearance | Overworld visual scale; zero inherits. |
+| `AI Type` | string (LiberationAIType) |  | `Auto` | gameplay |  |
+| `Battle Attack Multiplier` | float |  | 0 | gameplay |  |
+| `Battle Defense Multiplier` | float |  | 0 | gameplay |  |
+| `Boss ID 1` | string |  | `""` | gameplay |  |
+| `Boss ID 2` | string |  | `""` | gameplay |  |
+| `Direction` | string (Direction) |  | `Down` | gameplay | Overworld bot spawn direction and adjacent tile. Defaults to Down. |
+| `Encounter Category` | string (LiberationEncounterCategory) |  | `Auto` | gameplay | Base-area encounter section; Auto follows the overworld template classification. |
+| `Encounter Mode` | string (LiberationEncounterMode) |  | `Auto` | gameplay | Auto, Fixed, Pool, or Category; selects the overworld bot battle only. |
+| `Enemy Config` | object |  | 0 | gameplay |  |
+| `Liberation Encounters` | object |  | 0 | gameplay | Optional Dark Hole Encounter List reference. Liberation-list HP remains independent of the persistent overworld bot. |
+| `Max HP` | int |  | 0 | gameplay | Persistent overworld max HP; zero inherits. |
+| `OW Attack Damage` | int |  | 0 | gameplay |  |
+| `OW Bot Encounter` | string |  | `""` | gameplay | Optional named OW bot encounter for the base area. |
+| `OW Damage Multiplier` | float |  | 0 | gameplay |  |
+| `OW Encounter Pool` | object |  | 0 | gameplay | Object reference to a weighted Liberation Encounter Pool. |
+| `Spawns` | string |  | `""` | gameplay | Registered overworld enemy template key. Required unless the referenced Enemy Config supplies Spawns. Encounter names do not create a bot. |
+| `Starting HP` | int |  | 0 | gameplay | Initial overworld HP; zero inherits. |
+
+### Indestructible Panel
+**Category:** gameplay
+Placed Liberation panel object. Boss ID 1/2 define boss-group unlock requirements; Type selects All or Any when both are set. Shared=true waits for all Dark Holes in the mission.
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Boss ID 1` | string |  | `""` | gameplay | First boss-group identifier required to unlock this panel. |
+| `Boss ID 2` | string |  | `""` | gameplay | Optional second boss-group identifier required according to Type. |
+| `Shared` | bool |  | false | gameplay | When true, this panel waits until every Dark Hole in the mission has been liberated, regardless of Boss IDs or Type. |
+| `Type` | string (BossRequirementType) |  | `All` | gameplay | All requires every assigned boss group to have no remaining Dark Holes. Any requires at least one assigned boss group to have no remaining Dark Holes. Only meaningful when both Boss IDs are set. |
+
+### Liberation Enemy Config
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `AI Type` | string (LiberationAIType) |  | `Auto` |  |  |
+| `Battle Attack Multiplier` | float |  | 0 |  |  |
+| `Battle Defense Multiplier` | float |  | 0 |  |  |
+| `Battle Scale` | float |  | 0 |  |  |
+| `Battle Scale Scope` | string (LiberationBattleScaleScope) |  | `Auto` |  |  |
+| `Encounter Category` | string (LiberationEncounterCategory) |  | `Auto` |  |  |
+| `Encounter Mode` | string (LiberationEncounterMode) |  | `Auto` |  |  |
+| `Max HP` | int |  | 0 |  |  |
+| `OW Attack Damage` | int |  | 0 |  |  |
+| `OW Bot Encounter` | string |  | `""` |  |  |
+| `OW Damage Multiplier` | float |  | 0 |  |  |
+| `OW Encounter Pool` | object |  | 0 |  |  |
+| `OW Scale` | float |  | 0 |  |  |
+| `Spawns` | string |  | `""` |  |  |
+| `Starting HP` | int |  | 0 |  |  |
+
+### Liberation Enemy Defaults
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `AI Type` | string (LiberationAIType) |  | `Auto` |  |  |
+| `Battle Attack Multiplier` | float |  | 0 |  |  |
+| `Battle Defense Multiplier` | float |  | 0 |  |  |
+| `Battle Scale` | float |  | 0 |  |  |
+| `Battle Scale Scope` | string (LiberationBattleScaleScope) |  | `Auto` |  |  |
+| `Category` | string (LiberationEnemyCategory) |  | `All` |  |  |
+| `Encounter Category` | string (LiberationEncounterCategory) |  | `Auto` |  |  |
+| `Encounter Mode` | string (LiberationEncounterMode) |  | `Auto` |  |  |
+| `Max HP` | int |  | 0 |  |  |
+| `OW Attack Damage` | int |  | 0 |  |  |
+| `OW Bot Encounter` | string |  | `""` |  |  |
+| `OW Damage Multiplier` | float |  | 0 |  |  |
+| `OW Encounter Pool` | object |  | 0 |  |  |
+| `OW Scale` | float |  | 0 |  |  |
+| `Starting HP` | int |  | 0 |  |  |
+
+### Liberation Encounter Pool
+
+| Property | Type | Required | Default | Category | Description |
+|---|---|---|---|---|---|
+| `Encounter Category` | string (LiberationEncounterCategory) |  | `Auto` |  |  |
+| `Name 1` | string |  | `""` |  |  |
+| `Name 10` | string |  | `""` |  |  |
+| `Name 11` | string |  | `""` |  |  |
+| `Name 12` | string |  | `""` |  |  |
+| `Name 13` | string |  | `""` |  |  |
+| `Name 14` | string |  | `""` |  |  |
+| `Name 15` | string |  | `""` |  |  |
+| `Name 16` | string |  | `""` |  |  |
+| `Name 17` | string |  | `""` |  |  |
+| `Name 18` | string |  | `""` |  |  |
+| `Name 19` | string |  | `""` |  |  |
+| `Name 2` | string |  | `""` |  |  |
+| `Name 20` | string |  | `""` |  |  |
+| `Name 3` | string |  | `""` |  |  |
+| `Name 4` | string |  | `""` |  |  |
+| `Name 5` | string |  | `""` |  |  |
+| `Name 6` | string |  | `""` |  |  |
+| `Name 7` | string |  | `""` |  |  |
+| `Name 8` | string |  | `""` |  |  |
+| `Name 9` | string |  | `""` |  |  |
+| `Weight 1` | float |  | 1 |  |  |
+| `Weight 10` | float |  | 1 |  |  |
+| `Weight 11` | float |  | 1 |  |  |
+| `Weight 12` | float |  | 1 |  |  |
+| `Weight 13` | float |  | 1 |  |  |
+| `Weight 14` | float |  | 1 |  |  |
+| `Weight 15` | float |  | 1 |  |  |
+| `Weight 16` | float |  | 1 |  |  |
+| `Weight 17` | float |  | 1 |  |  |
+| `Weight 18` | float |  | 1 |  |  |
+| `Weight 19` | float |  | 1 |  |  |
+| `Weight 2` | float |  | 1 |  |  |
+| `Weight 20` | float |  | 1 |  |  |
+| `Weight 3` | float |  | 1 |  |  |
+| `Weight 4` | float |  | 1 |  |  |
+| `Weight 5` | float |  | 1 |  |  |
+| `Weight 6` | float |  | 1 |  |  |
+| `Weight 7` | float |  | 1 |  |  |
+| `Weight 8` | float |  | 1 |  |  |
+| `Weight 9` | float |  | 1 |  |  |
 

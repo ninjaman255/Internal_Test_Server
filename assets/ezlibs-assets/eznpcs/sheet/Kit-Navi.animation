@@ -1,0 +1,179 @@
+!frame_rate 60
+!image_path "C:\Users\rjw3r\OneDrive\Desktop\Release\resources\mods\players\com_HeadDM_Ota_Kit\Navi_ow.png"
+
+animation "SPIN"
+frame duration=2f x=24 y=17 w=17 h=30 originx=8 originy=29
+frame duration=2f x=65 y=16 w=17 h=31 originx=8 originy=30
+frame duration=2f x=104 y=16 w=17 h=31 originx=10 originy=30
+frame duration=2f x=145 y=16 w=17 h=31 originx=10 originy=30
+frame duration=2f x=188 y=16 w=17 h=31 originx=8 originy=30
+frame duration=2f x=145 y=16 w=17 h=31 originx=11 originy=30 flipx=1
+frame duration=2f x=104 y=16 w=17 h=31 originx=10 originy=30 flipx=1
+frame duration=2f x=65 y=16 w=17 h=31 originx=8 originy=30 flipx=1
+
+animation "IDLE_U"
+frame duration=2f x=188 y=16 w=17 h=31 originx=8 originy=30
+
+animation "IDLE_UR"
+frame duration=2f x=145 y=16 w=17 h=31 originx=10 originy=30
+
+animation "IDLE_R"
+frame duration=2f x=104 y=16 w=17 h=31 originx=10 originy=30
+
+animation "IDLE_DR"
+frame duration=2f x=65 y=16 w=17 h=31 originx=8 originy=30
+
+animation "IDLE_D"
+frame duration=2f x=24 y=17 w=17 h=30 originx=8 originy=29
+
+animation "IDLE_DL"
+frame duration=2f x=65 y=16 w=17 h=31 originx=8 originy=30 flipx=1
+
+animation "IDLE_L"
+frame duration=2f x=104 y=16 w=17 h=31 originx=10 originy=30 flipx=1
+
+animation "IDLE_UL"
+frame duration=2f x=145 y=16 w=17 h=31 originx=11 originy=30 flipx=1
+
+animation "WALK_U"
+frame duration=8f x=27 y=215 w=17 h=30 originx=9 originy=29
+frame duration=8f x=56 y=215 w=18 h=30 originx=9 originy=29
+frame duration=8f x=85 y=215 w=17 h=30 originx=9 originy=29
+frame duration=8f x=114 y=215 w=17 h=30 originx=9 originy=29
+frame duration=8f x=143 y=215 w=18 h=30 originx=9 originy=29
+frame duration=8f x=172 y=215 w=17 h=30 originx=9 originy=29
+
+animation "WALK_UR"
+frame duration=8f x=29 y=176 w=19 h=31 originx=10 originy=30
+frame duration=8f x=58 y=176 w=20 h=31 originx=10 originy=30
+frame duration=8f x=87 y=176 w=20 h=31 originx=10 originy=30
+frame duration=8f x=116 y=176 w=20 h=31 originx=10 originy=30
+frame duration=8f x=145 y=176 w=20 h=31 originx=10 originy=30
+frame duration=8f x=174 y=176 w=20 h=31 originx=10 originy=30
+
+animation "WALK_R"
+frame duration=8f x=21 y=141 w=20 h=30 originx=10 originy=29
+frame duration=8f x=53 y=141 w=20 h=30 originx=10 originy=29
+frame duration=8f x=85 y=141 w=20 h=30 originx=10 originy=29
+frame duration=8f x=117 y=141 w=20 h=30 originx=10 originy=29
+frame duration=8f x=149 y=141 w=20 h=30 originx=10 originy=29
+frame duration=8f x=181 y=141 w=20 h=30 originx=10 originy=29
+
+animation "WALK_DR"
+frame duration=8f x=17 y=101 w=20 h=31 originx=9 originy=30
+frame duration=8f x=51 y=101 w=20 h=31 originx=9 originy=30
+frame duration=8f x=85 y=101 w=20 h=31 originx=9 originy=30
+frame duration=8f x=119 y=101 w=20 h=31 originx=9 originy=30
+frame duration=8f x=153 y=101 w=20 h=31 originx=9 originy=30
+frame duration=8f x=187 y=101 w=20 h=31 originx=9 originy=30
+
+animation "WALK_D"
+frame duration=8f x=27 y=61 w=17 h=30 originx=9 originy=29
+frame duration=8f x=58 y=61 w=18 h=30 originx=9 originy=29
+frame duration=8f x=89 y=61 w=17 h=30 originx=9 originy=29
+frame duration=8f x=120 y=61 w=17 h=30 originx=9 originy=29
+frame duration=8f x=151 y=61 w=18 h=30 originx=9 originy=29
+frame duration=8f x=182 y=61 w=17 h=30 originx=9 originy=29
+
+animation "WALK_DL"
+frame duration=8f x=17 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=8f x=51 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=8f x=85 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=8f x=119 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=8f x=153 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=8f x=187 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+
+animation "WALK_L"
+frame duration=8f x=21 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=8f x=53 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=8f x=85 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=8f x=117 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=8f x=149 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=8f x=181 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+
+animation "WALK_UL"
+frame duration=8f x=29 y=176 w=19 h=31 originx=10 originy=30 flipx=1
+frame duration=8f x=58 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=8f x=87 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=8f x=116 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=8f x=145 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=8f x=174 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+
+animation "RUN_U"
+frame duration=4f x=27 y=215 w=17 h=30 originx=9 originy=29
+frame duration=4f x=56 y=215 w=18 h=30 originx=9 originy=29
+frame duration=4f x=85 y=215 w=17 h=30 originx=9 originy=29
+frame duration=4f x=114 y=215 w=17 h=30 originx=9 originy=29
+frame duration=4f x=143 y=215 w=18 h=30 originx=9 originy=29
+frame duration=4f x=172 y=215 w=17 h=30 originx=9 originy=29
+
+animation "RUN_UR"
+frame duration=4f x=29 y=176 w=19 h=31 originx=10 originy=30
+frame duration=4f x=58 y=176 w=20 h=31 originx=10 originy=30
+frame duration=4f x=87 y=176 w=20 h=31 originx=10 originy=30
+frame duration=4f x=116 y=176 w=20 h=31 originx=10 originy=30
+frame duration=4f x=145 y=176 w=20 h=31 originx=10 originy=30
+frame duration=4f x=174 y=176 w=20 h=31 originx=10 originy=30
+
+animation "RUN_R"
+frame duration=4f x=21 y=141 w=20 h=30 originx=10 originy=29
+frame duration=4f x=53 y=141 w=20 h=30 originx=10 originy=29
+frame duration=4f x=85 y=141 w=20 h=30 originx=10 originy=29
+frame duration=4f x=117 y=141 w=20 h=30 originx=10 originy=29
+frame duration=4f x=149 y=141 w=20 h=30 originx=10 originy=29
+frame duration=4f x=181 y=141 w=20 h=30 originx=10 originy=29
+
+animation "RUN_DR"
+frame duration=4f x=17 y=101 w=20 h=31 originx=9 originy=30
+frame duration=4f x=51 y=101 w=20 h=31 originx=9 originy=30
+frame duration=4f x=85 y=101 w=20 h=31 originx=9 originy=30
+frame duration=4f x=119 y=101 w=20 h=31 originx=9 originy=30
+frame duration=4f x=153 y=101 w=20 h=31 originx=9 originy=30
+frame duration=4f x=187 y=101 w=20 h=31 originx=9 originy=30
+
+animation "RUN_D"
+frame duration=4f x=27 y=61 w=17 h=30 originx=9 originy=28
+frame duration=4f x=58 y=61 w=18 h=30 originx=9 originy=28
+frame duration=4f x=89 y=61 w=17 h=30 originx=9 originy=28
+frame duration=4f x=120 y=61 w=17 h=30 originx=9 originy=28
+frame duration=4f x=151 y=61 w=18 h=30 originx=9 originy=28
+frame duration=4f x=182 y=61 w=17 h=30 originx=9 originy=28
+
+animation "RUN_DL"
+frame duration=4f x=17 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=4f x=51 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=4f x=85 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=4f x=119 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=4f x=153 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+frame duration=4f x=187 y=101 w=20 h=31 originx=9 originy=30 flipx=1
+
+animation "RUN_L"
+frame duration=4f x=21 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=4f x=53 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=4f x=85 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=4f x=117 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=4f x=149 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+frame duration=4f x=181 y=141 w=20 h=30 originx=10 originy=29 flipx=1
+
+animation "RUN_UL"
+frame duration=4f x=29 y=176 w=19 h=31 originx=10 originy=30 flipx=1
+frame duration=4f x=58 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=4f x=87 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=4f x=116 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=4f x=145 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+frame duration=4f x=174 y=176 w=20 h=31 originx=10 originy=30 flipx=1
+
+animation "ITEM_PICKUP"
+frame duration=10f x=226 y=24 w=17 h=30 originx=8 originy=29
+frame duration=2f x=260 y=24 w=19 h=30 originx=9 originy=29
+frame duration=2f x=292 y=24 w=25 h=30 originx=12 originy=29
+frame duration=2f x=322 y=24 w=35 h=30 originx=17 originy=29
+frame duration=2f x=222 y=62 w=24 h=30 originx=12 originy=29
+frame duration=10f x=260 y=62 w=19 h=30 originx=9 originy=29
+frame duration=4f x=294 y=62 w=21 h=30 originx=10 originy=29
+frame duration=2f x=329 y=62 w=21 h=30 originx=10 originy=29
+frame duration=10f x=223 y=92 w=23 h=38 originx=11 originy=37
+frame duration=2f x=258 y=93 w=23 h=37 originx=11 originy=36
+frame duration=2f x=293 y=93 w=23 h=37 originx=11 originy=36
+frame duration=2f x=329 y=100 w=21 h=30 originx=10 originy=29
+frame duration=2f x=226 y=138 w=17 h=30 originx=8 originy=29

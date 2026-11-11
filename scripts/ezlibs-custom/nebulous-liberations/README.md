@@ -232,6 +232,7 @@ This means `Net.list_areas`, area properties, object lists, and tileset lookup m
 | Function | Parameters | Returns | Notes |
 |---|---|---|---|
 | `start_game_for_player(player_id, liberation_id)` | player ID, destination liberation area/name | — | Starts an instance for the player alone or for the player's current party. |
+| `spawn_boss(instance_area_id, boss_id)` | active instance area ID, configured Boss ID or Tiled object ID | boolean | Manually spawns a boss definition in an active Liberation instance. |
 | `on_tick(delta_time)` | elapsed seconds | — | Ticks party request timers and mission instances, disposes empty instances, and resets per-player movement flags. |
 | `handle_tile_interaction(player_id, x, y, z, button)` | player ID, tile coordinates, button | — | In a waiting area, opens the leave-party prompt; in an instance, forwards to the mission. |
 | `handle_object_interaction(player_id, object_id, button)` | player ID, object ID, button | — | In a waiting area, checks whether the object starts a mission; otherwise forwards to the instance. |
@@ -304,14 +305,17 @@ A disconnect resolves pending textbox promises and completes a pending battle wi
 
 This module centralizes custom-property names, panel type names, panel classification lists, loot animation names, ability IDs, and preloaded asset paths.
 
-### Area custom properties
+### Map and object custom properties
 
 | Property key | Purpose in source |
 |---|---|
-| `Respawn Area` | Configures the area used to return players after a mission. Also identifies areas that are considered mission/waiting configuration points. |
-| `Waiting Area` | Optional waiting-area key associated with a respawn configuration. If absent, the configured `Respawn Area` value is used as the waiting-area key. |
+| `Respawn Area` | Legacy area-level setting, and a setting on the `Liberation Config` object, for the area used to return players after a mission. |
+| `Waiting Area` | Set on each mission map's `Liberation Config` object to identify the lobby/waiting map where party recruitment is enabled. The plugin resolves the configured area ID or area name to the runtime area ID used by interaction callbacks. If omitted, `Respawn Area` is used as the compatibility fallback. Legacy area-level properties are also supported. |
 | `Liberation Map File Name` | Used on a gate object to map that object's ID to a destination liberation area/name. |
-| `Liberation Tileset` | Tileset path used to identify the panel GID range and enable validation for a liberation area. |
+| `Liberation Tileset` | On the `Liberation Config` object, the tileset path used to identify the panel GID range and enable validation for a liberation area. |
+| `Max Order Points` | On the `Liberation Config` object, sets the mission order-points cap and gauge capacity. Defaults to 9 when omitted; values below 1 are clamped to 1. |
+
+The order-points gauge uses a maximum width of 200 screen coordinates (400 raw sprite pixels) and a configured height of 12 screen coordinates. Its point bars divide the available inner width evenly according to `Max Order Points`, so the bars resize when the mission cap changes.
 | `Liberation Encounters` | Used by `panel_encounters.lua` to associate an area name with an encounter asset path. |
 | `Target Phase Count` | Declared mission tuning property. |
 | `Target Player Count` | Declared mission tuning property. |
@@ -332,8 +336,21 @@ Some of these properties are read by other files only in specific mission flows.
 
 | Property key | Source use |
 |---|---|
-| `Boss` | Marks a boss-related object for validation/mission behavior. |
-| `Spawns` | Enemy template/name used by a Dark Hole. |
+| `Boss` | Enemy template key used by a Boss Dark Panel definition. |
+| `Boss ID` | Optional unique boss-group identifier on a Boss Dark Panel. Dark Holes and Indestructible Panels refer to it using `Boss ID 1` and `Boss ID 2`. |
+| `Boss ID 1` / `Boss ID 2` | Boss-group identifiers on Dark Holes and Indestructible Panels. A Dark Hole assigned to two IDs counts toward both boss groups' Dark Hole requirements. |
+| `Type` | Indestructible Panel requirement: `All` waits for every assigned boss group; `Any` waits for at least one. Only meaningful when both Boss IDs are set. |
+| `Spawn Mode` | Boss spawn timing: Immediate, On Dark Hole Cleared, Manual, or After Boss Defeated. |
+| `Trigger Boss` | Tiled Object reference to the boss that must be defeated before an After Boss Defeated boss spawns. |
+| `Spawn Offset X/Y/Z` | Tile/layer offsets applied to the Boss Dark Panel spawn location. |
+| `Auto Face Player` | When true, overrides Direction and faces the nearest player. |
+| `Boss Health Override` | Positive value overrides the boss' maximum HP only. It does not replace the template's starting/current HP passed into battle; zero preserves the template's configured maximum HP. |
+| `Spawn Enabled` | Disables automatic spawning while leaving the definition available for a manual spawn call. |
+| `Boss Display Name` | Optional bot display name; does not replace the enemy template key used by battle encounter matching. |
+| `Shared` | Makes an Indestructible Panel wait for every Dark Hole in the mission. |
+| `Spawns` | Enemy template/name used by a Dark Hole's overworld bot. |
+| `Boss Encounter` | Optional named encounter for that bot. Looked up within the base area's `bosses`, `special_encounters`, or `encounters` according to the bot template. Blank uses the legacy category selection. |
+| `Liberation Encounters` (Dark Hole property) | Optional Tiled object reference to a `Dark Hole Encounter List`. Its `Name 1`, `Name 2`, etc. entries name encounters from the base area's `special_encounters` section for fighting the Dark Hole itself. |
 | `Direction` | Enemy or boss facing direction. |
 | `Gate Key` | Gate requirement metadata. |
 | `Gate ID` | Gate/cutscene linkage metadata. |
@@ -350,12 +367,57 @@ Some of these properties are read by other files only in specific mission flows.
 | `Gate To Remove` | Declared gate-removal metadata. |
 | `Liberation Map Name` | Used when finding a gate to hide after a successful mission. |
 
+### Boss Dark Panel setup
+
+Apply the `Boss Dark Panel` Tiled Object Definition to a placed Dark Panel object. Configure `Boss` with an enemy template key registered in `liberations/enemy_templates.lua`. Give each boss a unique `Boss ID`, then assign that same value to `Boss ID 1` or `Boss ID 2` on its associated Dark Hole and Indestructible Panel objects. If the Boss Dark Panel's Boss ID is blank, its Tiled object ID is used internally. Dark Holes assigned to two Boss IDs count toward both boss groups' `On Dark Hole Cleared` requirements.
+
+`Spawn Mode` supports four values:
+
+- `Immediate`: spawn when the Liberation instance is initialized.
+- `On Dark Hole Cleared`: spawn after all Dark Holes associated with that Boss ID have been liberated.
+- `Manual`: spawn only when a script calls `LibPlugin.spawn_boss(instance_area_id, boss_id)`.
+- `After Boss Defeated`: spawn after the boss selected by `Trigger Boss` is defeated. `Trigger Boss` must reference another Boss Dark Panel object.
+
+`LibPlugin.spawn_boss(instance_area_id, boss_id)` accepts the active Liberation instance area ID and the configured Boss ID (or the Tiled object ID when Boss ID is blank). It returns true when the boss was spawned. This is intended for Manual mode and can also force a definition whose `Spawn Enabled` property is false. The plugin module exports this function, so a script with access to the active instance area ID can call it through the returned plugin table.
+
+Spawn offsets are measured in the same tile/layer coordinate system used by Liberation panel objects. `Auto Face Player` defaults to false so the configured Direction is respected. `Boss Health Override` defaults to zero, which preserves the template's configured maximum HP. A positive value changes only `enemy.max_health`; the template's current/start `enemy.health` remains unchanged and is the value used when the boss enters battle. `Boss Display Name` only changes the bot's displayed name; the registered template name remains the battle identity.
+
+Dark Hole and Indestructible Panel objects support `Boss ID 1` and `Boss ID 2`. Each assigned Dark Hole is counted independently by every referenced boss group. Indestructible Panels evaluate their assigned groups using `Type`: `All` (the default) waits until every referenced boss group has no remaining Dark Holes; `Any` unlocks when at least one referenced boss group has no remaining Dark Holes. With only one Boss ID assigned, Type has no effect. `Shared=true` takes precedence and waits until every Dark Hole in the mission is cleared, regardless of Boss IDs or Type. Panels without Boss IDs retain mission-wide conversion behavior.
+
+### Dark Hole battle setup (two separate encounters)
+
+The `Dark Hole` and `Dark Hole Buffed Virus` Tiled classes support two independent battle configurations:
+
+1. Set **`Spawns`** to the registered enemy template, and optionally **`Boss Encounter`** to the encounter's exact `name` in the base area's appropriate encounter category. That named encounter is used when players fight the spawned bot on a normal panel; it also serves as the Dark Hole liberation fallback. A blank `Boss Encounter` preserves category-based selection on older maps.
+2. Create a Tiled object of class **`Dark Hole Encounter List`** in the base area. Fill any number of `Name 1`, `Name 2`, `Name 3`, etc. fields with exact encounter names from the same area's **`special_encounters`** section. Leave unused fields blank. Set the Dark Hole's **`Liberation Encounters`** object property to reference this object.
+
+When the player liberates the Dark Hole, the runtime gathers the nonblank, resolvable names, selects one **uniformly at random**, and uses its entire encounter definition (battle package, enemies, battlefield configuration, Freedom Mission, etc.). Invalid names are logged and skipped. If the reference is missing, the object contains no valid names, or no reference was assigned, the Dark Hole uses the bot's `Boss Encounter` (or the old category-based fallback when `Boss Encounter` is blank).
+
+The named special liberation encounter is a **separate battle** from the bot. Its authored enemy HP is preserved; the Dark Hole's `Minion Health Override` and the persistent bot's current HP are applied only when fighting the bot or using the bot encounter as the fallback. Respawned bots retain their source Dark Hole's `Boss Encounter` setting.
+
+For example, a map can declare:
+
+```lua
+-- encounters/<base-area-id>.lua
+return {
+    encounters = {},
+    special_encounters = {
+        { name = "BigBruteBattle", path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip", enemies = { { name = "BigBrute" } } },
+        { name = "HoleAmbushA", path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip", enemies = { { name = "NormalNavi" } } },
+        { name = "HoleAmbushB", path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip", enemies = { { name = "NormalNavi" } } },
+    },
+}
+```
+
+Set the Dark Hole's `Boss Encounter` to `BigBruteBattle` and its `Liberation Encounters` reference to a `Dark Hole Encounter List` with `Name 1 = HoleAmbushA` and `Name 2 = HoleAmbushB`.
+
 ### Panel types
 
 | Type name | Role |
 |---|---|
 | `Dark Panel` | Ordinary liberatable panel and a walkable panel for enemy movement. |
 | `Dark Hole` | Special panel that spawns/hosts an enemy and can generate another enemy after its current one is defeated. |
+| `Dark Hole Buffed Virus` | Dark Hole variant with identical liberation behavior; its `scale` property changes the spawned overworld bot size and is reapplied on respawn. |
 | `Indestructible Panel` | Panel that is converted after all Dark Holes are cleared in the relevant sequence. |
 | `Item Panel` | Liberatable panel with item/loot behavior. |
 | `Panel Gate` | Gate panel with a `Gate Key` property. |
@@ -399,6 +461,7 @@ The `Mission`/`Instance` object owns one active liberation run. It creates a mis
 | `:get_panel_at(x, y, z)` | tile coordinates | panel or `nil` | Looks up a panel at the requested position. |
 | `:remove_panel(panel)` | panel | — | Removes the panel's visual/state representation. |
 | `:get_enemy_at(x, y, z)` | tile coordinates | enemy or `nil` | Finds an enemy occupying the specified tile. |
+| `:spawn_boss(boss_id, force)` | Boss ID/object ID, optional force flag | boolean | Spawns a configured boss definition when its destination is available. |
 
 ### Mission lifecycle
 
@@ -633,17 +696,21 @@ area tables because the named encounter registry is global.
 
 ### Persistent enemy health across battles
 
-When an enemy's battle results include surviving entries in `results.enemies`,
-NebuLibs matches the result by enemy alias/name, updates the stored enemy
-health, and updates the visible bot name (for example, `BigBrute: 80`). The
-next encounter passes that stored value as `data.health`. Dark Hole battles
-use current health too; they no longer reset the enemy to `max_health`.
+When an overworld enemy's battle results include surviving entries in `results.enemies`,
+NebuLibs matches the result by enemy alias/name, updates stored health, and
+updates the visible bot name (for example, `BigBrute: 80`). The next bot
+encounter passes that value as `data.health`. When a Dark Hole instead chooses
+a separately authored `special_encounters` entry from `Liberation Encounters`,
+its enemies retain their configured HP; the overworld bot is not synchronized
+to or from that separate liberation battle.
 
 ### Public API
 
 | Function | Parameters | Returns | Notes |
 |---|---|---|---|
 | `PanelEncounters.resolve_terrain(instance, player)` | mission instance, player wrapper | terrain string | Determines encounter terrain based on neighboring panel placement. |
+| `PanelEncounters.resolve_named_encounter(base_area_id, category, reference)` | base area, `encounters` / `special_encounters` / `bosses`, exact name | encounter definition or `nil` | Looks up a name only in the requested base-area section; unknown names never become paths. |
+| `PanelEncounters.resolve_dark_hole_liberation_encounters(base_area_id, object_reference)` | base area, Tiled object ID | array of encounter definitions | Reads numbered `Name N` properties on a `Dark Hole Encounter List`, resolves valid special encounters, and discards blank/invalid entries. |
 | `PanelEncounters[area_name]` | area name key | encounter path or `nil` | Populated at module initialization from area custom properties. |
 
 ### Terrain classification
@@ -894,15 +961,16 @@ The effect files do not explicitly require other Lua modules in the supplied sou
 <a id="part-23"></a>
 ## Part 23 — Map Authoring Reference
 
-This module does not include a Tiled type-generator script or a formal JSON schema for every map object. The following table is derived from the constants, validator, and map-loading code.
+The shared `ezlibs-scripts/generate-ezlibs-tiled.lua` script generates the Tiled classes, runtime schema, and authoring reference. The following table describes the properties consumed by this plugin.
 
-### Area-level properties
+### Area-level and Liberation Config properties
 
 | Property | Expected use |
 |---|---|
-| `Respawn Area` | Area name used as the return location after a mission. The module uses this property to identify areas with liberation/waiting configuration. |
-| `Waiting Area` | Optional name/key for the lobby/waiting area where party and gate interactions are enabled. |
-| `Liberation Tileset` | Path to the panel tileset used by a liberation area. Enables panel GID fallback registration and map validation. |
+| `Respawn Area` | Legacy area-level setting or `Liberation Config` object property used as the return-location configuration and as the fallback waiting-area reference when `Waiting Area` is omitted. |
+| `Waiting Area` | Set on each mission map's `Liberation Config` object. Names the lobby/waiting area where party interactions should be enabled; the plugin resolves the name or runtime area ID to the ID used by interaction callbacks. Legacy area-level configuration remains supported. |
+| `Liberation Tileset` | Set on the `Liberation Config` object. Path to the panel tileset used by a liberation area; enables panel GID fallback registration and map validation. |
+| `Max Order Points` | Set on the `Liberation Config` object. Optional integer cap for order points and gauge capacity; defaults to 9 and is clamped to at least 1. |
 | `Liberation Encounters` | Encounter asset path associated with an area. |
 | `Background Texture` | Background texture path. |
 | `Background Animation` | Background animation path. |
@@ -953,20 +1021,20 @@ This module does not include a Tiled type-generator script or a formal JSON sche
 The following paths are hard-coded in `Constants.PreloadAssets`:
 
 ```text
-/server/assets/NebuLibsAssets/bots/blur.png
-/server/assets/NebuLibsAssets/bots/blur.animation
-/server/assets/NebuLibsAssets/bots/explosion.png
-/server/assets/NebuLibsAssets/bots/explosion.animation
-/server/assets/NebuLibsAssets/bots/paralyze.png
-/server/assets/NebuLibsAssets/bots/paralyze.animation
-/server/assets/NebuLibsAssets/bots/recover.png
-/server/assets/NebuLibsAssets/bots/recover.animation
-/server/assets/NebuLibsAssets/bots/item.png
-/server/assets/NebuLibsAssets/bots/item.animation
-/server/assets/NebuLibsAssets/sound effects/hurt.ogg
-/server/assets/NebuLibsAssets/sound effects/explode.ogg
-/server/assets/NebuLibsAssets/sound effects/paralyze.ogg
-/server/assets/NebuLibsAssets/sound effects/recover.ogg
+/server/assets/ezlibs-custom/nebulous-liberations/bots/blur.png
+/server/assets/ezlibs-custom/nebulous-liberations/bots/blur.animation
+/server/assets/ezlibs-custom/nebulous-liberations/bots/explosion.png
+/server/assets/ezlibs-custom/nebulous-liberations/bots/explosion.animation
+/server/assets/ezlibs-custom/nebulous-liberations/bots/paralyze.png
+/server/assets/ezlibs-custom/nebulous-liberations/bots/paralyze.animation
+/server/assets/ezlibs-custom/nebulous-liberations/bots/recover.png
+/server/assets/ezlibs-custom/nebulous-liberations/bots/recover.animation
+/server/assets/ezlibs-custom/nebulous-liberations/bots/item.png
+/server/assets/ezlibs-custom/nebulous-liberations/bots/item.animation
+/server/assets/ezlibs-custom/nebulous-liberations/sound effects/hurt.ogg
+/server/assets/ezlibs-custom/nebulous-liberations/sound effects/explode.ogg
+/server/assets/ezlibs-custom/nebulous-liberations/sound effects/paralyze.ogg
+/server/assets/ezlibs-custom/nebulous-liberations/sound effects/recover.ogg
 ```
 
 ### Additional known asset dependency

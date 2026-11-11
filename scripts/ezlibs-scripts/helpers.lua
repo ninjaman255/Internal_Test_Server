@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('helpers')
+local logger = require('scripts/logger/logger').register('helpers')
 local helpers = {}
 local ezutil = require('scripts/ezlibs-scripts/utils/ezutil')
 local urlencode = require('scripts/ezlibs-scripts/urlencode')

@@ -27,7 +27,7 @@
 -- Area Wide, and to normal otherwise. Overlapping tiles are resolved by
 -- re-checking the entity's current position, mirroring eztriggers/ezbottriggers.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpress')
+local logger = require('scripts/logger/logger').register('ezpress')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local EventEmitter = require('scripts/ezlibs-scripts/ezemitter')

@@ -1,5 +1,5 @@
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezexplosions')
+local logger = require('scripts/logger/logger').register('ezexplosions')
 
 local EXPLOSION_DURATION = .6
 

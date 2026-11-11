@@ -1371,7 +1371,7 @@ Net:on("object_interaction", ...) — filters button == 0, area = player's area,
 | `"Required Keys"` | number (string) | 1 |
 | `"Consume"` | string "true"/"false" | — (checks == "true") |
 | `"Once"` | string "true"/"false" | — |
-| `"Unlocking Asset Name"` | string | "bn5cubegreen_bot" |
+| `"Unlocking Asset Name"` | string | "bn5cubegreen" |
 | `"Unlocking Animation Time"` | number | 0 |
 | `"Unlocking Sound Path"` | string | "/server/assets/ezlibs-assets/sfx/panel_change.ogg" |
 | `"Skip Prompt"` | string "true"/"false" | — |
@@ -4027,7 +4027,7 @@ Type tokens used in the members array: string, number, bool, object, file.
 | `Required Keys` | number | 1 |  |
 | `Consume` | bool | false |  |
 | `Once` | bool | false |  |
-| `Unlocking Asset Name` | string | "bn5cubegreen_bot" |  |
+| `Unlocking Asset Name` | string | "bn5cubegreen" |  |
 | `Unlocking Animation Time` | number | 0 |  |
 | `Unlocking Sound Path` | string | "/server/assets/ezlibs-assets/sfx/panel_change.ogg" |  |
 | `Skip Prompt` | bool | false |  |
@@ -4853,8 +4853,8 @@ ENCOUNTERS_PATH must be a directory prefix such that <prefix><area_id> is a Lua 
 | `/server/assets/ezlibs-assets/ezbuttons/<Asset Name>.png` | ezbuttons |
 | `/server/assets/ezlibs-assets/ezbuttons/<Asset Name>.animation` | ezbuttons |
 | `/server/assets/ezlibs-assets/ezbuttons/<Animation Name>.animation` | ezbuttons (override) |
-| `/server/assets/ezlibs-assets/ezcheckpoints/<Unlocking Asset Name>.png` | ezcheckpoints |
-| `/server/assets/ezlibs-assets/ezcheckpoints/<Unlocking Asset Name>.animation` | ezcheckpoints |
+| `/server/assets/ezlibs-assets/ezcheckpoints/bots/<Unlocking Asset Name>.png` | ezcheckpoints |
+| `/server/assets/ezlibs-assets/ezcheckpoints/bots/<Unlocking Asset Name>.animation` | ezcheckpoints |
 | `/server/assets/ezlibs-assets/ezexplosions/explosion.png` | ezexplosions |
 | `/server/assets/ezlibs-assets/ezexplosions/explosion.animation` | ezexplosions |
 | `/server/assets/ezlibs-assets/eznpcs/sheet/<Asset Name>.png` | eznpcs |

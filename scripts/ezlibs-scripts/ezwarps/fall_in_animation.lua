@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 local fall_in_animation = {
     --these offsets will modify the warp landing location so that the player can animate from their spawn location nicely
     pre_animation_offsets={
@@ -31,7 +32,7 @@ local fall_in_animation = {
             local sound_path = '/server/assets/ezlibs-assets/ezwarps/earthquake.ogg'
             Net.play_sound(area_id, sound_path)
             Net.shake_player_camera(player_id, 3, 2)
-            Net.unlock_player_input(player_id)
+            LegacyCapture.unlock(player_id, "ezwarps")
         end)
     end
 }

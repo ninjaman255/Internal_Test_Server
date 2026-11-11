@@ -91,6 +91,44 @@ function EventEmitter:emit(event, ...)
     return self
 end
 
+-- Protected dispatch intended for the shared InputController's high-traffic
+-- edges. Unlike emit(), one subscriber throwing cannot prevent other input
+-- subscribers or the once/iterator cleanup from running. The original emit()
+-- semantics are preserved for all other event emitter users.
+function EventEmitter:emit_safe(event, ...)
+    if self._destroyed then return self end
+    local args = {...}
+    local n = select("#", ...)
+    local function run(callback, any)
+        local ok, err
+        if any then
+            ok, err = pcall(callback, event, table.unpack(args, 1, n))
+        else
+            ok, err = pcall(callback, table.unpack(args, 1, n))
+        end
+        if not ok then
+            print("[EventEmitter] input callback error for " .. tostring(event) .. ": " .. tostring(err))
+        end
+    end
+    -- Copy lists in case callbacks detach themselves or close a session.
+    local function copy(list)
+        local out = {}
+        for _, callback in ipairs(list or {}) do out[#out + 1] = callback end
+        return out
+    end
+    for _, callback in ipairs(copy(self._events[event])) do run(callback, false) end
+    local once = copy(self._once_events[event])
+    self._once_events[event] = nil
+    for _, callback in ipairs(once) do run(callback, false) end
+    for _, callback in ipairs(copy(self._any_events)) do run(callback, true) end
+    local any_once = copy(self._any_once_events)
+    self._any_once_events = {}
+    for _, callback in ipairs(any_once) do run(callback, true) end
+    local ok, err = pcall(self._notify_iterators, self, event, table.unpack(args, 1, n))
+    if not ok then print("[EventEmitter] iterator error: " .. tostring(err)) end
+    return self
+end
+
 -- Remove a specific listener
 function EventEmitter:remove_listener(event, callback)
     if self._destroyed or not self._events[event] then return self end

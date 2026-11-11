@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- scripts/net-games/dialogue/prompt_vertical.lua
 -- Vertical menu prompt helper for net-games Dialogue (adapted to new displayer)
 -- NOTE: This version preserves the original logic but marks areas where the new
@@ -169,9 +170,9 @@ end
 
 local function set_input_locked(player_id, locked)
     if locked then
-        if Net.lock_player_input then pcall(Net.lock_player_input, Net, player_id) end
+        if LegacyCapture.lock then pcall(LegacyCapture.lock, player_id, "net-games:dialogue") end
     else
-        if Net.unlock_player_input then pcall(Net.unlock_player_input, Net, player_id) end
+        if LegacyCapture.unlock then pcall(LegacyCapture.unlock, player_id, "net-games:dialogue") end
     end
 end
 

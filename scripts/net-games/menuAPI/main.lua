@@ -10,6 +10,7 @@ require("scripts/net-games/main")
 local Displayer = require("scripts/displayer/displayer")
 local InputSystem = require("scripts/input-controller/main")
 local UISafe = require("scripts/net-games/ui-safe")
+local UISuppression = require("scripts/net-games/ui-suppression")
 
 local MenuAPI = {}
 _G.MenuAPI = MenuAPI
@@ -184,9 +185,33 @@ local function active(player_id)
     return stack and stack[#stack] or nil
 end
 
+local input_lock_handles = {}
+
 local function set_input_locked(player_id, locked)
-    if locked and Net.lock_player_input then pcall(Net.lock_player_input, Net, player_id)
-    elseif (not locked) and Net.unlock_player_input then pcall(Net.unlock_player_input, Net, player_id) end
+    if locked then
+        if input_lock_handles[player_id] then return true end
+        local handle, err = UISuppression.acquire_input_lock(
+            player_id, menu_input_owner(player_id)
+        )
+        if not handle then
+            print("[MenuAPI] Could not acquire shared input lock for player "
+                .. tostring(player_id) .. ": " .. tostring(err))
+            return false
+        end
+        input_lock_handles[player_id] = handle
+        return true
+    end
+
+    local handle = input_lock_handles[player_id]
+    if not handle then return true end
+    input_lock_handles[player_id] = nil
+    local ok, err = UISuppression.release(handle)
+    if not ok then
+        input_lock_handles[player_id] = handle
+        print("[MenuAPI] Could not release shared input lock for player "
+            .. tostring(player_id) .. ": " .. tostring(err))
+    end
+    return ok
 end
 
 local function play_sfx(player_id, path)
@@ -700,6 +725,7 @@ Net:on("player_disconnect", function(event)
         local stack = stacks[event.player_id]
         if stack then for i=#stack,1,-1 do cleanup(stack[i]) end end
         stacks[event.player_id] = nil
+        set_input_locked(event.player_id, false)
     end
 end)
 

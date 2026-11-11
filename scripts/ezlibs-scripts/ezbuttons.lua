@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- ezbuttons.lua
 -- Creates trigger-based buttons (non-solid NPCs).
 -- Logical relationships are defined with groups and button/group effects.
@@ -31,7 +32,7 @@
 -- uses). Override ezbuttons.camera_release / camera_move / camera_reattach
 -- if a project's engine revision exposes different names.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbuttons')
+local logger = require('scripts/logger/logger').register('ezbuttons')
 local object_registry = require('scripts/ezlibs-scripts/object_registry')
 local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
@@ -659,7 +660,7 @@ run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
                            y = tonumber(cp_obj.y) or 0,
                            z = cam_z }
 
-        pcall(Net.lock_player_input, player_id)
+        pcall(LegacyCapture.lock, player_id, "ezlibs-scripts/ezbuttons")
         ezbuttons.camera_release(player_id)
 
         await(smooth_camera_pan(player_id, from_pos, to_pos, 0.4))
@@ -670,7 +671,7 @@ run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
                 .. tostring(button_object_id) .. " deactivated mid-sequence")
             if player_is_alive(player_id) then
                 ezbuttons.camera_reattach(player_id)
-                pcall(Net.unlock_player_input, player_id)
+                pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezbuttons")
             end
             return
         end
@@ -698,7 +699,7 @@ run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
 
         if player_is_alive(player_id) then
             ezbuttons.camera_reattach(player_id)
-            pcall(Net.unlock_player_input, player_id)
+            pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezbuttons")
         end
     end)
 end

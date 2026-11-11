@@ -1,3 +1,5 @@
+local PlayerControl = require("scripts/player-control/main")
+local CameraFocus = require("scripts/player-control/camera-focus")
 -- camera-controller.lua
 -- Unified camera controller with mode-based input handling.
 -- Subscribes to the shared per-player InputController's emitter.
@@ -44,8 +46,8 @@ local function handle_player_controlled_movement(self)
         return
     end
 
-    if not self.input:has_input_control(self) then return end
-    local d = self.input:get_active_direction(self)
+    if not self:has_input_control() then return end
+    local d = self.input:get_active_direction(self.input_session.state.owner)
     dbg("movement: dir=", tostring(d),
         "release_required=", tostring(self.input.release_required[d]))
 
@@ -147,9 +149,11 @@ function CameraController:new(player_id, opts)
         custom_handlers = opts.custom_handlers or nil,
         is_active = false,
         input_locked = false,
+        input_session = nil,
         keep_player_input_locked = opts.keep_player_input_locked or false,
         current_position = { x = 0, y = 0, z = 100 },
         pending_position = nil,
+        pending_seconds = 0,
         camera_color = { r = 255, g = 255, b = 255, a = 0 },
         camera_first_repeat_delay = cam_first,
         camera_repeat_delay = cam_repeat,
@@ -163,24 +167,8 @@ function CameraController:new(player_id, opts)
     setmetatable(controller, self)
     self.__index = self
 
-    -- Observe exclusive input ownership. A minigame can take control of the
-    -- player's shared controller; the camera then stops processing input but
-    -- leaves the camera position alone for the new owner to manage.
-    controller._handler_owner_changed = function(change)
-        dbg("input_owner_changed: player=", tostring(controller.player_id),
-            "camera_input_instance=", tostring(controller.input),
-            "previous_owner=", tostring(change and change.previous_owner),
-            "new_owner=", tostring(change and change.owner),
-            "camera_active=", tostring(controller.is_active))
-        if controller.is_active and change and change.owner ~= controller then
-            dbg("input ownership transferred away from camera for player", tostring(controller.player_id))
-            controller:deactivate(true)
-        end
-    end
-    if controller.input then
-        controller.input:on("input_owner_changed", controller._handler_owner_changed)
-    end
-
+    -- Logical input focus is coordinated by PlayerControl rather than a
+    -- second direct claim on the InputController.
     return controller
 end
 
@@ -232,38 +220,33 @@ end
 -- Repeat cadence override
 -- --------------------------------------------------------------------------
 function CameraController:_apply_repeat_delays()
-    if not self.input or type(self.input.set_repeat_delays) ~= "function" then
-        dbg("_apply_repeat_delays: input controller has no set_repeat_delays")
-        return
+    if self.input_session then
+        return self.input_session:set_repeat_delays(
+            self.camera_first_repeat_delay, self.camera_repeat_delay)
     end
-    dbg("_apply_repeat_delays: first=", self.camera_first_repeat_delay,
-        "repeat=", self.camera_repeat_delay)
-    self.input:set_repeat_delays(self.camera_first_repeat_delay, self.camera_repeat_delay)
+    return false
 end
 
 function CameraController:_restore_repeat_delays()
-    if not self.input or type(self.input.restore_repeat_delays) ~= "function" then
-        dbg("_restore_repeat_delays: input controller has no restore_repeat_delays")
-        return
-    end
-    dbg("_restore_repeat_delays")
-    self.input:restore_repeat_delays()
+    -- The session releases its owner-scoped cadence automatically. Restoring
+    -- defaults here would overwrite the new menu/minigame's policy.
+    return true
 end
 
--- Optional API: change the camera's cadence at runtime. If the camera is
--- currently active, the change takes effect immediately.
 function CameraController:set_camera_repeat_delays(first_repeat_delay, repeat_delay)
     if first_repeat_delay ~= nil then
-        local n = tonumber(first_repeat_delay)
-        if n and n >= 0 then self.camera_first_repeat_delay = n end
+        local n=tonumber(first_repeat_delay)
+        if n and n>=0 then self.camera_first_repeat_delay=n end
     end
     if repeat_delay ~= nil then
-        local n = tonumber(repeat_delay)
-        if n and n >= 0 then self.camera_repeat_delay = n end
+        local n=tonumber(repeat_delay)
+        if n and n>=0 then self.camera_repeat_delay=n end
     end
-    if self.is_active then
-        self:_apply_repeat_delays()
-    end
+    if self.is_active then self:_apply_repeat_delays() end
+end
+
+function CameraController:has_input_control()
+    return self.input_session ~= nil and self.input_session:is_current()
 end
 
 -- --------------------------------------------------------------------------
@@ -273,7 +256,7 @@ function CameraController:_on_input_event(kind, ev)
     -- Check both activity and ownership before handling *any* action. In the
     -- previous ordering, Cancel deactivated the camera even while it was
     -- inactive and another system owned the shared input controller.
-    if not self.is_active or not self.input or not self.input:has_input_control(self) then
+    if not self.is_active or not self.input or not self:has_input_control() then
         return
     end
 
@@ -316,7 +299,7 @@ function CameraController:_on_input_event(kind, ev)
         dbg("_on_input_event: skipping movement for released event")
         return
     end
-    local active = self.input and self.input:get_active_direction(self)
+    local active = self.input and self.input:get_active_direction(self.input_session.state.owner)
     if not active then
         dbg("_on_input_event: no active direction, skipping")
         return
@@ -332,7 +315,7 @@ end
 
 -- Legacy entry point.
 function CameraController:handle_input()
-    if not self.is_active or not self.input or not self.input:has_input_control(self) then return end
+    if not self.is_active or not self.input or not self:has_input_control() then return end
     if self:hasPendingMove() then return end
 
     if self.mode == CameraMode.PlayerControlled then
@@ -354,126 +337,114 @@ end
 -- Activation / Deactivation
 -- --------------------------------------------------------------------------
 function CameraController:activate(mode, lock_player_input)
-    dbg("activate: ENTER player=", tostring(self.player_id),
-        "arg_mode=", tostring(mode),
-        "self.mode=", tostring(self.mode),
-        "is_active=", tostring(self.is_active),
-        "_activating=", tostring(self._activating))
-
-    if self._activating then
-        dbg("activate: REENTRANT call detected, bailing")
-        return
+    if self._activating or self.is_active then return false end
+    local new_mode=mode or self.mode
+    if not CameraMode:isValid(new_mode) then return false, "invalid camera mode" end
+    self._activating=true
+    local capture=(lock_player_input ~= false)
+    -- Acquire resources before changing the engine camera. PlayerControl
+    -- rolls back partial capture/HUD/camera failures on session begin.
+    local session,err=PlayerControl.begin(self.player_id,{
+        owner="free_camera", profile="free_camera", camera="exclusive",
+        capture=capture, first_repeat_delay=self.camera_first_repeat_delay,
+        repeat_delay=self.camera_repeat_delay,
+    })
+    if not session then
+        self._activating=false
+        return false,err
     end
-    if self.is_active then
-        dbg("activate: already active, bailing")
-        return
+    self.input_session=session
+    session:on_close(function()
+        if self.input_session==session then
+            local was_active=self.is_active
+            self.input_session=nil
+            self.is_active=false
+            self.pending_position=nil
+            self.pending_seconds=0
+            self.input_locked=false
+            if was_active and self.mode==CameraMode.Custom and self.custom_handlers
+                and self.custom_handlers.onDeactivate then
+                local ok,err=pcall(self.custom_handlers.onDeactivate,self)
+                if not ok then print("[CameraController] onDeactivate: "..tostring(err)) end
+            end
+        end
+    end)
+    self.mode=new_mode
+    self.input_locked=capture
+    local actions={"Left","Right","Up","Down","UpLeft","UpRight",
+                   "DownLeft","DownRight","Confirm","Cancel","ShoulderL","ShoulderR"}
+    local ok,why=pcall(function()
+        for _,action in ipairs(actions) do
+            session:on_pressed(action,function(ev) self:_on_input_event("pressed",ev) end)
+            session:on_released(action,function(ev) self:_on_input_event("released",ev) end)
+            session:on_repeat(action,function(ev) self:_on_input_event("repeat",ev) end)
+        end
+        session:on_suspend(function()
+            -- Forced ownership changes are abnormal but must never restore
+            -- camera position or repeat policy over the new owner.
+            if self.is_active then self:deactivate(true) end
+        end)
+        local pos=Net.get_player_position(self.player_id)
+        assert(pos and pos.x and pos.y and pos.z,"player position unavailable")
+        assert(type(Net.unlock_player_camera)=="function","camera API unavailable")
+        Net.unlock_player_camera(self.player_id)
+        self.current_position={x=pos.x,y=pos.y,z=pos.z}
+        self.pending_position=nil
+        self.pending_seconds=0
+        self.is_active=true
+        if self.mode==CameraMode.Custom and self.custom_handlers and self.custom_handlers.onActivate then
+            self.custom_handlers.onActivate(self)
+        end
+    end)
+    self._activating=false
+    if not ok then
+        self.is_active=false
+        self.input_session=nil
+        if session.camera_handle then session.camera_handle.restore_on_release=false end
+        local closed,cerr=session:close()
+        if not closed then dbg("activation rollback pending",tostring(cerr)) end
+        return false,why
     end
-    self._activating = true
-
-    local new_mode = mode or self.mode
-    assert(CameraMode:isValid(new_mode), "Invalid CameraMode for activation")
-    self.mode = new_mode
-
-    dbg("activate: input_instance=", tostring(self.input),
-        "input_owner_before_claim=", tostring(self.input and self.input:get_input_owner()))
-    if not self.input or not self.input:claim_input(self) then
-        dbg("activate: input is owned by another system; refusing camera activation")
-        self._activating = false
-        return false
-    end
-
-    local should_lock = (lock_player_input == nil) and true or lock_player_input
-    self.input_locked = should_lock
-    dbg("activate: locking input =", tostring(should_lock))
-    if should_lock then
-        Net.lock_player_input(self.player_id)
-    else
-        Net.unlock_player_input(self.player_id)
-    end
-
-    dbg("activate: unlock_player_camera")
-    Net.unlock_player_camera(self.player_id)
-
-    dbg("activate: bind_input")
-    self:_bind_input()
-
-    if self.input then
-        dbg("activate: require_release for CAMERA_DIRECTIONS")
-        self.input:require_release(CAMERA_DIRECTIONS, self)
-    end
-
-    -- Install the camera's repeat cadence on the shared controller.
-    self:_apply_repeat_delays()
-
-    dbg("activate: get_player_position")
-    local player_pos = Net.get_player_position(self.player_id)
-    self.current_position = { x = player_pos.x, y = player_pos.y, z = player_pos.z }
-
-    self.is_active = true
-    self.pending_position = nil
-
-    if self.mode == CameraMode.Custom and self.custom_handlers and self.custom_handlers.onActivate then
-        self.custom_handlers.onActivate(self)
-    end
-
-    dbg("activate: EXIT player=", tostring(self.player_id),
-        "mode=", tostring(CameraMode:getName(self.mode)))
-
-    self._activating = false
     return true
 end
 
 function CameraController:deactivate(keep_camera_position)
-    dbg("deactivate: ENTER player=", tostring(self.player_id),
-        "is_active=", tostring(self.is_active))
-    if not self.is_active then
-        dbg("deactivate: not active, bailing")
-        return
+    if not self.is_active and not self.input_session then return false end
+    self.is_active=false
+    self.pending_position=nil
+    self.pending_seconds=0
+    local session=self.input_session
+    self.input_session=nil
+    if session then
+        if session.camera_handle and keep_camera_position==true then
+            session.camera_handle.restore_on_release=false
+        end
+        session:close()
     end
-
-    self.is_active = false
-    self.pending_position = nil
-
-    -- Release only our own lease; if another system already took ownership,
-    -- leave its lease untouched.
-    if self.input then self.input:release_input(self) end
-
-    if keep_camera_position ~= true then
-        Net.unlock_player_camera(self.player_id)
-        Net.track_with_player_camera(self.player_id)
+    self.input_locked=false
+    if self.mode==CameraMode.Custom and self.custom_handlers and self.custom_handlers.onDeactivate then
+        local ok,err=pcall(self.custom_handlers.onDeactivate,self)
+        if not ok then print("[CameraController] onDeactivate: "..tostring(err)) end
     end
-
-    if not self.keep_player_input_locked then
-        Net.unlock_player_input(self.player_id)
-        self.input_locked = false
-    end
-
-    -- Restore whatever cadence the shared controller had configured.
-    self:_restore_repeat_delays()
-
-    if self.mode == CameraMode.Custom and self.custom_handlers and self.custom_handlers.onDeactivate then
-        self.custom_handlers.onDeactivate(self)
-    end
-
-    dbg("deactivate: EXIT player=", tostring(self.player_id))
     return true
 end
 
 function CameraController:destroy()
-    dbg("destroy: player=", tostring(self.player_id))
     self:deactivate(true)
     self:_unbind_input()
     if self.input and self._handler_owner_changed then
-        emitter_off(self.input, "input_owner_changed", self._handler_owner_changed)
+        emitter_off(self.input,"input_owner_changed",self._handler_owner_changed)
     end
-    self._handler_owner_changed = nil
+    self._handler_owner_changed=nil
 end
 
 function CameraController:returnToPlayer()
     if self.is_active then
-        local pos = Net.get_player_position(self.player_id)
-        self:moveTo(pos.x, pos.y, pos.z)
+        local pos=Net.get_player_position(self.player_id)
+        self:moveTo(pos.x,pos.y,pos.z)
     else
+        -- Do not restore over a camera owned by another feature.
+        if CameraFocus.get_current(self.player_id) then return false end
         Net.unlock_player_camera(self.player_id)
         Net.track_with_player_camera(self.player_id)
     end
@@ -489,10 +460,9 @@ function CameraController:setMode(new_mode, custom_handlers)
     if custom_handlers then
         self.custom_handlers = custom_handlers
     end
-    if self.input then
-        self.input:require_release(CAMERA_DIRECTIONS, self)
-    end
-    if self.is_active then
+    if self.is_active and self.input_session then
+        local _,owner=self.input_session:input()
+        if owner then self.input:require_release(CAMERA_DIRECTIONS,owner) end
         self:_apply_repeat_delays()
     end
 end
@@ -505,21 +475,30 @@ end
 -- Camera movement API (unchanged)
 -- --------------------------------------------------------------------------
 function CameraController:moveTo(x, y, z)
+    local current=CameraFocus.get_current(self.player_id)
+    if (current and (not self.input_session or
+        not CameraFocus.is_current(self.input_session.camera_handle))) or
+        (self.is_active and not self.input_session) then
+        return false, "camera focus lost"
+    end
     self.pending_position = {
         x = x,
         y = y,
         z = z or self.current_position.z or 100
     }
-    Net.move_player_camera(self.player_id, x, y, z or self.current_position.z or 100)
+    local ok,err=pcall(Net.move_player_camera,self.player_id,x,y,z or self.current_position.z or 100)
+    if not ok then self.pending_position=nil; return false,err end
     self.current_position = self.pending_position
     self.pending_position = nil
+    self.pending_seconds = 0
+    return true
 end
 
 function CameraController:relativeMoveTo(dx, dy, dz)
     local new_x = self.current_position.x + (dx or 0)
     local new_y = self.current_position.y + (dy or 0)
     local new_z = self.current_position.z + (dz or 0)
-    self:moveTo(new_x, new_y, new_z)
+    return self:moveTo(new_x, new_y, new_z)
 end
 
 function CameraController:pan(dx, dy, dz) self:relativeMoveTo(dx, dy, dz) end
@@ -529,6 +508,7 @@ function CameraController:setPosition(new_x, new_y, new_z)
     self.current_position.y = new_y or self.current_position.y
     self.current_position.z = new_z or self.current_position.z
     self.pending_position = nil
+    self.pending_seconds = 0
 end
 
 function CameraController:getPosition()
@@ -543,6 +523,34 @@ function CameraController:getPendingPosition()
 end
 
 function CameraController:hasPendingMove() return self.pending_position ~= nil end
+
+-- A duration-scoped camera slide. Pending state represents the requested
+-- duration, NOT an engine-render-completion acknowledgement (the supplied
+-- Net API does not expose a completion callback).
+function CameraController:slideTo(x, y, z, duration)
+    local current=CameraFocus.get_current(self.player_id)
+    if current and (not self.input_session or
+        not CameraFocus.is_current(self.input_session.camera_handle)) then
+        return false, "camera focus lost"
+    end
+    local target={x=x,y=y,z=z or self.current_position.z or 100}
+    local seconds=math.max(0,tonumber(duration) or 0)
+    local ok,err=pcall(Net.slide_player_camera,self.player_id,target.x,target.y,target.z,seconds)
+    if not ok then return false,err end
+    self.pending_position=seconds>0 and target or nil
+    self.pending_seconds=seconds
+    if seconds==0 then self.current_position=target end
+    return true
+end
+
+function CameraController:tick(delta_time)
+    if not self.pending_position then return end
+    self.pending_seconds=math.max(0,(self.pending_seconds or 0)-math.max(0,tonumber(delta_time) or 0))
+    if self.pending_seconds==0 then
+        self.current_position=self.pending_position
+        self.pending_position=nil
+    end
+end
 
 function CameraController:fadePlayerCamera(color, durationInSeconds)
     local col = color or self.camera_color

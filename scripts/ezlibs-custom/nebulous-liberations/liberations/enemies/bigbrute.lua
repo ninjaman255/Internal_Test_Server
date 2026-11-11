@@ -3,8 +3,8 @@ local EnemySelection = require("scripts/ezlibs-custom/nebulous-liberations/liber
 local Preloader = require("scripts/ezlibs-custom/nebulous-liberations/liberations/preloader")
 local Direction = require("scripts/libs/direction")
 
-Preloader.add_asset("/server/assets/NebuLibsAssets/bots/beast breath.png")
-Preloader.add_asset("/server/assets/NebuLibsAssets/bots/beast breath.animation")
+Preloader.add_asset("/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/beast breath.png")
+Preloader.add_asset("/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/beast breath.animation")
 
 local BigBrute = {}
 
@@ -38,9 +38,18 @@ function BigBrute:new(instance, position, direction)
 end
 
 function BigBrute:spawn(direction)
+  local closest_session = EnemyHelpers.find_closest_player_session(self.instance, self)
+  if closest_session and closest_session.player then
+    local player = closest_session.player
+    direction = Direction.diagonal_from_offset(
+      player.x - (self.x + .5),
+      player.y - (self.y + .5)
+    )
+  end
+
   self.id = Net.create_bot({
-    texture_path = "/server/assets/NebuLibsAssets/bots/bigbrute.png",
-    animation_path = "/server/assets/NebuLibsAssets/bots/bigbrute.animation",
+    texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/npcs/bigbrute.png",
+    animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/npcs/bigbrute.animation",
     area_id = self.instance.area_id,
     direction = direction,
     warp_in = false,
@@ -69,7 +78,7 @@ local function find_offset(self, xstep, ystep, limit)
   local step = math.abs(xstep + ystep)
 
   for i = limit, 1, -step do
-    if EnemyHelpers.can_move_to(self.instance, self.x + xstep * i, self.y + ystep * i, self.z) then
+    if EnemyHelpers.can_move_to(self.instance, self.x + xstep * i, self.y + ystep * i, self.z, self) then
       offset = step * i
       break
     end
@@ -169,8 +178,8 @@ local function attempt_attack(self)
       local player = player_session.player
 
       spawned_bots[#spawned_bots+1] = Net.create_bot({
-        texture_path = "/server/assets/NebuLibsAssets/bots/beast breath.png",
-        animation_path = "/server/assets/NebuLibsAssets/bots/beast breath.animation",
+        texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/beast breath.png",
+        animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/beast breath.animation",
         animation = "ANIMATE",
         area_id = self.instance.area_id,
         warp_in = false,

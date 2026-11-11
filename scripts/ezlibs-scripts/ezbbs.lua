@@ -3,7 +3,7 @@
 -- Uses ezusers for permission checks.
 -- Board data stored in memory/board/<board_name>.json (path from ezconfig).
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbbs')
+local logger = require('scripts/logger/logger').register('ezbbs')
 local json = require("scripts/libs/json")
 local ezusers = require("scripts/ezlibs-scripts/ezusers")
 local helpers = require("scripts/ezlibs-scripts/helpers")

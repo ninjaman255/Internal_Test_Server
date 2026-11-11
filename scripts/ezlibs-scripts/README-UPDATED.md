@@ -435,7 +435,7 @@ Checkpoints unlockable via password, money, or items.
 | Required Keys | number | required amount (default `1`) |
 | Consume | bool | consume on success |
 | Once | bool | hide permanently when unlocked |
-| Unlocking Asset Name | string | animation asset base name (default `"bn5cubegreen_bot"`) |
+| Unlocking Asset Name | string | animation asset base name (default `"bn5cubegreen"`) |
 | Unlocking Animation Time | number | seconds (default `0`) |
 | Unlocking Sound Path | string | sound file path (default `.../panel_change.ogg`) |
 | Skip Prompt | bool | skip confirmation prompt |

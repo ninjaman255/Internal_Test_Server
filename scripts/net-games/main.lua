@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 --[[
 * ---------------------------------------------------------- *
            Net Games (framework) - Version 0.08
@@ -226,7 +227,7 @@ end
 --     false. So the sprite plays the "cosmetic" animation once and then stops;
 --     the tick handler below restarts it by erasing and re-drawing at the
 --     state's total duration.
-function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale)
+function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale, owner_sprite_state, owner_sprite_enabled, movement_duration)
     return async(function()
         if not cosmetic_id or not animation or not state or not player_id
             or not texture or x == nil or y == nil then
@@ -247,7 +248,8 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
         local p_yoffset = player_yoffset or 0
         local sprite_scale = scale or 2
         local world_bot_scale = bot_scale or 1.0
-        local sprite_state = "cosmetic"   -- owner overlay state (bot uses `state`)
+        local sprite_state = owner_sprite_state or "cosmetic"   -- owner overlay state (bot uses `state`)
+        local draw_owner_sprite = owner_sprite_enabled ~= false
 
         if not last_position_cache[player_id] then
             last_position_cache[player_id] = {}
@@ -283,7 +285,7 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
         end
 
         local bot_id = cosmetic_id .. "_" .. player_id
-        local sprite_id = cosmetic_id .. "_obj"
+        local sprite_id = draw_owner_sprite and (cosmetic_id .. "_obj") or nil
         local spritex = (x + 120 + p_xoffset) * 2
         local spritey = (y + 80 + p_yoffset) * 2
 
@@ -304,37 +306,42 @@ function frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x
             duration = duration,
             elapsed = 0,
             player_xoffset = p_xoffset,
-            player_yoffset = p_yoffset
+            player_yoffset = p_yoffset,
+            movement_duration = tonumber(movement_duration)
         }
 
-        -- Owner sprite: fresh alloc id (cache-busting) + explicit z = -110.
-        Net.provide_asset_for_player(player_id, texture)
-        if animation and animation ~= "" then
-            Net.provide_asset_for_player(player_id, animation)
+        -- The owner sprite is optional. Liberation HP indicators disable it
+        -- because their owner-facing digits are private world bots that follow
+        -- the player's actual position and camera.
+        if draw_owner_sprite then
+            Net.provide_asset_for_player(player_id, texture)
+            if animation and animation ~= "" then
+                Net.provide_asset_for_player(player_id, animation)
+            end
+
+            cosmetic_generation = cosmetic_generation + 1
+            local alloc_id = "cos_" .. tostring(cosmetic_id) .. "_"
+                .. tostring(player_id) .. "_" .. tostring(cosmetic_generation)
+
+            Net.player_alloc_sprite(player_id, alloc_id, {
+                texture_path = texture,
+                anim_path = animation,
+                anim_state = sprite_state
+            })
+            Net.player_draw_sprite(player_id, alloc_id, {
+                id = sprite_id,
+                x = spritex,
+                y = spritey,
+                z = -110,
+                sx = sprite_scale,
+                sy = sprite_scale,
+                ox = 0, oy = 0, ro = 0,
+                opacity = 255, a = 255,
+                r = 255, g = 255, b = 255,
+                anim_state = sprite_state
+            })
+            cosmetic_cache[player_id][cosmetic_id].sprite_alloc_id = alloc_id
         end
-
-        cosmetic_generation = cosmetic_generation + 1
-        local alloc_id = "cos_" .. tostring(cosmetic_id) .. "_"
-            .. tostring(player_id) .. "_" .. tostring(cosmetic_generation)
-
-        Net.player_alloc_sprite(player_id, alloc_id, {
-            texture_path = texture,
-            anim_path = animation,
-            anim_state = sprite_state
-        })
-        Net.player_draw_sprite(player_id, alloc_id, {
-            id = sprite_id,
-            x = spritex,
-            y = spritey,
-            z = -110,
-            sx = sprite_scale,
-            sy = sprite_scale,
-            ox = 0, oy = 0, ro = 0,
-            opacity = 255, a = 255,
-            r = 255, g = 255, b = 255,
-            anim_state = sprite_state
-        })
-        cosmetic_cache[player_id][cosmetic_id].sprite_alloc_id = alloc_id
 
         -- World bot for other players.
         Net.create_bot(bot_id, {
@@ -385,14 +392,16 @@ function frame.remove_cosmetic(cosmetic_id, player_id)
 
     local cosmetic_data = player_cosmetics[cosmetic_id]
     local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. player_id)
-    local sprite_id = cosmetic_data.sprite_id or (cosmetic_id .. "_obj")
+    local sprite_id = cosmetic_data.sprite_id
 
     if Net.is_bot and Net.is_bot(bot_id) then
         Net.remove_bot(bot_id, false)
     else
         pcall(Net.remove_bot, bot_id, false)
     end
-    pcall(Net.player_erase_sprite, player_id, sprite_id)
+    if sprite_id then
+        pcall(Net.player_erase_sprite, player_id, sprite_id)
+    end
     if cosmetic_data.sprite_alloc_id then
         pcall(Net.player_dealloc_sprite, player_id, cosmetic_data.sprite_alloc_id)
     end
@@ -449,8 +458,22 @@ function frame.change_map_element(name, player_id, animation_state, loop)
 end
 
 function frame.move_map_element(name, player_id, x, y, z)
+    local bot_id = player_id .. "-map-" .. name
     local area_id = (last_position_cache[player_id] and last_position_cache[player_id]["area"]) or Net.get_player_area(player_id)
-    Net.transfer_bot(player_id .. "-map-" .. name, area_id, false, x, y, z)
+    local bot_area
+    if type(Net.get_bot_area) == "function" then
+        local ok, result = pcall(Net.get_bot_area, bot_id)
+        if ok then bot_area = result end
+    end
+
+    -- Most map-element updates are movement within the current area. Moving
+    -- those bots directly avoids repeatedly transferring them through the
+    -- area system, which can cause visible flicker or dropped indicators.
+    if bot_area == area_id and type(Net.move_bot) == "function" then
+        Net.move_bot(bot_id, x, y, z)
+    else
+        Net.transfer_bot(bot_id, area_id, false, x, y, z)
+    end
 end
 
 function frame.remove_map_element(name, player_id)
@@ -1935,7 +1958,7 @@ end
 -- CURSOR FUNCTIONS
 -- ===========================================================
 function frame.spawn_cursor(sprite_id, player_id, options)
-        Net.lock_player_input(player_id)
+        LegacyCapture.lock(player_id, "net-games/main")
         
         local initial_selection = options.selections[1]
         
@@ -1971,7 +1994,7 @@ end
 function frame.remove_cursor(cursor_id, player_id)
     if ui_cache[player_id] and ui_cache[player_id][cursor_id] and ui_cache[player_id][cursor_id]["sprite_id"] then
         frame.remove_ui_element(cursor_id, player_id)
-        Net.unlock_player_input(player_id)
+        LegacyCapture.unlock(player_id, "net-games/main")
     else
         print("[games] No cursor found with ID: " .. cursor_id)
     end
@@ -2286,6 +2309,12 @@ end
 -- ===========================================================
 Net:on("virtual_input", function(event)
     local player_id = event.player_id
+    local controller = InputSystem.get_controller(player_id)
+    -- Legacy raw-input cursors must yield to the current exclusive controller
+    -- owner (FootBomb, MenuAPI, camera, Liberation option menu, etc.).
+    if controller and controller:get_input_owner() ~= nil then
+        return
+    end
     local cursors = ui_cache[player_id]
     if not cursors then return end
 
@@ -2490,9 +2519,11 @@ Net:on("player_disconnect", function(event)
     if cosmetic_cache[event.player_id] then
         for cosmetic_id, cosmetic_data in pairs(cosmetic_cache[event.player_id]) do
             local bot_id = cosmetic_data.bot_id or (cosmetic_id .. "_" .. event.player_id)
-            local sprite_id = cosmetic_data.sprite_id or (cosmetic_id .. "_obj")
+            local sprite_id = cosmetic_data.sprite_id
             pcall(Net.remove_bot, bot_id, false)
-            pcall(Net.player_erase_sprite, event.player_id, sprite_id)
+            if sprite_id then
+                pcall(Net.player_erase_sprite, event.player_id, sprite_id)
+            end
             if cosmetic_data.sprite_alloc_id then
                 pcall(Net.player_dealloc_sprite, event.player_id, cosmetic_data.sprite_alloc_id)
             end
@@ -2536,7 +2567,9 @@ Net:on("player_move", function(event)
                         { property = "Y", ease = "Linear", value = target_y },
                         { property = "Z", ease = "Linear", value = target_z },
                     },
-                    duration = 0.1
+                    -- Use a per-cosmetic follow duration. Existing cosmetics
+                    -- retain their original 0.1s movement unless overridden.
+                    duration = tonumber(cosmetic_data.movement_duration) or 0.1
                 }
             }
             local ok, result = pcall(Net.animate_bot_properties, bot_id, keyframes)

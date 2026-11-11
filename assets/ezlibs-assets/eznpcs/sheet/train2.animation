@@ -1,0 +1,35 @@
+animation state="IDLE_DL"
+frame duration="0.0833333" x="1" y="15" w="93" h="70" originx="26" originy="53"
+
+animation state="IDLE_DR"
+frame duration="0.0833333" x="190" y="16" w="95" h="82" originx="66" originy="56"
+
+animation state="IDLE_UL"
+frame duration="0.0833333" x="285" y="10" w="95" h="87" originx="31" originy="39"
+
+animation state="IDLE_UR"
+frame duration="0.0833333" x="95" y="16" w="94" h="76" originx="66" originy="31"
+
+animation state="RUN_DL"
+frame duration="0.0833333" x="1" y="15" w="93" h="70" originx="24" originy="46"
+
+animation state="RUN_DR"
+frame duration="0.0833333" x="190" y="16" w="95" h="82" originx="68" originy="49"
+
+animation state="RUN_UL"
+frame duration="0.0833333" x="285" y="10" w="95" h="87" originx="28" originy="39"
+
+animation state="RUN_UR"
+frame duration="0.0833333" x="95" y="16" w="94" h="76" originx="66" originy="31"
+
+animation state="WALK_DL"
+frame duration="0.0833333" x="0" y="15" w="94" h="70" originx="26" originy="55"
+
+animation state="WALK_DR"
+frame duration="0.0833333" x="192" y="16" w="95" h="82" originx="67" originy="55"
+
+animation state="WALK_UL"
+frame duration="0.0833333" x="287" y="10" w="96" h="87" originx="29" originy="53"
+
+animation state="WALK_UR"
+frame duration="0.0833333" x="95" y="16" w="97" h="76" originx="66" originy="42"  

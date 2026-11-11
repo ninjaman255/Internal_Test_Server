@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezannounce')
+local logger = require('scripts/logger/logger').register('ezannounce'):register_subsystem("announce")
 local helpers  = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local ezemail  = require('scripts/ezlibs-scripts/ezemail') -- <-- adjust path to wherever your ezemail.lua is

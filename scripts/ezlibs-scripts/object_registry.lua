@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('object_registry')
+local logger = require('scripts/logger/logger').register('object_registry')
 local ezcache = require('scripts/ezlibs-scripts/ezcache')
 
 local object_registry = {

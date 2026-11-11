@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- scripts/events/eznpcs_onceitem.lua
 -- Dialogue Type "onceitem": unique, server-wide rental with renewals
 -- Dialogue Type "oncepass": renter sets/clears a visitor password for the HP checkpoint
@@ -557,7 +558,7 @@ local function follow_preview_camera(pid, x, y, z)
 end
 
 local function lock_for_preview(pid, s)
-  if Net.lock_player_input then pcall(Net.lock_player_input, pid) end
+  if LegacyCapture.lock then pcall(LegacyCapture.lock, pid, "events/eznpcs_onceitem") end
   s._input_locked = true
 
   -- unlock camera once (follow_preview_camera will handle the rest)
@@ -570,7 +571,7 @@ end
 local function unlock_after_preview(pid, s)
   -- unlock input
   if s and s._input_locked then
-    if Net.unlock_player_input then pcall(Net.unlock_player_input, pid) end
+    if LegacyCapture.unlock then pcall(LegacyCapture.unlock, pid, "events/eznpcs_onceitem") end
     s._input_locked = nil
   end
 
@@ -3554,7 +3555,7 @@ Net:on("object_interaction", function(event)
         end
 
         ezmemory.hide_object_from_player_till_disconnect(player_id, area_id, object_id)
-        Net.unlock_player_input(player_id)
+        LegacyCapture.unlock(player_id, "events/eznpcs_onceitem")
 
         local ok_msg = is_owner
           and cprop(cp, "Owner Unlocked Message", DEFAULTS.CP_OwnerUnlockedMessage)

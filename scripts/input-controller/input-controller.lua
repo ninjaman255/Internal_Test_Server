@@ -163,6 +163,8 @@ function InputController:_init(player_id, button_mappings, direction_raw_names, 
     -- edges or reacting to button events. Ownership changes are published on
     -- the same emitter as button events.
     self.input_owner = nil
+    self._repeat_policy_owner = nil
+    self._repeat_policy_previous = nil
 end
 
 -- Create a subclass.
@@ -245,6 +247,7 @@ function InputController:_clear_transient_state()
     self.repeat_actions = {}
     self.release_required = {}
     self.swallow_until = 0.0
+    -- An input reset clears edges, not the active owner's repeat policy.
 end
 
 function InputController:destroy()
@@ -252,7 +255,7 @@ function InputController:destroy()
     if self.input_owner ~= nil then
         local previous_owner = self.input_owner
         self.input_owner = nil
-        self.emitter:emit("input_owner_changed", {
+        self:_notify("input_owner_changed", {
             player_id = self.player_id,
             previous_owner = previous_owner,
             owner = nil,
@@ -261,6 +264,8 @@ function InputController:destroy()
     end
     self.active = false
     self.destroyed = true
+    self._repeat_policy_owner = nil
+    self._repeat_policy_previous = nil
     self:_clear_transient_state()
     DPad.resetPlayerState(self.player_id)
 end
@@ -279,9 +284,9 @@ function InputController:set_repeat_delays(first_repeat_delay, repeat_delay)
         self.repeat_delay = sanitize_delay(repeat_delay, self.repeat_delay)
     end
     if InputController.DEBUG then
-        print("[ICTRL] player=" .. tostring(self.player_id) ..
+       --[[ print("[ICTRL] player=" .. tostring(self.player_id) ..
               " set_repeat_delays first=" .. tostring(self.first_repeat_delay) ..
-              " repeat=" .. tostring(self.repeat_delay))
+              " repeat=" .. tostring(self.repeat_delay))]]
     end
 end
 
@@ -290,9 +295,49 @@ function InputController:restore_repeat_delays()
     self.first_repeat_delay = self._default_first_repeat_delay
     self.repeat_delay       = self._default_repeat_delay
     if InputController.DEBUG then
-        print("[ICTRL] player=" .. tostring(self.player_id) ..
+        --[[print("[ICTRL] player=" .. tostring(self.player_id) ..
               " restore_repeat_delays first=" .. tostring(self.first_repeat_delay) ..
-              " repeat=" .. tostring(self.repeat_delay))
+              " repeat=" .. tostring(self.repeat_delay))]]
+    end
+end
+
+-- Owner-scoped cadence. Only the current logical owner can install or clear
+-- its policy. This prevents an old camera/menu from restoring stale delays
+-- after another system has taken over the shared input controller.
+function InputController:set_owned_repeat_delays(owner, first, repeat_delay)
+    if not self:has_input_control(owner) then return false end
+    if self._repeat_policy_owner ~= owner then
+        if self._repeat_policy_owner ~= nil then
+            -- A previous policy must never leak across an ownership handoff.
+            self:clear_owned_repeat_delays(self._repeat_policy_owner)
+        end
+        self._repeat_policy_owner = owner
+        self._repeat_policy_previous = { self:get_repeat_delays() }
+    end
+    self:set_repeat_delays(first, repeat_delay)
+    return true
+end
+
+function InputController:clear_owned_repeat_delays(owner)
+    if self._repeat_policy_owner ~= owner then return false end
+    local previous = self._repeat_policy_previous
+    self._repeat_policy_owner = nil
+    self._repeat_policy_previous = nil
+    if previous then self:set_repeat_delays(previous[1], previous[2]) end
+    return true
+end
+
+function InputController:get_default_repeat_delays()
+    return self._default_first_repeat_delay, self._default_repeat_delay
+end
+
+-- For input events only; a bad legacy listener must not interrupt other
+-- input consumers or prevent an ownership transition from completing.
+function InputController:_notify(event, payload)
+    if self.emitter and type(self.emitter.emit_safe) == "function" then
+        self.emitter:emit_safe(event, payload)
+    else
+        self.emitter:emit(event, payload)
     end
 end
 
@@ -326,24 +371,26 @@ end
 -- explicit context transition (for example, entering a minigame) and not for
 -- competing systems to repeatedly steal control from each other.
 function InputController:claim_input(owner, force)
-    if (self.destroyed or owner == nil) and InputController.DEBUG then
-        -- Ownership diagnostic silenced to keep server console usable.
-        -- print("[InputController] claim denied player=" .. tostring(self.player_id)
-        --     .. " instance=" .. tostring(self) .. " reason=destroyed_or_nil_owner")
+    if self.destroyed or owner == nil then
         return false
     end
     if self.input_owner == owner then return true end
-    if (self.input_owner ~= nil and force ~= true)  and InputController.DEBUG then
-        -- Ownership diagnostic silenced to keep server console usable.
-        -- print("[InputController] claim denied player=" .. tostring(self.player_id)
-        --     .. " instance=" .. tostring(self) .. " current_owner=" .. tostring(self.input_owner)
-        --     .. " requested_owner=" .. tostring(owner))
+    if self.input_owner ~= nil and force ~= true then
+        --[[print("[InputController] claim denied player=" .. tostring(self.player_id)
+            .. " instance=" .. tostring(self) .. " current_owner=" .. tostring(self.input_owner)
+            .. " requested_owner=" .. tostring(owner))]]
         return false
     end
 
     local previous_owner = self.input_owner
+    if previous_owner ~= nil and self._repeat_policy_owner == previous_owner then
+        self:clear_owned_repeat_delays(previous_owner)
+    end
     self.input_owner = owner
-    -- Ownership-change logging silenced; the event remains available to listeners.
+    --[[print("[InputController] ownership changed player=" .. tostring(self.player_id)
+        .. " instance=" .. tostring(self) .. " previous_owner=" .. tostring(previous_owner)
+        .. " new_owner=" .. tostring(owner) .. " forced=" .. tostring(force == true))]]
+
     -- Discard edge flags from the previous owner and require currently-held
     -- actions to be released before the new owner can act on them.
     for action, state in pairs(self.logical) do
@@ -353,7 +400,7 @@ function InputController:claim_input(owner, force)
     end
     self:consume(owner)
 
-    self.emitter:emit("input_owner_changed", {
+    self:_notify("input_owner_changed", {
         player_id = self.player_id,
         previous_owner = previous_owner,
         owner = owner,
@@ -363,21 +410,24 @@ end
 
 function InputController:release_input(owner)
     if owner == nil or self.input_owner ~= owner then
-        -- Intentionally no log here: release_input may be polled by cleanup
-        -- code, and rejected releases are expected when another module owns input.
+        --[[print("[InputController] release ignored player=" .. tostring(self.player_id)
+            .. " instance=" .. tostring(self) .. " current_owner=" .. tostring(self.input_owner)
+            .. " requested_owner=" .. tostring(owner))]]
         return false
     end
 
     local previous_owner = self.input_owner
+    if self._repeat_policy_owner == owner then self:clear_owned_repeat_delays(owner) end
     self.input_owner = nil
-    -- Ownership-release logging silenced; the event remains available to listeners.
+    --[[print("[InputController] ownership released player=" .. tostring(self.player_id)
+        .. " instance=" .. tostring(self) .. " previous_owner=" .. tostring(previous_owner))]]
     for action, state in pairs(self.logical) do
         if state and state.down then
             self.release_required[action] = true
         end
     end
     self:consume()
-    self.emitter:emit("input_owner_changed", {
+    self:_notify("input_owner_changed", {
         player_id = self.player_id,
         previous_owner = previous_owner,
         owner = nil,
@@ -406,14 +456,14 @@ function InputController:_emit_edge(kind, action, state)
             return
         end
         self.pressed_actions[action] = true
-        self.emitter:emit("button_pressed", { player_id = self.player_id, action = action, state = state or 1, input_owner = self.input_owner })
+        self:_notify("button_pressed", { player_id = self.player_id, action = action, state = state or 1, input_owner = self.input_owner })
     elseif kind == "released" then
         self.released_actions[action] = true
-        self.emitter:emit("button_released", { player_id = self.player_id, action = action, state = state or 3, input_owner = self.input_owner })
+        self:_notify("button_released", { player_id = self.player_id, action = action, state = state or 3, input_owner = self.input_owner })
     elseif kind == "repeat" then
         if self.release_required[action] then return end
         self.repeat_actions[action] = true
-        self.emitter:emit("button_repeat", { player_id = self.player_id, action = action, state = state or 4, input_owner = self.input_owner })
+        self:_notify("button_repeat", { player_id = self.player_id, action = action, state = state or 4, input_owner = self.input_owner })
     end
 end
 
@@ -489,8 +539,8 @@ function InputController:_update_direction()
     self.prev_direction = new_dir
 
     if self.DEBUG then
-        print("[ICTRL] player=" .. tostring(self.player_id) ..
-              " dir " .. tostring(old_dir) .. " -> " .. tostring(new_dir))
+        --[[print("[ICTRL] player=" .. tostring(self.player_id) ..
+              " dir " .. tostring(old_dir) .. " -> " .. tostring(new_dir))]]
     end
 
     if old_dir then

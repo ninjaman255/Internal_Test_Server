@@ -16,7 +16,7 @@
 -- The x/y/z values describe the position that caused the transition, so
 -- listeners can reconcile overlapping triggers without any Net lookup.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezbottriggers')
+local logger = require('scripts/logger/logger').register('ezbottriggers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 
 local ezbottriggers = {}

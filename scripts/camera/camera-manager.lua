@@ -74,8 +74,9 @@ function CameraManager:deactivate_camera(player_id, keep_camera_position)
         print("ERROR: No camera controller found for player " .. tostring(player_id))
         return false
     end
-    controller:deactivate(keep_camera_position)
-    print("Camera deactivated for player " .. tostring(player_id))
+    local result,err=controller:deactivate(keep_camera_position)
+    if not result then return false,err end
+    dbg("Camera deactivated for player",tostring(player_id))
     return true
 end
 
@@ -107,8 +108,13 @@ function CameraManager:move_camera(player_id, x, y, z)
         print("ERROR: No camera controller found for player " .. tostring(player_id))
         return false
     end
-    controller:moveTo(x, y, z)
-    return true
+    return controller:moveTo(x, y, z)
+end
+
+function CameraManager:slide_camera(player_id, x, y, z, duration)
+    local controller=self:get_controller(player_id)
+    if not controller then return false,"camera controller unavailable" end
+    return controller:slideTo(x,y,z,duration)
 end
 
 function CameraManager:pan_camera(player_id, dx, dy, dz)
@@ -121,8 +127,7 @@ function CameraManager:pan_camera(player_id, dx, dy, dz)
         print("ERROR: No camera controller found for player " .. tostring(player_id))
         return false
     end
-    controller:pan(dx, dy, dz)
-    return true
+    return controller:pan(dx, dy, dz)
 end
 
 function CameraManager:get_camera_position(player_id)

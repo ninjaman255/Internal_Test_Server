@@ -11,7 +11,7 @@ function EnemySelection:new(instance)
   setmetatable(enemy_selection, self)
   self.__index = self
 
-  local INDICATOR_GID = Net.get_tileset(instance.area_id, "/server/assets/tiles/attack indicator.tsx").first_gid
+  local INDICATOR_GID = Net.get_tileset(instance.area_id, "/server/assets/ezlibs-custom/nebulous-liberations/tiles/attack indicator.tsx").first_gid
 
   local function filter(x, y, z)
     local tile = Net.get_tile(instance.area_id, x, y, z)

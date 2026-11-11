@@ -1,10 +1,38 @@
 local RecoverEffect = require("scripts/ezlibs-custom/nebulous-liberations/utils/recover_effect")
 local Direction = require("scripts/libs/direction")
+local HPIndicators = require("scripts/ezlibs-custom/nebulous-liberations/liberations/hp_indicators")
 
 local EnemyHelpers = {
   guardian_minimap_marker = { r = 230, g = 50, b = 40 },
   boss_minimap_color = { r = 170, g = 50, b = 170 }
 }
+
+-- Liberation movement briefly collapses the enemy bot, then restores the
+-- scale captured from its template/spawn options after the destination
+-- transfer. This also overrides any scale reconciliation caused by the
+-- bot's ezbottriggers movement event.
+local function animate_enemy_scale(bot_id, scale)
+  if bot_id == nil or type(Net.animate_bot_properties) ~= "function" then
+    return false
+  end
+
+  local config = {
+    {
+      properties = {
+        { property = "ScaleX", value = scale, ease = "Linear" },
+        { property = "ScaleY", value = scale, ease = "Linear" }
+      },
+      duration = 0
+    }
+  }
+
+  local ok, err = pcall(Net.animate_bot_properties, bot_id, config)
+  if not ok then
+    print("[nebulous-liberations] Could not set moving enemy scale:", tostring(bot_id), tostring(err))
+    return false
+  end
+  return true
+end
 
 local direction_suffix_map = {
   [Direction.DOWN_LEFT] = "DL",
@@ -24,8 +52,9 @@ end
 
 function EnemyHelpers.update_name(enemy)
   if not enemy or enemy.id == nil then return end
-  local display_name = enemy.battle_name or enemy.name or "Enemy"
+  local display_name = enemy.display_name or enemy.battle_name or enemy.name or "Enemy"
   Net.set_bot_name(enemy.id, tostring(display_name) .. ": " .. tostring(enemy.health or 0))
+  HPIndicators.update_enemy_hp_for_enemy(enemy)
 end
 
 function EnemyHelpers.heal(enemy, amount)
@@ -51,14 +80,51 @@ function EnemyHelpers.face_position(enemy, x, y)
   Net.set_bot_direction(enemy.id, Direction.diagonal_from_offset(x, y))
 end
 
-function EnemyHelpers.can_move_to(instance, x, y, z)
-  local panel = instance:get_panel_at(x, y, z)
-
-  return panel and (
+local function is_enemy_team_panel(panel)
+  return panel ~= nil and (
     panel.type == "Dark Panel" or
     panel.type == "Item Panel" or
     panel.type == "Trap Panel"
   )
+end
+
+function EnemyHelpers.is_occupied_by_enemy(instance, x, y, z, ignored_enemy)
+  if not instance or type(instance.enemies) ~= "table" then
+    return false
+  end
+
+  x = math.floor(x)
+  y = math.floor(y)
+  z = math.floor(z)
+
+  for _, enemy in ipairs(instance.enemies) do
+    if enemy and enemy ~= ignored_enemy and enemy.id ~= nil
+      and enemy.x ~= nil and enemy.y ~= nil and enemy.z ~= nil
+      and math.floor(enemy.x) == x
+      and math.floor(enemy.y) == y
+      and math.floor(enemy.z) == z then
+      local ok, alive = pcall(Net.is_bot, enemy.id)
+      if ok and alive then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
+-- Liberation's enemy-owned territory is represented by the panel types
+-- already used by enemy movement. Keep spawning and movement on the same rule.
+function EnemyHelpers.can_spawn_on(instance, x, y, z)
+  local panel = instance and instance:get_panel_at(x, y, z)
+  return is_enemy_team_panel(panel)
+    and not EnemyHelpers.is_occupied_by_enemy(instance, x, y, z)
+end
+
+function EnemyHelpers.can_move_to(instance, x, y, z, moving_enemy)
+  local panel = instance and instance:get_panel_at(x, y, z)
+  return is_enemy_team_panel(panel)
+    and not EnemyHelpers.is_occupied_by_enemy(instance, x, y, z, moving_enemy)
 end
 
 -- takes instance to move player cameras
@@ -74,6 +140,7 @@ function EnemyHelpers.move(instance, enemy, x, y, z, direction)
 
   local co = coroutine.create(function()
     Async.await(Async.sleep(hold_time))
+    HPIndicators.hide_enemy(instance, enemy)
 
     for _, player in ipairs(instance.players) do
       Net.slide_player_camera(player.id, x + .5, y + .5, z, slide_time)
@@ -83,8 +150,8 @@ function EnemyHelpers.move(instance, enemy, x, y, z, direction)
 
     -- create blur
     local blur_bot_id = Net.create_bot({
-      texture_path = "/server/assets/NebuLibsAssets/bots/blur.png",
-      animation_path = "/server/assets/NebuLibsAssets/bots/blur.animation",
+      texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/effects/blur.png",
+      animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/effects/blur.animation",
       area_id = area_id,
       warp_in = false,
       x = enemy.x + .5 + (1 / 32),
@@ -96,6 +163,16 @@ function EnemyHelpers.move(instance, enemy, x, y, z, direction)
     Net.animate_bot(blur_bot_id, "DISAPPEAR")
 
     Async.await(Async.sleep(animation_time))
+
+    -- Collapse the enemy during the panel transition. Keep its intended
+    -- scale on the enemy instance so 1.0 and 1.5-sized enemies both restore
+    -- correctly after the destination transfer.
+    local restore_scale = tonumber(enemy.scale) or 1.0
+    if restore_scale <= 0 or restore_scale ~= restore_scale
+        or restore_scale == math.huge or restore_scale == -math.huge then
+      restore_scale = 1.0
+    end
+    animate_enemy_scale(enemy.id, 0)
 
     -- move this bot off screen
     local area_width = Net.get_width(area_id)
@@ -123,14 +200,21 @@ function EnemyHelpers.move(instance, enemy, x, y, z, direction)
     -- move the enemy
     Net.transfer_bot(enemy.id, area_id, false, x + .5, y + .5, z)
 
+    -- Restore its original Liberation scale after the destination transfer,
+    -- overriding any size-tile trigger transition caused by that transfer.
+    animate_enemy_scale(enemy.id, restore_scale)
+
+    -- The enemy has entered its destination tile. Restore its HP digits
+    -- there before the post-move hold.
+    enemy.x = x
+    enemy.y = y
+    enemy.z = z
+    HPIndicators.show_enemy(instance, enemy)
+
     -- delete the blur bot
     Net.remove_bot(blur_bot_id)
 
     Async.await(Async.sleep(hold_time))
-
-    enemy.x = x
-    enemy.y = y
-    enemy.z = z
   end)
 
   return Async.promisify(co)
@@ -150,7 +234,7 @@ function EnemyHelpers.offset_position_with_direction(position, direction)
   elseif direction == Direction.UP_LEFT then
     position.x = position.x - 1
   elseif direction == Direction.UP_RIGHT then
-    position.x = position.y - 1
+    position.y = position.y - 1
   end
 
   return position
@@ -196,15 +280,21 @@ local function normalize_enemy_name(value)
   return string.lower(name)
 end
 
-function EnemyHelpers.sync_health(enemy, results)
+function EnemyHelpers.sync_health(enemy, results, encounter_data)
   if not enemy or type(results) ~= "table" then return false end
   local reported_enemies = results.enemies or results.Enemies
   if type(reported_enemies) ~= "table" or #reported_enemies == 0 then
     return false
   end
 
-  local expected_name = normalize_enemy_name(enemy.battle_name or enemy.name)
-  if not expected_name then return false end
+  local expected_names = {}
+  local template_name = normalize_enemy_name(enemy.template_name)
+  local battle_name = normalize_enemy_name(enemy.battle_name or enemy.name)
+  if template_name then expected_names[#expected_names + 1] = template_name end
+  if battle_name and battle_name ~= template_name then
+    expected_names[#expected_names + 1] = battle_name
+  end
+  if #expected_names == 0 then return false end
 
   for _, data in ipairs(reported_enemies) do
     if type(data) == "table" then
@@ -219,14 +309,35 @@ function EnemyHelpers.sync_health(enemy, results)
       local reported_health = tonumber(data.Health)
       if reported_health == nil then reported_health = tonumber(data.health) end
       for _, reported_name in ipairs(reported_names) do
-        if reported_name == expected_name and reported_health ~= nil then
-          enemy.health = math.max(0, reported_health)
-          EnemyHelpers.update_name(enemy)
-          return true
+        for _, expected_name in ipairs(expected_names) do
+          if reported_name == expected_name and reported_health ~= nil then
+            enemy.health = math.max(0, reported_health)
+            EnemyHelpers.update_name(enemy)
+            return true
+          end
         end
       end
     end
   end
+
+  -- Engine IDs are not always the template alias. A single surviving enemy
+  -- from a MULTI-enemy battle is NOT necessarily the persistent world bot.
+  -- Only allow the ID fallback when the encounter definition confirms that
+  -- exactly one enemy was spawned in the first place.
+  local configured_enemies = encounter_data and encounter_data.enemies
+  if type(configured_enemies) == "table" and #configured_enemies == 1
+      and #reported_enemies == 1 and type(reported_enemies[1]) == "table" then
+    local reported_health = tonumber(reported_enemies[1].Health)
+    if reported_health == nil then
+      reported_health = tonumber(reported_enemies[1].health)
+    end
+    if reported_health ~= nil then
+      enemy.health = math.max(0, reported_health)
+      EnemyHelpers.update_name(enemy)
+      return true
+    end
+  end
+
   return false
 end
 

@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezconfig')
+local logger = require('scripts/logger/logger').register('ezconfig')
 local ezconfig = nil
 logger:info('[ezconfig] loading config...')
 ezconfig = require('ezlibs-config')

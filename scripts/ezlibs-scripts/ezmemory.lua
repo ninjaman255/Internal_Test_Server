@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezmemory')
+local logger = require('scripts/logger/logger').register('ezmemory')
 local json = require('scripts/ezlibs-scripts/json')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local table = require('table')
@@ -164,6 +164,70 @@ local function normalize_player_memory(mem)
     return mem
 end
 
+local function is_instance_area_id(area_id)
+    return type(area_id) == "string"
+        and (area_id:match("^liberation_") ~= nil
+            or area_id:match("^footbomb_") ~= nil
+            -- Runner clones use <base>_runner_<player>_f<floor>.
+            or area_id:match("_runner_.+_f%d+$") ~= nil)
+end
+
+local function remove_area_memory_files(area_id)
+    if type(area_id) ~= "string" or area_id == ""
+        or area_id:find("/", 1, true) or area_id:find("\\", 1, true) then
+        return false
+    end
+
+    local removed_any = false
+    if type(os) == "table" and type(os.remove) == "function" then
+        local main_file, backup_file = get_file_paths(area_path_prefix .. area_id)
+        for _, path in ipairs({ main_file, backup_file }) do
+            local ok, result = pcall(os.remove, path)
+            if ok and result then
+                removed_any = true
+            end
+        end
+    end
+    return removed_any
+end
+
+-- Remove persisted memory for destroyed Liberation, FootBomb, and runner clones. The
+-- active-area set prevents startup cleanup from touching an instance that is
+-- still present in the engine after a restart/reload.
+local function prune_stale_instance_memory(active_area_ids)
+    local active = {}
+    for _, area_id in ipairs(active_area_ids or {}) do
+        active[area_id] = true
+    end
+
+    local removed_areas = 0
+    local updated_players = 0
+    for safe_secret, mem in pairs(player_memory) do
+        local area_memories = type(mem) == "table" and mem.area_memory or nil
+        local changed = false
+        if type(area_memories) == "table" then
+            for area_id in pairs(area_memories) do
+                if is_instance_area_id(area_id) and not active[area_id] then
+                    area_memories[area_id] = nil
+                    area_memory[area_id] = nil
+                    remove_area_memory_files(area_id)
+                    removed_areas = removed_areas + 1
+                    changed = true
+                end
+            end
+        end
+        if changed then
+            ezmemory_save_file(player_path_prefix .. safe_secret, mem)
+            updated_players = updated_players + 1
+        end
+    end
+
+    if removed_areas > 0 then
+        logger:info("[ezmemory] Pruned stale instance memory:",
+            removed_areas, "area records across", updated_players, "players")
+    end
+end
+
 local function initialize_area_memory_file(area_id)
     local loaded = nil
     local io_ok = (io ~= nil and io.open ~= nil)
@@ -236,6 +300,7 @@ local function load_all_memory()
         memory_loaded_flags.player_memory = true
 
         local net_areas = Net.list_areas()
+        prune_stale_instance_memory(net_areas)
         for i, area_id in ipairs(net_areas) do
             local mem = await(ezmemory_load_file(area_path_prefix .. area_id))
             if mem.hidden_objects then
@@ -365,6 +430,33 @@ end
 
 function ezmemory.save_player_memory(safe_secret)
     ezmemory_save_file(player_path_prefix .. safe_secret, player_memory[safe_secret])
+end
+
+-- Permanently discard all memory associated with a removed cloned area.
+-- This also removes per-player area_memory entries so they do not accumulate
+-- empty hidden_objects arrays for every completed instance.
+function ezmemory.clear_area_memory(area_id)
+    if type(area_id) ~= "string" or area_id == "" then
+        return false, "area_id must be a non-empty string"
+    end
+
+    area_memory[area_id] = nil
+    remove_area_memory_files(area_id)
+
+    local updated_players = 0
+    for safe_secret, mem in pairs(player_memory) do
+        if type(mem) == "table"
+            and type(mem.area_memory) == "table"
+            and mem.area_memory[area_id] ~= nil then
+            mem.area_memory[area_id] = nil
+            ezmemory_save_file(player_path_prefix .. safe_secret, mem)
+            updated_players = updated_players + 1
+        end
+    end
+
+    logger:info("[ezmemory] Cleared area memory:", area_id,
+        "updated players:", updated_players)
+    return true, updated_players
 end
 
 function ezmemory.dangerously_override_player_memory(safe_secret, new_memory)
@@ -577,6 +669,31 @@ function ezmemory.spend_player_money(player_id, amount)
         return true
     end
     return false
+end
+
+-- Increase a player's persistent money balance without using negative "spend"
+-- calls (which incorrectly emit a money_spent event). Returns the new balance,
+-- or nil and an error message when the amount or money API is unavailable.
+-- Only whole, non-negative amounts are accepted.
+function ezmemory.add_player_money(player_id, amount)
+    amount = tonumber(amount)
+    if not amount or amount ~= amount or amount < 0 or amount % 1 ~= 0 then
+        return nil, "amount must be a non-negative integer"
+    end
+    if type(Net.get_player_money) ~= "function"
+        or type(Net.set_player_money) ~= "function" then
+        return nil, "player money APIs are unavailable"
+    end
+
+    local current = ezmemory.get_player_money(player_id)
+    if current == nil then
+        return nil, "player money balance is unavailable"
+    end
+    if amount == 0 then return current end
+
+    local new_balance = current + amount
+    ezmemory.set_player_money(player_id, new_balance)
+    return new_balance
 end
 
 function ezmemory.set_player_money(player_id, money)
@@ -1099,8 +1216,12 @@ function ezmemory.give_item_with_optional_notify(player_id, area_id, item_object
                 get_message = "Got " .. item_info.amount .. " " .. item_info.name .. "!"
             end
         elseif item_info.type == "money" then
-            ezmemory.spend_player_money(player_id, -item_info.amount)
-            get_message = "Got " .. item_info.amount .. "$!"
+            local balance, award_error = ezmemory.add_player_money(player_id, item_info.amount)
+            if balance == nil then
+                logger:warn("[ezmemory] Could not award money: " .. tostring(award_error))
+            else
+                get_message = "Got " .. item_info.amount .. "$!"
+            end
         elseif item_info.type == "fragments" then
             ezmemory.add_player_fragments(player_id, item_info.amount)
             get_message = "Got " .. item_info.amount .. " Bug Fragments!"

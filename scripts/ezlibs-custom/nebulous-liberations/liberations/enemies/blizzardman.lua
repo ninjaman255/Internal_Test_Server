@@ -1,9 +1,10 @@
 local EnemySelection = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_selection")
 local EnemyHelpers = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_helpers")
 local Preloader = require("scripts/ezlibs-custom/nebulous-liberations/liberations/preloader")
+local GuardInterception = require("scripts/ezlibs-custom/nebulous-liberations/liberations/guard_interception")
 
-Preloader.add_asset("/server/assets/NebuLibsAssets/bots/snowball.png")
-Preloader.add_asset("/server/assets/NebuLibsAssets/bots/snowball.animation")
+Preloader.add_asset("/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/snowball.png")
+Preloader.add_asset("/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/snowball.animation")
 
 local BlizzardMan = {}
 
@@ -12,13 +13,14 @@ function BlizzardMan:new(instance, position, direction)
     instance = instance,
     id = nil,
     health = 400,
+    is_boss = true,
     max_health = 400,
     x = math.floor(position.x),
     y = math.floor(position.y),
     z = math.floor(position.z),
     mug = {
-      texture_path = "/server/assets/NebuLibsAssets/mugs/blizzardman.png",
-      animation_path = "/server/assets/NebuLibsAssets/mugs/blizzardman.animation",
+      texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/mugs/blizzardman.png",
+      animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/mugs/blizzardman.animation",
     },
     encounter = "/server/assets/encounters/big_brute_encounter.zip",
     selection = EnemySelection:new(instance)
@@ -42,8 +44,8 @@ end
 
 function BlizzardMan:spawn(direction)
   self.id = Net.create_bot({
-    texture_path = "/server/assets/NebuLibsAssets/bots/blizzardman.png",
-    animation_path = "/server/assets/NebuLibsAssets/bots/blizzardman.animation",
+    texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/npcs/blizzardman.png",
+    animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/npcs/blizzardman.animation",
     area_id = self.instance.area_id,
     direction = direction,
     warp_in = false,
@@ -95,21 +97,22 @@ function BlizzardMan:take_turn()
 
     Async.await(Async.sleep(1))
 
+    local attack_records = GuardInterception.prepare_attack(self.instance, self, caught_sessions, 0.5)
     EnemyHelpers.play_attack_animation(self)
 
     local spawned_bots = {}
 
-    for _, player_session in ipairs(caught_sessions) do
-      local player = player_session.player
-
+    for _, record in ipairs(attack_records) do
+      local position = record.visual_position
+      if position then
       local snowball_bot_id = Net.create_bot({
-        texture_path = "/server/assets/NebuLibsAssets/bots/snowball.png",
-        animation_path = "/server/assets/NebuLibsAssets/bots/snowball.animation",
+        texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/snowball.png",
+        animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/attacks/snowball.animation",
         area_id = self.instance.area_id,
         warp_in = false,
-        x = player.x - .5,
-        y = player.y - .5,
-        z = player.z + 8
+        x = position.x - 0.5,
+        y = position.y - 0.5,
+        z = position.z + 8
       })
 
       Net.animate_bot_properties(snowball_bot_id, {
@@ -120,13 +123,14 @@ function BlizzardMan:take_turn()
         },
         {
           properties = {
-            { property = "Z", ease = "Linear", value = player.z + 1 },
+            { property = "Z", ease = "Linear", value = position.z + 1 },
           },
           duration = .5
         }
       })
 
       spawned_bots[#spawned_bots+1] = snowball_bot_id
+      end
     end
 
     Async.await(Async.sleep(.5))
@@ -135,9 +139,8 @@ function BlizzardMan:take_turn()
       Net.shake_player_camera(player.id, 2, .5)
     end
 
-    for _, player_session in ipairs(caught_sessions) do
-      player_session:hurt(40)
-    end
+    GuardInterception.apply_damage(attack_records, 40, self)
+    GuardInterception.finish_attack(self.instance, attack_records)
 
     Async.await(Async.sleep(.5))
 

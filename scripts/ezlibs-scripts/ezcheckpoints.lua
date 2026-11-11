@@ -1,4 +1,5 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezcheckpoints')
+local LegacyCapture = require("scripts/player-control/legacy-capture")
+local logger = require('scripts/logger/logger').register('ezcheckpoints')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local condition = require('scripts/ezlibs-scripts/condition')
@@ -178,6 +179,11 @@ end
 --     interrupted for an action they did not take.
 function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, unlocking_asset_name, unlocking_sound_path, unlocking_animation_time, once, opts)
     opts = opts or {}
+    -- Compatibility for older Tiled maps/objects that still explicitly use the
+    -- previous asset basename. All current files are named bn5cubegreen.*.
+    if unlocking_asset_name == "bn5cubegreen_bot" then
+        unlocking_asset_name = "bn5cubegreen"
+    end
     local should_lock_input = opts.lock_input ~= false
 
     return async(function ()
@@ -211,7 +217,7 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
 
             if (not should_lock_input) or (not input_already_locked) then
                 if should_lock_input then
-                    safe_net(Net.lock_player_input, player_id)
+                    safe_net(function(pid) return LegacyCapture.lock(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
                 end
                 safe_net(Net.play_sound_for_player, player_id, unlocking_sound_path)
 
@@ -220,8 +226,8 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
                         x = object.x,
                         y = object.y,
                         z = object.z,
-                        texture_path = "/server/assets/ezlibs-assets/ezcheckpoints/" .. unlocking_asset_name .. ".png",
-                        animation_path = "/server/assets/ezlibs-assets/ezcheckpoints/" .. unlocking_asset_name .. ".animation",
+                        texture_path = "/server/assets/ezlibs-assets/ezcheckpoints/bots/" .. unlocking_asset_name .. ".png",
+                        animation_path = "/server/assets/ezlibs-assets/ezcheckpoints/bots/" .. unlocking_asset_name .. ".animation",
                         animation = "UNLOCKING",
                         warp_in = false,
                         area_id = area_id
@@ -237,11 +243,11 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
                         safe_net(Net.remove_bot, bot_id, false)
                     end
                     if should_lock_input and is_player_alive(player_id) then
-                        safe_net(Net.unlock_player_input, player_id)
+                        safe_net(function(pid) return LegacyCapture.unlock(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
                     end
                 else
                     if should_lock_input and is_player_alive(player_id) then
-                        safe_net(Net.unlock_player_input, player_id)
+                        safe_net(function(pid) return LegacyCapture.unlock(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
                     end
                 end
             end
@@ -267,7 +273,7 @@ function ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, on
         return false
     end
     local props = obj.custom_properties or {}
-    local asset = tu.get_string_from(props, "Unlocking Asset Name", "bn5cubegreen_bot")
+    local asset = tu.get_string_from(props, "Unlocking Asset Name", "bn5cubegreen")
     local sound = tu.get_string_from(props, "Unlocking Sound Path", "/server/assets/ezlibs-assets/sfx/panel_change.ogg")
     local anim_time = tu.get_number_from(props, "Unlocking Animation Time", 0)
     return ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, asset, sound, anim_time, once, opts)
@@ -368,7 +374,7 @@ Net:on("object_interaction", function(event)
     local required_keys            = tu.get_number_from(cp, "Required Keys", 1)
     local consume                  = tu.is_true(cp["Consume"])
     local once                     = tu.is_true(cp["Once"])
-    local unlocking_asset_name     = tu.get_string_from(cp, "Unlocking Asset Name", "bn5cubegreen_bot")
+    local unlocking_asset_name     = tu.get_string_from(cp, "Unlocking Asset Name", "bn5cubegreen")
     local unlocking_animation_time = tu.get_number_from(cp, "Unlocking Animation Time", 0)
     local unlocking_sound_path     = tu.get_string_from(cp, "Unlocking Sound Path",
                                          "/server/assets/ezlibs-assets/sfx/panel_change.ogg")

@@ -5,6 +5,30 @@
 ]]
 
 local AmbientManage = {}
+local log = require("scripts/logger/logger").register("real_daytime"):
+  register_subsystem("foreground")
+
+-- Only logs phase changes and explicit refreshes; no per-tick flood.
+local function foreground_description(area_id)
+  local ok, fg, velocity, parallax = pcall(function()
+    return Net.get_foreground(area_id), Net.get_foreground_velocity(area_id),
+      Net.get_foreground_parallax(area_id)
+  end)
+  if not ok then return "<read error: " .. tostring(fg) .. ">" end
+  if not fg or not velocity then return "<unavailable>" end
+  return "texture=" .. tostring(fg.texture_path) ..
+    " animation=" .. tostring(fg.animation_path) ..
+    " velocity_x=" .. tostring(velocity.x) ..
+    " velocity_y=" .. tostring(velocity.y) ..
+    " parallax=" .. tostring(parallax)
+end
+
+local function log_foreground(area_id, reason, mode, offset, phase)
+  log:info("[Real Daytime] area=" .. tostring(area_id) ..
+    " action=" .. tostring(reason) .. " mode=" .. tostring(mode) ..
+    " timezone=" .. tostring(offset) .. " phase=" .. tostring(phase) ..
+    " live=" .. foreground_description(area_id))
+end
 
 local ambient_areas = {}
 
@@ -44,14 +68,12 @@ local function get_area_settings(area_id)
 
   local timezone_offset = nil
 
-  if mode == "cus" or mode == "off" then
-    timezone_offset = tonumber(Net.get_area_custom_property(area_id, "Ambient_timezone"))
-
-    if timezone_offset == nil or timezone_offset < -840 or timezone_offset > 840 then
-      if mode == "cus" then return nil end
-
-      timezone_offset = nil
-    end
+  -- Both sync (server-local clock + adjustment) and cus (UTC offset)
+  -- use Ambient_timezone. Older sync mode silently discarded the value.
+  timezone_offset = tonumber(Net.get_area_custom_property(area_id, "Ambient_timezone"))
+  if timezone_offset == nil or timezone_offset < -840 or timezone_offset > 840 then
+    if mode == "cus" then return nil end
+    timezone_offset = (mode == "sync") and 0 or nil
   end
 
   local foreground = Net.get_foreground(area_id)
@@ -74,20 +96,27 @@ local function get_area_settings(area_id)
   }
 
   ambient_areas[area_id] = settings
+  log:debug("[Real Daytime] cached original foreground area=" ..
+    tostring(area_id) .. " mode=" .. tostring(mode) ..
+    " timezone=" .. tostring(timezone_offset) .. " " ..
+    foreground_description(area_id))
 
   return settings
 end
 
 -- CURRENT TIME
 local function get_current_time(settings)
+  local timestamp = os.time()
+  local offset = settings.timezone_offset or 0
   if settings.day_night_mode == "cus"
       or (settings.day_night_mode == "off" and settings.timezone_offset ~= nil) then
-    local timestamp = os.time()
-
-    return os.date("*t", timestamp + settings.timezone_offset * 60)
+    -- Custom mode is an absolute UTC offset in minutes.
+    return os.date("!*t", timestamp + offset * 60)
   end
 
-  return os.date("*t")
+  -- Sync preserves the server-local clock but applies the user's requested
+  -- minute adjustment, unlike the previous unshifted server-local behavior.
+  return os.date("*t", timestamp + offset * 60)
 end
 
 -- DAY PHASE
@@ -135,6 +164,8 @@ local function restore_foreground(area_id, settings)
 
   Net.set_foreground(area_id, foreground.texture_path, foreground.animation_path,
     foreground.velocity_x, foreground.velocity_y, foreground.parallax)
+  log_foreground(area_id, "restore-original", settings.day_night_mode,
+    settings.timezone_offset, settings.current_phase)
 end
 
 -- APPLY DAY PHASE
@@ -147,6 +178,11 @@ local function apply_day_phase(area_id, settings, phase)
     restore_foreground(area_id, settings)
   elseif phase == "night" then
     Net.set_foreground(area_id, night_texture, "", 0, 0, 0)
+  end
+  -- Afternoon already logs its foreground restoration separately.
+  if phase ~= "afternoon" then
+    log_foreground(area_id, "apply-phase", settings.day_night_mode,
+      settings.timezone_offset, phase)
   end
 end
 
@@ -193,6 +229,9 @@ local function update_area(area_id)
 
   if settings.day_night_mode ~= "off" then
     apply_day_phase(area_id, settings, phase)
+  else
+    log_foreground(area_id, "mode-off-no-override", settings.day_night_mode,
+      settings.timezone_offset, phase)
   end
 
   settings.current_phase = phase
@@ -201,6 +240,40 @@ end
 -- REFRESH AREA SETTINGS
 function AmbientManage.refresh_area(area_id)
   local old_settings = ambient_areas[area_id]
+  -- Slider presses can call refresh_area dozens of times per second. When the
+  -- effective day phase has not changed, keep the existing overlay and its
+  -- original-foreground snapshot instead of clearing/reapplying every frame.
+  if old_settings ~= nil and old_settings.current_phase ~= nil then
+    local configured_mode = Net.get_area_custom_property(area_id, "Ambient_day_night")
+    local configured_offset = tonumber(Net.get_area_custom_property(area_id, "Ambient_timezone"))
+    if configured_mode == old_settings.day_night_mode and
+        (configured_offset == nil or
+         (configured_offset >= -840 and configured_offset <= 840)) then
+      local previous_offset = old_settings.timezone_offset
+      if configured_mode == "sync" then
+        old_settings.timezone_offset = configured_offset or 0
+      elseif configured_mode == "cus" and configured_offset ~= nil then
+        old_settings.timezone_offset = configured_offset
+      elseif configured_mode == "off" then
+        old_settings.timezone_offset = configured_offset
+      end
+      local new_phase = get_day_phase(get_current_time(old_settings))
+      if new_phase == old_settings.current_phase then
+        update_area(area_id)
+        log:debug("[Real Daytime] refresh retained foreground area=" .. tostring(area_id) ..
+          " mode=" .. tostring(configured_mode) ..
+          " timezone=" .. tostring(old_settings.timezone_offset) ..
+          " phase=" .. tostring(new_phase))
+        return
+      end
+      old_settings.timezone_offset = previous_offset
+    end
+  end
+  log:debug("[Real Daytime] refresh request area=" .. tostring(area_id) ..
+    " previous_mode=" .. tostring(old_settings and old_settings.day_night_mode) ..
+    " previous_phase=" .. tostring(old_settings and old_settings.current_phase) ..
+    " configured_mode=" .. tostring(Net.get_area_custom_property(area_id, "Ambient_day_night")) ..
+    " configured_timezone=" .. tostring(Net.get_area_custom_property(area_id, "Ambient_timezone")))
 
   if old_settings ~= nil
       and old_settings.day_night_mode ~= "off"
@@ -216,6 +289,11 @@ function AmbientManage.refresh_area(area_id)
   if ambient_areas[area_id] == nil then
     clear_day_properties(area_id)
   end
+  local updated = ambient_areas[area_id]
+  log_foreground(area_id, "refresh-complete",
+    updated and updated.day_night_mode or "disabled",
+    updated and updated.timezone_offset,
+    updated and updated.current_phase)
 end
 
 -- GET DAY/NIGHT MODE

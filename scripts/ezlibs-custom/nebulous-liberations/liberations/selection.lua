@@ -89,12 +89,16 @@ function Selection:is_within(x, y, z)
     offset_y = -offset_y -- flipped
   elseif self.direction == Direction.UP_LEFT then
     local old_offset_y = offset_y
-    offset_y = -offset_x -- 🤷
-    offset_x = old_offset_y -- negative for going left
+    -- Inverse of indicate(): forward movement is negative world X.
+    -- offset_x is position.x - target.x, so it is already positive.
+    offset_y = offset_x
+    offset_x = old_offset_y
   elseif self.direction == Direction.DOWN_RIGHT then
     local old_offset_y = offset_y
-    offset_y = offset_x -- 🤷
-    offset_x = -old_offset_y -- positive for going right
+    -- Inverse of indicate(): forward movement is positive world X.
+    -- offset_x is position.x - target.x, so reverse its sign.
+    offset_y = -offset_x
+    offset_x = -old_offset_y
   end
 
   offset_x = offset_x - self.shape_offset_x

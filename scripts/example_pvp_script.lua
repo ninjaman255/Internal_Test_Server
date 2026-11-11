@@ -1,7 +1,7 @@
-local createLogger = require("scripts/persistence/logger")
+local createLogger = require("scripts/logger/logger").createLogger
 
 local Log = createLogger({  
-    filePath = "scripts/_DEBUGGING/Example-PVP/debugging.log",
+    filePath = "scripts/_DEBUGGING/Example-PVP/_FULL-log.log",
     minLevel = "debug",      -- log debug and above
     flushInterval = 5.0,
     maxBufferSize = 50,

@@ -14,7 +14,7 @@
 -- Long option texts trigger the same engine bug, so map makers should keep
 -- individual option strings short (one or two words).
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezcutscenes')
+local logger = require('scripts/logger/logger').register('ezcutscenes'):register_subsystem("step-types")
 local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local tu = require('scripts/ezlibs-scripts/utils/eztiledutils')

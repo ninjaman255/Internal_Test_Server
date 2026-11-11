@@ -629,24 +629,65 @@ function SlicedSprite.draw9(player_id, logical_id, x, y, width, height, style, o
     local signature = nine_signature(parts)
     local instance = begin_instance(player_id, logical_id, signature, NINE_ORDER)
 
-    local x0 = x
-    local x1 = x + left_width
-    local x2 = x + width - right_width
-    local y0 = y
-    local y1 = y + top_height
-    local y2 = y + height - bottom_height
+    -- Snap the shared slice boundaries, not each slice independently. With
+    -- fractional scales (for example 1.5x), independently rounded positions
+    -- and fractional widths can leave one-pixel seams between neighboring
+    -- sprites. Every adjacent slice now uses the exact same integer boundary.
+    local x0 = round(x)
+    local x1 = round(x + left_width)
+    local x2 = round(x + width - right_width)
+    local x3 = round(x + width)
+    local y0 = round(y)
+    local y1 = round(y + top_height)
+    local y2 = round(y + height - bottom_height)
+    local y3 = round(y + height)
 
     local rectangles = {
-        top_left     = { x0, y0, left_width, top_height },
-        top          = { x1, y0, inner_width, top_height },
-        top_right    = { x2, y0, right_width, top_height },
-        left         = { x0, y1, left_width, inner_height },
-        center       = { x1, y1, inner_width, inner_height },
-        right        = { x2, y1, right_width, inner_height },
-        bottom_left  = { x0, y2, left_width, bottom_height },
-        bottom       = { x1, y2, inner_width, bottom_height },
-        bottom_right = { x2, y2, right_width, bottom_height },
+        top_left     = { x0, y0, x1 - x0, y1 - y0 },
+        top          = { x1, y0, x2 - x1, y1 - y0 },
+        top_right    = { x2, y0, x3 - x2, y1 - y0 },
+        left         = { x0, y1, x1 - x0, y2 - y1 },
+        center       = { x1, y1, x2 - x1, y2 - y1 },
+        right        = { x2, y1, x3 - x2, y2 - y1 },
+        bottom_left  = { x0, y2, x1 - x0, y3 - y2 },
+        bottom       = { x1, y2, x2 - x1, y3 - y2 },
+        bottom_right = { x2, y2, x3 - x2, y3 - y2 },
     }
+
+    -- Some renderers can leave a hairline at the shared edge of two
+    -- independently drawn sprites even when their destination rectangles
+    -- touch exactly. Draw every non-first column/row one pixel into the
+    -- preceding slice. NINE_ORDER is row-major, so the later slice covers
+    -- the overlap and hides any rasterization seam without leaving a gap.
+    local grid_positions = {
+        top_left = { 1, 1 },
+        top = { 2, 1 },
+        top_right = { 3, 1 },
+        left = { 1, 2 },
+        center = { 2, 2 },
+        right = { 3, 2 },
+        bottom_left = { 1, 3 },
+        bottom = { 2, 3 },
+        bottom_right = { 3, 3 },
+    }
+    local seam_overlap = 1
+
+    for _, name in ipairs(NINE_ORDER) do
+        local rect = rectangles[name]
+        local grid = grid_positions[name]
+        if grid[1] > 1 then
+            rect[1] = rect[1] - seam_overlap
+            rect[3] = rect[3] + seam_overlap
+        end
+        if grid[2] > 1 then
+            rect[2] = rect[2] - seam_overlap
+            rect[4] = rect[4] + seam_overlap
+        end
+
+        if rect[3] <= 0 or rect[4] <= 0 then
+            return fail("rounded 9-slice dimensions are too small for the selected scale")
+        end
+    end
 
     for i, name in ipairs(NINE_ORDER) do
         local rect = rectangles[name]
@@ -1067,17 +1108,32 @@ function TextPanel:_redraw()
         if max_height then panel_height = math.min(panel_height, max_height) end
         panel_width, panel_height = math.max(panel_width, 1), math.max(panel_height, 1)
     else
-        panel_width, panel_height = tonumber(options.width), tonumber(options.height)
-        if not panel_width or panel_width <= 0 or not panel_height or panel_height <= 0 then
-            if is_grid then
-                panel_width, panel_height = grid_width + pad.left + pad.right, grid_height + pad.top + pad.bottom
-            elseif is_horizontal then
-                panel_width, panel_height = total_child_width + pad.left + pad.right, max_child_height + pad.top + pad.bottom
-            else
-                panel_width, panel_height = max_child_width + pad.left + pad.right, total_child_height + pad.top + pad.bottom
-            end
-            panel_width, panel_height = math.max(panel_width, 1), math.max(panel_height, 1)
+        -- A fixed width may be combined with an automatically measured height.
+        -- Child measurement above already honors the fixed width, including
+        -- wrapped text, so calculate each missing dimension independently.
+        panel_width = tonumber(options.width)
+        panel_height = tonumber(options.height)
+
+        local measured_width, measured_height
+        if is_grid then
+            measured_width = grid_width + pad.left + pad.right
+            measured_height = grid_height + pad.top + pad.bottom
+        elseif is_horizontal then
+            measured_width = total_child_width + pad.left + pad.right
+            measured_height = max_child_height + pad.top + pad.bottom
+        else
+            measured_width = max_child_width + pad.left + pad.right
+            measured_height = total_child_height + pad.top + pad.bottom
         end
+
+        if not panel_width or panel_width <= 0 then
+            panel_width = measured_width
+        end
+        if not panel_height or panel_height <= 0 then
+            panel_height = measured_height
+        end
+        panel_width = math.max(panel_width, 1)
+        panel_height = math.max(panel_height, 1)
     end
 
     local slice_kind = style.kind or "9"

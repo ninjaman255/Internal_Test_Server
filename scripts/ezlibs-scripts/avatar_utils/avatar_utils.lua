@@ -1,7 +1,7 @@
 -- avatar_utils.lua
 -- Utility functions for handling player avatars and mugshots
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('avatar_utils')
+local logger = require('scripts/logger/logger').register('avatar_utils'):register_subsystem("avatar-utils")
 local lua_yes_parser = require('scripts/ezlibs-scripts/avatar_utils/lua_yes_parser/lib')
 local base64 = require('scripts/ezlibs-scripts/avatar_utils/base64')
 

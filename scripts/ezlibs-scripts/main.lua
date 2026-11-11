@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezlibs-main')
+local logger = require('scripts/logger/logger').register('ezlibs-main')
 local startup_start = os.clock()
 
 local helpers = require('scripts/ezlibs-scripts/helpers')
@@ -27,6 +27,8 @@ local ezpushback = require('scripts/ezlibs-scripts/eznpcs/ezpushback')
 local npc_behaviors = require('scripts/ezlibs-scripts/eznpcs/npc_behaviors')
 local ezbottriggers = require('scripts/ezlibs-scripts/eztriggers/ezbottriggers')
 local ezcutscenes = require('scripts/ezlibs-scripts/ezcutscenes/ezcutscenes')
+-- The standalone HP Manager entry point registers its object listener itself.
+-- Do not require it a second time here: that produced duplicate handlers.
 
 local plugins = { 
     ezweather, 

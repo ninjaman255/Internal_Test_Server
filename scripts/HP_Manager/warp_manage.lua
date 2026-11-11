@@ -5,6 +5,9 @@
 ]]
 
 local WarpManage = {}
+local PlayerControl = require("scripts/player-control/main")
+local log = require("scripts/logger/logger").register("hp_manager"):register_subsystem("warp")
+local warp_contexts = {}
 
 local board_color = { r = 30, g = 30, b = 30 }
 local warp_sessions = {}
@@ -26,17 +29,21 @@ local function load_warp_data()
 
   file:close()
 
+  -- New servers ship with an empty warp data file; there is nothing to
+  -- restore yet, so this is not an error or a corrupt configuration.
+  if content:match("^%s*$") then return end
+
   local chunk, error_message = load(content, "@" .. data_file, "t", {})
 
   if chunk == nil then
-    print("[Warp Manager] Failed to load warp data: " .. tostring(error_message))
+    log:error("[Warp Manager] Failed to load warp data: " .. tostring(error_message))
     return
   end
 
   local success, data = pcall(chunk)
 
   if not success or type(data) ~= "table" then
-    print("[Warp Manager] Invalid warp data file.")
+    log:error("[Warp Manager] Invalid warp data file.")
     return
   end
 
@@ -49,7 +56,7 @@ local function save_warp_data()
   local file = io.open(temp_file, "w")
 
   if file == nil then
-    print("[Warp Manager] Failed to save warp data.")
+    log:error("[Warp Manager] Failed to save warp data.")
     return false
   end
 
@@ -98,14 +105,14 @@ local function save_warp_data()
     old_file:close()
 
     if not os.rename(data_file, backup_file) then
-      print("[Warp Manager] Failed to create warp data backup.")
+      log:error("[Warp Manager] Failed to create warp data backup.")
       os.remove(temp_file)
       return false
     end
   end
 
   if not os.rename(temp_file, data_file) then
-    print("[Warp Manager] Failed to replace warp data file.")
+    log:error("[Warp Manager] Failed to replace warp data file.")
 
     os.rename(backup_file, data_file)
 
@@ -219,7 +226,27 @@ local function apply_saved_warps(area_id)
 end
 
 -- WARP LIST
-function WarpManage.open(player_id, return_to_hp)
+function WarpManage.open(player_id, return_to_hp, options)
+  options = options or {}
+  local control = warp_contexts[player_id]
+  if not control or not control:is_alive() then
+    local err
+    control, err = PlayerControl.begin(player_id, {
+      owner="hp_manager:warp", profile="native_ui", parent=options.parent
+    })
+    if not control then
+      log:warn("[Warp Manager] " .. tostring(err))
+      if return_to_hp and not options.parent then pcall(return_to_hp, player_id) end
+      return false, err
+    end
+    warp_contexts[player_id] = control
+    control:on_close(function()
+      if warp_contexts[player_id] == control then
+        warp_contexts[player_id] = nil
+        warp_sessions[player_id] = nil
+      end
+    end)
+  end
   local area_id = Net.get_player_area(player_id)
   apply_saved_warps(area_id)
   local warps = find_warp_controllers(area_id)
@@ -246,7 +273,16 @@ function WarpManage.open(player_id, return_to_hp)
     return_to_hp = return_to_hp
   }
 
-  Net.open_board(player_id, "Server Warps", board_color, posts)
+  local ok, open_err = pcall(Net.open_board, player_id, "Server Warps", board_color, posts)
+  if not ok then
+    log:error("[Warp Manager] open_board failed: " .. tostring(open_err))
+    warp_sessions[player_id] = nil
+    warp_contexts[player_id] = nil
+    control:close()
+    if return_to_hp and not options.parent then pcall(return_to_hp, player_id) end
+    return false, open_err
+  end
+  return true
 end
 
 -- WARP SELECT
@@ -283,6 +319,13 @@ end
 
   local area_id = session.area_id
   local return_to_hp = session.return_to_hp
+  local context = warp_contexts[player_id]
+  local function still_current()
+    return context and context:is_alive() and warp_contexts[player_id] == context
+  end
+  local function reopen()
+    if still_current() then WarpManage.open(player_id, return_to_hp) end
+  end
 
   warp_sessions[player_id] = nil
 
@@ -297,10 +340,11 @@ end
     end
 
     local new_destination = await(Async.prompt_player(player_id, 160, current_destination))
+    if not still_current() then return end
 
     -- CANCEL
     if new_destination == nil then
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
@@ -311,7 +355,7 @@ end
 
     if new_address == nil or new_port_text == nil then
       await(Async.message_player(player_id, "Invalid destination. Use ADDRESS:PORT, for example 11.11.111.11:1111."))
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
@@ -322,23 +366,24 @@ end
     -- ADDRESS VALIDATION
     if new_address == "" then
       await(Async.message_player(player_id, "Address cannot be empty."))
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
     -- PORT VALIDATION
     if new_port == nil or new_port < 1 or new_port > 65535 then
       await(Async.message_player(player_id, "Invalid port. Use a number between 1 and 65535."))
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
     -- NEW LOCATION NAME
     local new_location = await(Async.prompt_player(player_id, 64, warp.location))
+    if not still_current() then return end
 
     -- CANCEL
     if new_location == nil then
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
@@ -347,7 +392,7 @@ end
     -- LOCATION VALIDATION
     if new_location == "" then
       await(Async.message_player(player_id, "Location name cannot be empty."))
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
@@ -373,13 +418,13 @@ end
 
     if not saved then
       await(Async.message_player(player_id, "Warp updated, but persistent data could not be saved."))
-      WarpManage.open(player_id, return_to_hp)
+      reopen()
       return
     end
 
     await(Async.message_player(player_id, new_location .. " now points to " .. new_address .. ":" .. new_port .. "."))
 
-    WarpManage.open(player_id, return_to_hp)
+    reopen()
   end)
 end)
 
@@ -393,17 +438,25 @@ Net:on("board_close", function(event)
   local return_to_hp = session.return_to_hp
 
   warp_sessions[player_id] = nil
-
-  Async.sleep(0.01).and_then(function()
-    if return_to_hp ~= nil then
-      return_to_hp(player_id)
-    end
-  end)
+  local control = warp_contexts[player_id]
+  warp_contexts[player_id] = nil
+  if control then control:close() end
+  if return_to_hp ~= nil then return_to_hp(player_id) end
 end)
 
 -- CLEANUP
+local function abandon_warp_editor(pid)
+  warp_sessions[pid] = nil
+  local control=warp_contexts[pid]
+  warp_contexts[pid]=nil
+  if control then control:close() end
+end
+WarpManage.abort = abandon_warp_editor
 Net:on("player_disconnect", function(event)
-  warp_sessions[event.player_id] = nil
+  abandon_warp_editor(event.player_id)
+end)
+Net:on("player_area_transfer", function(event)
+  abandon_warp_editor(event.player_id)
 end)
 
 -- LOAD PERSISTENT WARPS

@@ -3,7 +3,7 @@
 -- For players: copies assets from engine to local files on avatar change.
 -- For bots: registers existing local asset paths (no copying).
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('avatar_utils')
+local logger = require('scripts/logger/logger').register('avatar_utils'):register_subsystem("main")
 local avatar_utils = require('scripts/ezlibs-scripts/avatar_utils/avatar_utils')
 
 -- Cache structure for players: cache[player_secret] = {

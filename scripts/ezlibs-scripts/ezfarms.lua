@@ -1,4 +1,4 @@
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezfarms')
+local logger = require('scripts/logger/logger').register('ezfarms')
 local ezfarms = {}
 
 local CONFIG = require('scripts/ezlibs-scripts/ezconfig')

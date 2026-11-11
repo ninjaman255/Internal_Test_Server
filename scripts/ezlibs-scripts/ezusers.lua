@@ -5,7 +5,7 @@
 -- Per‑user permissions can be overridden without changing the role.
 -- Integrates with ezlibs via standard plugin hooks: handle_player_join, handle_player_disconnect.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezusers')
+local logger = require('scripts/logger/logger').register('ezusers')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local sha = require("scripts/ezlibs-scripts/sha256")

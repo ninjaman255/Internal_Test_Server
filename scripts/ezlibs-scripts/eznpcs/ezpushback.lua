@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- ezpushback.lua
 -- A Pushback NPC uses the regular eznpcs NPC pipeline, with a moving rectangle
 -- trigger that follows its bot. On collision, a temporary bot uses the player's
@@ -26,7 +27,7 @@
 -- moving collision zone to the new bot. Entries created this way are torn
 -- down automatically on `bot_removed`.
 
-local logger = require('scripts/ezlibs-scripts/ezlogger').get('ezpushback')
+local logger = require('scripts/logger/logger').register('eznpcs'):register_subsystem("npc-pushback")
 local eztriggers = require('scripts/ezlibs-scripts/eztriggers/eztriggers')
 local ezbus = require('scripts/ezlibs-scripts/ezbus')
 local EzEmitter = require('scripts/ezlibs-scripts/ezemitter')
@@ -405,9 +406,7 @@ local function cleanup_push(player_id, state, reason, restore_player)
         end
         -- Unlock input regardless: we locked it before the shrink attempt,
         -- and a failed shrink doesn't undo that lock.
-        if not state.was_input_locked then
-            pcall(Net.unlock_player_input, player_id)
-        end
+        pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/eznpcs/ezpushback")
     end
 
     if state.entry then
@@ -472,7 +471,7 @@ local function perform_pushback(entry, player_id)
     -- is not visible. If shrinking fails (missing API, engine rejection),
     -- abort the pushback — a visible player plus a visible bot moving
     -- together looks broken, which is worse than skipping one push.
-    pcall(Net.lock_player_input, player_id)
+    pcall(LegacyCapture.lock, player_id, "ezlibs-scripts/eznpcs/ezpushback")
     if not set_player_scale_immediate(player_id, 0, 0) then
         logger:for_player(player_id):warn(
             '[ezpushback] Could not shrink player scale; pushback aborted.')

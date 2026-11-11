@@ -1,3 +1,4 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- scripts/net-games/dialogue/prompt.lua
 -- Hardened YES/NO prompt using the public TextLayout service.
 
@@ -195,8 +196,8 @@ local function find_option_virtual_positions(player_id, box_id, selection)
 end
 
 local function set_input_locked(player_id, locked)
-    if locked and Net.lock_player_input then pcall(Net.lock_player_input, Net, player_id)
-    elseif (not locked) and Net.unlock_player_input then pcall(Net.unlock_player_input, Net, player_id) end
+    if locked and LegacyCapture.lock then pcall(LegacyCapture.lock, player_id, "net-games:dialogue")
+    elseif (not locked) and LegacyCapture.unlock then pcall(LegacyCapture.unlock, player_id, "net-games:dialogue") end
 end
 
 local function mk_id(player_id) return "ng_prompt_" .. tostring(player_id) end

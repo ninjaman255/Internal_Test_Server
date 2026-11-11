@@ -33,8 +33,8 @@
 -- via Net.provide_asset_for_player before :show() is called. See
 -- Preloader.provide_gauge_assets_to_player.
 
-local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
-local log = ezlogger.get("nebulous-liberations")
+local SharedLogger = require("scripts/logger/logger")
+local log = SharedLogger.register("nebulous-liberations"):register_subsystem("points-gauge")
 
 local Displayer = require("scripts/displayer/displayer")
 local TextLayout = require("scripts/displayer/text-layout")
@@ -44,13 +44,18 @@ PointsGauge.__index = PointsGauge
 
 local ASSET_ROOT = "/server/assets/net-games/meters/liberation-order-points"
 
--- Sprite-space (480x320) layout.
+-- Layout dimensions are authored in 240x160 screen coordinates where noted.
+-- Sliced sprites render in 480x320 raw-pixel space, so those dimensions are
+-- converted to sprite space with SPRITE_SCALE. The gauge fills a maximum width
+-- of 200 screen pixels (400 sprite pixels); each point bar divides the usable
+-- interior width by max_points so changing the mission cap keeps the bars even.
+local SPRITE_SCALE = 2
 local LAYOUT = {
     screen_w = 480,
     screen_h = 320,
-    gauge_y = 12,
-    gauge_h = 24,
-    segment_w = 20,
+    max_gauge_w_screen = 120,
+    gauge_h_screen = 12,
+    gauge_y = 4,
 
     gauge_inner_padding_x = 12,
     gauge_inner_padding_y = 4,
@@ -215,6 +220,13 @@ local function run_startup_diagnostic()
     end
 end
 
+-- Match the integer-boundary snapping used by sliced-sprite's 9-slice
+-- renderer. Adjacent point pips must derive their edges from the same
+-- calculation so fractional widths cannot accumulate gaps or overlaps.
+local function round_pixel(value)
+    return math.floor(value + 0.5)
+end
+
 local function id_safe(value)
     return tostring(value):gsub("[^%w_%-]", "_")
 end
@@ -255,7 +267,11 @@ function PointsGauge:new(player_id, max_points)
     gauge.badge_usable  = insights.badge  and insights.badge.loaded  and insights.badge.heights_match
     gauge._warned = {}
 
-    gauge.gauge_w = gauge.max_points * LAYOUT.segment_w
+    gauge.gauge_w = math.min(
+        LAYOUT.screen_w,
+        math.floor(LAYOUT.max_gauge_w_screen * SPRITE_SCALE)
+    )
+    gauge.gauge_h = math.floor(LAYOUT.gauge_h_screen * SPRITE_SCALE)
     gauge.gauge_x = math.floor((LAYOUT.screen_w - gauge.gauge_w) / 2)
 
     local prefix = "nebulibs-op-" .. id_safe(player_id)
@@ -310,7 +326,7 @@ function PointsGauge:_draw_base()
     local s = get_styles()
     local insights = get_animation_insights()
     local natural_h = insights.base and insights.base.natural_height or 0
-    local h = math.max(LAYOUT.gauge_h, natural_h)
+    local h = math.max(self.gauge_h, natural_h)
     safe_draw3(
         self.player_id, self.base_lid,
         self.gauge_x, LAYOUT.gauge_y,
@@ -329,30 +345,35 @@ function PointsGauge:_draw_fill()
     local s = get_styles()
     local inner_x = self.gauge_x + LAYOUT.gauge_inner_padding_x
     local inner_y = LAYOUT.gauge_y + LAYOUT.gauge_inner_padding_y
-    local inner_h = LAYOUT.gauge_h - 2 * LAYOUT.gauge_inner_padding_y
+    local inner_h = self.gauge_h - 2 * LAYOUT.gauge_inner_padding_y
     local inner_w = self.gauge_w - 2 * LAYOUT.gauge_inner_padding_x
     local pip_w = inner_w / self.max_points
 
-    -- Respect the points animation's own natural size. If the pip width we
-    -- want is below the animation's natural width, we'd have to shrink the
-    -- center strip, which sliced-sprite also rejects — so widen the pip.
+    -- Respect the points animation's native minimum width when possible. For
+    -- normal mission caps the 200-screen-pixel gauge leaves ample room; if a
+    -- very large cap makes a pip narrower than the source animation, keep the
+    -- computed width rather than letting the pips overflow the gauge. The
+    -- sliced-sprite renderer may reject an undersized pip, which is preferable
+    -- to silently drawing outside the declared maximum width.
     local insights = get_animation_insights()
-    local natural_pip_w = insights.points and insights.points.natural_width or 0
     local natural_pip_h = insights.points and insights.points.natural_height or 0
-    if natural_pip_w > 0 and pip_w < natural_pip_w then
-        pip_w = natural_pip_w
-    end
     if natural_pip_h > 0 and inner_h < natural_pip_h then
         inner_h = natural_pip_h
     end
 
     for i = 1, self.max_points do
         if i <= self.value then
-            local pip_x = math.floor(inner_x + (i - 1) * pip_w)
+            -- Snap shared edges rather than flooring each pip's position and
+            -- width independently. Each pip's right edge is the next pip's
+            -- left edge, even when inner_w/max_points is fractional.
+            local pip_left = round_pixel(inner_x + (i - 1) * pip_w)
+            local pip_right = round_pixel(inner_x + i * pip_w)
+            local pip_width = pip_right - pip_left
+
             safe_draw3(
                 self.player_id, self.fill_lids[i],
-                pip_x, inner_y,
-                math.floor(pip_w), math.floor(inner_h),
+                pip_left, round_pixel(inner_y),
+                pip_width, round_pixel(inner_h),
                 s.points,
                 { z = LAYOUT.z_fill },
                 "fill[" .. i .. "]", self
@@ -384,7 +405,7 @@ function PointsGauge:_draw_badge()
     -- (base=200, badge=202) only controls draw order so the badge sits on
     -- top where the two rectangles overlap.
     local badge_x = math.floor((LAYOUT.screen_w - badge_w) / 2)
-    local badge_y = math.max(0, LAYOUT.gauge_y + LAYOUT.gauge_h - LAYOUT.badge_overlap)
+    local badge_y = math.max(0, LAYOUT.gauge_y + self.gauge_h - LAYOUT.badge_overlap)
 
     -- Attempt the frame draw only if the animation is well-formed. Skipping
     -- a guaranteed-fail call keeps the log clean; the text still draws below

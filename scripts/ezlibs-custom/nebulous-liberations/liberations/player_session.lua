@@ -1,6 +1,7 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 -- player_session.lua
-local ezlogger = require("scripts/ezlibs-scripts/ezlogger")
-local log = ezlogger.get("nebulous-liberations")
+local SharedLogger = require("scripts/logger/logger")
+local log = SharedLogger.register("nebulous-liberations"):register_subsystem("player-session")
 
 local Ability = require("scripts/ezlibs-custom/nebulous-liberations/liberations/ability")
 local PlayerSelection = require("scripts/ezlibs-custom/nebulous-liberations/liberations/player_selection")
@@ -11,6 +12,7 @@ local RecoverEffect = require("scripts/ezlibs-custom/nebulous-liberations/utils/
 local Constants = require("scripts/ezlibs-custom/nebulous-liberations/liberations/constants")
 local ezmemory = require("scripts/ezlibs-scripts/ezmemory")
 local Emotes = require("scripts/libs/emotes")
+local HPIndicators = require("scripts/ezlibs-custom/nebulous-liberations/liberations/hp_indicators")
 
 -- Battle end reasons supplied by the battle engine.
 local BattleReason = {
@@ -24,6 +26,21 @@ local BattleReason = {
 -- The 20 HP penalty applies only when the player runs or explicitly panics.
 -- DRAW and LOSE are not forced exits and must not be penalized.
 local PANIC_HP_PENALTY = 20
+
+-- Tiled custom properties can arrive as booleans, numbers, or strings.
+-- Normalize them before checking flags or comparing linked identifiers.
+local function is_enabled(value)
+    return value == true or value == 1 or (type(value) == "string" and value:lower() == "true")
+end
+
+local function normalize_identifier(value)
+    if value == nil then return nil end
+    return tostring(value):lower()
+end
+
+-- Guard protects players within this many tiles (Chebyshev distance) of a
+-- player whose currently equipped ability is Guard.
+local GUARD_RANGE_TILES = 2
 
 local function stats_indicate_panic(results)
     if not results then return false end
@@ -72,7 +89,7 @@ function PlayerSession:get_ability_permission()
     question_promise.and_then(function(response)
         if response == 0 then
             self.selection:clear()
-            Net.unlock_player_input(self.player.id)
+            LegacyCapture.unlock(self.player.id, "liberation:turn")
             return
         end
         if self.instance.order_points < self.ability.cost then
@@ -109,7 +126,7 @@ function PlayerSession:get_pass_turn_permission()
     local question_promise = self.player:question_with_mug(question)
     question_promise.and_then(function(response)
         if response == 0 then
-            Net.unlock_player_input(self.player.id)
+            LegacyCapture.unlock(self.player.id, "liberation:turn")
         elseif response == 1 then
             self:pass_turn()
         end
@@ -119,15 +136,23 @@ end
 function PlayerSession:initiate_encounter(encounter_path, data)
     return Async.create_promise(function(resolve)
         self.player:initiate_encounter(encounter_path, data).and_then(function(results)
-            local total_enemy_health = 0
-            for _, enemy in ipairs(results.enemies or {}) do
-                total_enemy_health = total_enemy_health + (enemy.health or 0)
+            -- Exit/disconnect fallbacks may have no health, emotion, or reason.
+            -- Never replace stored HP with nil or silently award a victory.
+            if type(results) ~= "table" then
+                results = { reason = BattleReason.DRAW, missing_battle_results = true }
             end
-
-            self.health = results.health
+            local reported_health = tonumber(results.health)
+            if reported_health and reported_health == reported_health
+                and reported_health ~= math.huge and reported_health ~= -math.huge then
+                self.health = math.max(0, math.min(reported_health, self.max_health))
+            end
+            results.health = self.health
+            HPIndicators.update_player_hp(self.instance, self.player.id, self.health)
             ezmemory.set_player_max_health(self.player.id, self.max_health, true)
             ezmemory.set_player_health(self.player.id, self.health)
-            Net.set_player_emotion(self.player.id, results.emotion)
+            if results.emotion ~= nil then
+                Net.set_player_emotion(self.player.id, results.emotion)
+            end
 
             local reason = tonumber(results.reason)
             if stats_indicate_panic(results) then
@@ -166,6 +191,8 @@ function PlayerSession:initiate_encounter(encounter_path, data)
             -- loss, or missing/unknown reason must fail even if no surviving
             -- enemy-health entries were returned by the battle engine.
             results.success = reason == BattleReason.WIN
+                and results.ran ~= true
+                and not results.missing_battle_results
             if not results.success then
                 self.player:say_with_mug("Oh, no!\nLiberation failed!")
             end
@@ -179,6 +206,7 @@ function PlayerSession:heal(amount)
     self.health = math.min(math.ceil(self.health + amount), self.max_health)
     ezmemory.set_player_max_health(self.player.id, self.max_health, true)
     ezmemory.set_player_health(self.player.id, self.health)
+    HPIndicators.update_player_hp(self.instance, self.player.id, self.health)
     if previous_health < self.health then
         log:debug_data("Player healed", {
             base_area_id = self.instance.base_area_id,
@@ -194,12 +222,65 @@ function PlayerSession:heal(amount)
     end
 end
 
-function PlayerSession:hurt(amount)
+local function is_guardable_attacker(attacker)
+    return type(attacker) == "table"
+        and (attacker.is_boss == true or attacker.is_special_encounter == true)
+end
+
+local function guard_is_covering_target(instance, target_session)
+    local target = target_session and target_session.player
+    if not target then return false end
+
+    local target_x = math.floor(target.x)
+    local target_y = math.floor(target.y)
+
+    for _, guard_session in pairs(instance.player_sessions or {}) do
+        if guard_session.health > 0
+            and guard_session.ability
+            and guard_session.ability.name == "Guard" then
+            local guard_player = guard_session.player
+            if guard_player and guard_player.z == target.z then
+                local distance_x = math.abs(math.floor(guard_player.x) - target_x)
+                local distance_y = math.abs(math.floor(guard_player.y) - target_y)
+                if math.max(distance_x, distance_y) <= GUARD_RANGE_TILES then
+                    return true, guard_session
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+function PlayerSession:hurt(amount, attacker)
     if self.invincible or self.health == 0 or amount <= 0 then return end
-    Net.play_sound_for_player(self.player.id, "/server/assets/NebuLibsAssets/sound effects/hurt.ogg")
+
+    -- Guard only negates damage caused by boss and special-encounter enemies.
+    -- Check at the point damage is applied so every supported attack path gets
+    -- the same protection, including attacks aimed at the Guard user.
+    if is_guardable_attacker(attacker) then
+        local guarded, guard_session = guard_is_covering_target(self.instance, self)
+        if guarded then
+            log:debug_data("Guard blocked enemy damage", {
+                base_area_id = self.instance.base_area_id,
+                instance_area_id = self.instance.area_id,
+                player_id = self.player.id,
+                guard_player_id = guard_session.player.id,
+                attacker = tostring(attacker.battle_name or attacker.name or "Enemy"),
+                attacker_is_boss = attacker.is_boss == true,
+                attacker_is_special_encounter = attacker.is_special_encounter == true,
+                range_tiles = GUARD_RANGE_TILES,
+                amount_blocked = amount,
+            })
+            return
+        end
+    end
+
+    Net.play_sound_for_player(self.player.id, "/server/assets/ezlibs-custom/nebulous-liberations/sound effects/hurt.ogg")
     self.health = math.max(math.ceil(self.health - amount), 0)
     ezmemory.set_player_max_health(self.player.id, self.max_health, true)
     ezmemory.set_player_health(self.player.id, self.health)
+    HPIndicators.update_player_hp(self.instance, self.player.id, self.health)
     log:debug_data("Player hurt", {
         base_area_id = self.instance.base_area_id,
         instance_area_id = self.instance.area_id,
@@ -245,7 +326,7 @@ function PlayerSession:complete_turn()
     if self.disconnected then return end
     self.completed_turn = true
     self.selection:clear()
-    Net.lock_player_input(self.player.id)
+    LegacyCapture.lock(self.player.id, "liberation:turn")
     self:emote_state()
     self.instance.ready_count = self.instance.ready_count + 1
     log:info_data("Player turn complete", {
@@ -293,7 +374,7 @@ function PlayerSession:give_turn()
         health = self.health,
         order_points = self.instance.order_points,
     })
-    Net.unlock_player_input(self.player.id)
+    LegacyCapture.unlock(self.player.id, "liberation:turn")
 end
 
 function PlayerSession:find_matching_gates()
@@ -303,7 +384,13 @@ function PlayerSession:find_matching_gates()
         for j = 1, #self.instance.panel_gates do
             local check_selection = selection:get_panels()[i]
             local check_gate = self.instance.panel_gates[j]
-            if check_selection.custom_properties[Constants.CustomProperties.GateKey] == check_gate.custom_properties[Constants.CustomProperties.GateKey] then
+            local selected_key = normalize_identifier(
+                check_selection.custom_properties[Constants.CustomProperties.GateKey]
+            )
+            local gate_key = normalize_identifier(
+                check_gate.custom_properties[Constants.CustomProperties.GateKey]
+            )
+            if selected_key ~= nil and gate_key ~= nil and selected_key == gate_key then
                 table.insert(gates, check_gate)
             end
         end
@@ -315,7 +402,10 @@ function PlayerSession:find_gate_points(id)
     local points = {}
     for i = 1, #self.instance.points_of_interest do
         local point = self.instance.points_of_interest[i]
-        if point.custom_properties[Constants.CustomProperties.GateID] == id then
+        local point_gate_id = normalize_identifier(
+            point.custom_properties[Constants.CustomProperties.GateID]
+        )
+        if point_gate_id ~= nil and point_gate_id == normalize_identifier(id) then
             table.insert(points, point)
         end
     end
@@ -346,7 +436,7 @@ function PlayerSession:liberate_panels(panels, results)
         else
             msg = "Yeah!\nI liberated it!"
         end
-        log:info_data("liberate_panels: firing message (fire-and-forget)", {
+        log:info_data("liberate_panels: waiting for message dismissal before loot", {
             base_area_id = self.instance.base_area_id,
             instance_area_id = self.instance.area_id,
             player_id = self.player.id,
@@ -355,8 +445,10 @@ function PlayerSession:liberate_panels(panels, results)
             ran = results and results.ran,
             message = msg,
         })
-        self.player:say_with_mug(msg)
-        log:info_data("liberate_panels: proceeding to loot", {
+        -- Keep the reward sequence behind the textbox response. This prevents
+        -- the loot camera sequence from taking over while this message is open.
+        Async.await(self.player:message_with_mug(msg))
+        log:info_data("liberate_panels: message dismissed; proceeding to loot", {
             base_area_id = self.instance.base_area_id,
             instance_area_id = self.instance.area_id,
             player_id = self.player.id,
@@ -366,27 +458,30 @@ function PlayerSession:liberate_panels(panels, results)
 end
 
 function PlayerSession:get_cash(panel, destroy_items)
-    if self.get_monies then
-        if destroy_items ~= true then
-            local cash = Net.get_player_money(self.player.id)
-            local bonus = 100
-            if panel.custom_properties[Constants.CustomProperties.Money] then
-                bonus = tonumber(panel.custom_properties[Constants.CustomProperties.Money])
+    local co = coroutine.create(function()
+        if self.get_monies then
+            if destroy_items ~= true then
+                local cash = Net.get_player_money(self.player.id)
+                local bonus = 100
+                if panel.custom_properties[Constants.CustomProperties.Money] then
+                    bonus = tonumber(panel.custom_properties[Constants.CustomProperties.Money])
+                end
+                log:info_data("Player found money", {
+                    base_area_id = self.instance.base_area_id,
+                    instance_area_id = self.instance.area_id,
+                    player_id = self.player.id,
+                    bonus = bonus,
+                    panel_x = panel.x,
+                    panel_y = panel.y,
+                })
+                Async.await(self.player:message_with_mug("Obtained $" .. tostring(bonus) .. "!"))
+                Net.set_player_money(self.player.id, cash + bonus)
+                ezmemory.set_player_money(self.player.id, Net.get_player_money(self.player.id))
             end
-            log:info_data("Player found money", {
-                base_area_id = self.instance.base_area_id,
-                instance_area_id = self.instance.area_id,
-                player_id = self.player.id,
-                bonus = bonus,
-                panel_x = panel.x,
-                panel_y = panel.y,
-            })
-            self.player:say("Obtained $"..tostring(bonus).."!")
-            Net.set_player_money(self.player.id, cash + bonus)
-            ezmemory.set_player_money(self.player.id, Net.get_player_money(self.player.id))
+            self.get_monies = false
         end
-        self.get_monies = false
-    end
+    end)
+    return Async.promisify(co)
 end
 
 function PlayerSession:loot_panels(panels, remove_traps, destroy_items)
@@ -403,14 +498,16 @@ function PlayerSession:loot_panels(panels, remove_traps, destroy_items)
             })
             if panel.loot then
                 Async.await(Loot.loot_item_panel(self.instance, self, panel, destroy_items))
-                self:get_cash(panel, destroy_items)
+                Async.await(self:get_cash(panel, destroy_items))
             elseif panel.type == Constants.PanelTypes.TrapPanel then
                 local slide_time = .1
                 local spawn_x = math.floor(panel.x) + .5
                 local spawn_y = math.floor(panel.y) + .5
                 local spawn_z = panel.z
+                LegacyCapture.lock(self.player.id, "liberation:player-camera")
                 Net.slide_player_camera(self.player.id, spawn_x, spawn_y, spawn_z, slide_time)
                 Async.await(Async.sleep(slide_time))
+                LegacyCapture.unlock(self.player.id, "liberation:player-camera")
                 if remove_traps then
                     log:info_data("Player removed trap", {
                         base_area_id = self.instance.base_area_id,
@@ -420,7 +517,7 @@ function PlayerSession:loot_panels(panels, remove_traps, destroy_items)
                         panel_y = panel.y,
                     })
                     self.player:say_with_mug("I found a trap! It's been removed.")
-                elseif panel.custom_properties[Constants.CustomProperties.DamageTrap] == "true" then
+                elseif is_enabled(panel.custom_properties[Constants.CustomProperties.DamageTrap]) then
                     if panel.custom_properties[Constants.CustomProperties.TrapMessage] then
                         self.player:say_with_mug(panel.custom_properties[Constants.CustomProperties.TrapMessage])
                     else
@@ -435,7 +532,7 @@ function PlayerSession:loot_panels(panels, remove_traps, destroy_items)
                         panel_y = panel.y,
                     })
                     self:hurt(tonumber(panel.custom_properties[Constants.CustomProperties.DamageDealt]))
-                elseif panel.custom_properties[Constants.CustomProperties.StunTrap] == "true" then
+                elseif is_enabled(panel.custom_properties[Constants.CustomProperties.StunTrap]) then
                     if panel.custom_properties[Constants.CustomProperties.TrapMessage] then
                         self.player:say_with_mug(panel.custom_properties[Constants.CustomProperties.TrapMessage])
                     else

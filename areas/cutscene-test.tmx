@@ -22,7 +22,7 @@
  <tileset firstgid="59" source="../assets/ezlibs-assets/ezmystery/SapphireMysteryData.tsx"/>
  <tileset firstgid="67" source="../assets/tourney/ow-tourney-board.tsx"/>
  <tileset firstgid="68" source="../assets/tiles/gate.tsx"/>
- <tileset firstgid="73" source="../assets/HP_Manager/Tilesets/machine.tsx"/>
+ <tileset firstgid="73" source="../assets/hp_manager/Tilesets/machine.tsx"/>
  <layer id="4" name="Tile Layer 0" width="40" height="40">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -100,7 +100,7 @@
    </properties>
    <point/>
   </object>
-  <object id="201" name="Step01_Wait" type="Cutscene Step" x="100" y="100">
+  <object id="201" name="Step01_Wait" type="Cutscene Step" x="416" y="240">
    <properties>
     <property name="Next Step" type="object" value="202"/>
     <property name="Type" value="Wait"/>
@@ -108,7 +108,7 @@
    </properties>
    <point/>
   </object>
-  <object id="202" name="Step02_Alert" type="Cutscene Step" x="100" y="150">
+  <object id="202" name="Step02_Alert" type="Cutscene Step" x="416" y="290">
    <properties>
     <property name="Actor" type="object" value="142"/>
     <property name="Animation" value="IDLE_DR"/>
@@ -119,7 +119,7 @@
    </properties>
    <point/>
   </object>
-  <object id="203" name="Step03_AlertSound" type="Cutscene Step" x="100" y="200">
+  <object id="203" name="Step03_AlertSound" type="Cutscene Step" x="416" y="340">
    <properties>
     <property name="Next Step" type="object" value="204"/>
     <property name="Sound Path" value="/server/assets/ezlibs-assets/sfx/panel_change.ogg"/>
@@ -141,7 +141,7 @@
    </properties>
    <point/>
   </object>
-  <object id="205" name="Step05_Taunt1" type="Cutscene Step" x="100" y="300">
+  <object id="205" name="Step05_Taunt1" type="Cutscene Step" x="416" y="440">
    <properties>
     <property name="Next Step" type="object" value="206"/>
     <property name="Speaker" type="object" value="142"/>
@@ -150,7 +150,7 @@
    </properties>
    <point/>
   </object>
-  <object id="206" name="Step06_Taunt2" type="Cutscene Step" x="100" y="350">
+  <object id="206" name="Step06_Taunt2" type="Cutscene Step" x="416" y="490">
    <properties>
     <property name="Next Step" type="object" value="207"/>
     <property name="Speaker" type="object" value="142"/>
@@ -159,7 +159,7 @@
    </properties>
    <point/>
   </object>
-  <object id="207" name="Step07_AskChallenge" type="Cutscene Step" x="100" y="400">
+  <object id="207" name="Step07_AskChallenge" type="Cutscene Step" x="416" y="540">
    <properties>
     <property name="Next 1" type="object" value="208"/>
     <property name="Next 2" type="object" value="213"/>
@@ -171,7 +171,7 @@
    </properties>
    <point/>
   </object>
-  <object id="208" name="Step08_DramaticSound" type="Cutscene Step" x="100" y="450">
+  <object id="208" name="Step08_DramaticSound" type="Cutscene Step" x="416" y="590">
    <properties>
     <property name="Actor" type="object" value="142"/>
     <property name="Next Step" type="object" value="209"/>
@@ -180,7 +180,7 @@
    </properties>
    <point/>
   </object>
-  <object id="210" name="Step10_PromptBattle" type="Cutscene Step" x="100" y="550">
+  <object id="210" name="Step10_PromptBattle" type="Cutscene Step" x="416" y="690">
    <properties>
     <property name="Expected" value="BATTLE"/>
     <property name="Fail Next" type="object" value="213"/>
@@ -191,7 +191,7 @@
    </properties>
    <point/>
   </object>
-  <object id="211" name="Step11_AcceptLine" type="Cutscene Step" x="100" y="600">
+  <object id="211" name="Step11_AcceptLine" type="Cutscene Step" x="416" y="740">
    <properties>
     <property name="Next Step" type="object" value="212"/>
     <property name="Speaker" type="object" value="142"/>
@@ -200,14 +200,14 @@
    </properties>
    <point/>
   </object>
-  <object id="212" name="Step12_EmitReady" type="Cutscene Step" x="100" y="650">
+  <object id="212" name="Step12_EmitReady" type="Cutscene Step" x="416" y="790">
    <properties>
     <property name="Event Name" value="shademan_ready"/>
     <property name="Type" value="Emit Event"/>
    </properties>
    <point/>
   </object>
-  <object id="213" name="Step13_Dismiss" type="Cutscene Step" x="100" y="700">
+  <object id="213" name="Step13_Dismiss" type="Cutscene Step" x="416" y="840">
    <properties>
     <property name="Speaker" type="object" value="142"/>
     <property name="Text" value="Pathetic. Come back when you are ready."/>

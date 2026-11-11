@@ -1,64 +1,76 @@
+local LegacyCapture = require("scripts/player-control/legacy-capture")
 local Enemy = require("scripts/ezlibs-custom/nebulous-liberations/liberations/enemy")
 
--- All Loot.activate functions use say_* for informational text so that a
--- missed client-side textbox cannot block the loot promise. Game-state
--- changes (heal, damage, order points, money, invincibility) apply
--- immediately; only real animations are awaited.
+-- Loot reward messages are part of the reward sequence. Awaiting the
+-- message promise keeps the revealed item visible until the player dismisses
+-- its textbox before the loot sequence continues.
+local function show_reward_message(player, message, on_acknowledged)
+  local co = coroutine.create(function()
+    Async.await(player:message_with_mug(message))
+    if on_acknowledged then
+      local result = on_acknowledged()
+      if result ~= nil then
+        return Async.await(result)
+      end
+    end
+  end)
+  return Async.promisify(co)
+end
+
 local Loot = {
   HEART = {
     animation = "HEART",
     breakable = true,
     activate = function(instance, player_session)
-      player_session.player:say_with_mug("I found\na heart!")
-      return player_session:heal(player_session.max_health / 2)
+      return show_reward_message(player_session.player, "I found\na heart!", function()
+        return player_session:heal(player_session.max_health / 2)
+      end)
     end
   },
   CHIP = {
     animation = "CHIP",
     breakable = true,
     activate = function(instance, player_session)
-      player_session.player:say_with_mug("I found a\nBattleChip!")
-      return Async.create_promise(function(resolve) resolve() end)
+      return show_reward_message(player_session.player, "I found a\nBattleChip!")
     end
   },
   MONEY = {
     animation = "MONEY",
     breakable = true,
     activate = function(instance, player_session)
-      player_session.player:say_with_mug("I found some\nMonies!")
-      player_session.get_monies = true
-      return Async.create_promise(function(resolve) resolve() end)
+      return show_reward_message(player_session.player, "I found some\nMonies!", function()
+        player_session.get_monies = true
+      end)
     end
   },
   BUGFRAG = {
     animation = "BUGFRAG",
     breakable = true,
     activate = function(instance, player_session)
-      player_session.player:say_with_mug("I found a\nBugFrag!")
-      return Async.create_promise(function(resolve) resolve() end)
+      return show_reward_message(player_session.player, "I found a\nBugFrag!")
     end
   },
   ORDER_POINT = {
     animation = "ORDER_POINT",
     breakable = false,
     activate = function(instance, player_session)
-      player_session.player:say_with_mug("I found\nOrder Points!")
-      local previous_points = instance.order_points
-      instance:set_order_points(instance.order_points + 3)
-      local recovered_points = instance.order_points - previous_points
-      player_session.player:say(recovered_points .. "\nOrder Pts Recovered!")
-      return Async.create_promise(function(resolve) resolve() end)
+      return show_reward_message(player_session.player, "I found\nOrder Points!", function()
+        local previous_points = instance.order_points
+        instance:set_order_points(instance.order_points + 3)
+        local recovered_points = instance.order_points - previous_points
+        return player_session.player:message_with_mug(recovered_points .. "\nOrder Pts Recovered!")
+      end)
     end
   },
   INVINCIBILITY = {
     animation = "INVINCIBILITY",
     breakable = false,
     activate = function(instance, player_session)
-      player_session.player:say("Team becomes invincible for\n 1 phase!!")
-      for _, other_session in pairs(instance.player_sessions) do
-        other_session.invincible = true
-      end
-      return Async.create_promise(function(resolve) resolve() end)
+      return show_reward_message(player_session.player, "Team becomes invincible for\n 1 phase!!", function()
+        for _, other_session in pairs(instance.player_sessions) do
+          other_session.invincible = true
+        end
+      end)
     end
   },
   MAJOR_HIT = {
@@ -66,10 +78,10 @@ local Loot = {
     breakable = false,
     activate = function(instance, player_session)
       local co = coroutine.create(function()
-        player_session.player:say("Damages the closest Guardian the most!")
+        Async.await(player_session.player:message_with_mug("Damages the closest Guardian the most!"))
         local enemy = player_session:find_closest_guardian()
         if not enemy then
-          player_session.player:say("No Guardians found")
+          Async.await(player_session.player:message_with_mug("No Guardians found"))
           return
         end
         Async.await(Enemy.destroy(instance, enemy))
@@ -82,20 +94,33 @@ local Loot = {
     breakable = false,
     activate = function(instance, player_session)
       local co = coroutine.create(function()
-        player_session.player:say_with_mug("I found a Key!")
+        Async.await(player_session.player:message_with_mug("I found a Key!"))
         local gates = player_session:find_matching_gates()
         if #gates == 0 then
-          player_session.player:say_with_mug("But it doesn't open anything...")
+          Async.await(player_session.player:message_with_mug("But it doesn't open anything..."))
           return
         end
-        local id = gates[1].custom_properties["Gate Key"]
+        -- Gate Key links the liberated item panel to the gate. Gate ID links
+        -- the gate to its camera/point-of-interest markers, so use that when
+        -- configured and fall back to Gate Key for older maps.
+        local gate_properties = gates[1].custom_properties or {}
+        local id = gate_properties["Gate ID"] or gate_properties["Gate Key"]
         local points = player_session:find_gate_points(id)
         local function unlock_gates()
           for i = 1, #gates, 1 do
             instance:remove_panel(gates[i])
           end
         end
+        -- The item-panel camera/reveal has already completed before this
+        -- activation callback runs. The key is now visible and its reward
+        -- message has been dismissed, so unlock the matching gates before
+        -- beginning the separate gate-point camera sequence.
+        unlock_gates()
+
         if #points > 0 then
+          local player_id = player_session.player.id
+          LegacyCapture.lock(player_id, "liberation:loot")
+
           local hold_time = .4
           local slide_time = .4
           local total_camera_time = 0
@@ -107,14 +132,15 @@ local Loot = {
             if point == points[1] then
               Net.move_player_camera(player_session.player.id, point.x, point.y, point.z, hold_time)
               total_camera_time = total_camera_time + hold_time
-              unlock_gates()
             end
           end
           total_camera_time = total_camera_time + slide_time
-          Net.slide_player_camera(player_session.player.id, player_session.player.x, player_session.player.y, player_session.player.z, slide_time)
+          Net.slide_player_camera(player_id, player_session.player.x, player_session.player.y, player_session.player.z, slide_time)
           Async.await(Async.sleep(total_camera_time))
-        else
-          unlock_gates()
+
+          -- Preserve a lock owned by the turn/game state; otherwise restore
+          -- input as soon as this camera sequence has fully completed.
+          LegacyCapture.unlock(player_id, "liberation:loot")
         end
       end)
       return Async.promisify(co)
@@ -161,8 +187,8 @@ local function spawn_item_bot(bot_data, property_animation)
   local shadow_id = Net.create_bot(
     {
       area_id = bot_data.area_id,
-      texture_path = "/server/assets/NebuLibsAssets/bots/item.png",
-      animation_path = "/server/assets/NebuLibsAssets/bots/item.animation",
+      texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/item.png",
+      animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/item.animation",
       animation = "SHADOW",
       warp_in = false,
       x = bot_data.x - 1 / 32,
@@ -191,8 +217,8 @@ end
 function Loot.spawn_item_bot(item, area_id, x, y, z)
   local bot_data = {
     area_id = area_id,
-    texture_path = "/server/assets/NebuLibsAssets/bots/item.png",
-    animation_path = "/server/assets/NebuLibsAssets/bots/item.animation",
+    texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/item.png",
+    animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/item.animation",
     animation = item.animation,
     warp_in = false,
     x = x,
@@ -226,8 +252,8 @@ function Loot.spawn_randomized_item_bot(loot_pool, item_index, area_id, x, y, z)
 
   local bot_data = {
     area_id = area_id,
-    texture_path = "/server/assets/NebuLibsAssets/bots/item.png",
-    animation_path = "/server/assets/NebuLibsAssets/bots/item.animation",
+    texture_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/item.png",
+    animation_path = "/server/assets/ezlibs-custom/nebulous-liberations/bots/item.animation",
     animation = loot_pool[start_index].animation,
     warp_in = false,
     x = x,
@@ -274,8 +300,11 @@ function Loot.loot_item_panel(instance, player_session, panel, destroy_items)
   local spawn_y = math.floor(panel.y) + .5
   local spawn_z = panel.z
 
+  local player_id = player_session.player.id
+    LegacyCapture.lock(player_id, "liberation:loot")
+
   Net.slide_player_camera(
-    player_session.player.id,
+    player_id,
     spawn_x,
     spawn_y,
     spawn_z,
@@ -288,12 +317,15 @@ function Loot.loot_item_panel(instance, player_session, panel, destroy_items)
 
   local co = coroutine.create(function()
     Async.await(Async.sleep(slide_time))
+    -- The camera has finished moving. Restore input only if this short
+    -- camera pan acquired the lock; preserve any turn/interaction lock.
+    LegacyCapture.unlock(player_id, "liberation:loot")
     local remove_item_bot = Async.await(Loot.spawn_item_bot(loot, instance.area_id, spawn_x, spawn_y, spawn_z))
     if not breakable and destroy_items or not destroy_items then
       Async.await(loot.activate(instance, player_session))
       remove_item_bot()
     else
-      player_session.player:say_with_mug("Ah!! The item was destroyed!")
+      Async.await(player_session.player:message_with_mug("Ah!! The item was destroyed!"))
       remove_item_bot()
     end
   end)
@@ -321,7 +353,7 @@ function Loot.loot_bonus_panel(instance, player_session, panel)
 
     local loot = Loot.BONUS_POOL[loot_index]
     Async.await(loot.activate(instance, player_session))
-    player_session:get_cash(panel, false)
+    Async.await(player_session:get_cash(panel, false))
     remove_item_bot()
   end)
 
