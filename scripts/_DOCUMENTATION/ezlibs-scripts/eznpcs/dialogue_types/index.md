@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/eznpcs/dialogue_types.lua`](../../../../ezlibs-scripts/eznpcs/dialogue_types.lua)  
 > **Source lines:** 652  
-> **SHA-256 (UTF-8):** `103fa1deba1d48a5fa4c4c7c79c487de01cdc5fb5a1bc5c0282d659ae3bf83b2`  
-> **Named/assigned functions detected:** 22  
+> **SHA-256 (UTF-8):** `4e7833f214ee44caf1fa655f3362b4fa2ab2d3d8c081ef4d504e94625a4810f5`  
+> **Named functions detected:** 22  
 > **Table initializers detected:** 21
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 2 | `scripts/logger/logger` |
 | 3 | `scripts/ezlibs-scripts/helpers` |
 | 4 | `scripts/ezlibs-scripts/ezmemory` |
@@ -45,9 +40,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 | 33 | `Net` | `tick` |
 | 639 | `Net` | `battle_results` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 40 | `now` | `(none)` | local |
 | 71 | `player_won_from_stats` | `stats` | local |
@@ -72,7 +67,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 | 376 | `resolve_anim` | `raw` | local |
 | 460 | `action` | `npc, player_id, dialogue, relay_object` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `now()`
 
@@ -87,7 +82,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `stats` | Declared in this function; type not inferred. |
+| 1 | `stats` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `merge_result_fields(stats, exit_results)`
 
@@ -96,176 +91,176 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `stats` | Declared in this function; type not inferred. |
-| 2 | `exit_results` | Declared in this function; type not inferred. |
+| 1 | `stats` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `exit_results` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 117
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 130
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 143
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 156
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 170
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 201
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 220
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 238
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 256
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 285
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 299
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 15. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 313
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 330
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 17. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 344
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `has_asset(path)`
 
@@ -274,7 +269,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `path` | Declared in this function; type not inferred. |
+| 1 | `path` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `ensure_ext(p, ext)`
 
@@ -283,8 +278,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `p` | Declared in this function; type not inferred. |
-| 2 | `ext` | Declared in this function; type not inferred. |
+| 1 | `p` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `ext` | Declared directly in the current Lua. Type not inferred. |
 
 #### 20. `resolve_texture(raw)`
 
@@ -293,7 +288,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `raw` | Declared in this function; type not inferred. |
+| 1 | `raw` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `resolve_anim(raw)`
 
@@ -302,24 +297,24 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `raw` | Declared in this function; type not inferred. |
+| 1 | `raw` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `action(npc, player_id, dialogue, relay_object)`
 
 - **Line:** 460
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 99 | `RESULT_FIELDS` |
 | 114 | `dialogue_types` |
@@ -345,7 +340,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/dialogue_types.lua` 
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.get_player_area` | 4 | 172 |
 | `Net.is_player` | 4 | 562 |

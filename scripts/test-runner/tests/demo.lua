@@ -9,7 +9,8 @@ local games = require("scripts/net-games/main")
 local NetHelpers = require("scripts/net-games/helpers/net-helpers")
 local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local AnimationSequences = require("scripts/animation-engine/animation-sequences")
-local InputSystem = require("scripts/input-controller/main")   -- per‑player input controllers
+local InputSystem = require("scripts/input-controller/main")
+local PlayerControl = require("scripts/player-control/main")   -- per‑player input controllers
 
 NetHelpers.patch_net()
 
@@ -224,7 +225,7 @@ Net:on("virtual_input", function(event)
            ctrl:is_action_pressed("dir_Up") or ctrl:is_action_pressed("dir_Down") then
         games.remove_ui_element("points", player_id)
         bat_active[player_id] = false
-        Net.unlock_player_input(player_id)
+        PlayerControl.release_capture(player_id,"test-runner:bat")
     end
 end)
 
@@ -232,7 +233,7 @@ Net:on("actor_interaction", function (event)
     if event.actor_id == "bat" and event.button == 0 and bat_active[event.player_id] == false then
         points_per_player[event.player_id] = 8
         Net.message_player(event.player_id, "Press Left Shoulder to increase and Right Shoulder to decrease. Press any arrow key to stop.","","")
-        Net.lock_player_input(event.player_id)
+        PlayerControl.acquire_capture(event.player_id,"test-runner:bat")
 
         local spr_id = "points"
         local pid = event.player_id
@@ -287,6 +288,7 @@ end)
 
 Net:on("player_disconnect", function(event)
     bat_active[event.player_id] = false
+    PlayerControl.release_capture(event.player_id,"test-runner:bat")
 end)
 
 ----------------------------------------------------------------------
@@ -304,7 +306,7 @@ Net:on("cursor_selection", function(event)
         games.remove_text("megaman_label",event.player_id)
         games.remove_text("protoman_label",event.player_id)
         games.remove_cursor("navi_changer",event.player_id)
-        Net.unlock_player_input(event.player_id)
+        -- Cursor owns no test-runner capture; do not unlock other features.
 
         local texture = ""
         local animation = ""

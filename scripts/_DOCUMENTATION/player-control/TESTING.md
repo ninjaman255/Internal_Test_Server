@@ -31,3 +31,9 @@ texlua scripts/player-control/tests/reliability.lua
 ## Limitations
 
 `texlua` syntax checks and mock tests cannot validate the live OpenNetBattle client. Camera lease safety is partial until all direct scripted-camera callers migrate. Do not treat this patch as equivalent to fully end-to-end tested game behavior.
+
+### Removal of standalone capture module
+
+Run `texlua scripts/player-control/tests/migration.lua` as well as the existing three suites. Validate two independently named cutscene captures alongside a menu, nested MenuAPI teardown, denied foreign menu activation and disconnect cleanup. Confirm no first-party `.lua` file imports the removed module.
+
+Confirm `scripts/_DEBUGGING/player_control/_FULL-log.log` receives lifecycle events during live testing, alongside the existing HP Manager and Jukebox logs. Mock test execution does not flush disk logs unless the shared logger's tick callback is exercised.

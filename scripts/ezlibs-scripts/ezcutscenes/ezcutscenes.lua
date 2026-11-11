@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- ezcutscenes.lua
 -- Tiled-authored cutscene system.
 --
@@ -161,7 +161,7 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
     end
 
     local promise = async(function()
-        pcall(LegacyCapture.lock, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
+        pcall(PlayerControl.acquire_capture, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
         pcall(ezbus.emit, ezbus, "cutscene_started", {
             player_id = player_id,
             area_id = area_id,
@@ -181,7 +181,7 @@ local function run_cutscene(player_id, area_id, cutscene_object, trigger_context
             eznpcs.cancel_bot_hold(bot_id)
         end
 
-        pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
+        pcall(PlayerControl.release_capture, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
 
         if active_cutscenes[player_id] == context then
             active_cutscenes[player_id] = nil
@@ -342,7 +342,7 @@ function ezcutscenes.handle_player_transfer(player_id)
     if context then
         context.cancelled = true
         active_cutscenes[player_id] = nil
-        pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
+        pcall(PlayerControl.release_capture, player_id, "ezlibs-scripts/ezcutscenes/ezcutscenes")
     end
 end
 

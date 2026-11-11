@@ -2,7 +2,7 @@
 
 [🏠 Documentation home](../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/camera/camera-controller.lua`](../../../../../control_impl/src/scripts/camera/camera-controller.lua)  
+> **Source:** [`scripts/camera/camera-controller.lua`](../../../camera/camera-controller.lua)  
 > **Source lines:** 564  
 > **SHA-256:** `2a080555b8b3c030331a045e8cb7a6cf24ab9cfed9952a3a23006b9668907968`  
 > **Declared/assigned functions:** 28 · **table initializers (simple patterns):** 7 · **event subscriptions detected:** 0

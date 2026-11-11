@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-custom/nebulous-liberations/liberations/enemy.lua`](../../../../../ezlibs-custom/nebulous-liberations/liberations/enemy.lua)  
 > **Source lines:** 191  
-> **SHA-256 (UTF-8):** `7ee4bca6aca5444a83645eca50079f62448dfd1283d9d69374826b17dc545090`  
-> **Named/assigned functions detected:** 4  
+> **SHA-256 (UTF-8):** `37c04849b235f196873822df4d149534b782c544537895f5aa227d3e3ca1206b`  
+> **Named functions detected:** 4  
 > **Table initializers detected:** 3
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 3 | `scripts/logger/logger` |
 | 6 | `scripts/ezlibs-custom/nebulous-liberations/liberations/enemy_templates` |
 | 7 | `scripts/ezlibs-custom/nebulous-liberations/utils/exploding_effect` |
@@ -34,18 +29,18 @@ Current source inventory for `scripts/ezlibs-custom/nebulous-liberations/liberat
 
 ## Event hooks
 
-No literal `:on` event registration detected by the simple source pattern.
+No static literal subscriptions detected.
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 12 | `apply_bot_scale_after_spawn` | `enemy, requested_scale` | local |
 | 97 | `Enemy.from` | `instance, position, direction, name, spawn_options` | assigned/declared |
 | 113 | `Enemy.is_alive` | `enemy` | assigned/declared |
 | 127 | `Enemy.destroy` | `instance, enemy` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `apply_bot_scale_after_spawn(enemy, requested_scale)`
 
@@ -54,45 +49,45 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `enemy` | Declared in this function; type not inferred. |
-| 2 | `requested_scale` | Declared in this function; type not inferred. |
+| 1 | `enemy` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `requested_scale` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `Enemy.from(instance, position, direction, name, spawn_options)`
 
 - **Line:** 97
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `instance` | Declared in this function; type not inferred. |
-| 2 | `position` | Declared in this function; type not inferred. |
-| 3 | `direction` | Declared in this function; type not inferred. |
-| 4 | `name` | Declared in this function; type not inferred. |
-| 5 | `spawn_options` | Declared in this function; type not inferred. |
+| 1 | `instance` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `position` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `direction` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `spawn_options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `Enemy.is_alive(enemy)`
 
 - **Line:** 113
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `Enemy.destroy(instance, enemy)`
 
 - **Line:** 127
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `instance` | Declared in this function; type not inferred. |
-| 2 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `instance` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 10 | `Enemy` |
 | 40 | `keyframes` |
@@ -100,7 +95,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.move_player_camera` | 1 | 163 |
 | `Net.remove_bot` | 1 | 177 |

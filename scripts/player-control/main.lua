@@ -3,10 +3,31 @@
 -- Screens should acquire a session, then close it. Child screens inherit the
 -- player's capture lifetime without temporarily restoring engine movement.
 local InputAPI = require("scripts/input-controller/main")
-local Suppression = require("scripts/net-games/ui-suppression")
+local Suppression = require("scripts/player-control/resources/ui-suppression")
 local CameraFocus = require("scripts/player-control/camera-focus")
 local M = {}
-local states, pending = {}, {}
+-- Control lifecycle logging is shared with the rest of the server. Only
+-- transitions are recorded; no per-tick/per-button console spam.
+local event_streams={}
+do
+    local ok,shared=pcall(require,"scripts/logger/logger")
+    if ok and shared and type(shared.register)=="function" then
+        local registered,system=pcall(shared.register,"player_control",{console=false})
+        if registered and system then
+            for _,kind in ipairs({"input","capture","camera","handoff"}) do
+                local found,logger=pcall(system.register_subsystem,system,kind,{console=false})
+                if found then event_streams[kind]=logger end
+            end
+        end
+    end
+end
+local function lifecycle(kind,message,data)
+    local stream=event_streams[kind]
+    if stream and type(stream.debug_data)=="function" then
+        pcall(stream.debug_data,stream,message,data or {})
+    end
+end
+local states, pending, named_resources = {}, {}, {}
 local serial = 0
 local Session = {}
 Session.__index = Session
@@ -71,6 +92,99 @@ function M.retry_cleanup(pid)
     return done
 end
 
+-- Named resource scopes belong to PlayerControl, independently from its
+-- button-focus stack. They are intended for native dialogues, cutscenes and
+-- warps that need engine capture without claiming logical menu input.
+-- A player/owner pair is idempotent, matching the lifecycle of existing game
+-- operations. For overlapping operations, use DIFFERENT owner keys.
+local function resource_for(pid, owner, create)
+    if pid == nil then error("player_id required", 3) end
+    if owner == nil or tostring(owner) == "" then error("capture owner required", 3) end
+    local by_player=named_resources[pid]
+    if not by_player and create then by_player={}; named_resources[pid]=by_player end
+    local resource=by_player and by_player[tostring(owner)]
+    if not resource and create then
+        resource={owner=tostring(owner),player_id=pid}
+        by_player[tostring(owner)]=resource
+    end
+    return resource
+end
+local function prune_resource(pid, owner)
+    local by_player=named_resources[pid]
+    local item=by_player and by_player[tostring(owner)]
+    if item and not item.input and not item.hud then by_player[tostring(owner)]=nil end
+    if by_player and not next(by_player) then named_resources[pid]=nil end
+end
+local function acquire_resource(pid, owner, field, fn)
+    local item=resource_for(pid,owner,true)
+    if item[field] and not item[field].released then return true end
+    local handle,err=fn(pid,item.owner)
+    if not handle then
+        prune_resource(pid,owner)
+        error("PlayerControl "..field.." acquisition failed: "..tostring(err),3)
+    end
+    item[field]=handle
+    return true
+end
+local function release_resource(pid,owner,field)
+    if pid==nil then return false end
+    local item=resource_for(pid,owner,false)
+    if not item or not item[field] then return true end
+    local handle=item[field]
+    item[field]=nil
+    prune_resource(pid,owner)
+    if handle.released then return true end
+    -- Keep unsuccessful releases in PlayerControl's recovery queue. Never
+    -- discard an outstanding suppression handle, including on disconnect.
+    if not release_or_queue(pid,handle,field.." "..tostring(owner)) then
+        return false,"resource release deferred for retry"
+    end
+    return true
+end
+function M.acquire_capture(pid,owner)
+    local ok=acquire_resource(pid,owner,"input",Suppression.acquire_input_lock)
+    lifecycle("capture","engine input acquired",{player_id=pid,owner=owner})
+    return ok
+end
+function M.release_capture(pid,owner)
+    local ok,err=release_resource(pid,owner,"input")
+    lifecycle("capture","engine input release",{player_id=pid,owner=owner,success=ok,error=err})
+    return ok,err
+end
+function M.has_capture(pid,owner)
+    local item=resource_for(pid,owner,false)
+    return item~=nil and item.input~=nil and not item.input.released
+end
+function M.suppress_hud(pid,owner)
+    local ok=acquire_resource(pid,owner,"hud",Suppression.acquire_engine_hud)
+    lifecycle("capture","engine HUD suppressed",{player_id=pid,owner=owner})
+    return ok
+end
+function M.restore_hud(pid,owner)
+    local ok,err=release_resource(pid,owner,"hud")
+    lifecycle("capture","engine HUD restored",{player_id=pid,owner=owner,success=ok,error=err})
+    return ok,err
+end
+-- Optional explicit lifetime for feature code. No logical input is claimed.
+function M.begin_capture_scope(pid,owner,options)
+    options=options or {}
+    local ok,err=pcall(M.acquire_capture,pid,owner)
+    if not ok then return nil,err end
+    if options.hud then
+        local hud_ok,hud_err=pcall(M.suppress_hud,pid,owner)
+        if not hud_ok then M.release_capture(pid,owner);return nil,hud_err end
+    end
+    local scope={player_id=pid,owner=owner,closed=false}
+    function scope:close()
+        if self.closed then return true end
+        self.closed=true
+        local hud_ok=M.restore_hud(self.player_id,self.owner)
+        local input_ok=M.release_capture(self.player_id,self.owner)
+        return hud_ok and input_ok
+    end
+    return scope
+end
+
 local function state_for(pid)
     local state=states[pid]
     if state then return state end
@@ -117,6 +231,9 @@ local function sync_focus(state)
     end
     if new ~= state.effective or claimed ~= state.claimed then
         local old=state.effective
+        lifecycle("input","logical focus transition",{player_id=state.player_id,
+            old_owner=old and old.label or nil,new_owner=new and new.label or nil,
+            controller_claimed=claimed})
         state.effective=new
         state.claimed=claimed
         if old and old~=new then
@@ -255,6 +372,41 @@ function Session:on_released(action,fn)
     self.released[action]=fn
     return self
 end
+-- Shared post-dialog/menu guard. Ignore stale input edges for a brief
+-- transition and require a fresh press after held keys are released.
+function Session:guard_input(seconds, actions)
+    local ctrl,owner=self:input()
+    if not ctrl then return false,"control context is not current" end
+    local timeout=tonumber(seconds) or 0
+    if timeout>0 then ctrl:swallow(timeout,owner)
+    else ctrl:consume(owner) end
+    ctrl:require_release(actions or guards,owner)
+    lifecycle("handoff","guarding resumed input",{player_id=self.player_id,
+        owner=self.label,swallow_seconds=timeout})
+    return true
+end
+-- A native textbox owns its own client input. Park callback delivery while
+-- it is shown and re-arm only this session after the response. The caller
+-- keeps ownership of dialog closure and decides when to invoke :resume().
+function Session:begin_native_handoff(options)
+    options=options or {}
+    if not self:is_alive() then return nil,"inactive session" end
+    local ok,err=self:yield_to_native_ui()
+    if not ok then return nil,err end
+    lifecycle("handoff","native dialog suspended",{player_id=self.player_id,owner=self.label})
+    local handoff={session=self,finished=false}
+    function handoff:resume()
+        if self.finished then return false,"native handoff already completed" end
+        self.finished=true
+        if not self.session:is_alive() then return false,"session closed" end
+        if not self.session:resume_buttons() then return false,"session did not regain focus" end
+        lifecycle("handoff","native dialog resumed",{player_id=self.session.player_id,
+            owner=self.session.label})
+        return self.session:guard_input(options.swallow_seconds or 0.35,options.actions)
+    end
+    return handoff
+end
+
 function Session:set_repeat_delays(first,interval)
     if not self:is_alive() then return false end
     self.first_repeat_delay=first
@@ -334,7 +486,9 @@ function Session:close()
     -- UI cleanup runs before releasing capture and camera ownership.
     for _,fn in ipairs(self.close_callbacks) do safe_callback(self,fn,"on_close",self) end
     if self.camera_handle then
-        restore_camera(self.camera_handle)
+        local restored=restore_camera(self.camera_handle)
+        lifecycle("camera","camera lease release",{player_id=self.player_id,
+            owner=self.label,success=restored})
     end
     if self.hud_handle then release_or_queue(self.player_id,self.hud_handle,"HUD "..self.label) end
     if self.capture_handle then release_or_queue(self.player_id,self.capture_handle,"capture "..self.label) end
@@ -345,6 +499,8 @@ function Session:close()
     else
         sync_focus(state)
     end
+    lifecycle("input","control session closed",{player_id=self.player_id,
+        owner=self.label,session_id=self.id,pending_release=pending[self.player_id]~=nil})
     return not pending[self.player_id]
 end
 
@@ -431,6 +587,10 @@ function M.begin(pid,options)
         s:close()
         return nil,ok and why or success
     end
+    lifecycle("input","control session started",{player_id=pid,owner=s.label,
+        session_id=s.id,profile=options.profile or "menu",parent=parent and parent.label or nil})
+    if s.camera_handle then lifecycle("camera","camera lease acquired",{player_id=pid,
+        owner=s.label,session_id=s.id}) end
     return s
 end
 
@@ -469,8 +629,13 @@ function M.get_debug_state(pid)
     end
     local release={}
     for id,item in pairs(pending[pid] or {}) do release[#release+1]={id=id,label=item.label} end
+    local named={}
+    for owner,item in pairs(named_resources[pid] or {}) do
+        named[#named+1]={owner=owner,input=item.input~=nil and not item.input.released,
+            hud=item.hud~=nil and not item.hud.released}
+    end
     return {stack=entries,capture=Suppression.get_debug_state(pid),
-        camera=CameraFocus.get_debug_state(pid),pending_releases=release}
+        camera=CameraFocus.get_debug_state(pid),pending_releases=release,named_resources=named}
 end
 function M.cleanup_player(pid)
     local state=states[pid]
@@ -481,6 +646,14 @@ function M.cleanup_player(pid)
         end
         detach_state(state)
     end
+    -- Snapshot the keys: release mutates the owner table.
+    local names={}
+    for owner in pairs(named_resources[pid] or {}) do names[#names+1]=owner end
+    for _,owner in ipairs(names) do
+        M.restore_hud(pid,owner)
+        M.release_capture(pid,owner)
+    end
+    named_resources[pid]=nil
     M.retry_cleanup(pid)
     Suppression.cleanup_player(pid)
     CameraFocus.cleanup_player(pid)

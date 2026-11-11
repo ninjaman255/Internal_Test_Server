@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- ezrushroads.lua
 -- Rush Roads minigame integrated with ezlibs
 -- Uses eztriggers for tile detection and ezmemory for persistence
@@ -568,12 +568,12 @@ function ezrushroads.handle_object_interaction(player_id, object_id)
         end
 
         -- Lock player input
-        LegacyCapture.lock(player_id, "ezlibs-scripts/ezrushroads")
+        PlayerControl.acquire_capture(player_id, "ezlibs-scripts/ezrushroads")
 
         -- Consume food
         local remaining = ezrushroads.remove_food(player_id, group_size)
         if remaining < 0 then
-            LegacyCapture.unlock(player_id, "ezlibs-scripts/ezrushroads")
+            PlayerControl.release_capture(player_id, "ezlibs-scripts/ezrushroads")
             return
         end
 
@@ -666,7 +666,7 @@ function ezrushroads.handle_object_interaction(player_id, object_id)
                     end
                 end
 
-                LegacyCapture.unlock(player_id, "ezlibs-scripts/ezrushroads")
+                PlayerControl.release_capture(player_id, "ezlibs-scripts/ezrushroads")
             end
             player_active_animation[player_id] = nil
         end

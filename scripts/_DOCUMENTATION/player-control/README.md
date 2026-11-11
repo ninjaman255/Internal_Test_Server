@@ -1,8 +1,8 @@
 # 🎮 PlayerControl v2 — Scoped Input and Camera Ownership
 
-[🏠 Documentation home](../index.md) · [🧭 Control flow](CONTROL_FLOW.md) · [📷 Camera leases](CAMERA_FOCUS.md) · [🔌 Legacy migration](LEGACY_CAPTURE.md) · [🧪 Tests](TESTING.md)
+[🏠 Documentation home](../index.md) · [🧭 Control flow](CONTROL_FLOW.md) · [📷 Camera leases](CAMERA_FOCUS.md) · [🧰 Capture scopes](CAPTURE_SCOPES.md) · [🧪 Tests](TESTING.md)
 
-> **Current source:** `scripts/player-control/main.lua`, `camera-focus.lua`, and `legacy-capture.lua` in the same directory. This guide describes the implemented v2 patch, not hypothetical engine APIs.
+> **Current source:** `scripts/player-control/main.lua`, `camera-focus.lua`, and `resources/ui-suppression.lua`. This guide describes the implemented v2 patch, not hypothetical engine APIs.
 
 ## Contents
 
@@ -18,7 +18,7 @@
 
 **`Net.lock_player_input(player_id)` suppresses the client's native character input; it does not disable scripted `virtual_input` events.** A custom menu, minigame, or camera needs engine input **capture** while it processes controller actions. Capture and logical InputController focus are different resources. A cinematic can capture without handling buttons.
 
-PlayerControl uses `scripts/net-games/ui-suppression.lua` for reference-counted capture and optional HUD suppression, `scripts/input-controller/main.lua` for button actions, and `camera-focus.lua` for exclusive scripted camera ownership. The final release restores the underlying engine behavior. Each resource is tied to its owning session.
+PlayerControl uses `scripts/player-control/resources/ui-suppression.lua` for reference-counted capture and optional HUD suppression, `scripts/input-controller/main.lua` for button actions, and `camera-focus.lua` for exclusive scripted camera ownership. The final release restores the underlying engine behavior. Each resource is tied to its owning session.
 
 ## Quick start
 
@@ -94,6 +94,8 @@ The UI helpers above are illustrative application code, not exported functions o
 | `session:child` | `options` | Open a nested session attached to this parent |
 | `session:yield_to_native_ui` | — | Suspend scripted input while native UI is active |
 | `session:resume_buttons` | — | Request scripted focus again; held buttons must release first |
+| `session:guard_input` | `swallow_seconds, actions` | Swallow queued edges and require held actions to release while current |
+| `session:begin_native_handoff` | `options` | Suspend scripted buttons; returns one-shot `handoff:resume()` after native dialog dismissal |
 | `session:suspend_buttons` | — | Alias of `yield_to_native_ui` |
 | `session:camera` | — | Returns a gated camera facade if the session owns a camera lease |
 | `session:is_alive` | — | False after close or removal from active state |
@@ -105,7 +107,7 @@ The UI helpers above are illustrative application code, not exported functions o
 
 ### Module functions
 
-`PlayerControl.begin(player_id, options)`, `get_active(player_id)`, `get_debug_state(player_id)`, `retry_cleanup(player_id)`, and `cleanup_player(player_id)` are implemented. Player disconnect triggers cleanup automatically; queued restoration errors are retried in the registered server tick callback approximately once a second.
+`PlayerControl.begin(player_id, options)`, `get_active(player_id)`, `get_debug_state(player_id)`, `retry_cleanup(player_id)`, and `cleanup_player(player_id)` are implemented. `acquire_capture`, `release_capture`, `has_capture`, `suppress_hud`, `restore_hud`, and `begin_capture_scope` manage non-focused named resources; see [CAPTURE_SCOPES.md](CAPTURE_SCOPES.md). Player disconnect triggers cleanup automatically; queued restoration errors are retried in the registered server tick callback approximately once a second.
 
 ## Camera ownership
 
@@ -136,6 +138,20 @@ sequence:close()
 
 ## Integration boundaries
 
-The v2 drop-in migrates direct **engine input** lock/unlock calls in ordinary gameplay through `legacy-capture.lua`, and FootBomb/free camera use PlayerControl directly. Other features still call some **engine camera APIs directly** and don't all participate in exclusive camera leases. Raw `virtual_input` subscribers also remain in several game-specific modules. Consequently, **camera exclusivity is enforceable among migrated participants, but not universally across all old callers**. See [MIGRATION_AUDIT.md](MIGRATION_AUDIT.md).
+All first-party imperative engine input/HUD callers use named PlayerControl resources instead of the removed compatibility module. MenuAPI and Liberation option menus now use managed sessions. **Older scripted camera callers using raw Net camera APIs remain outside camera-lease enforcement**, and a few modules still consume `virtual_input` directly. See [MIGRATION_AUDIT.md](MIGRATION_AUDIT.md).
 
-Use PlayerControl for *new* interactions; keep `legacy-capture.lua` only for callers whose imperative lock lifetime hasn't been refactored into a session yet. Avoid using `Net.lock_player_input`/`Net.unlock_player_input` or toggling engine HUD directly in gameplay code.
+Prefer complete session scopes for new interactions. Named capture keys are for existing native/dialogue/cinematic lifetimes that do not take button focus. Avoid direct `Net.lock_player_input` and `Net.unlock_player_input` calls in gameplay code.
+
+## Controller lifecycle logs
+
+The shared logger records **transitions only** under `scripts/_DEBUGGING/player_control/`:
+
+| Stream | Events |
+|---|---|
+| `_FULL-log.log` | Combined events for the entire control system |
+| `_INPUT.log` | Session begin/close and focus changes |
+| `_CAPTURE.log` | Named engine capture and HUD acquisitions/releases |
+| `_CAMERA.log` | Camera-lease acquisition/restoration |
+| `_HANDOFF.log` | Native-dialog suspension, resumption and input settling |
+
+The manager configures its own streams with `console=false` to avoid flooding the server console. Use this information with `PlayerControl.get_debug_state(pid)` when investigating leaked ownership.

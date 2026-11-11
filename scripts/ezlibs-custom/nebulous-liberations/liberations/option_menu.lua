@@ -6,7 +6,7 @@
 -- Both panels share a width while keeping independently measured heights.
 
 local Displayer = require("scripts/displayer/displayer")
-local InputAPI = require("scripts/input-controller/main")
+local PlayerControl = require("scripts/player-control/main")
 
 local OptionMenu = {}
 
@@ -175,10 +175,9 @@ local function cleanup(player_id, menu, result)
     menu.header_panel = nil
     menu.body_panel = nil
 
-    -- Guard held menu keys before relinquishing this menu's controller claim.
-    menu.controller:require_release(MENU_ACTIONS, menu.owner)
-    menu.controller:release_input(menu.owner)
-
+    -- Session closure atomically releases focus, capture and held-button
+    -- guards. Keep the promise result independent of those cleanup callbacks.
+    if menu.control_session then menu.control_session:close() end
     menu.resolve(result)
 end
 
@@ -289,11 +288,16 @@ Net:on("tick", function(event)
             if not Net.is_player(player_id) then
                 cleanup(player_id, menu, nil)
             else
+                local ctrl,owner=menu.control_session and menu.control_session:input()
+                if not ctrl then
+                    -- A different interface currently has focus. Do not poll
+                    -- or consume that interface's input events.
+                else
                 local navigation_blocked = false
 
                 if menu.waiting_for_direction_release then
                     navigation_blocked =
-                        menu.controller:get_active_direction(menu.owner) ~= nil
+                        ctrl:get_active_direction(owner) ~= nil
 
                     if not navigation_blocked then
                         menu.waiting_for_direction_release = false
@@ -303,7 +307,7 @@ Net:on("tick", function(event)
                 -- Directional navigation waits for a neutral direction state.
                 -- Confirm and Cancel remain available during that wait.
                 if not navigation_blocked
-                    and is_menu_up_pressed(menu.controller, menu.owner) then
+                    and is_menu_up_pressed(ctrl, owner) then
 
                     menu.selected = menu.selected - 1
 
@@ -314,7 +318,7 @@ Net:on("tick", function(event)
                     refresh_body(menu)
 
                 elseif not navigation_blocked
-                    and is_menu_down_pressed(menu.controller, menu.owner) then
+                    and is_menu_down_pressed(ctrl, owner) then
 
                     menu.selected = menu.selected + 1
 
@@ -324,7 +328,7 @@ Net:on("tick", function(event)
 
                     refresh_body(menu)
 
-                elseif menu.controller:is_action_pressed("Cancel", menu.owner) then
+                elseif ctrl:is_action_pressed("Cancel", owner) then
                     -- The Cancel button activates the visible Cancel row directly.
                     -- Keep the same zero-based response contract as Confirm.
                     local cancel_index = menu.cancel_index
@@ -333,10 +337,11 @@ Net:on("tick", function(event)
                         cleanup(player_id, menu, cancel_index - 1)
                     end
 
-                elseif menu.controller:is_action_pressed("Confirm", menu.owner) then
+                elseif ctrl:is_action_pressed("Confirm", owner) then
                     -- Preserve the zero-based response expected by instance.lua.
                     cleanup(player_id, menu, menu.selected - 1)
                 end
+                end -- managed input is current
             end
         end
     end
@@ -368,23 +373,13 @@ function OptionMenu.select(player_id, options, title)
         end)
     end
 
-    local controller = InputAPI.get_controller(player_id)
-        or InputAPI.create_controller(player_id)
-
-    if not controller then
-        return Async.create_promise(function(resolve)
-            resolve(nil)
-        end)
-    end
-
-    local owner = INPUT_OWNER_PREFIX .. tostring(player_id)
+    local owner=INPUT_OWNER_PREFIX..tostring(player_id)
     local header_id = PANEL_ID_PREFIX .. tostring(player_id) .. ":header"
     local body_id = PANEL_ID_PREFIX .. tostring(player_id) .. ":body"
 
     return Async.create_promise(function(resolve)
         local menu = {
             player_id = player_id,
-            controller = controller,
             owner = owner,
             header_id = header_id,
             body_id = body_id,
@@ -399,21 +394,32 @@ function OptionMenu.select(player_id, options, title)
             resolve = resolve,
         }
 
-        -- Do not steal input from another active controller owner. The mission
-        -- interaction can retry or handle nil if another system owns input.
-        if not controller:claim_input(owner) then
+        local control,err=PlayerControl.begin(player_id,{
+            owner=owner,profile="menu",handoff_free_camera=true,
+        })
+        if not control then
+            print("[Liberation OptionMenu] Input focus unavailable: "..tostring(err))
             resolve(nil)
             return
         end
-
-        controller:consume(owner)
-        controller:require_release(MENU_ACTIONS, owner)
-
-        local created, create_err = create_panels(player_id, menu)
+        menu.control_session=control
+        control:poll({})
+        control:on_close(function()
+            -- Called on disconnect / parent disposal as well as normal close.
+            if menu.finished then return end
+            menu.finished=true
+            if active_menus[player_id]==menu then active_menus[player_id]=nil end
+            remove_panel(player_id,menu.header_id)
+            remove_panel(player_id,menu.body_id)
+            menu.header_panel=nil
+            menu.body_panel=nil
+            menu.resolve(nil)
+        end)
+        control:guard_input(0,MENU_ACTIONS)
+        local created,create_err=create_panels(player_id,menu)
         if not created then
-            controller:require_release(MENU_ACTIONS, owner)
-            controller:release_input(owner)
-            resolve(nil)
+            print("[Liberation OptionMenu] Panel creation failed: "..tostring(create_err))
+            control:close()
             return
         end
 
@@ -431,14 +437,19 @@ function OptionMenu.select(player_id, options, title)
                 return
             end
 
-            controller:consume(owner)
-            controller:require_release(MENU_ACTIONS, owner)
+            if not control:guard_input(0,MENU_ACTIONS) then
+                -- Remain live; the tick dispatcher resumes when focus returns.
+                menu.active=true
+                return
+            end
+            local ctrl,token=control:input()
+            if not ctrl then menu.active=true;return end
 
             -- This additional neutral check protects against a held diagonal
             -- changing into a cardinal action without the player's remaining
             -- direction being released.
             menu.waiting_for_direction_release =
-                controller:get_active_direction(owner) ~= nil
+                ctrl:get_active_direction(token) ~= nil
 
             menu.active = true
         end)

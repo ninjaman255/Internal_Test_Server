@@ -1128,7 +1128,7 @@ The module uses the host's `Async.await`, `Async.sleep`, `Async.create_promise`,
 11. **Map names and object properties must match exactly.** Destination area names, tileset paths, custom-property names, and encounter paths are string-based.
 12. **`panel_encounters.lua` caches area configuration at require time.** Restart/reload or add an explicit refresh method if encounter properties change dynamically.
 13. **No Tiled type generator is included in this archive.** The object names and properties in this README are source-derived; editor metadata must be maintained separately if needed.
-14. **Use ezlibs' own diagnostics conventions when expanding the module.** The current validator uses `print`; if file-backed diagnostics are desired, integrate `scripts/ezlibs-scripts/ezlogger.lua` explicitly rather than assuming console output is persisted.
+14. **Use ezlibs' own diagnostics conventions when expanding the module.** The current validator uses `print`; if file-backed diagnostics are desired, integrate `scripts/logger/logger.lua` explicitly rather than assuming console output is persisted.
 
 ### Changes made during this review
 

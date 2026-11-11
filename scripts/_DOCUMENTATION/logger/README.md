@@ -149,3 +149,7 @@ HP Manager retains the previous console message prefixes (such as `[HP_Manager]`
 - `player_join` caches safe player secrets when possible. `tick` flushes buffered logs periodically. These handlers are registered **once** by the canonical module.
 - Avoid logging raw secrets/passwords/tokens. `for_player` derives its filename from the pre-existing safe-secret convention; it does not automatically scrub message contents.
 - Errors while writing log files are reported by direct console output to avoid recursive logger failure.
+
+## 🎮 PlayerControl subsystem logs
+
+`PlayerControl` registers the `player_control` system with the shared logger. Its `_INPUT.log`, `_CAPTURE.log`, `_CAMERA.log`, and `_HANDOFF.log` are mirrored into `_FULL-log.log`. These are event-driven lifetime transitions, not per-frame input spam. See [PlayerControl programmer guide](../player-control/README.md).

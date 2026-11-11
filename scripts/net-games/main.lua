@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 --[[
 * ---------------------------------------------------------- *
            Net Games (framework) - Version 0.08
@@ -1958,7 +1958,7 @@ end
 -- CURSOR FUNCTIONS
 -- ===========================================================
 function frame.spawn_cursor(sprite_id, player_id, options)
-        LegacyCapture.lock(player_id, "net-games/main")
+        PlayerControl.acquire_capture(player_id, "net-games/main")
         
         local initial_selection = options.selections[1]
         
@@ -1994,7 +1994,7 @@ end
 function frame.remove_cursor(cursor_id, player_id)
     if ui_cache[player_id] and ui_cache[player_id][cursor_id] and ui_cache[player_id][cursor_id]["sprite_id"] then
         frame.remove_ui_element(cursor_id, player_id)
-        LegacyCapture.unlock(player_id, "net-games/main")
+        PlayerControl.release_capture(player_id, "net-games/main")
     else
         print("[games] No cursor found with ID: " .. cursor_id)
     end

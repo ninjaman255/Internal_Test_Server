@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 --[[
 endless-runner.lua — Cinematic endless-runner with floors, HP, and combat.
 
@@ -282,8 +282,8 @@ end
 
 local function ensure_input_locked(player_id, runner, reason)
     if not runner or not runner.locked_input then return false end
-    if type(LegacyCapture.lock) ~= "function" then return false end
-    local ok = pcall(LegacyCapture.lock, player_id, "ezlibs-custom/endless-runner/endless-runner")
+    if type(PlayerControl.acquire_capture) ~= "function" then return false end
+    local ok = pcall(PlayerControl.acquire_capture, player_id, "ezlibs-custom/endless-runner/endless-runner")
     if ok and reason then
         log_for(player_id, "input re-locked (" .. tostring(reason) .. ")")
     end
@@ -1128,10 +1128,10 @@ Net:on("tick", function()
             end
 
             state.tick_count = (state.tick_count or 0) + 1
-            if r.locked_input and type(LegacyCapture.lock) == "function" then
+            if r.locked_input and type(PlayerControl.acquire_capture) == "function" then
                 if state.tick_count <= 2
                     or state.tick_count % CHOICE_INPUT_RELOCK_TICKS == 0 then
-                    pcall(LegacyCapture.lock, r.player_id, "ezlibs-custom/endless-runner/endless-runner")
+                    pcall(PlayerControl.acquire_capture, r.player_id, "ezlibs-custom/endless-runner/endless-runner")
                 end
             end
 
@@ -1731,7 +1731,7 @@ function advance_floor(player_id, options)
                         .. tostring(remove_error))
                 end
             end
-            if runner.locked_input then pcall(LegacyCapture.lock, player_id, "ezlibs-custom/endless-runner/endless-runner") end
+            if runner.locked_input then pcall(PlayerControl.acquire_capture, player_id, "ezlibs-custom/endless-runner/endless-runner") end
 
             await(Async.sleep(0))
             await(Async.sleep(0))
@@ -2297,13 +2297,13 @@ local function do_enter(player_id, base_area_id, options)
 
     local input_locked = false
     if should_lock_input then
-        pcall(LegacyCapture.lock, player_id, "ezlibs-custom/endless-runner/endless-runner")
+        pcall(PlayerControl.acquire_capture, player_id, "ezlibs-custom/endless-runner/endless-runner")
         input_locked = true
         log_for(player_id, "input locked")
     end
 
     local function fail(msg)
-        if input_locked then pcall(LegacyCapture.unlock, player_id, "ezlibs-custom/endless-runner/endless-runner") end
+        if input_locked then pcall(PlayerControl.release_capture, player_id, "ezlibs-custom/endless-runner/endless-runner") end
         log_for(player_id, "enter() FAILED: " .. tostring(msg))
         return false, msg
     end
@@ -2491,7 +2491,7 @@ local function do_enter(player_id, base_area_id, options)
         unregister_runner_triggers(runner)
         pcall(eznpcs.remove_npc, npc)
         pcall(remove_runner_instance, record.id)
-        if input_locked then pcall(LegacyCapture.unlock, player_id, "ezlibs-custom/endless-runner/endless-runner") end
+        if input_locked then pcall(PlayerControl.release_capture, player_id, "ezlibs-custom/endless-runner/endless-runner") end
         return fail("cancelled before warp")
     end
 
@@ -2686,7 +2686,7 @@ function EndlessRunner.stop(player_id, options)
     end
     if runner.locked_input then
         if player_is_available then
-            pcall(LegacyCapture.unlock, player_id, "ezlibs-custom/endless-runner/endless-runner")
+            pcall(PlayerControl.release_capture, player_id, "ezlibs-custom/endless-runner/endless-runner")
         end
         runner.locked_input = false
     end

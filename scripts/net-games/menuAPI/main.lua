@@ -10,7 +10,7 @@ require("scripts/net-games/main")
 local Displayer = require("scripts/displayer/displayer")
 local InputSystem = require("scripts/input-controller/main")
 local UISafe = require("scripts/net-games/ui-safe")
-local UISuppression = require("scripts/net-games/ui-suppression")
+local PlayerControl = require("scripts/player-control/main")
 
 local MenuAPI = {}
 _G.MenuAPI = MenuAPI
@@ -18,27 +18,6 @@ _G.MenuAPI = MenuAPI
 local function get_controller(player_id)
     return InputSystem.get_controller(player_id)
         or InputSystem.create_controller(player_id)
-end
-
-local function menu_input_owner(player_id)
-    return "menuAPI:" .. tostring(player_id)
-end
-
-local function guard_input(player_id, swallow_seconds)
-    local ctrl = get_controller(player_id)
-    local owner = menu_input_owner(player_id)
-
-    -- A menu must never clear or consume another system's input edges.
-    if not ctrl or not ctrl:has_input_control(owner) then return false end
-
-    if swallow_seconds and swallow_seconds > 0 then
-        ctrl:swallow(swallow_seconds, owner)
-    else
-        ctrl:consume(owner)
-    end
-
-    ctrl:require_release({ "Confirm", "Cancel" }, owner)
-    return true
 end
 
 local cfg = {
@@ -185,33 +164,30 @@ local function active(player_id)
     return stack and stack[#stack] or nil
 end
 
-local input_lock_handles = {}
-
-local function set_input_locked(player_id, locked)
-    if locked then
-        if input_lock_handles[player_id] then return true end
-        local handle, err = UISuppression.acquire_input_lock(
-            player_id, menu_input_owner(player_id)
-        )
-        if not handle then
-            print("[MenuAPI] Could not acquire shared input lock for player "
-                .. tostring(player_id) .. ": " .. tostring(err))
-            return false
-        end
-        input_lock_handles[player_id] = handle
-        return true
-    end
-
-    local handle = input_lock_handles[player_id]
-    if not handle then return true end
-    input_lock_handles[player_id] = nil
-    local ok, err = UISuppression.release(handle)
-    if not ok then
-        input_lock_handles[player_id] = handle
-        print("[MenuAPI] Could not release shared input lock for player "
-            .. tostring(player_id) .. ": " .. tostring(err))
-    end
+-- Keep the documented keep_locked behavior without retaining an orphaned
+-- UI session. The retained resource is a named PlayerControl engine capture.
+local function retained_owner(pid)
+    return "menuAPI:retained:"..tostring(pid)
+end
+local function retain_input(pid)
+    local ok,err=pcall(PlayerControl.acquire_capture,pid,retained_owner(pid))
+    if not ok then print("[MenuAPI] Could not retain native input lock: "..tostring(err)) end
     return ok
+end
+local function release_retained_input(pid)
+    local ok,err=PlayerControl.release_capture(pid,retained_owner(pid))
+    if not ok then print("[MenuAPI] Retained input release deferred: "..tostring(err)) end
+    return ok
+end
+
+-- MenuAPI's stack mirrors PlayerControl's parent/child session stack.
+-- Only an active session may poll or consume its button edges.
+local function guard_input(player_id,swallow_seconds)
+    local st=active(player_id)
+    return st and st.control_session
+        and st.control_session:guard_input(swallow_seconds,{
+            "Up","Down","Left","Right","Confirm","Cancel"
+        }) or false
 end
 
 local function play_sfx(player_id, path)
@@ -554,75 +530,84 @@ function MenuAPI.open(player_id, spec)
     ensure_visible(st)
 
     local stack = stack_for(player_id, true)
-    local was_empty = #stack == 0
-    stack[#stack + 1] = st
-
-    if was_empty then
-        local ctrl = get_controller(player_id)
-        local owner = menu_input_owner(player_id)
-        st.input_claimed = ctrl and ctrl:claim_input(owner) or false
-        if st.input_claimed then
-            if st.lock_input then set_input_locked(player_id, true) end
-        else
-            print("[MenuAPI] Could not claim input for player " .. tostring(player_id)
-                .. "; another system currently owns the controller")
-        end
-    else
-        -- The stack already owns the controller; nested menus share its lease.
-        st.input_claimed = true
+    local previous=stack[#stack]
+    local options={owner="menuAPI:"..tostring(next_id),profile="menu",
+        capture=st.lock_input,handoff_free_camera=not previous}
+    if previous then options.parent=previous.control_session
+    elseif spec.parent_session then options.parent=spec.parent_session end
+    local session,err=PlayerControl.begin(player_id,options)
+    if not session then
+        if #stack==0 then stacks[player_id]=nil end
+        print("[MenuAPI] Could not open managed menu for "..tostring(player_id)..": "..tostring(err))
+        return nil,err
     end
+    st.control_session=session
+    -- A new managed context has acquired focus/capture; any deliberately
+    -- retained lock from an earlier MenuAPI close can now be released.
+    if not previous then release_retained_input(player_id) end
+    session:poll({}) -- Select destructive polling, not callback delivery.
+    session:on_close(function()
+        if st._disposed then return end
+        st._disposed=true
+        cleanup(st)
+        local current=stacks[player_id]
+        if current then
+            for i=#current,1,-1 do
+                if current[i]==st then table.remove(current,i);break end
+            end
+            if #current==0 then stacks[player_id]=nil end
+        end
+        if st.on_close then pcall(st.on_close,st.close_reason or "closed",st) end
+    end)
+    stack[#stack+1]=st
 
     -- Ensure font assets exist even if MenuAPI was required after player_join.
-    pcall(Displayer.Font.allocateAllFontsForPlayer, player_id)
-    guard_input(player_id, 0.10)
-    full_draw(st)
-    play_sfx(player_id, cfg.open_sfx)
+    pcall(Displayer.Font.allocateAllFontsForPlayer,player_id)
+    guard_input(player_id,0.10)
+    local ok,draw_err=pcall(full_draw,st)
+    if not ok then
+        print("[MenuAPI] Draw failed: "..tostring(draw_err))
+        session:close()
+        return nil,draw_err
+    end
+    play_sfx(player_id,cfg.open_sfx)
     return st
 end
 
 MenuAPI.push = MenuAPI.open
 
-function MenuAPI.close(player_id, opts)
-    opts = opts or {}
-    local stack = stack_for(player_id, false)
-    if not stack or #stack == 0 then return false end
-    local st = table.remove(stack)
-    cleanup(st)
-    if st.on_close then pcall(st.on_close, opts.reason, st) end
-
-    if #stack == 0 then
-        stacks[player_id] = nil
-        if st.lock_input and opts.keep_locked ~= true then set_input_locked(player_id, false) end
-
-        -- Release only the menu's own lease. If FootBomb or another system
-        -- forcibly took ownership while the menu was open, this is a no-op.
-        local ctrl = InputSystem.get_controller(player_id)
-        if ctrl then
-            guard_input(player_id, 0.08)
-            ctrl:release_input(menu_input_owner(player_id))
-        end
-    else
-        -- Returning to the previous menu does not require a full redraw because it
-        -- remained rendered beneath the pushed menu; refresh only its cursor.
-        draw_cursor(stack[#stack])
-        guard_input(player_id, 0.08)
+function MenuAPI.close(player_id,opts)
+    opts=opts or {}
+    local st=active(player_id)
+    if not st then return false end
+    st.close_reason=opts.reason or "closed"
+    local is_root=not st.control_session.parent
+    if is_root and st.lock_input and opts.keep_locked==true then
+        retain_input(player_id)
     end
-    return true
+    local ok=st.control_session:close()
+    if not active(player_id) and opts.keep_locked~=true then
+        release_retained_input(player_id)
+    end
+    -- PlayerControl handles focus return and prevents stale button edges.
+    return ok
 end
 
-function MenuAPI.close_all(player_id, opts)
-    opts = opts or {}
-    local stack = stack_for(player_id, false)
-    if not stack then return end
-    for i = #stack, 1, -1 do cleanup(stack[i]) end
-    stacks[player_id] = nil
-    if opts.keep_locked ~= true then set_input_locked(player_id, false) end
-
-    local ctrl = InputSystem.get_controller(player_id)
-    if ctrl then
-        guard_input(player_id)
-        ctrl:release_input(menu_input_owner(player_id))
+function MenuAPI.close_all(player_id,opts)
+    opts=opts or {}
+    -- Close in reverse order so child callbacks cannot re-open the parent.
+    if opts.keep_locked==true and active(player_id) then
+        -- Acquire before menu-session teardown to avoid transient native input.
+        retain_input(player_id)
     end
+    while active(player_id) do
+        local st=active(player_id)
+        st.close_reason=opts.reason or "close_all"
+        if not st.control_session then break end
+        st.control_session:close()
+        if active(player_id)==st then break end
+    end
+    if opts.keep_locked~=true then release_retained_input(player_id) end
 end
 
 function MenuAPI.is_open(player_id) return active(player_id) ~= nil end
@@ -672,24 +657,11 @@ end
 -- virtual_input and repeat timing are handled by input-controller/main.lua.
 Net:on("tick", function(event)
     for player_id, stack in pairs(stacks) do
-        local st = stack[#stack]
-        local ctrl = InputSystem.get_controller(player_id)
-        local owner = menu_input_owner(player_id)
-
-        -- If another context temporarily took ownership and then released it,
-        -- an open menu may reclaim the now-unowned controller. It never steals
-        -- from an active owner.
-        if st and ctrl and not ctrl:has_input_control(owner)
-            and ctrl:get_input_owner() == nil then
-            if ctrl:claim_input(owner) then
-                if st.lock_input then set_input_locked(player_id, true) end
-                ctrl:require_release({ "Up", "Down", "Left", "Right", "Confirm", "Cancel" }, owner)
-            end
-        end
-
-        -- The menu polls only while it owns the shared controller. This is
-        -- important because is_action_pressed consumes the pending edge.
-        if st and ctrl and ctrl:has_input_control(owner) then
+        local st=stack[#stack]
+        local ctrl,owner=st and st.control_session and st.control_session:input()
+        -- Foreign input owners suspend the menu; never try to reclaim the
+        -- controller from a timer/tick callback.
+        if st and ctrl then
             if st.type == 4 then
                 if ctrl:is_action_pressed("Left", owner)
                     or ctrl:is_action_pressed("Right", owner) then
@@ -720,13 +692,8 @@ Net:on("tick", function(event)
     end
 end)
 
-Net:on("player_disconnect", function(event)
-    if event and event.player_id then
-        local stack = stacks[event.player_id]
-        if stack then for i=#stack,1,-1 do cleanup(stack[i]) end end
-        stacks[event.player_id] = nil
-        set_input_locked(event.player_id, false)
-    end
+Net:on("player_disconnect",function(event)
+    if event and event.player_id then MenuAPI.close_all(event.player_id,{reason="disconnect"}) end
 end)
 
 return MenuAPI

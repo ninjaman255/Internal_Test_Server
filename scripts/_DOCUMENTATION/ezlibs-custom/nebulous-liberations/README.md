@@ -1172,3 +1172,7 @@ These are source-level corrections. They still require validation in the target 
 | Explosion/paralysis/recovery effects | `utils/*_effect.lua` |
 | Shared player memory and health | `scripts/ezlibs-scripts/ezmemory.lua` |
 | Shared helper functions | `scripts/ezlibs-scripts/helpers.lua` |
+
+## Liberation option-menu ownership
+
+`liberations/option_menu.lua` now uses a PlayerControl menu session instead of claiming an InputController owner directly. It keeps the same nine-slice panels, mandatory Cancel row, zero-based selection result and existing input-settle interval. Mission camera and turn captures use PlayerControl's named resources. Direct scripted camera operations are still a separate camera-lease migration boundary.

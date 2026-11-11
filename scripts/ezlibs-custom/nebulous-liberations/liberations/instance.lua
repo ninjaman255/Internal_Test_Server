@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- instance.lua
 local SharedLogger = require("scripts/logger/logger")
 local log = SharedLogger.register("nebulous-liberations"):register_subsystem("instance")
@@ -375,7 +375,7 @@ end
 
 local function boot_player(player, isVictory, mapName)
     Net.set_player_emote(player.id, Emotes.BLANK)
-    LegacyCapture.unlock(player.id, "liberation:turn")
+    PlayerControl.release_capture(player.id, "liberation:turn")
     player:boot_to_lobby(isVictory, mapName)
 end
 
@@ -545,7 +545,7 @@ local function convert_indestructible_panels(self)
         if Net.get_area_custom_properties(self.area_id)[Constants.CustomProperties.VictoryLapSong] then
             Net.set_song(self.area_id, Net.get_area_custom_properties(self.area_id)[Constants.CustomProperties.VictoryLapSong])
         end
-        LegacyCapture.lock(session.player.id, "liberation:turn")
+        PlayerControl.acquire_capture(session.player.id, "liberation:turn")
     end
 
     -- Visit every distinct associated boss once. With multiple boss groups,
@@ -600,7 +600,7 @@ local function convert_indestructible_panels(self)
         local player = session.player
         Net.unlock_player_camera(player.id)
         if not session.completed_turn then
-            LegacyCapture.unlock(player.id, "liberation:turn")
+            PlayerControl.release_capture(player.id, "liberation:turn")
         end
         player:say("Indestructible Panels have been unlocked!")
     end
@@ -640,7 +640,7 @@ local function liberate_panel(self, player_session)
             self:remove_panel(panel)
             selection:clear()
             Async.await(Loot.loot_bonus_panel(self, player_session, panel))
-            LegacyCapture.unlock(player.id, "liberation:turn")
+            PlayerControl.release_capture(player.id, "liberation:turn")
         elseif panel.type == Constants.PanelTypes.DarkHole then
             if panel.custom_properties[Constants.CustomProperties.Message] then
                 Async.await(player:message_with_mug(panel.custom_properties[Constants.CustomProperties.Message]))
@@ -1067,7 +1067,7 @@ local function take_enemy_turn(self)
                             player:message_with_mug("Is this the power of Nebula...?").and_then(function()
                                 boot_player(player, false, self.area_name)
                                 Net.unlock_player_camera(player.id)
-                                LegacyCapture.unlock(player.id, "liberation:turn")
+                                PlayerControl.release_capture(player.id, "liberation:turn")
                             end)
                         end)
                     end
@@ -1922,7 +1922,7 @@ function Mission:begin()
         self.player_sessions[player.id].max_health = start_health
         self.player_sessions[player.id].health = start_health
         if not debug then
-            LegacyCapture.lock(player.id, "liberation:turn")
+            PlayerControl.acquire_capture(player.id, "liberation:turn")
             if self.points_of_interest and #self.points_of_interest > 0 then
                 -- CameraSequence.play returns the full duration of its
                 -- movement/hold sequence. Include it so input is not
@@ -1971,7 +1971,7 @@ function Mission:begin()
     if not debug then
         Async.sleep(total_camera_time).and_then(function()
             for _, player in ipairs(self.players) do
-                LegacyCapture.unlock(player.id, "liberation:turn")
+                PlayerControl.release_capture(player.id, "liberation:turn")
             end
         end)
     end
@@ -2019,17 +2019,17 @@ function Mission:handle_tile_interaction(player_id, x, y, z, button)
     if panel then return end
     if button == 1 then return end
     if player_session.completed_turn or Net.is_player_in_widget(player_id) then return end
-    LegacyCapture.lock(player_id, "liberation:turn")
+    PlayerControl.acquire_capture(player_id, "liberation:turn")
     local quiz_promise = player_session.player:select_mission_option({ "Pass", "Cancel" }, "Panel interaction")
     quiz_promise.and_then(function(response)
         if response == 0 then
             player_session:get_pass_turn_permission()
         elseif response == 1 then
-            LegacyCapture.unlock(player_id, "liberation:turn")
+            PlayerControl.release_capture(player_id, "liberation:turn")
         else
             -- A failed/interrupted menu must not leave the player movement-locked.
             if Net.is_player(player_id) then
-                LegacyCapture.unlock(player_id, "liberation:turn")
+                PlayerControl.release_capture(player_id, "liberation:turn")
             end
         end
     end)
@@ -2068,7 +2068,7 @@ function Mission:handle_object_interaction(player_id, object_id, button)
         })
         return
     end
-    LegacyCapture.lock(player_id, "liberation:turn")
+    PlayerControl.acquire_capture(player_id, "liberation:turn")
     local panel_already_selected = false
     for _, ps in pairs(self.player_sessions) do
         if ps.selection.root_panel == panel then
@@ -2083,10 +2083,10 @@ function Mission:handle_object_interaction(player_id, object_id, button)
             if response == 0 then
                 player_session:get_pass_turn_permission()
             elseif response == 1 then
-                LegacyCapture.unlock(player_id, "liberation:turn")
+                PlayerControl.release_capture(player_id, "liberation:turn")
             else
                 if Net.is_player(player_id) then
-                    LegacyCapture.unlock(player_id, "liberation:turn")
+                    PlayerControl.release_capture(player_id, "liberation:turn")
                 end
             end
         end)
@@ -2112,11 +2112,11 @@ function Mission:handle_object_interaction(player_id, object_id, button)
                 player_session:get_pass_turn_permission()
             elseif response == 2 then
                 player_session.selection:clear()
-                LegacyCapture.unlock(player_id, "liberation:turn")
+                PlayerControl.release_capture(player_id, "liberation:turn")
             else
                 player_session.selection:clear()
                 if Net.is_player(player_id) then
-                    LegacyCapture.unlock(player_id, "liberation:turn")
+                    PlayerControl.release_capture(player_id, "liberation:turn")
                 end
             end
         end)
@@ -2137,7 +2137,7 @@ function Mission:handle_object_interaction(player_id, object_id, button)
         else
             player_session.selection:clear()
             if Net.is_player(player_id) then
-                LegacyCapture.unlock(player_id, "liberation:turn")
+                PlayerControl.release_capture(player_id, "liberation:turn")
             end
         end
     end)

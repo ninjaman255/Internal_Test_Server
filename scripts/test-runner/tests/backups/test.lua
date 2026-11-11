@@ -1,3 +1,4 @@
+local PlayerControl = require("scripts/player-control/main")
 --[[
 test_Displayer.lua – Comprehensive test script for Displayer API.
 All coordinates are now in 240×160 virtual space.
@@ -311,7 +312,7 @@ local steps = {
         end
 
          schedule(1, function()
-            Net.toggle_player_hud(Test.player_id)
+            PlayerControl.restore_hud(Test.player_id,"test-runner:displayer")
         --     Displayer.ScrollingSprite.removeList(Test.player_id, "scroll_sprite_1")
         --     print("Scrolling sprite list removed")
            next_step()
@@ -340,6 +341,7 @@ function test_Displayer(player_id)
         Net:on("player_disconnect", function(event)
             if event.player_id == Test.player_id then
                 Test.active = false
+                PlayerControl.restore_hud(event.player_id,"test-runner:displayer")
                 print("Player " .. event.player_id .. " disconnected – test cancelled.")
             end
         end)
@@ -349,7 +351,7 @@ function test_Displayer(player_id)
     Test.player_id = player_id
     Test.active = true
     Test.step = 0
-    Net.toggle_player_hud(player_id)
+    PlayerControl.suppress_hud(player_id,"test-runner:displayer")
     print("===== Starting Displayer Test for player " .. player_id .. " =====")
     next_step()
 end

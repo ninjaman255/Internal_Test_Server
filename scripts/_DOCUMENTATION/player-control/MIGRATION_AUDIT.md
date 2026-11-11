@@ -1,31 +1,39 @@
-# 🛠 PlayerControl v2 — Migration audit
+# 🛠 PlayerControl — Migration audit (November 11, 2026)
 
-[🏠 Home](../index.md) · [🎮 API guide](README.md) · [🔌 LegacyCapture](LEGACY_CAPTURE.md)
+[🏠 Documentation home](../index.md) · [🎮 API guide](README.md) · [🧰 Named capture scopes](CAPTURE_SCOPES.md)
 
-The v2 drop-in uses two patterns:
+## Completed in this archive
 
-**Managed sessions:** `hp_manager`, its child editors, `jukebox`, `camera`, and now FootBomb. These systems use `PlayerControl.begin()` and scoped callbacks, capture, HUD or camera leases. FootBomb no longer polls to reclaim input each tick.
+* Removed the standalone input/HUD capture adapter, and migrated **all 26 non-test first-party Lua importers** to `scripts/player-control/main.lua`.
+* Added `acquire_capture`, `release_capture`, `has_capture`, `suppress_hud`, `restore_hud`, and `begin_capture_scope` inside the canonical PlayerControl resource manager. Imperative callers preserve their previous idempotent owner keys and do not claim menu focus.
+* Moved the implementation of UI suppression to `scripts/player-control/resources/ui-suppression.lua`. The previous `scripts/net-games/ui-suppression.lua` is an import-only compatibility forwarder.
+* Converted MenuAPI's stack to parent/child PlayerControl menu sessions, without repeated manual claims in its tick callback. Context focus and capture are released when its UI is removed; disconnect closes all active menus.
+* Converted the Nebulous Liberations option menu to a managed polling session, keeping its original cancel-row/promise and panel-layout behavior.
+* Fixed the free-camera tile-interaction guard to compare against the actual PlayerControl session owner rather than the old camera-controller object.
+* Reused `session:guard_input()` for HP Manager's proven native-dialog return timing (0.40-second desktop delay, 0.35-second swallowed input) and for the other migrated menus.
+* Kept the standalone animation-points test entrypoint as a tiny forwarding script to `scripts/tests/animation_points_test.lua`; no test content was removed.
 
-**Imperative compatibility:** Scripted gameplay systems whose behavior depends on existing locks now invoke `scripts/player-control/legacy-capture.lua` instead of direct engine input lock/unlock. These include Nebulous Liberations (`instance`, `player_session`, `loot`, `enemy`), Endless Runner, EZ warps and cutscenes, checkpoint/pushback/button/rushroad systems, NPC dialogue, net-games dialog/menu modules, Simon Says, tournament flow, and trains. Keyed leases keep independent capture owners from releasing each other's engine input.
+## What is **not** claimed as complete
 
-## Still requiring full session or lease integration
-
-| Area | Remaining boundary | Follow-up |
+| Boundary | Why it remains | Next migration |
 |---|---|---|
-| Liberation scripted camera | Raw `Net` camera calls across asynchronous mission sequences | Move camera operations into a mission-scoped exclusive camera lease and guard late callbacks |
-| Endless Runner and other scripted cinematics | Some direct camera operations remain | Obtain a camera lease when each sequence takes ownership |
-| EZ cutscenes, NPC/warp transitions | Imperative capture adapter, not parent/child control scopes | Convert to scoped contexts after verifying native textbox/warp behavior |
-| Raw `virtual_input` listeners | `events/eznpcs_onceitem.lua`, `net-games/main.lua`, `simon-says.lua` and engine-input test scripts | Route through existing InputController or explicitly gate by ownership |
-| Tests using direct `Net.lock_player_input` | `test-runner/tests/demo.lua` intentionally exercises raw engine API | Keep isolated from normal gameplay sessions |
-| Legacy repeated same-owner capture | `LegacyCapture.lock` is idempotent by feature key | Use separate keys for nested lifetimes or refactor to scoped sessions |
+| Scripted camera calls in Liberation, warps, cutscenes, trains and minigames | Many operate inside long-running coroutines and still call raw `Net` camera APIs; replacing them mechanically risks a stale camera or early tracking restore | Migrate per-operation after validating the exact animation and cancellation lifetimes |
+| Some raw `virtual_input` consumers | Ownership and action mappings depend on each game mode | Convert to PlayerControl callbacks or polling with a minigame regression suite |
+| External Lua modules not in this archive | May still import the deleted module path | Update external code to `scripts/player-control/main`; an old import will intentionally fail |
+| `MenuAPI.close(...,{keep_locked=true})` | Compatibility is preserved via a named PlayerControl capture, but new code should own its capture lifetimes explicitly | Use `PlayerControl.begin_capture_scope` for independent work |
 
-## Validation and hazards
+## Ownership rules
 
-* The code audit found no direct engine `Net.lock_player_input` or `Net.unlock_player_input` invocations in normal gameplay Lua outside the adapter and intentional test/demo boundary. The lower-level UISuppression wrapper invokes those APIs by name.
-* `Net.toggle_player_hud` gameplay calls were moved to owned HUD capture where encountered.
-* Engine-level input capture does **not** disable scripted `virtual_input`; it suppresses native movement, exactly as expected by menus and minigames.
-* Exclusive camera ownership applies **only to participating callers**; legacy camera Net calls are not intercepted.
-* Compatibility adapter owner keys are not nested counters. An early unlock inside the same feature still requires gameplay-level review.
-* Existing input API signatures remain available to minimize regressions; new code should not directly claim focus or force InputController ownership when a managed session exists.
+1. An active menu/camera/minigame must own a PlayerControl session; only nested children may supersede an active parent.
+2. Cutscenes or native UI flows needing movement suppression **without focus** use a named PlayerControl capture. Acquiring the same key twice is idempotent; this is not a nested counter.
+3. Multiple independent operations must use distinct owner names. Release only the key acquired by the same operation.
+4. A native dialog handoff must guard button release when the parent resumes. It must never consume an unrelated controller owner's input.
+5. Failed engine restoration retains handles for later `retry_cleanup`; do not force a raw `Net.unlock_player_input` as a workaround.
 
-The full modified-file manifest in the installation ZIP is the authoritative list of changed modules for this patch.
+## Tests and live verification
+
+Run `texlua scripts/player-control/tests/{smoke,integration,reliability,migration}.lua` separately at the server root. The migration tests check overlapping named captures, menu nesting, focus rejection, and disconnect cleanup. These tests use mocked Net APIs; review FootBomb, Liberation, Endless Runner, NPC dialogues, warps and native prompts live before production deployment.
+
+## Diagnostics
+
+PlayerControl records input, named capture, camera lease, and handoff lifecycle transitions via the shared logger in `scripts/_DEBUGGING/player_control/`. It does not log every raw button press or every tick.

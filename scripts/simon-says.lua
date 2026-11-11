@@ -1,8 +1,8 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 --[[
 * ---------------------------------------------------------- *
              CyberSimon Says (minigame) by Indiana
-     (patched: lock/unlock input only, virtual_input gameplay)
+     (PlayerControl capture, facing/placement, and sprite-safe jitter)
 * ---------------------------------------------------------- *
 ]]--
 
@@ -81,6 +81,81 @@ local INDICATOR_STATE = {
 local function is_simon_button(name)
   return name == "Interact" or name == "Confirm" or name == "Shoulder L" or name == "Shoulder R"
       or name == "Move Up" or name == "Move Down" or name == "Move Left" or name == "Move Right"
+end
+
+-- Simon's spawned bot always plays IDLE_DR (Down Right); in ONB's map-space
+-- coordinates this faces +X. Set the player on that side and have them look
+-- back Up Left. Only use player movement/animation APIs already used by the
+-- rest of this server; no same-area transfer is needed.
+local SIMON_FRONT_X = 1
+local SIMON_FRONT_Y = 0
+local SIMON_PLAYER_IDLE = "IDLE_UL"
+
+local IDLE_BY_DIRECTION = {
+  ["Up Left"] = "IDLE_UL", ["Up Right"] = "IDLE_UR",
+  ["Down Left"] = "IDLE_DL", ["Down Right"] = "IDLE_DR",
+}
+
+local function move_player_to(player_id, x, y, z)
+  for _, method in ipairs({"move_player", "set_player_position"}) do
+    local fn = Net[method]
+    if type(fn) == "function" then
+      local ok, result = pcall(fn, player_id, x, y, z)
+      if ok and result ~= false then return true end
+    end
+  end
+  return false
+end
+
+local function position_player_for_simon(player_id, simon, p)
+  local x = simon.x + SIMON_FRONT_X
+  local y = simon.y + SIMON_FRONT_Y
+  local z = simon.z
+  if not move_player_to(player_id, x, y, z) then
+    Log:warn("Unable to position player in front of Simon", {player_id=player_id, area=p.area})
+    return false
+  end
+  p.positioned = true
+  -- This sets the visible facing even while native movement is locked.
+  Net.animate_player(player_id, SIMON_PLAYER_IDLE, true)
+  Log:debug("Placed player in front of Simon", {player_id=player_id, x=x, y=y, z=z, facing=SIMON_PLAYER_IDLE})
+  return true
+end
+
+local function restore_player_placement(player_id, p)
+  if not p or not p.positioned or not p["return"] then return end
+  local pos = p["return"]
+  if move_player_to(player_id, pos.x, pos.y, pos.z) then
+    local idle = IDLE_BY_DIRECTION[p.return_direction]
+    if idle then Net.animate_player(player_id, idle, true) end
+  else
+    Log:warn("Could not restore Simon Says entry position", {player_id=player_id})
+  end
+end
+
+-- Net.move_bot changes a bot's walking state; this indicator's WALK states
+-- deliberately have no frames. Jitter its world X/Y *sprite properties*
+-- instead, explicitly pinning the chosen frame on every keyframe. This avoids
+-- revealing the full indicators.png sheet after a wrong answer.
+local function jiggle_indicator(player_id, simon, indicator_state)
+  local bot_id = player_id .. "-map-indicator"
+  local base_x = simon.x - 0.1 + OVERLAY_XY_COMP
+  local base_y = simon.y - 0.9 + OVERLAY_XY_COMP
+  local offsets = {
+    {-0.025, 0.025}, {0, 0}, {0.025, -0.05}, {0, 0},
+  }
+  local keyframes = {}
+  for _, off in ipairs(offsets) do
+    keyframes[#keyframes + 1] = {
+      properties = {
+        {property="Animation", value=indicator_state},
+        {property="X", value=base_x + off[1]},
+        {property="Y", value=base_y + off[2]},
+      },
+      duration = 0.1,
+    }
+  end
+  Net.animate_bot_properties(bot_id, keyframes)
 end
 
 --=====================================================
@@ -211,7 +286,7 @@ end
 local function end_game_cleanup(player_id, reason, simon)
   return async(function()
     local p = simon_players[player_id]
-    Log:debug(player_id .. " " .. reason, {score = p["score"]})
+    Log:debug(tostring(player_id) .. " " .. reason, {score = p and p.score or 0})
     
     if p then p.active = false end
 
@@ -224,7 +299,8 @@ local function end_game_cleanup(player_id, reason, simon)
     games.remove_countdown("simon_says", player_id)
     games.remove_text("simon_says_answers", player_id)
 
-    LegacyCapture.show_hud(player_id, "simon-says")
+    restore_player_placement(player_id, p)
+    PlayerControl.restore_hud(player_id, "simon-says")
 
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=0}, 0.5)
     await(Async.sleep(0.75))
@@ -232,7 +308,7 @@ local function end_game_cleanup(player_id, reason, simon)
     if simon then simon.occupied = false end
     simon_players[player_id] = nil
 
-    LegacyCapture.unlock(player_id, "simon-says")
+    PlayerControl.release_capture(player_id, "simon-says")
   end)
 end
 
@@ -272,7 +348,7 @@ local function greet_simon(actor_id, player_id)
       return
     end
 
-    LegacyCapture.lock(player_id, "simon-says")
+    PlayerControl.acquire_capture(player_id, "simon-says")
     Log:debug(player_id.." Played with simon")
 
     simon_players[player_id] = simon_players[player_id] or {}
@@ -283,11 +359,14 @@ local function greet_simon(actor_id, player_id)
     p.active = false
     p.current = nil
     p["return"] = Net.get_player_position(player_id)
+    p.return_direction = Net.get_player_direction(player_id)
+    p.positioned = false
 
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=255}, 0.5)
     await(Async.sleep(0.75))
 
-    LegacyCapture.hide_hud(player_id, "simon-says")
+    PlayerControl.suppress_hud(player_id, "simon-says")
+    position_player_for_simon(player_id, simon, p)
 
     games.add_ui_element(
       "board",
@@ -307,8 +386,9 @@ local function greet_simon(actor_id, player_id)
     Net.fade_player_camera(player_id, {r=0,g=0,b=0,a=0}, 0.5)
     await(Async.sleep(0.75))
 
-    LegacyCapture.unlock(player_id, "simon-says")
-
+    -- Keep native movement locked while the board and instructions are
+    -- visible. Textboxes still receive native Confirm, just as the existing
+    -- winning/losing dialogs do while this capture is active.
     Net.message_player(player_id, "Now it's time for... \"CyberSimon Says\"! Yeahh! Whoo! Whoo!",
       simon.custom_properties["NPC Mug Texture"], simon.custom_properties["NPC Mug Animation"])
     Net.message_player(player_id, "All you have to do is push the button that I tell you to!",
@@ -336,8 +416,8 @@ local function greet_simon(actor_id, player_id)
       simon.z + OVERLAY_Z_LIFT
     )
 
-    LegacyCapture.lock(player_id, "simon-says")
-
+    -- The capture acquired before showing the UI remains active throughout
+    -- the countdown, game, and end sequence; don't duplicate/release it here.
     games.resume_countdown("simon_says", player_id)
 
     await(Async.sleep(0.05))
@@ -398,21 +478,11 @@ Net:on("virtual_input", function(event)
 
           local simon = simon_cache[p.area] and simon_cache[p.area][p.actor]
           if simon then
-            -- Original jiggle values are ABSOLUTE offsets from simon.x/simon.y
-            -- (they were never relative to the (-0.1, -0.9) base). Apply them
-            -- as-is, then add OVERLAY_XY_COMP to cancel the visual shift from
-            -- OVERLAY_Z_LIFT. The z stays at the indicator's resting height.
-            local jiggle_z = simon.z + INDICATOR_ORIGINAL_Z_OFFSET + OVERLAY_Z_LIFT
-            local function jiggle(off_x, off_y)
-              games.move_map_element("indicator", pid,
-                simon.x + off_x + OVERLAY_XY_COMP,
-                simon.y + off_y + OVERLAY_XY_COMP,
-                jiggle_z)
-            end
-            jiggle(-0.125, -0.875); await(Async.sleep(0.1))
-            jiggle(-0.10,  -0.90 ); await(Async.sleep(0.1))
-            jiggle(-0.075, -0.95 ); await(Async.sleep(0.1))
-            jiggle(-0.10,  -0.90 ); await(Async.sleep(0.1))
+            -- Explicit world-property keyframes preserve the button's chosen
+            -- animation; moving the bot via Net.move_bot can trigger its
+            -- empty WALK states and display the entire atlas.
+            jiggle_indicator(pid, simon, INDICATOR_STATE[p.current] or "A")
+            await(Async.sleep(0.4))
           end
 
           await(Async.sleep(0.08))

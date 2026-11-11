@@ -106,3 +106,7 @@ The November 11 save regression involved the native-dialog → PlayerControl →
 ## Diagnostics and save-state readback
 
 See [save/readback and foreground diagnostics](DIAGNOSTIC_READBACK.md) for server-side snapshots and verified file commits.
+
+## Shared input handoff
+
+The desktop return path preserves `RETURN_SETTLE_SECONDS=0.40` and `RETURN_SWALLOW_SECONDS=0.35`. Its input-release requirements are now applied through `expected_control:guard_input(...)` rather than directly manipulating the shared InputController. Background/Real Time save and UI cleanup behavior was left intact.

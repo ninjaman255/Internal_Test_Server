@@ -1,6 +1,6 @@
--- Usage examples for scripts/net-games/ui-suppression.lua.
+-- Usage examples for scripts/player-control/resources/ui-suppression.lua.
 -- This file is documentation only; it is not required by the framework.
-local UISuppression = require("scripts/net-games/ui-suppression")
+local UISuppression = require("scripts/player-control/resources/ui-suppression")
 
 -- Example 1: hide ONLY the engine-provided HUD (health upper-left and real-time upper-right).
 -- This does not hide custom sprites, text, panels, or our custom HUD.

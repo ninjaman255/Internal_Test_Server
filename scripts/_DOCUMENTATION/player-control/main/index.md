@@ -1,346 +1,663 @@
-# 📄 `main.lua` — Current source reference
+# 📄 `main.lua` — Current Lua reference
 
 [🏠 Documentation home](../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/player-control/main.lua`](../../../../../control_impl/src/scripts/player-control/main.lua)  
-> **Source lines:** 499  
-> **SHA-256:** `0808f6dd9b37d635ef76a7369cea7d5ca548d604d75cd1512faa93c6dc663d1b`  
-> **Declared/assigned functions:** 26 · **table initializers (simple patterns):** 17 · **event subscriptions detected:** 4
+> **Source:** [`scripts/player-control/main.lua`](../../../player-control/main.lua)  
+> **Source lines:** 672  
+> **SHA-256 (UTF-8):** `9d30037344dbcf0f7750bcc1fb3c1aa166c8c160876721bc1da2fb9c70d50c9f`  
+> **Named functions detected:** 58  
+> **Table initializers detected:** 24
 
-> **Method:** Static source inventory. Parameters are spelled as in the source; no types, return values, or public accessibility are inferred from signatures alone. See the authored guides for behavioral descriptions.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
-- [Events](#events)
+- [Event hooks](#event-hooks)
 - [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
-- [Net APIs](#net-apis)
-
-## Overview
-
-Current reference for `player-control/main.lua` in the PlayerControl-patched November 11 snapshot.
+- [Net API calls](#net-api-calls)
 
 ## Dependencies
 
-| Line | Required module |
+| Line | `require` path |
 |---:|---|
 | 5 | `scripts/input-controller/main` |
-| 6 | `scripts/net-games/ui-suppression` |
+| 6 | `scripts/player-control/resources/ui-suppression` |
+| 7 | `scripts/player-control/camera-focus` |
 
-## Events
+## Event hooks
 
-| Line | Emitter | Event |
+| Line | Subscriber | Event |
 |---:|---|---|
-| 209 | `ctrl` | `button_pressed` |
-| 210 | `ctrl` | `button_repeat` |
-| 211 | `ctrl` | `input_owner_changed` |
-| 311 | `Net` | `player_disconnect` |
+| 324 | `ctrl` | `button_pressed` |
+| 325 | `ctrl` | `button_repeat` |
+| 326 | `ctrl` | `button_released` |
+| 327 | `ctrl` | `input_owner_changed` |
+| 661 | `Net` | `player_disconnect` |
+| 665 | `Net` | `tick` |
 
 ## Functions and parameters
 
-| Line | Declared/assigned function | Parameters (source) | Local |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
-| 25 | `report` | `label, err` | yes |
-| 29 | `top` | `state` | yes |
-| 37 | `focused` | `state` | yes |
-| 43 | `sync_focus` | `state` | yes |
-| 73 | `state_for` | `pid` | yes |
-| 86 | `remove_stack` | `state, target` | yes |
-| 92 | `Session:is_alive` | `(none)` | no |
-| 93 | `Session:is_current` | `(none)` | no |
-| 96 | `Session:input` | `(none)` | no |
-| 103 | `Session:poll` | `actions` | no |
-| 117 | `Session:on_pressed` | `action, fn` | no |
-| 122 | `Session:on_repeat` | `action, fn` | no |
-| 127 | `Session:yield_to_native_ui` | `(none)` | no |
-| 133 | `Session:resume_buttons` | `(none)` | no |
-| 139 | `Session:suspend_buttons` | `(none)` | no |
-| 140 | `Session:child` | `options` | no |
-| 145 | `Session:close` | `(none)` | no |
-| 191 | `attach_events` | `state` | yes |
-| 193 | `dispatch` | `kind, ev` | yes |
-| 203 | `state.pressed_handler` | `ev` | no |
-| 204 | `state.repeated_handler` | `ev` | no |
-| 205 | `state.owner_handler` | `change` | no |
-| 214 | `M.begin` | `player_id, options` | no |
-| 284 | `M.get_active` | `player_id` | no |
-| 288 | `M.get_debug_state` | `player_id` | no |
-| 298 | `M.cleanup_player` | `player_id` | no |
+| 24 | `lifecycle` | `kind,message,data` | local |
+| 46 | `report` | `where, err` | local |
+| 49 | `top` | `state` | local |
+| 55 | `focused` | `state` | local |
+| 59 | `safe_callback` | `session, callback, label, ...` | local |
+| 67 | `release_or_queue` | `pid, handle, label` | local |
+| 79 | `M.retry_cleanup` | `pid` | assigned/declared |
+| 100 | `resource_for` | `pid, owner, create` | local |
+| 112 | `prune_resource` | `pid, owner` | local |
+| 118 | `acquire_resource` | `pid, owner, field, fn` | local |
+| 129 | `release_resource` | `pid,owner,field` | local |
+| 144 | `M.acquire_capture` | `pid,owner` | assigned/declared |
+| 149 | `M.release_capture` | `pid,owner` | assigned/declared |
+| 154 | `M.has_capture` | `pid,owner` | assigned/declared |
+| 158 | `M.suppress_hud` | `pid,owner` | assigned/declared |
+| 163 | `M.restore_hud` | `pid,owner` | assigned/declared |
+| 169 | `M.begin_capture_scope` | `pid,owner,options` | assigned/declared |
+| 178 | `scope:close` | `(none)` | assigned/declared |
+| 188 | `state_for` | `pid` | local |
+| 206 | `sync_focus` | `state` | local |
+| 272 | `detach_state` | `state` | local |
+| 289 | `attach_events` | `state` | local |
+| 292 | `dispatch` | `kind,ev` | local |
+| 307 | `state.pressed_handler` | `ev` | assigned/declared |
+| 308 | `state.repeated_handler` | `ev` | assigned/declared |
+| 309 | `state.released_handler` | `ev` | assigned/declared |
+| 310 | `state.owner_handler` | `change` | assigned/declared |
+| 330 | `Session:is_alive` | `(none)` | assigned/declared |
+| 331 | `Session:is_current` | `(none)` | assigned/declared |
+| 335 | `Session:input` | `(none)` | assigned/declared |
+| 338 | `Session:poll` | `actions` | assigned/declared |
+| 354 | `Session:on_pressed` | `action,fn` | assigned/declared |
+| 361 | `Session:on_repeat` | `action,fn` | assigned/declared |
+| 368 | `Session:on_released` | `action,fn` | assigned/declared |
+| 377 | `Session:guard_input` | `seconds, actions` | assigned/declared |
+| 391 | `Session:begin_native_handoff` | `options` | assigned/declared |
+| 398 | `handoff:resume` | `(none)` | assigned/declared |
+| 410 | `Session:set_repeat_delays` | `first,interval` | assigned/declared |
+| 417 | `Session:on_close` | `fn` | assigned/declared |
+| 422 | `Session:on_error` | `fn` | assigned/declared |
+| 427 | `Session:on_suspend` | `fn` | assigned/declared |
+| 432 | `Session:on_resume` | `fn` | assigned/declared |
+| 437 | `Session:yield_to_native_ui` | `(none)` | assigned/declared |
+| 442 | `Session:resume_buttons` | `(none)` | assigned/declared |
+| 448 | `Session:suspend_buttons` | `(none)` | assigned/declared |
+| 449 | `Session:child` | `opts` | assigned/declared |
+| 454 | `restore_camera` | `lease` | local |
+| 466 | `Session:close` | `(none)` | assigned/declared |
+| 507 | `rollback_state` | `state` | local |
+| 510 | `M.begin` | `pid,options` | assigned/declared |
+| 599 | `Session:camera` | `(none)` | assigned/declared |
+| 603 | `call` | `name,...` | local |
+| 610 | `api:move_to` | `x,y,z` | assigned/declared |
+| 611 | `api:slide_to` | `x,y,z,duration` | assigned/declared |
+| 612 | `api:follow_player` | `(none)` | assigned/declared |
+| 620 | `M.get_active` | `pid` | assigned/declared |
+| 621 | `M.get_debug_state` | `pid` | assigned/declared |
+| 640 | `M.cleanup_player` | `pid` | assigned/declared |
 
-### Parameter details
+### Parameter inventory
 
-#### 1. `report(label, err)`
+#### 1. `lifecycle(kind,message,data)`
 
-- **Declared at:** source line 25.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 24
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `label` | Exact source parameter; type not asserted. |
-| 2 | `err` | Exact source parameter; type not asserted. |
+| 1 | `kind` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `message` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `data` | Declared directly in the current Lua. Type not inferred. |
 
-#### 2. `top(state)`
+#### 2. `report(where, err)`
 
-- **Declared at:** source line 29.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 46
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `state` | Exact source parameter; type not asserted. |
+| 1 | `where` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `err` | Declared directly in the current Lua. Type not inferred. |
 
-#### 3. `focused(state)`
+#### 3. `top(state)`
 
-- **Declared at:** source line 37.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 49
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `state` | Exact source parameter; type not asserted. |
+| 1 | `state` | Declared directly in the current Lua. Type not inferred. |
 
-#### 4. `sync_focus(state)`
+#### 4. `focused(state)`
 
-- **Declared at:** source line 43.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 55
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `state` | Exact source parameter; type not asserted. |
+| 1 | `state` | Declared directly in the current Lua. Type not inferred. |
 
-#### 5. `state_for(pid)`
+#### 5. `safe_callback(session, callback, label, ...)`
 
-- **Declared at:** source line 73.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 59
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `pid` | Exact source parameter; type not asserted. |
+| 1 | `session` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `callback` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `label` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `...` | Declared directly in the current Lua. Type not inferred. |
 
-#### 6. `remove_stack(state, target)`
+#### 6. `release_or_queue(pid, handle, label)`
 
-- **Declared at:** source line 86.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 67
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `state` | Exact source parameter; type not asserted. |
-| 2 | `target` | Exact source parameter; type not asserted. |
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `handle` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `label` | Declared directly in the current Lua. Type not inferred. |
 
-#### 7. `Session:is_alive()`
+#### 7. `M.retry_cleanup(pid)`
 
-- **Declared at:** source line 92.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 79
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+
+#### 8. `resource_for(pid, owner, create)`
+
+- **Line:** 100
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `create` | Declared directly in the current Lua. Type not inferred. |
+
+#### 9. `prune_resource(pid, owner)`
+
+- **Line:** 112
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+
+#### 10. `acquire_resource(pid, owner, field, fn)`
+
+- **Line:** 118
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `field` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 11. `release_resource(pid,owner,field)`
+
+- **Line:** 129
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `field` | Declared directly in the current Lua. Type not inferred. |
+
+#### 12. `M.acquire_capture(pid,owner)`
+
+- **Line:** 144
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+
+#### 13. `M.release_capture(pid,owner)`
+
+- **Line:** 149
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+
+#### 14. `M.has_capture(pid,owner)`
+
+- **Line:** 154
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+
+#### 15. `M.suppress_hud(pid,owner)`
+
+- **Line:** 158
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+
+#### 16. `M.restore_hud(pid,owner)`
+
+- **Line:** 163
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+
+#### 17. `M.begin_capture_scope(pid,owner,options)`
+
+- **Line:** 169
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `options` | Declared directly in the current Lua. Type not inferred. |
+
+#### 18. `scope:close()`
+
+- **Line:** 178
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 8. `Session:is_current()`
+#### 19. `state_for(pid)`
 
-- **Declared at:** source line 93.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 188
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+
+#### 20. `sync_focus(state)`
+
+- **Line:** 206
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `state` | Declared directly in the current Lua. Type not inferred. |
+
+#### 21. `detach_state(state)`
+
+- **Line:** 272
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `state` | Declared directly in the current Lua. Type not inferred. |
+
+#### 22. `attach_events(state)`
+
+- **Line:** 289
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `state` | Declared directly in the current Lua. Type not inferred. |
+
+#### 23. `dispatch(kind,ev)`
+
+- **Line:** 292
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `kind` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `ev` | Declared directly in the current Lua. Type not inferred. |
+
+#### 24. `state.pressed_handler(ev)`
+
+- **Line:** 307
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `ev` | Declared directly in the current Lua. Type not inferred. |
+
+#### 25. `state.repeated_handler(ev)`
+
+- **Line:** 308
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `ev` | Declared directly in the current Lua. Type not inferred. |
+
+#### 26. `state.released_handler(ev)`
+
+- **Line:** 309
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `ev` | Declared directly in the current Lua. Type not inferred. |
+
+#### 27. `state.owner_handler(change)`
+
+- **Line:** 310
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `change` | Declared directly in the current Lua. Type not inferred. |
+
+#### 28. `Session:is_alive()`
+
+- **Line:** 330
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 9. `Session:input()`
+#### 29. `Session:is_current()`
 
-- **Declared at:** source line 96.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 331
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 10. `Session:poll(actions)`
+#### 30. `Session:input()`
 
-- **Declared at:** source line 103.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
-
-| # | Parameter | Notes |
-|---:|---|---|
-| 1 | `actions` | Exact source parameter; type not asserted. |
-
-#### 11. `Session:on_pressed(action, fn)`
-
-- **Declared at:** source line 117.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
-
-| # | Parameter | Notes |
-|---:|---|---|
-| 1 | `action` | Exact source parameter; type not asserted. |
-| 2 | `fn` | Exact source parameter; type not asserted. |
-
-#### 12. `Session:on_repeat(action, fn)`
-
-- **Declared at:** source line 122.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
-
-| # | Parameter | Notes |
-|---:|---|---|
-| 1 | `action` | Exact source parameter; type not asserted. |
-| 2 | `fn` | Exact source parameter; type not asserted. |
-
-#### 13. `Session:yield_to_native_ui()`
-
-- **Declared at:** source line 127.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 335
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 14. `Session:resume_buttons()`
+#### 31. `Session:poll(actions)`
 
-- **Declared at:** source line 133.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 338
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `actions` | Declared directly in the current Lua. Type not inferred. |
+
+#### 32. `Session:on_pressed(action,fn)`
+
+- **Line:** 354
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `action` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 33. `Session:on_repeat(action,fn)`
+
+- **Line:** 361
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `action` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 34. `Session:on_released(action,fn)`
+
+- **Line:** 368
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `action` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 35. `Session:guard_input(seconds, actions)`
+
+- **Line:** 377
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `seconds` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actions` | Declared directly in the current Lua. Type not inferred. |
+
+#### 36. `Session:begin_native_handoff(options)`
+
+- **Line:** 391
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `options` | Declared directly in the current Lua. Type not inferred. |
+
+#### 37. `handoff:resume()`
+
+- **Line:** 398
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 15. `Session:suspend_buttons()`
+#### 38. `Session:set_repeat_delays(first,interval)`
 
-- **Declared at:** source line 139.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 410
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `first` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interval` | Declared directly in the current Lua. Type not inferred. |
+
+#### 39. `Session:on_close(fn)`
+
+- **Line:** 417
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 40. `Session:on_error(fn)`
+
+- **Line:** 422
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 41. `Session:on_suspend(fn)`
+
+- **Line:** 427
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 42. `Session:on_resume(fn)`
+
+- **Line:** 432
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `fn` | Declared directly in the current Lua. Type not inferred. |
+
+#### 43. `Session:yield_to_native_ui()`
+
+- **Line:** 437
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 16. `Session:child(options)`
+#### 44. `Session:resume_buttons()`
 
-- **Declared at:** source line 140.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
-
-| # | Parameter | Notes |
-|---:|---|---|
-| 1 | `options` | Exact source parameter; type not asserted. |
-
-#### 17. `Session:close()`
-
-- **Declared at:** source line 145.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 442
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
-#### 18. `attach_events(state)`
+#### 45. `Session:suspend_buttons()`
 
-- **Declared at:** source line 191.
-- **Scope syntax:** local.
-- **Nearby source comment:** A single subscription pair per player dispatches action events. Callback invocation is isolated so an exception cannot prevent other users' inputs.
+- **Line:** 448
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-| # | Parameter | Notes |
+#### 46. `Session:child(opts)`
+
+- **Line:** 449
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `state` | Exact source parameter; type not asserted. |
+| 1 | `opts` | Declared directly in the current Lua. Type not inferred. |
 
-#### 19. `dispatch(kind, ev)`
+#### 47. `restore_camera(lease)`
 
-- **Declared at:** source line 193.
-- **Scope syntax:** local.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 454
+- **Declaration:** local
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `kind` | Exact source parameter; type not asserted. |
-| 2 | `ev` | Exact source parameter; type not asserted. |
+| 1 | `lease` | Declared directly in the current Lua. Type not inferred. |
 
-#### 20. `state.pressed_handler(ev)`
+#### 48. `Session:close()`
 
-- **Declared at:** source line 203.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 466
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-| # | Parameter | Notes |
+#### 49. `rollback_state(state)`
+
+- **Line:** 507
+- **Declaration:** local
+
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `ev` | Exact source parameter; type not asserted. |
+| 1 | `state` | Declared directly in the current Lua. Type not inferred. |
 
-#### 21. `state.repeated_handler(ev)`
+#### 50. `M.begin(pid,options)`
 
-- **Declared at:** source line 204.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 510
+- **Declaration:** assigned/declared
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `ev` | Exact source parameter; type not asserted. |
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `options` | Declared directly in the current Lua. Type not inferred. |
 
-#### 22. `state.owner_handler(change)`
+#### 51. `Session:camera()`
 
-- **Declared at:** source line 205.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 599
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-| # | Parameter | Notes |
+#### 52. `call(name,...)`
+
+- **Line:** 603
+- **Declaration:** local
+
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `change` | Exact source parameter; type not asserted. |
+| 1 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `...` | Declared directly in the current Lua. Type not inferred. |
 
-#### 23. `M.begin(player_id, options)`
+#### 53. `api:move_to(x,y,z)`
 
-- **Declared at:** source line 214.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 610
+- **Declaration:** assigned/declared
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Exact source parameter; type not asserted. |
-| 2 | `options` | Exact source parameter; type not asserted. |
+| 1 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `z` | Declared directly in the current Lua. Type not inferred. |
 
-#### 24. `M.get_active(player_id)`
+#### 54. `api:slide_to(x,y,z,duration)`
 
-- **Declared at:** source line 284.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 611
+- **Declaration:** assigned/declared
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Exact source parameter; type not asserted. |
+| 1 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
 
-#### 25. `M.get_debug_state(player_id)`
+#### 55. `api:follow_player()`
 
-- **Declared at:** source line 288.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 612
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-| # | Parameter | Notes |
+#### 56. `M.get_active(pid)`
+
+- **Line:** 620
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Exact source parameter; type not asserted. |
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
 
-#### 26. `M.cleanup_player(player_id)`
+#### 57. `M.get_debug_state(pid)`
 
-- **Declared at:** source line 298.
-- **Scope syntax:** table/global declaration.
-- **Source comment:** No adjacent explanation; refer to the implementation.
+- **Line:** 621
+- **Declaration:** assigned/declared
 
-| # | Parameter | Notes |
+| # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Exact source parameter; type not asserted. |
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+
+#### 58. `M.cleanup_player(pid)`
+
+- **Line:** 640
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Line | Table variable |
+| Line | Identifier |
 |---:|---|
-| 7 | `M` |
-| 8 | `states` |
-| 10 | `Session` |
-| 13 | `profiles` |
-| 14 | `desktop` |
-| 15 | `menu` |
-| 16 | `music_menu` |
-| 17 | `settings_menu` |
-| 18 | `native_ui` |
-| 19 | `cinematic` |
-| 20 | `capture_only` |
-| 21 | `free_camera` |
-| 23 | `guards` |
-| 80 | `state` |
-| 81 | `stack` |
-| 106 | `events` |
-| 290 | `entries` |
+| 8 | `M` |
+| 11 | `event_streams` |
+| 32 | `Session` |
+| 35 | `profiles` |
+| 36 | `desktop` |
+| 37 | `music_menu` |
+| 38 | `settings_menu` |
+| 39 | `native_ui` |
+| 40 | `capture_only` |
+| 41 | `minigame` |
+| 43 | `guards` |
+| 107 | `resource` |
+| 177 | `scope` |
+| 200 | `state` |
+| 201 | `stack` |
+| 343 | `events` |
+| 397 | `handoff` |
+| 473 | `children` |
+| 558 | `close_callbacks` |
+| 602 | `api` |
+| 623 | `entries` |
+| 630 | `release` |
+| 632 | `named` |
+| 650 | `names` |
 
-## Net APIs
+## Net API calls
 
-| Called API | Occurrences | First source line |
+| API | Count | First line |
 |---|---:|---:|
-| `Net.on` | 1 | 311 |
+| `Net.on` | 2 | 661 |

@@ -38,3 +38,11 @@ MenuAPI.close_all(player_id)
 `confirm_prompt` uses `default_selection = 1` (Yes) or `2` (No), `lines = {...}`, and `on_result = function(yes) ... end`.
 
 Default art is expected under `/server/assets/ui/menuAPI/` (`menu1.png`, `menu2.png`, `menu3.png`, `cursor.png`, `scroll.png`). Copy that asset folder from `shadis_hp`, or override texture paths in each menu's `layout`.
+
+## 🎮 Managed controller ownership (November 2026)
+
+MenuAPI opens a `PlayerControl` session for the root menu and a child session for each pushed menu. Only the top session polls the shared InputController. A foreign focus owner cannot be displaced or reclaimed from the server tick. Each closed menu removes its own UI through `session:on_close`, including on player disconnect.
+
+`MenuAPI.open(player_id, spec)` returns `nil, reason` when another unrelated PlayerControl root is active. For a menu opened intentionally from an already managed parent, pass `spec.parent_session=parent_session`. Native input settling is applied by `session:guard_input(...)`.
+
+`MenuAPI.close(player_id,{keep_locked=true})` and `close_all(...,{keep_locked=true})` preserve the former option by acquiring a named PlayerControl engine capture before releasing the menu. Opening a new MenuAPI root or closing without `keep_locked` releases that retained capture. For new code, prefer an explicitly owned PlayerControl capture scope instead.

@@ -24,7 +24,7 @@
 | 📄 Script | `MasterBattle.lua` | 1 | 0 | 82 | 387 | [Open script reference](MasterBattle/index.md) |
 | 📄 Script | `NewLiberation1.lua` | 1 | 0 | 103 | 1738 | [Open script reference](NewLiberation1/index.md) |
 | 📄 Script | `SnowPark3.lua` | 1 | 0 | 36 | 157 | [Open script reference](SnowPark3/index.md) |
-| 📄 Script | `example liberation friendly.lua` | 1 | 0 | 54 | 246 | [Open script reference](example%20liberation%20friendly/index.md) |
+| 📄 Script | `example liberation friendly.lua` | 1 | 0 | 54 | 246 | [Open script reference](example liberation friendly/index.md) |
 | 📄 Script | `liberation1.lua` | 1 | 0 | 54 | 246 | [Open script reference](liberation1/index.md) |
 | 📄 Script | `ponddrive1.lua` | 1 | 0 | 34 | 153 | [Open script reference](ponddrive1/index.md) |
 | 📄 Script | `ponddrive2.lua` | 1 | 0 | 36 | 158 | [Open script reference](ponddrive2/index.md) |

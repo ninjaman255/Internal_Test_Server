@@ -2,7 +2,7 @@
 
 [🏠 Documentation home](../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/input-controller/input-controller.lua`](../../../../../control_impl/src/scripts/input-controller/input-controller.lua)  
+> **Source:** [`scripts/input-controller/input-controller.lua`](../../../input-controller/input-controller.lua)  
 > **Source lines:** 710  
 > **SHA-256:** `13dafddc35fba3aab09a5558e26ff647f96a170954633733228c790a8258c09a`  
 > **Declared/assigned functions:** 47 · **table initializers (simple patterns):** 22 · **event subscriptions detected:** 0

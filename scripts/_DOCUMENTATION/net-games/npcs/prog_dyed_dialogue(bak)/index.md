@@ -1,8 +1,8 @@
-# 📄 `prog_dyed_dialogue(bak).lua`
+# 📄 `prog_dyed_dialogue%28bak%29.lua`
 
 [🏠 Documentation home](../../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/net-games/npcs/prog_dyed_dialogue(bak).lua`](../../../../net-games/npcs/prog_dyed_dialogue%28bak%29.lua)  
+> **Source:** [`scripts/net-games/npcs/prog_dyed_dialogue%28bak%29.lua`](../../../../net-games/npcs/prog_dyed_dialogue%28bak%29.lua)  
 > **Source lines:** 125  
 > **SHA-256 (UTF-8):** `70756ef4f85eff…`  
 > **Declared/assigned functions detected:** 2  

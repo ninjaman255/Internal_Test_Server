@@ -2,7 +2,7 @@
 
 [🏠 Documentation home](../../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/player-control/tests/integration.lua`](../../../../../../control_impl/src/scripts/player-control/tests/integration.lua)  
+> **Source:** [`scripts/player-control/tests/integration.lua`](../../../../player-control/tests/integration.lua)  
 > **Source lines:** 39  
 > **SHA-256:** `fa9e3d7b817bf277096bdce46540c33a94a34b7cbf9207db3dd9fa6fda711eb5`  
 > **Declared/assigned functions:** 5 · **table initializers (simple patterns):** 4 · **event subscriptions detected:** 0

@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 local logger = require('scripts/logger/logger').register('ezcheckpoints')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
@@ -217,7 +217,7 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
 
             if (not should_lock_input) or (not input_already_locked) then
                 if should_lock_input then
-                    safe_net(function(pid) return LegacyCapture.lock(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
+                    safe_net(function(pid) return PlayerControl.acquire_capture(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
                 end
                 safe_net(Net.play_sound_for_player, player_id, unlocking_sound_path)
 
@@ -243,11 +243,11 @@ function ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_i
                         safe_net(Net.remove_bot, bot_id, false)
                     end
                     if should_lock_input and is_player_alive(player_id) then
-                        safe_net(function(pid) return LegacyCapture.unlock(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
+                        safe_net(function(pid) return PlayerControl.release_capture(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
                     end
                 else
                     if should_lock_input and is_player_alive(player_id) then
-                        safe_net(function(pid) return LegacyCapture.unlock(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
+                        safe_net(function(pid) return PlayerControl.release_capture(pid, "ezlibs-scripts/ezcheckpoints") end, player_id)
                     end
                 end
             end

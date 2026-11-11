@@ -1183,3 +1183,7 @@ The shared `InputController` and the engine lock solve different problems:
 - `Net.lock_player_input` controls the player's normal input/movement path and enables the expected `virtual_input`-driven minigame flow in these modules.
 - `claim_input(owner, force?)` arbitrates which server-side consumer may read the shared controller's logical action edges.
 - `release_input(owner)` releases only that consumer's ownership; it does not call `Net.unlock_player_input`.
+
+## Ownership boundary
+
+Only PlayerControl sessions and InputController's low-level tests should claim logical input. Gameplay menus should use `PlayerControl.begin(..., {profile="menu"})`; cutscene/warp/dialogue movement suppression that does not need button focus uses `PlayerControl.acquire_capture(...)`. The raw input controller still maps actions and emits edges, but does not itself manage UI lifetimes. See [PlayerControl capture scopes](../player-control/CAPTURE_SCOPES.md).

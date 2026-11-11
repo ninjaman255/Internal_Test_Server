@@ -3,6 +3,7 @@ local CameraManager = require("scripts/camera/camera-manager")
 local CameraController = require("scripts/camera/camera-controller")
 local PredefinedEnums = require("scripts/enum/predefined-enums")
 local InputAPI = require("scripts/input-controller/main")
+local PlayerControl = require("scripts/player-control/main")
 local CameraMode = PredefinedEnums.CameraMode
 
 local DBG = false
@@ -84,8 +85,13 @@ local setupTileInteraction = function()
 
         -- In other areas, do not let the camera steal input from a different
         -- active owner.
-        if input_owner ~= nil and input_owner ~= player_camera then
-            dbg("tile_interaction: skipping camera activation; input owned by another system")
+        local current_session=PlayerControl.get_active(player_id)
+        local camera_owner=player_camera and player_camera.input_session
+            and player_camera.input_session.state.owner or nil
+        if (current_session and
+            (not player_camera or current_session~=player_camera.input_session))
+            or (input_owner~=nil and input_owner~=camera_owner) then
+            dbg("tile_interaction: camera blocked by managed input owner")
             return
         end
 

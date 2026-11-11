@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-custom/nebulous-liberations/liberations/instance.lua`](../../../../../ezlibs-custom/nebulous-liberations/liberations/instance.lua)  
 > **Source lines:** 2290  
-> **SHA-256 (UTF-8):** `94d3b15d8c399f21505230a1deca6dd11fbccfed9ad229db57886b0e98c68ef4`  
-> **Named/assigned functions detected:** 42  
+> **SHA-256 (UTF-8):** `d9285f157aaa91d5fe4ece2e2d06bfaf509af7594a89c9cf2ff885443e1650ac`  
+> **Named functions detected:** 42  
 > **Table initializers detected:** 56
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-custom/nebulous-liberations/liberations/instance.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 3 | `scripts/logger/logger` |
 | 6 | `scripts/libs/direction` |
 | 7 | `scripts/ezlibs-custom/nebulous-liberations/liberations/player_session` |
@@ -50,11 +45,11 @@ Current source inventory for `scripts/ezlibs-custom/nebulous-liberations/liberat
 
 ## Event hooks
 
-No literal `:on` event registration detected by the simple source pattern.
+No static literal subscriptions detected.
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 28 | `includes` | `table, value` | local |
 | 41 | `normalize_enemy_name` | `value` | local |
@@ -99,7 +94,7 @@ No literal `:on` event registration detected by the simple source pattern.
 | 2253 | `Mission:remove_panel` | `panel` | assigned/declared |
 | 2279 | `Mission:get_enemy_at` | `x, y, z` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `includes(table, value)`
 
@@ -108,8 +103,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `table` | Declared in this function; type not inferred. |
-| 2 | `value` | Declared in this function; type not inferred. |
+| 1 | `table` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `normalize_enemy_name(value)`
 
@@ -118,7 +113,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `value` | Declared in this function; type not inferred. |
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `apply_panel_enemy_config(panel, enemy)`
 
@@ -127,8 +122,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `panel` | Declared in this function; type not inferred. |
-| 2 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `panel` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `apply_dark_hole_minion_health_to_bot(dark_hole, enemy)`
 
@@ -137,8 +132,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `dark_hole` | Declared in this function; type not inferred. |
-| 2 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `dark_hole` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `assign_dark_hole_bot_encounter(dark_hole, enemy)`
 
@@ -147,8 +142,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `dark_hole` | Declared in this function; type not inferred. |
-| 2 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `dark_hole` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `apply_dark_hole_minion_health_override(encounter_data, dark_hole, enemy)`
 
@@ -157,9 +152,9 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `encounter_data` | Declared in this function; type not inferred. |
-| 2 | `dark_hole` | Declared in this function; type not inferred. |
-| 3 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `encounter_data` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `dark_hole` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `copy_music_definition(music)`
 
@@ -168,7 +163,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `music` | Declared in this function; type not inferred. |
+| 1 | `music` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `build_encounter_data(encounter_definition, overrides, persistent_enemy)`
 
@@ -177,9 +172,9 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `encounter_definition` | Declared in this function; type not inferred. |
-| 2 | `overrides` | Declared in this function; type not inferred. |
-| 3 | `persistent_enemy` | Declared in this function; type not inferred. |
+| 1 | `encounter_definition` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `overrides` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `persistent_enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `apply_battle_visuals(data, source, mission, panel, encounter_definition, encounter_source)`
 
@@ -188,12 +183,12 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `data` | Declared in this function; type not inferred. |
-| 2 | `source` | Declared in this function; type not inferred. |
-| 3 | `mission` | Declared in this function; type not inferred. |
-| 4 | `panel` | Declared in this function; type not inferred. |
-| 5 | `encounter_definition` | Declared in this function; type not inferred. |
-| 6 | `encounter_source` | Declared in this function; type not inferred. |
+| 1 | `data` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `source` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `mission` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `panel` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `encounter_definition` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `encounter_source` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `resolve_panel_type(object)`
 
@@ -202,7 +197,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `object` | Declared in this function; type not inferred. |
+| 1 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `is_panel(self, object)`
 
@@ -211,8 +206,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `self` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `is_adjacent(position_a, position_b)`
 
@@ -221,8 +216,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `position_a` | Declared in this function; type not inferred. |
-| 2 | `position_b` | Declared in this function; type not inferred. |
+| 1 | `position_a` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `position_b` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `boot_player(player, isVictory, mapName)`
 
@@ -231,9 +226,9 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player` | Declared in this function; type not inferred. |
-| 2 | `isVictory` | Declared in this function; type not inferred. |
-| 3 | `mapName` | Declared in this function; type not inferred. |
+| 1 | `player` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `isVictory` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `mapName` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `liberate(self)`
 
@@ -242,7 +237,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `self` | Declared in this function; type not inferred. |
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
 
 #### 15. `normalized_reference(value)`
 
@@ -251,7 +246,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `value` | Declared in this function; type not inferred. |
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `boss_group_ids_from_properties(properties)`
 
@@ -260,7 +255,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `properties` | Declared in this function; type not inferred. |
+| 1 | `properties` | Declared directly in the current Lua. Type not inferred. |
 
 #### 17. `object_is_associated_with_boss(properties, boss_group_id)`
 
@@ -269,8 +264,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `properties` | Declared in this function; type not inferred. |
-| 2 | `boss_group_id` | Declared in this function; type not inferred. |
+| 1 | `properties` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `boss_group_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `count_dark_holes_for_boss(self, boss_definition)`
 
@@ -279,8 +274,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `self` | Declared in this function; type not inferred. |
-| 2 | `boss_definition` | Declared in this function; type not inferred. |
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `boss_definition` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `convert_indestructible_panels(self)`
 
@@ -289,7 +284,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `self` | Declared in this function; type not inferred. |
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
 
 #### 20. `add_camera_focus(definition)`
 
@@ -298,7 +293,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `definition` | Declared in this function; type not inferred. |
+| 1 | `definition` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `liberate_panel(self, player_session)`
 
@@ -307,8 +302,8 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `self` | Declared in this function; type not inferred. |
-| 2 | `player_session` | Declared in this function; type not inferred. |
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_session` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `take_enemy_turn(self)`
 
@@ -317,189 +312,189 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `self` | Declared in this function; type not inferred. |
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
 
 #### 23. `Mission:new(base_area_id, new_area_id, players, max_order_points)`
 
 - **Line:** 1196
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `base_area_id` | Declared in this function; type not inferred. |
-| 2 | `new_area_id` | Declared in this function; type not inferred. |
-| 3 | `players` | Declared in this function; type not inferred. |
-| 4 | `max_order_points` | Declared in this function; type not inferred. |
+| 1 | `base_area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `new_area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `players` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `max_order_points` | Declared directly in the current Lua. Type not inferred. |
 
 #### 24. `Mission:spawn_boss(boss_id, force, triggered)`
 
 - **Line:** 1687
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `boss_id` | Declared in this function; type not inferred. |
-| 2 | `force` | Declared in this function; type not inferred. |
-| 3 | `triggered` | Declared in this function; type not inferred. |
+| 1 | `boss_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `force` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `triggered` | Declared directly in the current Lua. Type not inferred. |
 
 #### 25. `Mission:spawn_bosses_for_cleared_dark_holes()`
 
 - **Line:** 1787
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 26. `Mission:handle_boss_defeated(enemy)`
 
 - **Line:** 1797
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `enemy` | Declared in this function; type not inferred. |
+| 1 | `enemy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 27. `Mission:set_order_points(value)`
 
 - **Line:** 1854
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `value` | Declared in this function; type not inferred. |
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 28. `Mission:clean_up()`
 
 - **Line:** 1862
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 29. `Mission:cleaning_up()`
 
 - **Line:** 1889
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 30. `Mission:begin()`
 
 - **Line:** 1893
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 31. `Mission:on_tick(elapsed)`
 
 - **Line:** 1980
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `elapsed` | Declared in this function; type not inferred. |
+| 1 | `elapsed` | Declared directly in the current Lua. Type not inferred. |
 
 #### 32. `Mission:handle_tile_interaction(player_id, x, y, z, button)`
 
 - **Line:** 2016
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `x` | Declared in this function; type not inferred. |
-| 3 | `y` | Declared in this function; type not inferred. |
-| 4 | `z` | Declared in this function; type not inferred. |
-| 5 | `button` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `button` | Declared directly in the current Lua. Type not inferred. |
 
 #### 33. `Mission:handle_object_interaction(player_id, object_id, button)`
 
 - **Line:** 2038
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `button` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `button` | Declared directly in the current Lua. Type not inferred. |
 
 #### 34. `Mission:handle_player_avatar_change(player_id)`
 
 - **Line:** 2146
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 35. `Mission:handle_player_transfer(player_id)`
 
 - **Line:** 2156
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 36. `Mission:handle_player_disconnect(player_id)`
 
 - **Line:** 2194
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 37. `Mission:get_players()`
 
 - **Line:** 2218
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 38. `Mission:get_spawn_position()`
 
 - **Line:** 2222
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 39. `Mission:get_next_spawn_from_object(object_id)`
 
 - **Line:** 2226
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 40. `Mission:get_panel_at(x, y, z)`
 
 - **Line:** 2238
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `x` | Declared in this function; type not inferred. |
-| 2 | `y` | Declared in this function; type not inferred. |
-| 3 | `z` | Declared in this function; type not inferred. |
+| 1 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 41. `Mission:remove_panel(panel)`
 
 - **Line:** 2253
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `panel` | Declared in this function; type not inferred. |
+| 1 | `panel` | Declared directly in the current Lua. Type not inferred. |
 
 #### 42. `Mission:get_enemy_at(x, y, z)`
 
 - **Line:** 2279
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `x` | Declared in this function; type not inferred. |
-| 2 | `y` | Declared in this function; type not inferred. |
-| 3 | `z` | Declared in this function; type not inferred. |
+| 1 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 154 | `data` |
 | 159 | `data.enemies` |
@@ -560,7 +555,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.clone_area` | 1 | 1353 |
 | `Net.create_object` | 1 | 1515 |

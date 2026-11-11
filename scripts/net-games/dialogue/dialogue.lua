@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- scripts/net-games/dialogue/dialogue.lua
 -- Hardened net-games dialogue lifecycle.
 -- Keeps the creator-side Displayer architecture while preserving production
@@ -62,10 +62,10 @@ end
 
 local function set_input_locked(player_id, locked)
     if not Net then return false end
-    if locked and LegacyCapture.lock then
-        return pcall(LegacyCapture.lock, player_id, "net-games:dialogue")
-    elseif (not locked) and LegacyCapture.unlock then
-        return pcall(LegacyCapture.unlock, player_id, "net-games:dialogue")
+    if locked and PlayerControl.acquire_capture then
+        return pcall(PlayerControl.acquire_capture, player_id, "net-games:dialogue")
+    elseif (not locked) and PlayerControl.release_capture then
+        return pcall(PlayerControl.release_capture, player_id, "net-games:dialogue")
     end
     return false
 end

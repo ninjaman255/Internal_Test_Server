@@ -1,98 +1,67 @@
-# 📄 `ui-suppression-examples.lua`
+# 📄 `ui-suppression-examples.lua` — Current Lua reference
 
 [🏠 Documentation home](../../index.md) · [⬆ Folder index](../index.md)
 
 > **Source:** [`scripts/net-games/ui-suppression-examples.lua`](../../../net-games/ui-suppression-examples.lua)  
 > **Source lines:** 36  
-> **SHA-256 (UTF-8):** `b0e7b91a540bdf…`  
-> **Declared/assigned functions detected:** 2  
-> **Anonymous closures detected:** 0  
-> **Table initializers detected:** 1
+> **SHA-256 (UTF-8):** `2ec9b410ab584ba8021a7fcb9d0ec341b3e2d4d9bf9aadfd3d1d1e74c5964dad`  
+> **Named functions detected:** 2  
+> **Table initializers detected:** 0
 
-## 🗂️ Contents
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-- [📌 Overview](#overview)
-- [🔗 Dependencies](#dependencies)
-- [📡 Event subscriptions](#event-subscriptions)
-- [🧩 Functions](#functions)
-- [🪄 Anonymous closures](#anonymous-closures)
-- [📦 Tables and data](#tables-and-data)
-- [⚙️ Runtime API calls](#runtime-api-calls)
-- [🧪 Static-analysis notes](#static-analysis-notes)
+## Contents
+- [Dependencies](#dependencies)
+- [Event hooks](#event-hooks)
+- [Functions and parameters](#functions-and-parameters)
+- [Tables](#tables)
+- [Net API calls](#net-api-calls)
 
-## 📌 Overview
+## Dependencies
 
-Usage examples for scripts/net-games/ui-suppression.lua. This file is documentation only; it is not required by the framework.
+| Line | `require` path |
+|---:|---|
+| 3 | `scripts/player-control/resources/ui-suppression` |
 
-## 🔗 Dependencies
+## Event hooks
 
-| Line | Module string supplied to `require` |
-|---|---|
-| 3 | `scripts/net-games/ui-suppression` |
+No static literal subscriptions detected.
 
-## 📡 Event subscriptions
+## Functions and parameters
 
-*No literal `.on` or `:on` event subscriptions detected.*
+| Line | Function | Arguments | Declaration |
+|---:|---|---|---|
+| 25 | `acquire` | `pid, owner, options` | assigned/declared |
+| 30 | `release` | `pid, token` | assigned/declared |
 
-## 🧩 Functions
-
-| Line | Function or assignment | Parameters (verbatim) | Declaration |
-|---|---|---|---|
-| 25 | `acquire` | `pid, owner, options` | assigned |
-| 30 | `release` | `pid, token` | assigned |
-
-### Function details
+### Parameter inventory
 
 #### 1. `acquire(pid, owner, options)`
 
-- **Location:** source line 25.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 25
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `pid` | Not explicitly documented in adjacent source annotations. |
-| 2 | `owner` | Not explicitly documented in adjacent source annotations. |
-| 3 | `options` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `owner` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `release(pid, token)`
 
-- **Location:** source line 30.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 30
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `pid` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `token` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `pid` | Not explicitly documented in adjacent source annotations. |
-| 2 | `token` | Not explicitly documented in adjacent source annotations. |
 
-## 🪄 Anonymous closures
+## Tables
 
-*No anonymous `function(...)` expressions detected.*
+No simple table assignments matched.
 
-## 📦 Tables and data
+## Net API calls
 
-The following **1** table initializer(s) were statically identified. Entries show **source expressions**, not evaluated values or guaranteed runtime table contents.
-
-### 1. `return` — line 28
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `owner` | expression/reference | `owner` |
-| `options` | expression/reference | `options` |
-
-## ⚙️ Runtime API calls
-
-*No calls matching the listed runtime API prefixes were detected.*
-
-## 🧪 Static-analysis notes
-
-- Generated directly from the uploaded server ZIP; source names, signatures, literal dependencies, and line counts were inspected from this copy.
-- Function parameter names preserve Lua declaration spelling and order; Lua varargs are shown as `...`.
-- Table rows are **initializer expressions**, not guarantees about contents after runtime mutation. Tables built dynamically may not appear.
-- Anonymous functions and local functions assigned through computed keys are not fully enumerable using static pattern analysis.
-- No Net/Async runtime behavior, battle compatibility, error contracts, or inferred type information is asserted without source support.
+No direct Net API calls matched.

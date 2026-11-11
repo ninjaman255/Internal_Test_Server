@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 print("[trains] Starting Indy's Trains")
 
 -- VERSION v1.10
@@ -90,7 +90,7 @@ local function summon_arriving_passenger_train(player_id)
         local trainProps = train.custom_properties
         local direction = trainProps["Direction"]
         --lock input, unlock camera, and fade in camera 
-        LegacyCapture.lock(player_id, "indy-trains/main")
+        PlayerControl.acquire_capture(player_id, "indy-trains/main")
         Net.unlock_player_camera(player_id)
         Net.fade_player_camera(player_id, {r=0, g=0, b=0, a=0}, 2)
 
@@ -251,7 +251,7 @@ local function summon_arriving_passenger_train(player_id)
 
         Net.play_sound_for_player(player_id, "/server/assets/indy-trains/train_away.ogg")
 
-        LegacyCapture.unlock(player_id, "indy-trains/main")
+        PlayerControl.release_capture(player_id, "indy-trains/main")
         Net.remove_bot(lightpath_id,false)
 
         --Animate driver leaving Station
@@ -337,7 +337,7 @@ local function summon_departing_passenger_train(player_id,post_id)
 
     if track_cache[area_id][train_name]['occupied'] ~= true then
 
-        LegacyCapture.lock(player_id, "indy-trains/main")
+        PlayerControl.acquire_capture(player_id, "indy-trains/main")
         if not passenger_cache[player_id] then
             passenger_cache[player_id] = {}
         end
@@ -735,7 +735,7 @@ local function greet_conductor(bot_id,player_id)
         Net.message_player(player_id, "Another train is on the track, please wait for further traffic clearance.", conductorProps["Mug Texture"], conductorProps["Mug Animation"]) 
         return false
     end
-    LegacyCapture.lock(player_id, "indy-trains/main")
+    PlayerControl.acquire_capture(player_id, "indy-trains/main")
     player_using_train_menu[player_id] = true
     local board_color = { r= 120, g= 196, b= 159 }
     local posts = {}
@@ -813,7 +813,7 @@ local function greet_conductor(bot_id,player_id)
         end
     end
     posts[#posts+1] = { id="cancel", read=true, title="Cancel" , author="" }
-    LegacyCapture.unlock(player_id, "indy-trains/main")
+    PlayerControl.release_capture(player_id, "indy-trains/main")
 
     Net.open_board(player_id, "Where to?", board_color, posts)
 

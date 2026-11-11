@@ -636,7 +636,7 @@
   <object id="185" name="hp_manager" type="HP_Manager" gid="73" x="624" y="624" width="64" height="64"/>
   <object id="186" type="Compression Tile" x="896" y="664" width="176" height="160">
    <properties>
-    <property name="Mode" value="Compress"/>
+    <property name="Mode" propertytype="CompressionMode" value="Compress"/>
    </properties>
   </object>
   <object id="191" type="Pushback NPC" x="992" y="752">

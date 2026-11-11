@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua`](../../../../ezlibs-scripts/ezcutscenes/ezcutscenes.lua)  
 > **Source lines:** 350  
-> **SHA-256 (UTF-8):** `d517bf76df11ade7adfffcbebc7b271d321b7502d17234ebff2cddc8a8d54165`  
-> **Named/assigned functions detected:** 12  
+> **SHA-256 (UTF-8):** `7c5821ec12d591479c01dc1001e3dc0d779e99a011897b1e009efaa3b8c04e48`  
+> **Named functions detected:** 12  
 > **Table initializers detected:** 7
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 33 | `scripts/logger/logger` |
 | 34 | `scripts/ezlibs-scripts/object_registry` |
 | 35 | `scripts/ezlibs-scripts/ezcache` |
@@ -43,9 +38,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 | 308 | `emitter` | `entered` |
 | 322 | `Net` | `player_disconnect` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 50 | `get_props` | `object` | local |
 | 54 | `resolve_object_cached` | `area_id, object_id` | local |
@@ -60,7 +55,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 | 331 | `ezcutscenes.handle_player_disconnect` | `player_id` | assigned/declared |
 | 339 | `ezcutscenes.handle_player_transfer` | `player_id` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `get_props(object)`
 
@@ -69,7 +64,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `object` | Declared in this function; type not inferred. |
+| 1 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `resolve_object_cached(area_id, object_id)`
 
@@ -78,8 +73,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `choose_next_step_ref(step_props, step_type_name, result)`
 
@@ -88,9 +83,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `step_props` | Declared in this function; type not inferred. |
-| 2 | `step_type_name` | Declared in this function; type not inferred. |
-| 3 | `result` | Declared in this function; type not inferred. |
+| 1 | `step_props` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `step_type_name` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `result` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `run_step_chain(context, first_step_ref)`
 
@@ -99,8 +94,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `context` | Declared in this function; type not inferred. |
-| 2 | `first_step_ref` | Declared in this function; type not inferred. |
+| 1 | `context` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `first_step_ref` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `run_cutscene(player_id, area_id, cutscene_object, trigger_context)`
 
@@ -109,82 +104,82 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `cutscene_object` | Declared in this function; type not inferred. |
-| 4 | `trigger_context` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `cutscene_object` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `trigger_context` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `resolve_object(id)`
 
 - **Line:** 151
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `id` | Declared in this function; type not inferred. |
+| 1 | `id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `ezcutscenes.start(player_id, area_id, cutscene_ref, trigger_context)`
 
 - **Line:** 206
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `cutscene_ref` | Declared in this function; type not inferred. |
-| 4 | `trigger_context` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `cutscene_ref` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `trigger_context` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `ezcutscenes.cancel(player_id)`
 
 - **Line:** 241
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `ezcutscenes.is_active(player_id)`
 
 - **Line:** 246
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `ezcutscenes.get_cutscene(area_id, name)`
 
 - **Line:** 250
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `name` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `name` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `ezcutscenes.handle_player_disconnect(player_id)`
 
 - **Line:** 331
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `ezcutscenes.handle_player_transfer(player_id)`
 
 - **Line:** 339
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 42 | `ezcutscenes` |
 | 44 | `registered_cutscenes` |
@@ -196,7 +191,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezcutscenes/ezcutscenes.lua
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.is_player` | 2 | 207 |
 | `Net.on` | 1 | 322 |

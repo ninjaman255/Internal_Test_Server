@@ -2,7 +2,7 @@
 
 [🏠 Documentation home](../../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/jukebox/constants/ui-data.lua`](../../../../../../control_impl/src/scripts/jukebox/constants/ui-data.lua)  
+> **Source:** [`scripts/jukebox/constants/ui-data.lua`](../../../../jukebox/constants/ui-data.lua)  
 > **Source lines:** 158  
 > **SHA-256:** `e3409a233ac55ae598d1f296e7cde063102a81841b52d746ae0d735d0ad88fc1`  
 > **Declared/assigned functions:** 0 · **table initializers (simple patterns):** 12 · **event subscriptions detected:** 0

@@ -10,7 +10,7 @@
 * Added exclusive camera leases, parent/child camera handoffs, stale camera-call rejection and retryable engine restoration.
 * Moved free-camera controller to PlayerControl sessions with protected activation/rollback and duration-estimated pending slides.
 * Migrated FootBomb to one managed minigame session per participant, handling capture, HUD, logical focus and camera together.
-* Replaced gameplay direct engine input/HUD calls in other modules with feature-owned compatibility leases. Those modules retain their existing interaction logic and input patterns, including asynchronous phases.
+* Migrated remaining gameplay imperative capture calls into the canonical PlayerControl named-resource API; removed the standalone adapter. Those modules retain their existing interaction logic and input patterns, including asynchronous phases.
 * Added a failure-injection regression suite and refreshed developer documentation.
 
 ## Live testing still necessary
@@ -20,3 +20,7 @@ The automated tests use mocked `Net` calls. Please verify HP Manager settings an
 ## Installation
 
 Extract the drop-in ZIP into your server root, preserving each `scripts/...` path. It contains **complete files**, not diffs. Back up existing files first. Restart the server to replace loaded Lua modules. The ZIP's root `MODIFIED_FILES_MANIFEST.md` names every added/modified file.
+
+## Subsequent migration
+
+See [MIGRATION_AUDIT.md](MIGRATION_AUDIT.md) for the latest full-source audit. MenuAPI and Liberation option menus now use managed PlayerControl sessions. UI suppression lives in `player-control/resources/`, with the old import path forwarded for third-party compatibility.

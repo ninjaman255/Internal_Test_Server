@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/ezbuttons.lua`](../../../ezlibs-scripts/ezbuttons.lua)  
 > **Source lines:** 1980  
-> **SHA-256 (UTF-8):** `cc4c417b9f1e104d3e1b59304203568c429f5391feff2ef21e723052664d2374`  
-> **Named/assigned functions detected:** 62  
+> **SHA-256 (UTF-8):** `ef606ebacc70e1039b9a8647b36c11ac1287ab9fad6e213c54044e0d6f7c4756`  
+> **Named functions detected:** 62  
 > **Table initializers detected:** 28
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 35 | `scripts/logger/logger` |
 | 36 | `scripts/ezlibs-scripts/object_registry` |
 | 37 | `scripts/ezlibs-scripts/eznpcs/eznpcs` |
@@ -49,9 +44,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 | 1387 | `bot_emitter` | `entered` |
 | 1388 | `bot_emitter` | `departed` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 60 | `async` | `p` | assigned/declared |
 | 65 | `await` | `v` | assigned/declared |
@@ -116,25 +111,25 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 | 1877 | `callback` | `changed_area_id, changed_group_id, satisfied, player_id, was_bot` | assigned/declared |
 | 1928 | `try_configure_pending_combo_groups` | `area_id` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `async(p)`
 
 - **Line:** 60
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `p` | Declared in this function; type not inferred. |
+| 1 | `p` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `await(v)`
 
 - **Line:** 65
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `v` | Declared in this function; type not inferred. |
+| 1 | `v` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `player_is_alive(player_id)`
 
@@ -143,7 +138,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `validate_button_object(area_id, object)`
 
@@ -152,8 +147,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `object_to_tile_pos(object)`
 
@@ -162,7 +157,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `object` | Declared in this function; type not inferred. |
+| 1 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `normalize_ids(ids)`
 
@@ -171,7 +166,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `ids` | Declared in this function; type not inferred. |
+| 1 | `ids` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `find_live_contributor(area_id, group)`
 
@@ -180,8 +175,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `first_live_from(ids)`
 
@@ -190,7 +185,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `ids` | Declared in this function; type not inferred. |
+| 1 | `ids` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `resolve_transition_player(area_id, group, event_player_id)`
 
@@ -199,9 +194,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group` | Declared in this function; type not inferred. |
-| 3 | `event_player_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `event_player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `combo_is_satisfied(area_id, combo)`
 
@@ -210,8 +205,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `combo` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `combo` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `group_is_satisfied(area_id, group)`
 
@@ -220,8 +215,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `apply_logic_action(area_id, target_id, action, player_id, was_bot)`
 
@@ -230,11 +225,11 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `target_id` | Declared in this function; type not inferred. |
-| 3 | `action` | Declared in this function; type not inferred. |
-| 4 | `player_id` | Declared in this function; type not inferred. |
-| 5 | `was_bot` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `target_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `action` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `was_bot` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `process_logic_event(event)`
 
@@ -243,7 +238,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `event` | Declared in this function; type not inferred. |
+| 1 | `event` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `enqueue_logic_event(area_id, object_id, active, player_id, was_bot)`
 
@@ -252,11 +247,11 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `active` | Declared in this function; type not inferred. |
-| 4 | `player_id` | Declared in this function; type not inferred. |
-| 5 | `was_bot` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `active` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `was_bot` | Declared directly in the current Lua. Type not inferred. |
 
 #### 15. `hide_button_placeholder_for_player(player_id, area_id, object_id)`
 
@@ -265,9 +260,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `hide_button_placeholders_for_player(player_id)`
 
@@ -276,7 +271,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 17. `set_button_animation(bot_id, anim_state, loop)`
 
@@ -285,9 +280,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
-| 2 | `anim_state` | Declared in this function; type not inferred. |
-| 3 | `loop` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `anim_state` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `loop` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `sync_button_animations_for_player(player_id)`
 
@@ -296,7 +291,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `apply_area_wide_unlocks(player_id, area_id)`
 
@@ -305,8 +300,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 20. `cleanup_player_state(player_id)`
 
@@ -315,40 +310,40 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `ezbuttons.handle_player_disconnect(player_id)`
 
 - **Line:** 493
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `is_button_active(area_id, object_id)`
 
 - **Line:** 548
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 23. `set_button_active_state(area_id, object_id, bot_id, active_anim, inactive_anim, active)`
 
 - **Line:** 554
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `bot_id` | Declared in this function; type not inferred. |
-| 4 | `active_anim` | Declared in this function; type not inferred. |
-| 5 | `inactive_anim` | Declared in this function; type not inferred. |
-| 6 | `active` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `active_anim` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `inactive_anim` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `active` | Declared directly in the current Lua. Type not inferred. |
 
 #### 24. `create_button_trigger(area_id, object, width_px, height_px, trigger_id)`
 
@@ -357,41 +352,41 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
-| 3 | `width_px` | Declared in this function; type not inferred. |
-| 4 | `height_px` | Declared in this function; type not inferred. |
-| 5 | `trigger_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `width_px` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `height_px` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `trigger_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 25. `ezbuttons.camera_release(player_id)`
 
 - **Line:** 588
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 26. `ezbuttons.camera_move(player_id, x, y, z)`
 
 - **Line:** 592
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `x` | Declared in this function; type not inferred. |
-| 3 | `y` | Declared in this function; type not inferred. |
-| 4 | `z` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 27. `ezbuttons.camera_reattach(player_id)`
 
 - **Line:** 596
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 28. `smooth_camera_pan(player_id, from_pos, to_pos, duration)`
 
@@ -400,33 +395,33 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `from_pos` | Declared in this function; type not inferred. |
-| 3 | `to_pos` | Declared in this function; type not inferred. |
-| 4 | `duration` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `from_pos` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `to_pos` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
 
 #### 29. `perform_activation(area_id, object_id, player_id, info)`
 
 - **Line:** 721
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `player_id` | Declared in this function; type not inferred. |
-| 4 | `info` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `info` | Declared directly in the current Lua. Type not inferred. |
 
 #### 30. `perform_deactivation(area_id, object_id, info)`
 
 - **Line:** 811
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `info` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `info` | Declared directly in the current Lua. Type not inferred. |
 
 #### 31. `reconcile_pending_button_state(area_id, object_id, info)`
 
@@ -435,20 +430,20 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `info` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `info` | Declared directly in the current Lua. Type not inferred. |
 
 #### 32. `deactivate_button_internal(area_id, object_id, info)`
 
 - **Line:** 896
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `info` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `info` | Declared directly in the current Lua. Type not inferred. |
 
 #### 33. `finish_deactivation()`
 
@@ -463,31 +458,31 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `info` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `info` | Declared directly in the current Lua. Type not inferred. |
 
 #### 35. `activate_button(area_id, object_id, player_id, was_bot)`
 
 - **Line:** 967
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `player_id` | Declared in this function; type not inferred. |
-| 4 | `was_bot` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `was_bot` | Declared directly in the current Lua. Type not inferred. |
 
 #### 36. `deactivate_button(area_id, object_id)`
 
 - **Line:** 1006
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 37. `load_custom_script(script_path)`
 
@@ -496,7 +491,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `script_path` | Declared in this function; type not inferred. |
+| 1 | `script_path` | Declared directly in the current Lua. Type not inferred. |
 
 #### 38. `register_button_object(area_id, object, group_member)`
 
@@ -505,9 +500,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
-| 3 | `group_member` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `group_member` | Declared directly in the current Lua. Type not inferred. |
 
 #### 39. `resolve_actor_id(event, actor_type)`
 
@@ -516,8 +511,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `event` | Declared in this function; type not inferred. |
-| 2 | `actor_type` | Declared in this function; type not inferred. |
+| 1 | `event` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_type` | Declared directly in the current Lua. Type not inferred. |
 
 #### 40. `mark_actor_present(actor_id, actor_type)`
 
@@ -526,8 +521,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `actor_id` | Declared in this function; type not inferred. |
-| 2 | `actor_type` | Declared in this function; type not inferred. |
+| 1 | `actor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_type` | Declared directly in the current Lua. Type not inferred. |
 
 #### 41. `clear_actor_present(actor_id, actor_type)`
 
@@ -536,8 +531,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `actor_id` | Declared in this function; type not inferred. |
-| 2 | `actor_type` | Declared in this function; type not inferred. |
+| 1 | `actor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_type` | Declared directly in the current Lua. Type not inferred. |
 
 #### 42. `on_button_entered(event, actor_type)`
 
@@ -546,8 +541,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `event` | Declared in this function; type not inferred. |
-| 2 | `actor_type` | Declared in this function; type not inferred. |
+| 1 | `event` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_type` | Declared directly in the current Lua. Type not inferred. |
 
 #### 43. `on_button_departed(event, actor_type)`
 
@@ -556,120 +551,120 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `event` | Declared in this function; type not inferred. |
-| 2 | `actor_type` | Declared in this function; type not inferred. |
+| 1 | `event` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_type` | Declared directly in the current Lua. Type not inferred. |
 
 #### 44. `ezbuttons.is_button_active(area_id, object_id)`
 
 - **Line:** 1418
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 45. `ezbuttons.activate_button(area_id, object_id, player_id, was_bot)`
 
 - **Line:** 1422
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `player_id` | Declared in this function; type not inferred. |
-| 4 | `was_bot` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `was_bot` | Declared directly in the current Lua. Type not inferred. |
 
 #### 46. `ezbuttons.deactivate_button(area_id, object_id)`
 
 - **Line:** 1426
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 47. `ezbuttons.reset_button(area_id, object_id)`
 
 - **Line:** 1430
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 48. `ezbuttons.define_group(area_id, group_id, button_ids, mode, options)`
 
 - **Line:** 1442
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group_id` | Declared in this function; type not inferred. |
-| 3 | `button_ids` | Declared in this function; type not inferred. |
-| 4 | `mode` | Declared in this function; type not inferred. |
-| 5 | `options` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `button_ids` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `mode` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 49. `ezbuttons.on_group_change(area_id, group_id, callback)`
 
 - **Line:** 1469
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group_id` | Declared in this function; type not inferred. |
-| 3 | `callback` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `callback` | Declared directly in the current Lua. Type not inferred. |
 
 #### 50. `ezbuttons.add_button_effect(area_id, source_id, event_name, target_id, action)`
 
 - **Line:** 1477
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `source_id` | Declared in this function; type not inferred. |
-| 3 | `event_name` | Declared in this function; type not inferred. |
-| 4 | `target_id` | Declared in this function; type not inferred. |
-| 5 | `action` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `source_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `event_name` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `target_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `action` | Declared directly in the current Lua. Type not inferred. |
 
 #### 51. `ezbuttons.add_group_effect(area_id, group_id, event_name, target_id, action)`
 
 - **Line:** 1489
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group_id` | Declared in this function; type not inferred. |
-| 3 | `event_name` | Declared in this function; type not inferred. |
-| 4 | `target_id` | Declared in this function; type not inferred. |
-| 5 | `action` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `event_name` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `target_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `action` | Declared directly in the current Lua. Type not inferred. |
 
 #### 52. `ezbuttons.refresh_groups(area_id, player_id)`
 
 - **Line:** 1501
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 53. `ezbuttons.get_group_state(area_id, group_id)`
 
 - **Line:** 1511
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `group_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 54. `property_ids(props, prefix)`
 
@@ -678,8 +673,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `props` | Declared in this function; type not inferred. |
-| 2 | `prefix` | Declared in this function; type not inferred. |
+| 1 | `props` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `prefix` | Declared directly in the current Lua. Type not inferred. |
 
 #### 55. `configure_group_object(area_id, object)`
 
@@ -688,30 +683,30 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 56. `on_change(changed_area_id, changed_group_id, satisfied, player_id, was_bot)`
 
 - **Line:** 1715
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `changed_area_id` | Declared in this function; type not inferred. |
-| 2 | `changed_group_id` | Declared in this function; type not inferred. |
-| 3 | `satisfied` | Declared in this function; type not inferred. |
-| 4 | `player_id` | Declared in this function; type not inferred. |
-| 5 | `was_bot` | Declared in this function; type not inferred. |
+| 1 | `changed_area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `changed_group_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `satisfied` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `was_bot` | Declared directly in the current Lua. Type not inferred. |
 
 #### 57. `try_configure_pending_groups(area_id)`
 
 - **Line:** 1758
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 58. `configure_button_combo_object(area_id, object)`
 
@@ -720,17 +715,17 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 59. `try_configure_pending_combos(area_id)`
 
 - **Line:** 1818
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 60. `configure_combo_button_group_object(area_id, object)`
 
@@ -739,35 +734,35 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 61. `callback(changed_area_id, changed_group_id, satisfied, player_id, was_bot)`
 
 - **Line:** 1877
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `changed_area_id` | Declared in this function; type not inferred. |
-| 2 | `changed_group_id` | Declared in this function; type not inferred. |
-| 3 | `satisfied` | Declared in this function; type not inferred. |
-| 4 | `player_id` | Declared in this function; type not inferred. |
-| 5 | `was_bot` | Declared in this function; type not inferred. |
+| 1 | `changed_area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `changed_group_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `satisfied` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `was_bot` | Declared directly in the current Lua. Type not inferred. |
 
 #### 62. `try_configure_pending_combo_groups(area_id)`
 
 - **Line:** 1928
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 68 | `ezbuttons` |
 | 73 | `custom_script_cache` |
@@ -800,7 +795,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezbuttons.lua` in the share
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.create_bot` | 1 | 539 |
 | `Net.get_object_by_id` | 5 | 635 |

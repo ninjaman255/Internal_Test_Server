@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-custom/nebulous-liberations/liberations/player_session.lua`](../../../../../ezlibs-custom/nebulous-liberations/liberations/player_session.lua)  
 > **Source lines:** 590  
-> **SHA-256 (UTF-8):** `38470fa90524c2718f97759a51ad84b179daa931ebc08dc2e7d8322e79fb3562`  
-> **Named/assigned functions detected:** 24  
+> **SHA-256 (UTF-8):** `2e92f11bb261604933df7d4099990c7bede62413cc178df5219ddae8f406a429`  
+> **Named functions detected:** 24  
 > **Table initializers detected:** 7
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-custom/nebulous-liberations/liberations/player_session.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 3 | `scripts/logger/logger` |
 | 6 | `scripts/ezlibs-custom/nebulous-liberations/liberations/ability` |
 | 7 | `scripts/ezlibs-custom/nebulous-liberations/liberations/player_selection` |
@@ -41,11 +36,11 @@ Current source inventory for `scripts/ezlibs-custom/nebulous-liberations/liberat
 
 ## Event hooks
 
-No literal `:on` event registration detected by the simple source pattern.
+No static literal subscriptions detected.
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 32 | `is_enabled` | `value` | local |
 | 36 | `normalize_identifier` | `value` | local |
@@ -72,7 +67,7 @@ No literal `:on` event registration detected by the simple source pattern.
 | 564 | `PlayerSession:liberate_and_loot_panels` | `panels, results, remove_traps, destroy_items` | assigned/declared |
 | 572 | `PlayerSession:handle_disconnect` | `(none)` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `is_enabled(value)`
 
@@ -81,7 +76,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `value` | Declared in this function; type not inferred. |
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `normalize_identifier(value)`
 
@@ -90,7 +85,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `value` | Declared in this function; type not inferred. |
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `stats_indicate_panic(results)`
 
@@ -99,54 +94,54 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `results` | Declared in this function; type not inferred. |
+| 1 | `results` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `PlayerSession:new(instance, player)`
 
 - **Line:** 53
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `instance` | Declared in this function; type not inferred. |
-| 2 | `player` | Declared in this function; type not inferred. |
+| 1 | `instance` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `PlayerSession:emote_state()`
 
 - **Line:** 75
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 6. `PlayerSession:get_ability_permission()`
 
 - **Line:** 87
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 7. `PlayerSession:get_pass_turn_permission()`
 
 - **Line:** 121
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 8. `PlayerSession:initiate_encounter(encounter_path, data)`
 
 - **Line:** 136
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `encounter_path` | Declared in this function; type not inferred. |
-| 2 | `data` | Declared in this function; type not inferred. |
+| 1 | `encounter_path` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `data` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `PlayerSession:heal(amount)`
 
 - **Line:** 204
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `amount` | Declared in this function; type not inferred. |
+| 1 | `amount` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `is_guardable_attacker(attacker)`
 
@@ -155,7 +150,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `attacker` | Declared in this function; type not inferred. |
+| 1 | `attacker` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `guard_is_covering_target(instance, target_session)`
 
@@ -164,117 +159,117 @@ No literal `:on` event registration detected by the simple source pattern.
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `instance` | Declared in this function; type not inferred. |
-| 2 | `target_session` | Declared in this function; type not inferred. |
+| 1 | `instance` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `target_session` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `PlayerSession:hurt(amount, attacker)`
 
 - **Line:** 255
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `amount` | Declared in this function; type not inferred. |
-| 2 | `attacker` | Declared in this function; type not inferred. |
+| 1 | `amount` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `attacker` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `PlayerSession:paralyze()`
 
 - **Line:** 299
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 14. `PlayerSession:pass_turn()`
 
 - **Line:** 311
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 15. `PlayerSession:complete_turn()`
 
 - **Line:** 325
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 16. `PlayerSession:give_turn()`
 
 - **Line:** 346
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 17. `PlayerSession:find_matching_gates()`
 
 - **Line:** 380
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 18. `PlayerSession:find_gate_points(id)`
 
 - **Line:** 401
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `id` | Declared in this function; type not inferred. |
+| 1 | `id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `PlayerSession:find_closest_guardian()`
 
 - **Line:** 415
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 20. `PlayerSession:liberate_panels(panels, results)`
 
 - **Line:** 430
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `panels` | Declared in this function; type not inferred. |
-| 2 | `results` | Declared in this function; type not inferred. |
+| 1 | `panels` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `results` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `PlayerSession:get_cash(panel, destroy_items)`
 
 - **Line:** 460
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `panel` | Declared in this function; type not inferred. |
-| 2 | `destroy_items` | Declared in this function; type not inferred. |
+| 1 | `panel` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `destroy_items` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `PlayerSession:loot_panels(panels, remove_traps, destroy_items)`
 
 - **Line:** 487
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `panels` | Declared in this function; type not inferred. |
-| 2 | `remove_traps` | Declared in this function; type not inferred. |
-| 3 | `destroy_items` | Declared in this function; type not inferred. |
+| 1 | `panels` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `remove_traps` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `destroy_items` | Declared directly in the current Lua. Type not inferred. |
 
 #### 23. `PlayerSession:liberate_and_loot_panels(panels, results, remove_traps, destroy_items)`
 
 - **Line:** 564
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `panels` | Declared in this function; type not inferred. |
-| 2 | `results` | Declared in this function; type not inferred. |
-| 3 | `remove_traps` | Declared in this function; type not inferred. |
-| 4 | `destroy_items` | Declared in this function; type not inferred. |
+| 1 | `panels` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `results` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `remove_traps` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `destroy_items` | Declared directly in the current Lua. Type not inferred. |
 
 #### 24. `PlayerSession:handle_disconnect()`
 
 - **Line:** 572
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 18 | `BattleReason` |
 | 51 | `PlayerSession` |
@@ -286,7 +281,7 @@ No literal `:on` event registration detected by the simple source pattern.
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.get_player_money` | 2 | 464 |
 | `Net.play_sound_for_player` | 1 | 279 |

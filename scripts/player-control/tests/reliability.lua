@@ -34,7 +34,7 @@ function Net.slide_player_camera(pid,x,y,z,duration) return true end
 
 local InputAPI=require('scripts/input-controller/main')
 local Control=require('scripts/player-control/main')
-local Legacy=require('scripts/player-control/legacy-capture')
+local ControlResources=require('scripts/player-control/main')
 local CameraFocus=require('scripts/player-control/camera-focus')
 local CameraController=require('scripts/camera/camera-controller')
 local mode=require('scripts/enum/predefined-enums').CameraMode.PlayerControlled
@@ -85,13 +85,13 @@ assert(continued>0,'a throwing listener interrupted input dispatch')
 
 -- Shared compatibility capture: repeated locks from one owner are idempotent.
 local before=count('lock')
-Legacy.lock('r3','feature:a')
-Legacy.lock('r3','feature:a')
-Legacy.lock('r3','feature:b')
+ControlResources.acquire_capture('r3','feature:a')
+ControlResources.acquire_capture('r3','feature:a')
+ControlResources.acquire_capture('r3','feature:b')
 eq(count('lock'),before+1,'shared engine lock')
-Legacy.unlock('r3','feature:a')
-assert(Legacy.has('r3','feature:b'),'unrelated capture was released')
-Legacy.unlock('r3','feature:b')
+ControlResources.release_capture('r3','feature:a')
+assert(ControlResources.has_capture('r3','feature:b'),'unrelated capture was released')
+ControlResources.release_capture('r3','feature:b')
 
 -- Explicit camera leases cannot be overwritten by another root.
 local player=join('r4')

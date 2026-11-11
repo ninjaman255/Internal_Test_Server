@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- ezbuttons.lua
 -- Creates trigger-based buttons (non-solid NPCs).
 -- Logical relationships are defined with groups and button/group effects.
@@ -660,7 +660,7 @@ run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
                            y = tonumber(cp_obj.y) or 0,
                            z = cam_z }
 
-        pcall(LegacyCapture.lock, player_id, "ezlibs-scripts/ezbuttons")
+        pcall(PlayerControl.acquire_capture, player_id, "ezlibs-scripts/ezbuttons")
         ezbuttons.camera_release(player_id)
 
         await(smooth_camera_pan(player_id, from_pos, to_pos, 0.4))
@@ -671,7 +671,7 @@ run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
                 .. tostring(button_object_id) .. " deactivated mid-sequence")
             if player_is_alive(player_id) then
                 ezbuttons.camera_reattach(player_id)
-                pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezbuttons")
+                pcall(PlayerControl.release_capture, player_id, "ezlibs-scripts/ezbuttons")
             end
             return
         end
@@ -699,7 +699,7 @@ run_cinematic_unlock = function(player_id, button_area_id, button_object_id,
 
         if player_is_alive(player_id) then
             ezbuttons.camera_reattach(player_id)
-            pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezbuttons")
+            pcall(PlayerControl.release_capture, player_id, "ezlibs-scripts/ezbuttons")
         end
     end)
 end

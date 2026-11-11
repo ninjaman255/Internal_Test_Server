@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/eznpcs/ezpushback.lua`](../../../../ezlibs-scripts/eznpcs/ezpushback.lua)  
 > **Source lines:** 857  
-> **SHA-256 (UTF-8):** `be9d5d4ba4b6231edd437a50f11a2b1f4aebe7ea82ff2158ede0a25b11cb1b69`  
-> **Named/assigned functions detected:** 32  
+> **SHA-256 (UTF-8):** `5f8a8526f515cb0642155759d8e667d13f95a4084a04c879d6b95d9828e52bdc`  
+> **Named functions detected:** 32  
 > **Table initializers detected:** 15
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 30 | `scripts/logger/logger` |
 | 31 | `scripts/ezlibs-scripts/eztriggers/eztriggers` |
 | 32 | `scripts/ezlibs-scripts/ezbus` |
@@ -44,9 +39,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 | 724 | `ezbus` | `npc_spawned_from_spawner` |
 | 758 | `ezbus` | `bot_removed` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 65 | `number_property` | `props, name, default, min_value` | local |
 | 71 | `safe_call` | `fn, ...` | local |
@@ -81,7 +76,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 | 835 | `ezpushback.handle_player_transfer` | `player_id` | assigned/declared |
 | 842 | `ezpushback.handle_player_disconnect` | `player_id` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `number_property(props, name, default, min_value)`
 
@@ -90,10 +85,10 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `props` | Declared in this function; type not inferred. |
-| 2 | `name` | Declared in this function; type not inferred. |
-| 3 | `default` | Declared in this function; type not inferred. |
-| 4 | `min_value` | Declared in this function; type not inferred. |
+| 1 | `props` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `default` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `min_value` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `safe_call(fn, ...)`
 
@@ -102,8 +97,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `fn` | Declared in this function; type not inferred. |
-| 2 | `...` | Declared in this function; type not inferred. |
+| 1 | `fn` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `...` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `get_area_players(area_id)`
 
@@ -112,7 +107,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `provide_avatar_to_area(area_id, avatar)`
 
@@ -121,8 +116,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `avatar` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `avatar` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `remove_bot(bot_id)`
 
@@ -131,7 +126,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `event_for(entry, player_id, extra)`
 
@@ -140,9 +135,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `entry` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `extra` | Declared in this function; type not inferred. |
+| 1 | `entry` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `extra` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `emit_entry(entry, name, event)`
 
@@ -151,9 +146,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `entry` | Declared in this function; type not inferred. |
-| 2 | `name` | Declared in this function; type not inferred. |
-| 3 | `event` | Declared in this function; type not inferred. |
+| 1 | `entry` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `event` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `get_ezpress()`
 
@@ -168,9 +163,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `sx` | Declared in this function; type not inferred. |
-| 3 | `sy` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `sx` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `sy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `read_area_size_mode_state(area_id)`
 
@@ -179,7 +174,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `resolve_target_scale_state(area_id, pos)`
 
@@ -188,8 +183,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `pos` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `pos` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `restore_player_scale(player_id, area_id)`
 
@@ -198,8 +193,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `map_vector_to_screen(dx, dy)`
 
@@ -208,8 +203,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `dx` | Declared in this function; type not inferred. |
-| 2 | `dy` | Declared in this function; type not inferred. |
+| 1 | `dx` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `dy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `screen_vector_to_map(sx, sy)`
 
@@ -218,8 +213,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `sx` | Declared in this function; type not inferred. |
-| 2 | `sy` | Declared in this function; type not inferred. |
+| 1 | `sx` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `sy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 15. `atan2(y, x)`
 
@@ -228,8 +223,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `y` | Declared in this function; type not inferred. |
-| 2 | `x` | Declared in this function; type not inferred. |
+| 1 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `snap_to_canonical_map(dx, dy)`
 
@@ -238,8 +233,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `dx` | Declared in this function; type not inferred. |
-| 2 | `dy` | Declared in this function; type not inferred. |
+| 1 | `dx` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `dy` | Declared directly in the current Lua. Type not inferred. |
 
 #### 17. `direction_vector(direction)`
 
@@ -248,7 +243,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `direction` | Declared in this function; type not inferred. |
+| 1 | `direction` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `get_push_vector(entry, player_pos, npc_pos, player_direction)`
 
@@ -257,10 +252,10 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `entry` | Declared in this function; type not inferred. |
-| 2 | `player_pos` | Declared in this function; type not inferred. |
-| 3 | `npc_pos` | Declared in this function; type not inferred. |
-| 4 | `player_direction` | Declared in this function; type not inferred. |
+| 1 | `entry` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_pos` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `npc_pos` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `player_direction` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `calculate_target(entry, player_pos, npc_pos, player_direction)`
 
@@ -269,10 +264,10 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `entry` | Declared in this function; type not inferred. |
-| 2 | `player_pos` | Declared in this function; type not inferred. |
-| 3 | `npc_pos` | Declared in this function; type not inferred. |
-| 4 | `player_direction` | Declared in this function; type not inferred. |
+| 1 | `entry` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_pos` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `npc_pos` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `player_direction` | Declared directly in the current Lua. Type not inferred. |
 
 #### 20. `cleanup_push(player_id, state, reason, restore_player)`
 
@@ -281,10 +276,10 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `state` | Declared in this function; type not inferred. |
-| 3 | `reason` | Declared in this function; type not inferred. |
-| 4 | `restore_player` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `state` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `reason` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `restore_player` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `perform_pushback(entry, player_id)`
 
@@ -293,8 +288,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `entry` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `entry` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `update_entry_geometry(entry)`
 
@@ -303,23 +298,23 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `entry` | Declared in this function; type not inferred. |
+| 1 | `entry` | Declared directly in the current Lua. Type not inferred. |
 
 #### 23. `ezpushback.attach_behavior(area_id, object_id, props, bot_id, x, y, z, name)`
 
 - **Line:** 662
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `props` | Declared in this function; type not inferred. |
-| 4 | `bot_id` | Declared in this function; type not inferred. |
-| 5 | `x` | Declared in this function; type not inferred. |
-| 6 | `y` | Declared in this function; type not inferred. |
-| 7 | `z` | Declared in this function; type not inferred. |
-| 8 | `name` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `props` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `name` | Declared directly in the current Lua. Type not inferred. |
 
 #### 24. `register_pushback_npc(area_id, object)`
 
@@ -328,91 +323,91 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 25. `ezpushback.get_emitter(area_id, object_id)`
 
 - **Line:** 776
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 26. `ezpushback.get_emitter_for_bot(bot_id)`
 
 - **Line:** 783
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 27. `ezpushback.set_collision_enabled(area_id, object_id, enabled)`
 
 - **Line:** 793
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `enabled` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `enabled` | Declared directly in the current Lua. Type not inferred. |
 
 #### 28. `ezpushback.handle_player_move(player_id, x, y, z)`
 
 - **Line:** 801
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `x` | Declared in this function; type not inferred. |
-| 3 | `y` | Declared in this function; type not inferred. |
-| 4 | `z` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 29. `ezpushback.on_tick(delta_time)`
 
 - **Line:** 806
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `delta_time` | Declared in this function; type not inferred. |
+| 1 | `delta_time` | Declared directly in the current Lua. Type not inferred. |
 
 #### 30. `ezpushback.handle_player_join(player_id)`
 
 - **Line:** 828
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 31. `ezpushback.handle_player_transfer(player_id)`
 
 - **Line:** 835
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 32. `ezpushback.handle_player_disconnect(player_id)`
 
 - **Line:** 842
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 38 | `ezpushback` |
 | 39 | `entries` |
@@ -432,7 +427,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/ezpushback.lua` in t
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.get_bot_position` | 1 | 436 |
 | `Net.get_player_area` | 2 | 426 |

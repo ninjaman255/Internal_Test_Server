@@ -2,7 +2,7 @@
 
 [🏠 Documentation home](../../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/jukebox/constants/paths.lua`](../../../../../../control_impl/src/scripts/jukebox/constants/paths.lua)  
+> **Source:** [`scripts/jukebox/constants/paths.lua`](../../../../jukebox/constants/paths.lua)  
 > **Source lines:** 16  
 > **SHA-256:** `b60be1fbe4f77c241fc9298f0ea6bf3ce5aea7711a4a5ecc9ccda1746d5085af`  
 > **Declared/assigned functions:** 0 · **table initializers (simple patterns):** 3 · **event subscriptions detected:** 0

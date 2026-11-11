@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 local logger = require('scripts/logger/logger').register('ezwarps')
 local json = require('scripts/ezlibs-scripts/json')
 local create_arrow_animation = require('scripts/ezlibs-scripts/ezwarps/arrow_animation_factory')
@@ -121,7 +121,7 @@ function doAnimationForWarp(player_id,animation_name,is_leave_animation,warp_obj
         if warp_object and property_is_true(warp_object.custom_properties["Dont Teleport"]) then
             players_in_animations[player_id] = nil
         end
-        LegacyCapture.lock(player_id, "ezwarps")
+        PlayerControl.acquire_capture(player_id, "ezwarps")
         local animation_properties = special_animations[animation_name]
         local animation_duration = 0
         if animation_properties then
@@ -129,7 +129,7 @@ function doAnimationForWarp(player_id,animation_name,is_leave_animation,warp_obj
             log('animation complete '..animation_name)
             player_animations[player_id] = nil
         end
-        LegacyCapture.unlock(player_id, "ezwarps")
+        PlayerControl.release_capture(player_id, "ezwarps")
     end)
 end
 
@@ -331,7 +331,7 @@ function use_warp(player_id,warp_object,warp_meta)
                 local target_object = ezcache.get_object_by_id_cached(target_area, target_id_str)
                 if not target_object then
                     log('ERROR: target object not found! ID: ' .. target_id_str .. ' in area: ' .. target_area)
-                    LegacyCapture.unlock(player_id, "ezwarps")
+                    PlayerControl.release_capture(player_id, "ezwarps")
                     return
                 end
                 if target_object.custom_properties["Direction"] then

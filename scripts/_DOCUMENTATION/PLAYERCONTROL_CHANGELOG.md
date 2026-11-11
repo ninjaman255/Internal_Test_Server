@@ -31,3 +31,7 @@ The previous generated docs and modules may describe old versions. Use this chan
 The centralized library originated from a broader older project snapshot. Comparing old generated references against the latest ZIP found **58 archive-only source references** and **72 previously hash-mismatched source references (now regenerated)**. Archive-only pages now have a visible historical warning and no dead source link; source-changed pages have now been regenerated from the current Lua. The patched control-system source references were regenerated and include current source hashes. These warnings do not change Lua.
 
 Two additional authored READMEs were centralized in the documentation set: `net-game-tourney/readme.md` and `ezlibs-custom/endless-runner/README.md`.
+
+## Follow-up — Direct PlayerControl migration
+
+The standalone imperative capture adapter is removed from the deployed Lua tree. All first-party callers from `scripts(2).zip` now import PlayerControl directly. MenuAPI and the Liberation interaction menu use parent/child managed sessions, `ui-suppression.lua` is canonical under `player-control/resources/`, and the root animation-points test file forwards to its `scripts/tests` implementation. Historical descriptions above may refer to earlier architecture. See [current migration audit](player-control/MIGRATION_AUDIT.md).

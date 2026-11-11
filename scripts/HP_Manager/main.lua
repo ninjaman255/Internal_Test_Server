@@ -334,12 +334,11 @@ local function resume_desktop(player_id, option_id, expected_control, after_resu
       if current and current.control == expected_control then
         current.input_delay = RETURN_SETTLE_SECONDS
         local guard_ok, guard_err = pcall(function()
-          local controller, owner = expected_control:input()
-          if controller and owner then
-            controller:require_release({"Confirm", "Cancel", "Up", "Down", "Left", "Right",
-                "ShoulderL", "ShoulderR"}, owner)
-            controller:swallow(RETURN_SWALLOW_SECONDS, owner)
-          end
+          -- PlayerControl centralizes the post-native-dialog release/edge
+          -- guard. Keep HP Manager's proven timing values unchanged.
+          local guarded, reason=expected_control:guard_input(RETURN_SWALLOW_SECONDS,
+            {"Confirm", "Cancel", "Up", "Down", "Left", "Right", "ShoulderL", "ShoulderR"})
+          if not guarded then error(tostring(reason)) end
         end)
         if not guard_ok then
           log:warn("[HP_Manager] desktop input rearm failed: " .. tostring(guard_err))

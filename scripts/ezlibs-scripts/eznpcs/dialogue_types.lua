@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 local logger = require('scripts/logger/logger').register('eznpcs'):register_subsystem("dialogue-types")
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
@@ -613,7 +613,7 @@ local dialogue_types = {
                                 logger:for_player(player_id):warn(
                                     "[battle_npc] kick did not run or failed; " ..
                                     "unlocking input as fallback")
-                                pcall(LegacyCapture.unlock, player_id, "eznpcs")
+                                pcall(PlayerControl.release_capture, player_id, "eznpcs")
                             else
                                 logger:for_player(player_id):info(
                                     "[battle_npc] player disconnected during loss explosion; " ..
@@ -628,7 +628,7 @@ local dialogue_types = {
                         logger:for_player(player_id):info(
                             "[battle_npc] Kick On Loss disabled; leaving " ..
                             "player in place with input unlocked")
-                        pcall(LegacyCapture.unlock, player_id, "eznpcs")
+                        pcall(PlayerControl.release_capture, player_id, "eznpcs")
                     end
                 end
             end)

@@ -8,4 +8,6 @@ Free-camera directional input remains handled through the existing `InputControl
 
 `CameraController:slideTo(x,y,z,duration)` tracks an **estimated** pending duration; `:tick(delta_time)` advances it. No unverified engine completion callback is assumed. Immediate `:moveTo` has no timed pending state. The CameraManager wraps `slide_camera`, along with its existing move/pan/deactivate calls.
 
-**Compatibility boundary:** Other old scripted camera systems using raw `Net` camera APIs bypass the lease check. Their input locks may now be reference-counted through LegacyCapture, but that does not automatically coordinate camera position. See [migration audit](../player-control/MIGRATION_AUDIT.md).
+**Compatibility boundary:** Other old scripted camera systems using raw `Net` camera APIs bypass the lease check. Their engine input captures now use PlayerControl named resources, but that does not automatically coordinate camera position. See [migration audit](../player-control/MIGRATION_AUDIT.md).
+
+**Tile-interaction correction:** `camera/main.lua` checks the current managed PlayerControl session and the free camera's real session owner token. It no longer assumes the camera-controller object itself is the logical input owner.

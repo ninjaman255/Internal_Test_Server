@@ -1,2424 +1,1585 @@
-# 📄 `main.lua`
+# 📄 `main.lua` — Current Lua reference
 
 [🏠 Documentation home](../../index.md) · [⬆ Folder index](../index.md)
 
 > **Source:** [`scripts/net-games/main.lua`](../../../net-games/main.lua)  
 > **Source lines:** 2605  
-> **SHA-256 (UTF-8):** `071c9f19dd36f2…`  
-> **Declared/assigned functions detected:** 123  
-> **Anonymous closures detected:** 19  
-> **Table initializers detected:** 57
+> **SHA-256 (UTF-8):** `306677c995c7a02faf96d7390a9124884a04126ed0e187f5d22404d9a5c34835`  
+> **Named functions detected:** 118  
+> **Table initializers detected:** 53
 
-## 🗂️ Contents
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-- [📌 Overview](#overview)
-- [🔗 Dependencies](#dependencies)
-- [📡 Event subscriptions](#event-subscriptions)
-- [🧩 Functions](#functions)
-- [🪄 Anonymous closures](#anonymous-closures)
-- [📦 Tables and data](#tables-and-data)
-- [⚙️ Runtime API calls](#runtime-api-calls)
-- [🧪 Static-analysis notes](#static-analysis-notes)
+## Contents
+- [Dependencies](#dependencies)
+- [Event hooks](#event-hooks)
+- [Functions and parameters](#functions-and-parameters)
+- [Tables](#tables)
+- [Net API calls](#net-api-calls)
 
-## 📌 Overview
+## Dependencies
 
-Source-based reference for `scripts/net-games/main.lua`. No module-purpose prose was supplied in the leading source comments.
+| Line | `require` path |
+|---:|---|
+| 1 | `scripts/player-control/main` |
+| 12 | `scripts/displayer/displayer` |
+| 13 | `scripts/animation-engine/animation-engine` |
+| 14 | `scripts/boom/main` |
+| 15 | `scripts/input-controller/main` |
 
-## 🔗 Dependencies
+## Event hooks
 
-| Line | Module string supplied to `require` |
-|---|---|
-| 11 | `scripts/displayer/displayer` |
-| 12 | `scripts/animation-engine/animation-engine` |
-| 13 | `scripts/boom/main` |
-| 14 | `scripts/input-controller/main` |
+| Line | Subscriber | Event |
+|---:|---|---|
+| 135 | `Net` | `player_request` |
+| 2310 | `Net` | `virtual_input` |
+| 2399 | `Net` | `tick` |
+| 2435 | `Net` | `cursor_move` |
+| 2474 | `Net` | `player_join` |
+| 2492 | `Net` | `player_disconnect` |
+| 2537 | `Net` | `player_move` |
+| 2586 | `Net` | `player_area_transfer` |
 
-## 📡 Event subscriptions
+## Functions and parameters
 
-| Line | Subscription call | Literal event name |
-|---|---|---|
-| 134 | `Net:on` | `player_request` |
-| 2309 | `Net:on` | `virtual_input` |
-| 2398 | `Net:on` | `tick` |
-| 2434 | `Net:on` | `cursor_move` |
-| 2473 | `Net:on` | `player_join` |
-| 2491 | `Net:on` | `player_disconnect` |
-| 2536 | `Net:on` | `player_move` |
-| 2585 | `Net:on` | `player_area_transfer` |
+| Line | Function | Arguments | Declaration |
+|---:|---|---|---|
+| 57 | `round_fraction` | `value, denominator` | local |
+| 64 | `convertOffsets` | `horizontalOffset, verticalOffset, Z` | local |
+| 70 | `fixOffsets` | `a, b` | local |
+| 90 | `normalize_color` | `color` | local |
+| 106 | `async` | `p` | local |
+| 111 | `await` | `v` | local |
+| 115 | `table_has_value` | `tab, val` | local |
+| 124 | `exclude_except_for` | `player_id, bot_id` | local |
+| 144 | `try_move_player` | `player_id, area_id, x, y, z` | local |
+| 176 | `try_animate_player` | `player_id, anim_state` | local |
+| 198 | `frame.move_frozen_player` | `player_id, x, y, z` | assigned/declared |
+| 206 | `frame.animate_frozen_player` | `player_id, anim_state` | assigned/declared |
+| 230 | `frame.set_cosmetic` | `cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale, owner_sprite_state, owner_sprite_enabled, movement_duration` | assigned/declared |
+| 386 | `frame.remove_cosmetic` | `cosmetic_id, player_id` | assigned/declared |
+| 418 | `frame.add_map_element` | `name, player_id, texture, animation, animation_state, x, y, z, exclude` | assigned/declared |
+| 451 | `frame.change_map_element` | `name, player_id, animation_state, loop` | assigned/declared |
+| 460 | `frame.move_map_element` | `name, player_id, x, y, z` | assigned/declared |
+| 479 | `frame.remove_map_element` | `name, player_id` | assigned/declared |
+| 490 | `compute_aligned_position` | `element` | local |
+| 636 | `frame.update_ui_element` | `sprite_id, player_id, properties` | assigned/declared |
+| 693 | `frame.set_ui_animation` | `sprite_id, player_id, animation_state` | assigned/declared |
+| 725 | `frame.remove_ui_element` | `sprite_id, player_id` | assigned/declared |
+| 734 | `frame.get_ui_element_proxy` | `sprite_id, player_id` | assigned/declared |
+| 756 | `setPosition` | `self, x, y` | assigned/declared |
+| 762 | `setScale` | `self, sx, sy` | assigned/declared |
+| 768 | `setRotation` | `self, ro` | assigned/declared |
+| 773 | `setOpacity` | `self, opacity` | assigned/declared |
+| 778 | `setColor` | `self, r, g, b, a` | assigned/declared |
+| 786 | `setRo` | `self, ro` | assigned/declared |
+| 796 | `frame.slide_ui_element` | `sprite_id, player_id, target_x, target_y, duration, easing, on_complete` | assigned/declared |
+| 818 | `on_update` | `values` | assigned/declared |
+| 824 | `on_complete` | `values, interrupted` | assigned/declared |
+| 847 | `frame.relative_slide_ui_element` | `sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete` | assigned/declared |
+| 858 | `frame.set_slide_ui_element` | `sprite_id, player_id, start_x, start_y, target_x, target_y, duration, easing, on_complete` | assigned/declared |
+| 879 | `on_update` | `values` | assigned/declared |
+| 885 | `on_complete` | `values, interrupted` | assigned/declared |
+| 915 | `frame.move_ui_element` | `sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete` | assigned/declared |
+| 934 | `frame.scale_ui_element` | `sprite_id, player_id, target_scale, duration, easing, on_complete` | assigned/declared |
+| 955 | `on_update` | `values` | assigned/declared |
+| 961 | `on_complete` | `values, interrupted` | assigned/declared |
+| 991 | `frame.relative_scale_ui_element` | `sprite_id, player_id, offset_scale, duration, easing, on_complete` | assigned/declared |
+| 1001 | `frame.rotate_ui_element` | `sprite_id, player_id, target_rotation, duration, easing, on_complete` | assigned/declared |
+| 1022 | `on_update` | `values` | assigned/declared |
+| 1027 | `on_complete` | `values, interrupted` | assigned/declared |
+| 1056 | `frame.relative_rotate_ui_element` | `sprite_id, player_id, offset_rotation, duration, easing, on_complete` | assigned/declared |
+| 1066 | `frame.transform_ui_element` | `sprite_id, player_id, properties, duration, easing, on_complete` | assigned/declared |
+| 1099 | `on_update` | `values` | assigned/declared |
+| 1109 | `on_complete` | `values, interrupted` | assigned/declared |
+| 1136 | `frame.relative_transform_ui_element` | `sprite_id, player_id, offset_properties, duration, easing, on_complete` | assigned/declared |
+| 1156 | `frame.bob_ui_element` | `sprite_id, player_id, distance, duration, easing, loop, ping_pong` | assigned/declared |
+| 1172 | `setPosition` | `self, x, y` | assigned/declared |
+| 1184 | `on_update` | `values` | assigned/declared |
+| 1201 | `frame.pulse_scale_ui_element` | `sprite_id, player_id, min_scale, max_scale, pulse_duration, easing, loops, on_complete` | assigned/declared |
+| 1219 | `on_update` | `values` | assigned/declared |
+| 1236 | `frame.color_pulse_from_current` | `sprite_id, player_id, target_color` | assigned/declared |
+| 1284 | `on_update` | `values` | assigned/declared |
+| 1307 | `on_complete` | `values, interrupted` | assigned/declared |
+| 1369 | `on_update` | `values, t, phase` | assigned/declared |
+| 1397 | `on_update` | `values, t, phase` | assigned/declared |
+| 1412 | `on_update` | `values, t, phase` | assigned/declared |
+| 1424 | `on_complete` | `values, interrupted` | assigned/declared |
+| 1443 | `on_complete` | `(none)` | assigned/declared |
+| 1459 | `frame.summon_ui_element_relative` | `sprite_id, player_id, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete` | assigned/declared |
+| 1502 | `frame.set_opacity_ui_element` | `sprite_id, player_id, target_opacity, duration, easing, on_complete` | assigned/declared |
+| 1523 | `on_update` | `values` | assigned/declared |
+| 1526 | `on_complete` | `values, interrupted` | assigned/declared |
+| 1553 | `frame.relative_set_opacity_ui_element` | `sprite_id, player_id, offset_opacity, duration, easing, on_complete` | assigned/declared |
+| 1563 | `frame.set_ui_element_color` | `sprite_id, player_id, r, g, b, duration, easing, on_complete` | assigned/declared |
+| 1589 | `on_update` | `values` | assigned/declared |
+| 1596 | `on_complete` | `values, interrupted` | assigned/declared |
+| 1623 | `frame.relative_set_ui_element_color` | `sprite_id, player_id, offset_r, offset_g, offset_b, duration, easing, on_complete` | assigned/declared |
+| 1635 | `frame.color_pulse_ui_element` | `sprite_id, player_id, start_color, target_color` | assigned/declared |
+| 1659 | `setColor` | `self, r, g, b` | assigned/declared |
+| 1665 | `setAlpha` | `self, alpha` | assigned/declared |
+| 1669 | `setOpacity` | `self,opacity` | assigned/declared |
+| 1704 | `frame.menu_cursor_ui_element` | `sprite_id, player_id, bob_distance, pulse_scale, bob_duration, pulse_duration, orientation, easing, back_easing, on_complete` | assigned/declared |
+| 1732 | `on_update` | `values` | assigned/declared |
+| 1746 | `on_update` | `values` | assigned/declared |
+| 1764 | `stop` | `(none)` | assigned/declared |
+| 1778 | `frame.shake_ui_element` | `sprite_id, player_id, intensity, duration, frequency, on_complete` | assigned/declared |
+| 1796 | `setPosition` | `self, x, y` | assigned/declared |
+| 1799 | `setRotation` | `self, rotation` | assigned/declared |
+| 1809 | `on_complete` | `(none)` | assigned/declared |
+| 1818 | `on_update` | `value` | assigned/declared |
+| 1832 | `frame.set_ui_element_instant` | `sprite_id, player_id, properties` | assigned/declared |
+| 1849 | `frame.reset_ui_element` | `sprite_id, player_id, initial_values` | assigned/declared |
+| 1878 | `frame.stop_ui_animation` | `sprite_id, player_id, anim_id` | assigned/declared |
+| 1907 | `frame.has_active_animations` | `sprite_id, player_id` | assigned/declared |
+| 1916 | `frame.is_animation_running` | `sprite_id, player_id, anim_id` | assigned/declared |
+| 1925 | `frame.get_ui_element_properties` | `sprite_id, player_id` | assigned/declared |
+| 1960 | `frame.spawn_cursor` | `sprite_id, player_id, options` | assigned/declared |
+| 1994 | `frame.remove_cursor` | `cursor_id, player_id` | assigned/declared |
+| 2003 | `frame.move_cursor_to_selection` | `cursor_id, player_id, selection_name` | assigned/declared |
+| 2041 | `frame.get_current_cursor_selection` | `cursor_id, player_id` | assigned/declared |
+| 2056 | `frame.lock_cursor` | `cursor_id, player_id, locked` | assigned/declared |
+| 2066 | `frame.is_cursor_locked` | `cursor_id, player_id` | assigned/declared |
+| 2075 | `frame.update_cursor_options` | `cursor_id, player_id, new_options` | assigned/declared |
+| 2101 | `frame.detach_camera` | `player_id` | assigned/declared |
+| 2109 | `frame.draw_text` | `text_id, player_id, text, x, y, z, font, scale` | assigned/declared |
+| 2126 | `frame.update_text` | `text_id, player_id, text` | assigned/declared |
+| 2135 | `frame.remove_text` | `text_id, player_id` | assigned/declared |
+| 2142 | `frame.draw_advanced_text` | `player_id, text, opts` | assigned/declared |
+| 2159 | `frame.draw_marquee_text` | `marquee_id, player_id, text, y, font, scale, z_order, speed, backdrop` | assigned/declared |
+| 2177 | `frame.set_marquee_position` | `player_id, marquee_id, x, y` | assigned/declared |
+| 2194 | `frame.set_marquee_speed` | `player_id, marquee_id, speed` | assigned/declared |
+| 2213 | `frame.spawn_timer` | `timer_id, player_id, x, y, duration, loop` | assigned/declared |
+| 2215 | `callback` | `_, timer_id, value` | local |
+| 2222 | `frame.resume_timer` | `timer_id, player_id` | assigned/declared |
+| 2226 | `frame.pause_timer` | `timer_id, player_id` | assigned/declared |
+| 2230 | `frame.remove_timer` | `timer_id, player_id` | assigned/declared |
+| 2238 | `frame.update_timer` | `timer_id, player_id, duration` | assigned/declared |
+| 2251 | `frame.spawn_countdown` | `countdown_id, player_id, x, y, duration, loop` | assigned/declared |
+| 2253 | `callback` | `_, countdown_id, value` | local |
+| 2264 | `frame.resume_countdown` | `countdown_id, player_id` | assigned/declared |
+| 2268 | `frame.pause_countdown` | `countdown_id, player_id` | assigned/declared |
+| 2272 | `frame.remove_countdown` | `countdown_id, player_id` | assigned/declared |
+| 2280 | `frame.update_countdown` | `countdown_id, player_id, duration` | assigned/declared |
+| 2293 | `splitter` | `inputstr, sep` | local |
 
-## 🧩 Functions
-
-| Line | Function or assignment | Parameters (verbatim) | Declaration |
-|---|---|---|---|
-| 56 | `round_fraction` | `value, denominator` | local |
-| 63 | `convertOffsets` | `horizontalOffset, verticalOffset, Z` | local |
-| 69 | `fixOffsets` | `a, b` | local |
-| 89 | `normalize_color` | `color` | local |
-| 105 | `async` | `p` | local |
-| 110 | `await` | `v` | local |
-| 114 | `table_has_value` | `tab, val` | local |
-| 123 | `exclude_except_for` | `player_id, bot_id` | local |
-| 143 | `try_move_player` | `player_id, area_id, x, y, z` | local |
-| 175 | `try_animate_player` | `player_id, anim_state` | local |
-| 197 | `frame.move_frozen_player` | `player_id, x, y, z` | declared |
-| 205 | `frame.animate_frozen_player` | `player_id, anim_state` | declared |
-| 229 | `frame.set_cosmetic` | `cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale, owner_sprite_state, owner_sprite_enabled, movement_duration` | declared |
-| 385 | `frame.remove_cosmetic` | `cosmetic_id, player_id` | declared |
-| 417 | `frame.add_map_element` | `name, player_id, texture, animation, animation_state, x, y, z, exclude` | declared |
-| 450 | `frame.change_map_element` | `name, player_id, animation_state, loop` | declared |
-| 459 | `frame.move_map_element` | `name, player_id, x, y, z` | declared |
-| 478 | `frame.remove_map_element` | `name, player_id` | declared |
-| 489 | `compute_aligned_position` | `element` | local |
-| 510 | `frame.add_ui_element` | `sprite_id, player_id, texture_path, animation_path, animation_state, x, y, z, sx, sy, box_width, box_height, halign, valign` | declared |
-| 635 | `frame.update_ui_element` | `sprite_id, player_id, properties` | declared |
-| 692 | `frame.set_ui_animation` | `sprite_id, player_id, animation_state` | declared |
-| 724 | `frame.remove_ui_element` | `sprite_id, player_id` | declared |
-| 733 | `frame.get_ui_element_proxy` | `sprite_id, player_id` | declared |
-| 755 | `setPosition` | `self, x, y` | assigned |
-| 761 | `setScale` | `self, sx, sy` | assigned |
-| 767 | `setRotation` | `self, ro` | assigned |
-| 772 | `setOpacity` | `self, opacity` | assigned |
-| 777 | `setColor` | `self, r, g, b, a` | assigned |
-| 785 | `setRo` | `self, ro` | assigned |
-| 795 | `frame.slide_ui_element` | `sprite_id, player_id, target_x, target_y, duration, easing, on_complete` | declared |
-| 817 | `on_update` | `values` | assigned |
-| 823 | `on_complete` | `values, interrupted` | assigned |
-| 846 | `frame.relative_slide_ui_element` | `sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete` | declared |
-| 857 | `frame.set_slide_ui_element` | `sprite_id, player_id, start_x, start_y, target_x, target_y, duration, easing, on_complete` | declared |
-| 878 | `on_update` | `values` | assigned |
-| 884 | `on_complete` | `values, interrupted` | assigned |
-| 914 | `frame.move_ui_element` | `sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete` | declared |
-| 933 | `frame.scale_ui_element` | `sprite_id, player_id, target_scale, duration, easing, on_complete` | declared |
-| 954 | `on_update` | `values` | assigned |
-| 960 | `on_complete` | `values, interrupted` | assigned |
-| 990 | `frame.relative_scale_ui_element` | `sprite_id, player_id, offset_scale, duration, easing, on_complete` | declared |
-| 1000 | `frame.rotate_ui_element` | `sprite_id, player_id, target_rotation, duration, easing, on_complete` | declared |
-| 1021 | `on_update` | `values` | assigned |
-| 1026 | `on_complete` | `values, interrupted` | assigned |
-| 1055 | `frame.relative_rotate_ui_element` | `sprite_id, player_id, offset_rotation, duration, easing, on_complete` | declared |
-| 1065 | `frame.transform_ui_element` | `sprite_id, player_id, properties, duration, easing, on_complete` | declared |
-| 1098 | `on_update` | `values` | assigned |
-| 1108 | `on_complete` | `values, interrupted` | assigned |
-| 1135 | `frame.relative_transform_ui_element` | `sprite_id, player_id, offset_properties, duration, easing, on_complete` | declared |
-| 1155 | `frame.bob_ui_element` | `sprite_id, player_id, distance, duration, easing, loop, ping_pong` | declared |
-| 1171 | `setPosition` | `self, x, y` | assigned |
-| 1183 | `on_update` | `values` | assigned |
-| 1200 | `frame.pulse_scale_ui_element` | `sprite_id, player_id, min_scale, max_scale, pulse_duration, easing, loops, on_complete` | declared |
-| 1218 | `on_update` | `values` | assigned |
-| 1235 | `frame.color_pulse_from_current` | `sprite_id, player_id, target_color` | declared |
-| 1252 | `frame.summon_ui_element` | `sprite_id, player_id, start_x, start_y, start_scale, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete` | declared |
-| 1283 | `on_update` | `values` | assigned |
-| 1306 | `on_complete` | `values, interrupted` | assigned |
-| 1336 | `frame.complex_summon_ui_element` | `sprite_id, player_id, start_x, start_y, start_scale, end_x, end_y, end_scale, arc_duration, wobble_duration, settle_duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete, on_update_step1, on_update_step2, on_update_step3` | declared |
-| 1368 | `on_update` | `values, t, phase` | assigned |
-| 1396 | `on_update` | `values, t, phase` | assigned |
-| 1411 | `on_update` | `values, t, phase` | assigned |
-| 1423 | `on_complete` | `values, interrupted` | assigned |
-| 1442 | `on_complete` | `(none)` | assigned |
-| 1458 | `frame.summon_ui_element_relative` | `sprite_id, player_id, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete` | declared |
-| 1477 | `frame.complex_summon_ui_element_relative` | `sprite_id, player_id, end_x, end_y, end_scale, arc_duration, wobble_duration, settle_duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete, on_update_step1, on_update_step2, on_update_step3` | declared |
-| 1501 | `frame.set_opacity_ui_element` | `sprite_id, player_id, target_opacity, duration, easing, on_complete` | declared |
-| 1522 | `on_update` | `values` | assigned |
-| 1525 | `on_complete` | `values, interrupted` | assigned |
-| 1552 | `frame.relative_set_opacity_ui_element` | `sprite_id, player_id, offset_opacity, duration, easing, on_complete` | declared |
-| 1562 | `frame.set_ui_element_color` | `sprite_id, player_id, r, g, b, duration, easing, on_complete` | declared |
-| 1588 | `on_update` | `values` | assigned |
-| 1595 | `on_complete` | `values, interrupted` | assigned |
-| 1622 | `frame.relative_set_ui_element_color` | `sprite_id, player_id, offset_r, offset_g, offset_b, duration, easing, on_complete` | declared |
-| 1634 | `frame.color_pulse_ui_element` | `sprite_id, player_id, start_color, target_color` | declared |
-| 1658 | `setColor` | `self, r, g, b` | assigned |
-| 1664 | `setAlpha` | `self, alpha` | assigned |
-| 1668 | `setOpacity` | `self,opacity` | assigned |
-| 1684 | `frame.color_pulse_rgb` | `sprite_id, player_id, start_r, start_g, start_b, start_a, target_r, target_g, target_b, target_a` | declared |
-| 1703 | `frame.menu_cursor_ui_element` | `sprite_id, player_id, bob_distance, pulse_scale, bob_duration, pulse_duration, orientation, easing, back_easing, on_complete` | declared |
-| 1731 | `on_update` | `values` | assigned |
-| 1745 | `on_update` | `values` | assigned |
-| 1763 | `stop` | `(none)` | assigned |
-| 1777 | `frame.shake_ui_element` | `sprite_id, player_id, intensity, duration, frequency, on_complete` | declared |
-| 1795 | `setPosition` | `self, x, y` | assigned |
-| 1798 | `setRotation` | `self, rotation` | assigned |
-| 1808 | `on_complete` | `(none)` | assigned |
-| 1817 | `on_update` | `value` | assigned |
-| 1831 | `frame.set_ui_element_instant` | `sprite_id, player_id, properties` | declared |
-| 1848 | `frame.reset_ui_element` | `sprite_id, player_id, initial_values` | declared |
-| 1877 | `frame.stop_ui_animation` | `sprite_id, player_id, anim_id` | declared |
-| 1906 | `frame.has_active_animations` | `sprite_id, player_id` | declared |
-| 1915 | `frame.is_animation_running` | `sprite_id, player_id, anim_id` | declared |
-| 1924 | `frame.get_ui_element_properties` | `sprite_id, player_id` | declared |
-| 1959 | `frame.spawn_cursor` | `sprite_id, player_id, options` | declared |
-| 1993 | `frame.remove_cursor` | `cursor_id, player_id` | declared |
-| 2002 | `frame.move_cursor_to_selection` | `cursor_id, player_id, selection_name` | declared |
-| 2040 | `frame.get_current_cursor_selection` | `cursor_id, player_id` | declared |
-| 2055 | `frame.lock_cursor` | `cursor_id, player_id, locked` | declared |
-| 2065 | `frame.is_cursor_locked` | `cursor_id, player_id` | declared |
-| 2074 | `frame.update_cursor_options` | `cursor_id, player_id, new_options` | declared |
-| 2100 | `frame.detach_camera` | `player_id` | declared |
-| 2108 | `frame.draw_text` | `text_id, player_id, text, x, y, z, font, scale` | declared |
-| 2125 | `frame.update_text` | `text_id, player_id, text` | declared |
-| 2134 | `frame.remove_text` | `text_id, player_id` | declared |
-| 2141 | `frame.draw_advanced_text` | `player_id, text, opts` | declared |
-| 2158 | `frame.draw_marquee_text` | `marquee_id, player_id, text, y, font, scale, z_order, speed, backdrop` | declared |
-| 2176 | `frame.set_marquee_position` | `player_id, marquee_id, x, y` | declared |
-| 2193 | `frame.set_marquee_speed` | `player_id, marquee_id, speed` | declared |
-| 2212 | `frame.spawn_timer` | `timer_id, player_id, x, y, duration, loop` | declared |
-| 2214 | `callback` | `_, timer_id, value` | assigned |
-| 2221 | `frame.resume_timer` | `timer_id, player_id` | declared |
-| 2225 | `frame.pause_timer` | `timer_id, player_id` | declared |
-| 2229 | `frame.remove_timer` | `timer_id, player_id` | declared |
-| 2237 | `frame.update_timer` | `timer_id, player_id, duration` | declared |
-| 2250 | `frame.spawn_countdown` | `countdown_id, player_id, x, y, duration, loop` | declared |
-| 2252 | `callback` | `_, countdown_id, value` | assigned |
-| 2263 | `frame.resume_countdown` | `countdown_id, player_id` | declared |
-| 2267 | `frame.pause_countdown` | `countdown_id, player_id` | declared |
-| 2271 | `frame.remove_countdown` | `countdown_id, player_id` | declared |
-| 2279 | `frame.update_countdown` | `countdown_id, player_id, duration` | declared |
-| 2292 | `splitter` | `inputstr, sep` | local |
-
-### Function details
+### Parameter inventory
 
 #### 1. `round_fraction(value, denominator)`
 
-- **Location:** source line 56.
-- **Declaration style:** `local`.
-- **Adjacent source comment:** HELPER FUNCTIONS
+- **Line:** 57
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `value` | Not explicitly documented in adjacent source annotations. |
-| 2 | `denominator` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `denominator` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `convertOffsets(horizontalOffset, verticalOffset, Z)`
 
-- **Location:** source line 63.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 64
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `horizontalOffset` | Not explicitly documented in adjacent source annotations. |
-| 2 | `verticalOffset` | Not explicitly documented in adjacent source annotations. |
-| 3 | `Z` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `horizontalOffset` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `verticalOffset` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `Z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `fixOffsets(a, b)`
 
-- **Location:** source line 69.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 70
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `a` | Not explicitly documented in adjacent source annotations. |
-| 2 | `b` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `a` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `b` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `normalize_color(color)`
 
-- **Location:** source line 89.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 90
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `color` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `color` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `async(p)`
 
-- **Location:** source line 105.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 106
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `p` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `p` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `await(v)`
 
-- **Location:** source line 110.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 111
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `v` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `v` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `table_has_value(tab, val)`
 
-- **Location:** source line 114.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 115
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `tab` | Not explicitly documented in adjacent source annotations. |
-| 2 | `val` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `tab` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `val` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `exclude_except_for(player_id, bot_id)`
 
-- **Location:** source line 123.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 124
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `bot_id` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `try_move_player(player_id, area_id, x, y, z)`
 
-- **Location:** source line 143.
-- **Declaration style:** `local`.
-- **Adjacent source comment:** PLAYER MOVEMENT FUNCTIONS
+- **Line:** 144
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `area_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `z` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `try_animate_player(player_id, anim_state)`
 
-- **Location:** source line 175.
-- **Declaration style:** `local`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 176
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `anim_state` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `anim_state` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `frame.move_frozen_player(player_id, x, y, z)`
 
-- **Location:** source line 197.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 198
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `x` | Not explicitly documented in adjacent source annotations. |
-| 3 | `y` | Not explicitly documented in adjacent source annotations. |
-| 4 | `z` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `frame.animate_frozen_player(player_id, anim_state)`
 
-- **Location:** source line 205.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 206
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `anim_state` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `anim_state` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `frame.set_cosmetic(cosmetic_id, player_id, texture, animation, state, x, y, visible, player_xoffset, player_yoffset, anim_duration, scale, bot_scale, owner_sprite_state, owner_sprite_enabled, movement_duration)`
 
-- **Location:** source line 229.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** Purpose: Show a cosmetic as a native animated sprite for its owner and as an animated world bot for every other player. Animation states: * `state` (caller-provided, typically "IDLE_DR") is used by the WORLD BOT. animate_bot(..., true) forces looping regardless of the .anim file's own loop flag, so the bot animates fine for other clients. * The OWNER SPRITE uses "cosmetic" -- the overlay state designed to sit on top of the player. The engine's sprite path (player_draw_sprite) obeys the .anim file's loop flag, and boom v2.0 states have loop har…
+- **Line:** 230
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cosmetic_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `texture` | Not explicitly documented in adjacent source annotations. |
-| 4 | `animation` | Not explicitly documented in adjacent source annotations. |
-| 5 | `state` | Not explicitly documented in adjacent source annotations. |
-| 6 | `x` | Not explicitly documented in adjacent source annotations. |
-| 7 | `y` | Not explicitly documented in adjacent source annotations. |
-| 8 | `visible` | Not explicitly documented in adjacent source annotations. |
-| 9 | `player_xoffset` | Not explicitly documented in adjacent source annotations. |
-| 10 | `player_yoffset` | Not explicitly documented in adjacent source annotations. |
-| 11 | `anim_duration` | Not explicitly documented in adjacent source annotations. |
-| 12 | `scale` | Not explicitly documented in adjacent source annotations. |
-| 13 | `bot_scale` | Not explicitly documented in adjacent source annotations. |
-| 14 | `owner_sprite_state` | Not explicitly documented in adjacent source annotations. |
-| 15 | `owner_sprite_enabled` | Not explicitly documented in adjacent source annotations. |
-| 16 | `movement_duration` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cosmetic_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `texture` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `animation` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `state` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `visible` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `player_xoffset` | Declared directly in the current Lua. Type not inferred. |
+| 10 | `player_yoffset` | Declared directly in the current Lua. Type not inferred. |
+| 11 | `anim_duration` | Declared directly in the current Lua. Type not inferred. |
+| 12 | `scale` | Declared directly in the current Lua. Type not inferred. |
+| 13 | `bot_scale` | Declared directly in the current Lua. Type not inferred. |
+| 14 | `owner_sprite_state` | Declared directly in the current Lua. Type not inferred. |
+| 15 | `owner_sprite_enabled` | Declared directly in the current Lua. Type not inferred. |
+| 16 | `movement_duration` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `frame.remove_cosmetic(cosmetic_id, player_id)`
 
-- **Location:** source line 385.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 386
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cosmetic_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cosmetic_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 15. `frame.add_map_element(name, player_id, texture, animation, animation_state, x, y, z, exclude)`
 
-- **Location:** source line 417.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** MAP ELEMENT FUNCTIONS
+- **Line:** 418
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `name` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `texture` | Not explicitly documented in adjacent source annotations. |
-| 4 | `animation` | Not explicitly documented in adjacent source annotations. |
-| 5 | `animation_state` | Not explicitly documented in adjacent source annotations. |
-| 6 | `x` | Not explicitly documented in adjacent source annotations. |
-| 7 | `y` | Not explicitly documented in adjacent source annotations. |
-| 8 | `z` | Not explicitly documented in adjacent source annotations. |
-| 9 | `exclude` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `texture` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `animation` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `animation_state` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `exclude` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `frame.change_map_element(name, player_id, animation_state, loop)`
 
-- **Location:** source line 450.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 451
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `name` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `animation_state` | Not explicitly documented in adjacent source annotations. |
-| 4 | `loop` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `animation_state` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `loop` | Declared directly in the current Lua. Type not inferred. |
 
 #### 17. `frame.move_map_element(name, player_id, x, y, z)`
 
-- **Location:** source line 459.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 460
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `name` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `z` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `frame.remove_map_element(name, player_id)`
 
-- **Location:** source line 478.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 479
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `name` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `name` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `compute_aligned_position(element)`
 
-- **Location:** source line 489.
-- **Declaration style:** `local`.
-- **Adjacent source comment:** UI ELEMENT FUNCTIONS
+- **Line:** 490
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `element` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `element` | Not explicitly documented in adjacent source annotations. |
+#### 20. `frame.update_ui_element(sprite_id, player_id, properties)`
 
-#### 20. `frame.add_ui_element(sprite_id, player_id, texture_path, animation_path, animation_state, x, y, z, sx, sy, box_width, box_height, halign, valign)`
+- **Line:** 636
+- **Declaration:** assigned/declared
 
-- **Location:** source line 510.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `properties` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 21. `frame.set_ui_animation(sprite_id, player_id, animation_state)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `texture_path` | Not explicitly documented in adjacent source annotations. |
-| 4 | `animation_path` | Not explicitly documented in adjacent source annotations. |
-| 5 | `animation_state` | Not explicitly documented in adjacent source annotations. |
-| 6 | `x` | Not explicitly documented in adjacent source annotations. |
-| 7 | `y` | Not explicitly documented in adjacent source annotations. |
-| 8 | `z` | Not explicitly documented in adjacent source annotations. |
-| 9 | `sx` | Not explicitly documented in adjacent source annotations. |
-| 10 | `sy` | Not explicitly documented in adjacent source annotations. |
-| 11 | `box_width` | Not explicitly documented in adjacent source annotations. |
-| 12 | `box_height` | Not explicitly documented in adjacent source annotations. |
-| 13 | `halign` | Not explicitly documented in adjacent source annotations. |
-| 14 | `valign` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 693
+- **Declaration:** assigned/declared
 
-#### 21. `frame.update_ui_element(sprite_id, player_id, properties)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `animation_state` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 635.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 22. `frame.remove_ui_element(sprite_id, player_id)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 725
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `properties` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-#### 22. `frame.set_ui_animation(sprite_id, player_id, animation_state)`
+#### 23. `frame.get_ui_element_proxy(sprite_id, player_id)`
 
-- **Location:** source line 692.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 734
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `animation_state` | Not explicitly documented in adjacent source annotations. |
+#### 24. `setPosition(self, x, y)`
 
-#### 23. `frame.remove_ui_element(sprite_id, player_id)`
+- **Line:** 756
+- **Declaration:** assigned/declared
 
-- **Location:** source line 724.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 25. `setScale(self, sx, sy)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 762
+- **Declaration:** assigned/declared
 
-#### 24. `frame.get_ui_element_proxy(sprite_id, player_id)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `sx` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `sy` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 733.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 26. `setRotation(self, ro)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 768
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `ro` | Declared directly in the current Lua. Type not inferred. |
 
-#### 25. `setPosition(self, x, y)`
+#### 27. `setOpacity(self, opacity)`
 
-- **Location:** source line 755.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 773
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `opacity` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `x` | Not explicitly documented in adjacent source annotations. |
-| 3 | `y` | Not explicitly documented in adjacent source annotations. |
+#### 28. `setColor(self, r, g, b, a)`
 
-#### 26. `setScale(self, sx, sy)`
+- **Line:** 778
+- **Declaration:** assigned/declared
 
-- **Location:** source line 761.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `r` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `g` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `b` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `a` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 29. `setRo(self, ro)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `sx` | Not explicitly documented in adjacent source annotations. |
-| 3 | `sy` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 786
+- **Declaration:** assigned/declared
 
-#### 27. `setRotation(self, ro)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `ro` | Declared directly in the current Lua. Type not inferred. |
+
+#### 30. `frame.slide_ui_element(sprite_id, player_id, target_x, target_y, duration, easing, on_complete)`
+
+- **Line:** 796
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `target_x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `target_y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
+
+#### 31. `on_update(values)`
+
+- **Line:** 818
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+
+#### 32. `on_complete(values, interrupted)`
 
-- **Location:** source line 767.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 824
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `ro` | Not explicitly documented in adjacent source annotations. |
+#### 33. `frame.relative_slide_ui_element(sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete)`
 
-#### 28. `setOpacity(self, opacity)`
+- **Line:** 847
+- **Declaration:** assigned/declared
 
-- **Location:** source line 772.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `offset_y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
+
+#### 34. `frame.set_slide_ui_element(sprite_id, player_id, start_x, start_y, target_x, target_y, duration, easing, on_complete)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 858
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `opacity` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `start_x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `start_y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `target_x` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `target_y` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
+
+#### 35. `on_update(values)`
+
+- **Line:** 879
+- **Declaration:** assigned/declared
 
-#### 29. `setColor(self, r, g, b, a)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 777.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 36. `on_complete(values, interrupted)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 885
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `r` | Not explicitly documented in adjacent source annotations. |
-| 3 | `g` | Not explicitly documented in adjacent source annotations. |
-| 4 | `b` | Not explicitly documented in adjacent source annotations. |
-| 5 | `a` | Not explicitly documented in adjacent source annotations. |
+#### 37. `frame.move_ui_element(sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete)`
 
-#### 30. `setRo(self, ro)`
+- **Line:** 915
+- **Declaration:** assigned/declared
 
-- **Location:** source line 785.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `offset_y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 38. `frame.scale_ui_element(sprite_id, player_id, target_scale, duration, easing, on_complete)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `ro` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 934
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `target_scale` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-#### 31. `frame.slide_ui_element(sprite_id, player_id, target_x, target_y, duration, easing, on_complete)`
+#### 39. `on_update(values)`
+
+- **Line:** 955
+- **Declaration:** assigned/declared
 
-- **Location:** source line 795.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** UI ANIMATION FUNCTIONS
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 40. `on_complete(values, interrupted)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `target_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `target_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 7 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 961
+- **Declaration:** assigned/declared
 
-#### 32. `on_update(values)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 817.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 41. `frame.relative_scale_ui_element(sprite_id, player_id, offset_scale, duration, easing, on_complete)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 991
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_scale` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-#### 33. `on_complete(values, interrupted)`
+#### 42. `frame.rotate_ui_element(sprite_id, player_id, target_rotation, duration, easing, on_complete)`
 
-- **Location:** source line 823.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1001
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `target_rotation` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
+
+#### 43. `on_update(values)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1022
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+#### 44. `on_complete(values, interrupted)`
+
+- **Line:** 1027
+- **Declaration:** assigned/declared
 
-#### 34. `frame.relative_slide_ui_element(sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 846.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 45. `frame.relative_rotate_ui_element(sprite_id, player_id, offset_rotation, duration, easing, on_complete)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1056
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `offset_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 7 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_rotation` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
+
+#### 46. `frame.transform_ui_element(sprite_id, player_id, properties, duration, easing, on_complete)`
+
+- **Line:** 1066
+- **Declaration:** assigned/declared
 
-#### 35. `frame.set_slide_ui_element(sprite_id, player_id, start_x, start_y, target_x, target_y, duration, easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `properties` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 857.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 47. `on_update(values)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1099
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `start_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `start_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `target_x` | Not explicitly documented in adjacent source annotations. |
-| 6 | `target_y` | Not explicitly documented in adjacent source annotations. |
-| 7 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 8 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 9 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-#### 36. `on_update(values)`
+#### 48. `on_complete(values, interrupted)`
 
-- **Location:** source line 878.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1109
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+#### 49. `frame.relative_transform_ui_element(sprite_id, player_id, offset_properties, duration, easing, on_complete)`
 
-#### 37. `on_complete(values, interrupted)`
+- **Line:** 1136
+- **Declaration:** assigned/declared
 
-- **Location:** source line 884.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_properties` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 50. `frame.bob_ui_element(sprite_id, player_id, distance, duration, easing, loop, ping_pong)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1156
+- **Declaration:** assigned/declared
 
-#### 38. `frame.move_ui_element(sprite_id, player_id, offset_x, offset_y, duration, easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `distance` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `loop` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `ping_pong` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 914.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 51. `setPosition(self, x, y)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1172
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `offset_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 7 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
 
-#### 39. `frame.scale_ui_element(sprite_id, player_id, target_scale, duration, easing, on_complete)`
+#### 52. `on_update(values)`
 
-- **Location:** source line 933.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1184
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `target_scale` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+#### 53. `frame.pulse_scale_ui_element(sprite_id, player_id, min_scale, max_scale, pulse_duration, easing, loops, on_complete)`
 
-#### 40. `on_update(values)`
+- **Line:** 1201
+- **Declaration:** assigned/declared
 
-- **Location:** source line 954.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `min_scale` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `max_scale` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `pulse_duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `loops` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 54. `on_update(values)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1219
+- **Declaration:** assigned/declared
 
-#### 41. `on_complete(values, interrupted)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 960.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 55. `frame.color_pulse_from_current(sprite_id, player_id, target_color)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1236
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `target_color` | Declared directly in the current Lua. Type not inferred. |
 
-#### 42. `frame.relative_scale_ui_element(sprite_id, player_id, offset_scale, duration, easing, on_complete)`
+#### 56. `on_update(values)`
 
-- **Location:** source line 990.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1284
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_scale` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+#### 57. `on_complete(values, interrupted)`
 
-#### 43. `frame.rotate_ui_element(sprite_id, player_id, target_rotation, duration, easing, on_complete)`
+- **Line:** 1307
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1000.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 58. `on_update(values, t, phase)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `target_rotation` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1369
+- **Declaration:** assigned/declared
 
-#### 44. `on_update(values)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `t` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `phase` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1021.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 59. `on_update(values, t, phase)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1397
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `t` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `phase` | Declared directly in the current Lua. Type not inferred. |
 
-#### 45. `on_complete(values, interrupted)`
+#### 60. `on_update(values, t, phase)`
 
-- **Location:** source line 1026.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1412
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `t` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `phase` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+#### 61. `on_complete(values, interrupted)`
 
-#### 46. `frame.relative_rotate_ui_element(sprite_id, player_id, offset_rotation, duration, easing, on_complete)`
+- **Line:** 1424
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1055.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 62. `on_complete()`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_rotation` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1443
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-#### 47. `frame.transform_ui_element(sprite_id, player_id, properties, duration, easing, on_complete)`
+#### 63. `frame.summon_ui_element_relative(sprite_id, player_id, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete)`
 
-- **Location:** source line 1065.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1459
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `end_x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `end_y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `end_scale` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `arc_height` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `peak_scale_mul` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `wobble_deg` | Declared directly in the current Lua. Type not inferred. |
+| 10 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 11 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `properties` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+#### 64. `frame.set_opacity_ui_element(sprite_id, player_id, target_opacity, duration, easing, on_complete)`
 
-#### 48. `on_update(values)`
+- **Line:** 1502
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1098.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `target_opacity` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 65. `on_update(values)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1523
+- **Declaration:** assigned/declared
 
-#### 49. `on_complete(values, interrupted)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1108.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 66. `on_complete(values, interrupted)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1526
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-#### 50. `frame.relative_transform_ui_element(sprite_id, player_id, offset_properties, duration, easing, on_complete)`
+#### 67. `frame.relative_set_opacity_ui_element(sprite_id, player_id, offset_opacity, duration, easing, on_complete)`
 
-- **Location:** source line 1135.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1553
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_opacity` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_properties` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+#### 68. `frame.set_ui_element_color(sprite_id, player_id, r, g, b, duration, easing, on_complete)`
 
-#### 51. `frame.bob_ui_element(sprite_id, player_id, distance, duration, easing, loop, ping_pong)`
+- **Line:** 1563
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1155.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `distance` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `loop` | Not explicitly documented in adjacent source annotations. |
-| 7 | `ping_pong` | Not explicitly documented in adjacent source annotations. |
-
-#### 52. `setPosition(self, x, y)`
-
-- **Location:** source line 1171.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `x` | Not explicitly documented in adjacent source annotations. |
-| 3 | `y` | Not explicitly documented in adjacent source annotations. |
-
-#### 53. `on_update(values)`
-
-- **Location:** source line 1183.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-
-#### 54. `frame.pulse_scale_ui_element(sprite_id, player_id, min_scale, max_scale, pulse_duration, easing, loops, on_complete)`
-
-- **Location:** source line 1200.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `min_scale` | Not explicitly documented in adjacent source annotations. |
-| 4 | `max_scale` | Not explicitly documented in adjacent source annotations. |
-| 5 | `pulse_duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 7 | `loops` | Not explicitly documented in adjacent source annotations. |
-| 8 | `on_complete` | Not explicitly documented in adjacent source annotations. |
-
-#### 55. `on_update(values)`
-
-- **Location:** source line 1218.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-
-#### 56. `frame.color_pulse_from_current(sprite_id, player_id, target_color)`
-
-- **Location:** source line 1235.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `target_color` | Not explicitly documented in adjacent source annotations. |
-
-#### 57. `frame.summon_ui_element(sprite_id, player_id, start_x, start_y, start_scale, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete)`
-
-- **Location:** source line 1252.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `start_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `start_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `start_scale` | Not explicitly documented in adjacent source annotations. |
-| 6 | `end_x` | Not explicitly documented in adjacent source annotations. |
-| 7 | `end_y` | Not explicitly documented in adjacent source annotations. |
-| 8 | `end_scale` | Not explicitly documented in adjacent source annotations. |
-| 9 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 10 | `arc_height` | Not explicitly documented in adjacent source annotations. |
-| 11 | `peak_scale_mul` | Not explicitly documented in adjacent source annotations. |
-| 12 | `wobble_deg` | Not explicitly documented in adjacent source annotations. |
-| 13 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 14 | `on_complete` | Not explicitly documented in adjacent source annotations. |
-
-#### 58. `on_update(values)`
-
-- **Location:** source line 1283.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-
-#### 59. `on_complete(values, interrupted)`
-
-- **Location:** source line 1306.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
-
-#### 60. `frame.complex_summon_ui_element(sprite_id, player_id, start_x, start_y, start_scale, end_x, end_y, end_scale, arc_duration, wobble_duration, settle_duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete, on_update_step1, on_update_step2, on_update_step3)`
-
-- **Location:** source line 1336.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `start_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `start_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `start_scale` | Not explicitly documented in adjacent source annotations. |
-| 6 | `end_x` | Not explicitly documented in adjacent source annotations. |
-| 7 | `end_y` | Not explicitly documented in adjacent source annotations. |
-| 8 | `end_scale` | Not explicitly documented in adjacent source annotations. |
-| 9 | `arc_duration` | Not explicitly documented in adjacent source annotations. |
-| 10 | `wobble_duration` | Not explicitly documented in adjacent source annotations. |
-| 11 | `settle_duration` | Not explicitly documented in adjacent source annotations. |
-| 12 | `arc_height` | Not explicitly documented in adjacent source annotations. |
-| 13 | `peak_scale_mul` | Not explicitly documented in adjacent source annotations. |
-| 14 | `wobble_deg` | Not explicitly documented in adjacent source annotations. |
-| 15 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 16 | `on_complete` | Not explicitly documented in adjacent source annotations. |
-| 17 | `on_update_step1` | Not explicitly documented in adjacent source annotations. |
-| 18 | `on_update_step2` | Not explicitly documented in adjacent source annotations. |
-| 19 | `on_update_step3` | Not explicitly documented in adjacent source annotations. |
-
-#### 61. `on_update(values, t, phase)`
-
-- **Location:** source line 1368.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `t` | Not explicitly documented in adjacent source annotations. |
-| 3 | `phase` | Not explicitly documented in adjacent source annotations. |
-
-#### 62. `on_update(values, t, phase)`
-
-- **Location:** source line 1396.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `t` | Not explicitly documented in adjacent source annotations. |
-| 3 | `phase` | Not explicitly documented in adjacent source annotations. |
-
-#### 63. `on_update(values, t, phase)`
-
-- **Location:** source line 1411.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `t` | Not explicitly documented in adjacent source annotations. |
-| 3 | `phase` | Not explicitly documented in adjacent source annotations. |
-
-#### 64. `on_complete(values, interrupted)`
-
-- **Location:** source line 1423.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
-
-#### 65. `on_complete()`
-
-- **Location:** source line 1442.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-#### 66. `frame.summon_ui_element_relative(sprite_id, player_id, end_x, end_y, end_scale, duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete)`
-
-- **Location:** source line 1458.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `end_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `end_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `end_scale` | Not explicitly documented in adjacent source annotations. |
-| 6 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 7 | `arc_height` | Not explicitly documented in adjacent source annotations. |
-| 8 | `peak_scale_mul` | Not explicitly documented in adjacent source annotations. |
-| 9 | `wobble_deg` | Not explicitly documented in adjacent source annotations. |
-| 10 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 11 | `on_complete` | Not explicitly documented in adjacent source annotations. |
-
-#### 67. `frame.complex_summon_ui_element_relative(sprite_id, player_id, end_x, end_y, end_scale, arc_duration, wobble_duration, settle_duration, arc_height, peak_scale_mul, wobble_deg, easing, on_complete, on_update_step1, on_update_step2, on_update_step3)`
-
-- **Location:** source line 1477.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `end_x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `end_y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `end_scale` | Not explicitly documented in adjacent source annotations. |
-| 6 | `arc_duration` | Not explicitly documented in adjacent source annotations. |
-| 7 | `wobble_duration` | Not explicitly documented in adjacent source annotations. |
-| 8 | `settle_duration` | Not explicitly documented in adjacent source annotations. |
-| 9 | `arc_height` | Not explicitly documented in adjacent source annotations. |
-| 10 | `peak_scale_mul` | Not explicitly documented in adjacent source annotations. |
-| 11 | `wobble_deg` | Not explicitly documented in adjacent source annotations. |
-| 12 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 13 | `on_complete` | Not explicitly documented in adjacent source annotations. |
-| 14 | `on_update_step1` | Not explicitly documented in adjacent source annotations. |
-| 15 | `on_update_step2` | Not explicitly documented in adjacent source annotations. |
-| 16 | `on_update_step3` | Not explicitly documented in adjacent source annotations. |
-
-#### 68. `frame.set_opacity_ui_element(sprite_id, player_id, target_opacity, duration, easing, on_complete)`
-
-- **Location:** source line 1501.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `target_opacity` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `r` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `g` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `b` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
 #### 69. `on_update(values)`
 
-- **Location:** source line 1522.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1589
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
 #### 70. `on_complete(values, interrupted)`
 
-- **Location:** source line 1525.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1596
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `interrupted` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+#### 71. `frame.relative_set_ui_element_color(sprite_id, player_id, offset_r, offset_g, offset_b, duration, easing, on_complete)`
+
+- **Line:** 1623
+- **Declaration:** assigned/declared
 
-#### 71. `frame.relative_set_opacity_ui_element(sprite_id, player_id, offset_opacity, duration, easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `offset_r` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `offset_g` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `offset_b` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
+
+#### 72. `frame.color_pulse_ui_element(sprite_id, player_id, start_color, target_color)`
+
+- **Line:** 1635
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1552.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `start_color` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `target_color` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 73. `setColor(self, r, g, b)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_opacity` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1659
+- **Declaration:** assigned/declared
 
-#### 72. `frame.set_ui_element_color(sprite_id, player_id, r, g, b, duration, easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `r` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `g` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `b` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1562.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 74. `setAlpha(self, alpha)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1665
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `r` | Not explicitly documented in adjacent source annotations. |
-| 4 | `g` | Not explicitly documented in adjacent source annotations. |
-| 5 | `b` | Not explicitly documented in adjacent source annotations. |
-| 6 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 7 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 8 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `alpha` | Declared directly in the current Lua. Type not inferred. |
 
-#### 73. `on_update(values)`
+#### 75. `setOpacity(self,opacity)`
 
-- **Location:** source line 1588.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1669
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `opacity` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+#### 76. `frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_scale, bob_duration, pulse_duration, orientation, easing, back_easing, on_complete)`
 
-#### 74. `on_complete(values, interrupted)`
+- **Line:** 1704
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1595.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `bob_distance` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `pulse_scale` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `bob_duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `pulse_duration` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `orientation` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `easing` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `back_easing` | Declared directly in the current Lua. Type not inferred. |
+| 10 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 77. `on_update(values)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
-| 2 | `interrupted` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1732
+- **Declaration:** assigned/declared
 
-#### 75. `frame.relative_set_ui_element_color(sprite_id, player_id, offset_r, offset_g, offset_b, duration, easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1622.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 78. `on_update(values)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1746
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `offset_r` | Not explicitly documented in adjacent source annotations. |
-| 4 | `offset_g` | Not explicitly documented in adjacent source annotations. |
-| 5 | `offset_b` | Not explicitly documented in adjacent source annotations. |
-| 6 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 7 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 8 | `on_complete` | Not explicitly documented in adjacent source annotations. |
-
-#### 76. `frame.color_pulse_ui_element(sprite_id, player_id, start_color, target_color)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `values` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1634.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 79. `stop()`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1764
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `start_color` | Not explicitly documented in adjacent source annotations. |
-| 4 | `target_color` | Not explicitly documented in adjacent source annotations. |
-
-#### 77. `setColor(self, r, g, b)`
+#### 80. `frame.shake_ui_element(sprite_id, player_id, intensity, duration, frequency, on_complete)`
 
-- **Location:** source line 1658.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1778
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `intensity` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `frequency` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `on_complete` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `r` | Not explicitly documented in adjacent source annotations. |
-| 3 | `g` | Not explicitly documented in adjacent source annotations. |
-| 4 | `b` | Not explicitly documented in adjacent source annotations. |
+#### 81. `setPosition(self, x, y)`
 
-#### 78. `setAlpha(self, alpha)`
+- **Line:** 1796
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1664.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `y` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 82. `setRotation(self, rotation)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `alpha` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1799
+- **Declaration:** assigned/declared
 
-#### 79. `setOpacity(self,opacity)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `self` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `rotation` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1668.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 83. `on_complete()`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1809
+- **Declaration:** assigned/declared
+- **Parameters:** none explicitly declared.
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `opacity` | Not explicitly documented in adjacent source annotations. |
+#### 84. `on_update(value)`
 
-#### 80. `frame.color_pulse_rgb(sprite_id, player_id, start_r, start_g, start_b, start_a, target_r, target_g, target_b, target_a)`
+- **Line:** 1818
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1684.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `value` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 85. `frame.set_ui_element_instant(sprite_id, player_id, properties)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `start_r` | Not explicitly documented in adjacent source annotations. |
-| 4 | `start_g` | Not explicitly documented in adjacent source annotations. |
-| 5 | `start_b` | Not explicitly documented in adjacent source annotations. |
-| 6 | `start_a` | Not explicitly documented in adjacent source annotations. |
-| 7 | `target_r` | Not explicitly documented in adjacent source annotations. |
-| 8 | `target_g` | Not explicitly documented in adjacent source annotations. |
-| 9 | `target_b` | Not explicitly documented in adjacent source annotations. |
-| 10 | `target_a` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1832
+- **Declaration:** assigned/declared
 
-#### 81. `frame.menu_cursor_ui_element(sprite_id, player_id, bob_distance, pulse_scale, bob_duration, pulse_duration, orientation, easing, back_easing, on_complete)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `properties` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1703.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 86. `frame.reset_ui_element(sprite_id, player_id, initial_values)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1849
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `bob_distance` | Not explicitly documented in adjacent source annotations. |
-| 4 | `pulse_scale` | Not explicitly documented in adjacent source annotations. |
-| 5 | `bob_duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `pulse_duration` | Not explicitly documented in adjacent source annotations. |
-| 7 | `orientation` | Not explicitly documented in adjacent source annotations. |
-| 8 | `easing` | Not explicitly documented in adjacent source annotations. |
-| 9 | `back_easing` | Not explicitly documented in adjacent source annotations. |
-| 10 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `initial_values` | Declared directly in the current Lua. Type not inferred. |
 
-#### 82. `on_update(values)`
+#### 87. `frame.stop_ui_animation(sprite_id, player_id, anim_id)`
 
-- **Location:** source line 1731.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 1878
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `anim_id` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+#### 88. `frame.has_active_animations(sprite_id, player_id)`
 
-#### 83. `on_update(values)`
+- **Line:** 1907
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1745.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 89. `frame.is_animation_running(sprite_id, player_id, anim_id)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `values` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1916
+- **Declaration:** assigned/declared
 
-#### 84. `stop()`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `anim_id` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1763.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 90. `frame.get_ui_element_properties(sprite_id, player_id)`
 
-#### 85. `frame.shake_ui_element(sprite_id, player_id, intensity, duration, frequency, on_complete)`
+- **Line:** 1925
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1777.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 91. `frame.spawn_cursor(sprite_id, player_id, options)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `intensity` | Not explicitly documented in adjacent source annotations. |
-| 4 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 5 | `frequency` | Not explicitly documented in adjacent source annotations. |
-| 6 | `on_complete` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 1960
+- **Declaration:** assigned/declared
 
-#### 86. `setPosition(self, x, y)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `sprite_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `options` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1795.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 92. `frame.remove_cursor(cursor_id, player_id)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 1994
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `x` | Not explicitly documented in adjacent source annotations. |
-| 3 | `y` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cursor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-#### 87. `setRotation(self, rotation)`
+#### 93. `frame.move_cursor_to_selection(cursor_id, player_id, selection_name)`
 
-- **Location:** source line 1798.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 2003
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cursor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `selection_name` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `self` | Not explicitly documented in adjacent source annotations. |
-| 2 | `rotation` | Not explicitly documented in adjacent source annotations. |
+#### 94. `frame.get_current_cursor_selection(cursor_id, player_id)`
 
-#### 88. `on_complete()`
+- **Line:** 2041
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1808.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cursor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-#### 89. `on_update(value)`
+#### 95. `frame.lock_cursor(cursor_id, player_id, locked)`
 
-- **Location:** source line 1817.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 2056
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cursor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `locked` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `value` | Not explicitly documented in adjacent source annotations. |
+#### 96. `frame.is_cursor_locked(cursor_id, player_id)`
 
-#### 90. `frame.set_ui_element_instant(sprite_id, player_id, properties)`
+- **Line:** 2066
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1831.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cursor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 97. `frame.update_cursor_options(cursor_id, player_id, new_options)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `properties` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 2075
+- **Declaration:** assigned/declared
 
-#### 91. `frame.reset_ui_element(sprite_id, player_id, initial_values)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `cursor_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `new_options` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1848.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 98. `frame.detach_camera(player_id)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 2101
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `initial_values` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-#### 92. `frame.stop_ui_animation(sprite_id, player_id, anim_id)`
+#### 99. `frame.draw_text(text_id, player_id, text, x, y, z, font, scale)`
 
-- **Location:** source line 1877.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 2109
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `text_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `text` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `font` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `scale` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `anim_id` | Not explicitly documented in adjacent source annotations. |
+#### 100. `frame.update_text(text_id, player_id, text)`
 
-#### 93. `frame.has_active_animations(sprite_id, player_id)`
+- **Line:** 2126
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1906.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `text_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `text` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 101. `frame.remove_text(text_id, player_id)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 2135
+- **Declaration:** assigned/declared
 
-#### 94. `frame.is_animation_running(sprite_id, player_id, anim_id)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `text_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1915.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 102. `frame.draw_advanced_text(player_id, text, opts)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 2142
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `anim_id` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `text` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `opts` | Declared directly in the current Lua. Type not inferred. |
 
-#### 95. `frame.get_ui_element_properties(sprite_id, player_id)`
+#### 103. `frame.draw_marquee_text(marquee_id, player_id, text, y, font, scale, z_order, speed, backdrop)`
 
-- **Location:** source line 1924.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 2159
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `marquee_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `text` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `font` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `scale` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `z_order` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `speed` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `backdrop` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+#### 104. `frame.set_marquee_position(player_id, marquee_id, x, y)`
 
-#### 96. `frame.spawn_cursor(sprite_id, player_id, options)`
+- **Line:** 2177
+- **Declaration:** assigned/declared
 
-- **Location:** source line 1959.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** CURSOR FUNCTIONS
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `marquee_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 105. `frame.set_marquee_speed(player_id, marquee_id, speed)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `sprite_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `options` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 2194
+- **Declaration:** assigned/declared
 
-#### 97. `frame.remove_cursor(cursor_id, player_id)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `marquee_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `speed` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 1993.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 106. `frame.spawn_timer(timer_id, player_id, x, y, duration, loop)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 2213
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cursor_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `timer_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `loop` | Declared directly in the current Lua. Type not inferred. |
 
-#### 98. `frame.move_cursor_to_selection(cursor_id, player_id, selection_name)`
+#### 107. `callback(_, timer_id, value)`
 
-- **Location:** source line 2002.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 2215
+- **Declaration:** local
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `_` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `timer_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `value` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cursor_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `selection_name` | Not explicitly documented in adjacent source annotations. |
+#### 108. `frame.resume_timer(timer_id, player_id)`
 
-#### 99. `frame.get_current_cursor_selection(cursor_id, player_id)`
+- **Line:** 2222
+- **Declaration:** assigned/declared
 
-- **Location:** source line 2040.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `timer_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 109. `frame.pause_timer(timer_id, player_id)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cursor_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 2226
+- **Declaration:** assigned/declared
 
-#### 100. `frame.lock_cursor(cursor_id, player_id, locked)`
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `timer_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-- **Location:** source line 2055.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+#### 110. `frame.remove_timer(timer_id, player_id)`
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+- **Line:** 2230
+- **Declaration:** assigned/declared
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cursor_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `locked` | Not explicitly documented in adjacent source annotations. |
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `timer_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
-#### 101. `frame.is_cursor_locked(cursor_id, player_id)`
+#### 111. `frame.update_timer(timer_id, player_id, duration)`
 
-- **Location:** source line 2065.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+- **Line:** 2238
+- **Declaration:** assigned/declared
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `timer_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `duration` | Declared directly in the current Lua. Type not inferred. |
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cursor_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
+#### 112. `frame.spawn_countdown(countdown_id, player_id, x, y, duration, loop)`
 
-#### 102. `frame.update_cursor_options(cursor_id, player_id, new_options)`
+- **Line:** 2251
+- **Declaration:** assigned/declared
 
-- **Location:** source line 2074.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `countdown_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `duration` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `loop` | Declared directly in the current Lua. Type not inferred. |
 
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
+#### 113. `callback(_, countdown_id, value)`
 
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `cursor_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `new_options` | Not explicitly documented in adjacent source annotations. |
+- **Line:** 2253
+- **Declaration:** local
 
-#### 103. `frame.detach_camera(player_id)`
-
-- **Location:** source line 2100.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** CAMERA FUNCTIONS
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 104. `frame.draw_text(text_id, player_id, text, x, y, z, font, scale)`
-
-- **Location:** source line 2108.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** TEXT FUNCTIONS
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `text_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `text` | Not explicitly documented in adjacent source annotations. |
-| 4 | `x` | Not explicitly documented in adjacent source annotations. |
-| 5 | `y` | Not explicitly documented in adjacent source annotations. |
-| 6 | `z` | Not explicitly documented in adjacent source annotations. |
-| 7 | `font` | Not explicitly documented in adjacent source annotations. |
-| 8 | `scale` | Not explicitly documented in adjacent source annotations. |
-
-#### 105. `frame.update_text(text_id, player_id, text)`
-
-- **Location:** source line 2125.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `text_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `text` | Not explicitly documented in adjacent source annotations. |
-
-#### 106. `frame.remove_text(text_id, player_id)`
-
-- **Location:** source line 2134.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `text_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 107. `frame.draw_advanced_text(player_id, text, opts)`
-
-- **Location:** source line 2141.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `text` | Not explicitly documented in adjacent source annotations. |
-| 3 | `opts` | Not explicitly documented in adjacent source annotations. |
-
-#### 108. `frame.draw_marquee_text(marquee_id, player_id, text, y, font, scale, z_order, speed, backdrop)`
-
-- **Location:** source line 2158.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `marquee_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `text` | Not explicitly documented in adjacent source annotations. |
-| 4 | `y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `font` | Not explicitly documented in adjacent source annotations. |
-| 6 | `scale` | Not explicitly documented in adjacent source annotations. |
-| 7 | `z_order` | Not explicitly documented in adjacent source annotations. |
-| 8 | `speed` | Not explicitly documented in adjacent source annotations. |
-| 9 | `backdrop` | Not explicitly documented in adjacent source annotations. |
-
-#### 109. `frame.set_marquee_position(player_id, marquee_id, x, y)`
-
-- **Location:** source line 2176.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `marquee_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `y` | Not explicitly documented in adjacent source annotations. |
-
-#### 110. `frame.set_marquee_speed(player_id, marquee_id, speed)`
-
-- **Location:** source line 2193.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `marquee_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `speed` | Not explicitly documented in adjacent source annotations. |
-
-#### 111. `frame.spawn_timer(timer_id, player_id, x, y, duration, loop)`
-
-- **Location:** source line 2212.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** TIMER FUNCTIONS
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `timer_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `loop` | Not explicitly documented in adjacent source annotations. |
-
-#### 112. `callback(_, timer_id, value)`
-
-- **Location:** source line 2214.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `_` | Not explicitly documented in adjacent source annotations. |
-| 2 | `timer_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `value` | Not explicitly documented in adjacent source annotations. |
-
-#### 113. `frame.resume_timer(timer_id, player_id)`
-
-- **Location:** source line 2221.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `timer_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 114. `frame.pause_timer(timer_id, player_id)`
-
-- **Location:** source line 2225.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `timer_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 115. `frame.remove_timer(timer_id, player_id)`
-
-- **Location:** source line 2229.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `timer_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 116. `frame.update_timer(timer_id, player_id, duration)`
-
-- **Location:** source line 2237.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `timer_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `duration` | Not explicitly documented in adjacent source annotations. |
-
-#### 117. `frame.spawn_countdown(countdown_id, player_id, x, y, duration, loop)`
-
-- **Location:** source line 2250.
-- **Declaration style:** `declared`.
-- **Adjacent source comment:** COUNTDOWN FUNCTIONS
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `countdown_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `x` | Not explicitly documented in adjacent source annotations. |
-| 4 | `y` | Not explicitly documented in adjacent source annotations. |
-| 5 | `duration` | Not explicitly documented in adjacent source annotations. |
-| 6 | `loop` | Not explicitly documented in adjacent source annotations. |
-
-#### 118. `callback(_, countdown_id, value)`
-
-- **Location:** source line 2252.
-- **Declaration style:** `assigned`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `_` | Not explicitly documented in adjacent source annotations. |
-| 2 | `countdown_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `value` | Not explicitly documented in adjacent source annotations. |
-
-#### 119. `frame.resume_countdown(countdown_id, player_id)`
-
-- **Location:** source line 2263.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `countdown_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 120. `frame.pause_countdown(countdown_id, player_id)`
-
-- **Location:** source line 2267.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `countdown_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 121. `frame.remove_countdown(countdown_id, player_id)`
-
-- **Location:** source line 2271.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `countdown_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-
-#### 122. `frame.update_countdown(countdown_id, player_id, duration)`
-
-- **Location:** source line 2279.
-- **Declaration style:** `declared`.
-- **Description:** No adjacent explanatory source comment; behavior must be verified in the linked implementation.
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `countdown_id` | Not explicitly documented in adjacent source annotations. |
-| 2 | `player_id` | Not explicitly documented in adjacent source annotations. |
-| 3 | `duration` | Not explicitly documented in adjacent source annotations. |
-
-#### 123. `splitter(inputstr, sep)`
-
-- **Location:** source line 2292.
-- **Declaration style:** `local`.
-- **Adjacent source comment:** UTILITY FUNCTIONS
-
-  **Parameter reference** (parameter names are sourced directly; undocumented types are not inferred):
-
-| Position | Parameter | Source-established type / meaning |
-|---|---|---|
-| 1 | `inputstr` | Not explicitly documented in adjacent source annotations. |
-| 2 | `sep` | Not explicitly documented in adjacent source annotations. |
-
-## 🪄 Anonymous closures
-
-These are anonymous `function(...)` expressions, including inline callbacks. Their argument lists are taken verbatim from source; lexical context is descriptive text, not a claim about execution.
-
-| Line | Arguments | Preceding source context |
-|---|---|---|
-| 134 | `event` | `VISION -- =========================================================== Net:on("player…` |
-| 144 | `(none)` | `============= local function try_move_player(player_id, area_id, x, y, z) local ok =…` |
-| 151 | `(none)` | `end end) if ok and Net.transfer_player then return true end ok = pcall(` |
-| 158 | `(none)` | `end end) if ok and Net.transfer_player then return true end ok = pcall(` |
-| 165 | `(none)` | `z) end end) if ok and Net.move_player then return true end ok = pcall(` |
-| 176 | `(none)` | `eturn false end local function try_animate_player(player_id, anim_state) local ok = …` |
-| 187 | `(none)` | `end) if ok and Net.animate_player_properties then return true end ok = pcall(` |
-| 198 | `(none)` | `return false end function frame.move_frozen_player(player_id, x, y, z) return async(` |
-| 206 | `(none)` | `0)) end) end function frame.animate_frozen_player(player_id, anim_state) return asyn…` |
-| 230 | `(none)` | `cale, bot_scale, owner_sprite_state, owner_sprite_enabled, movement_duration) return…` |
-| 2020 | `(none)` | `selection.y, 0.15, "ease_out_quad",` |
-| 2309 | `event` | `ANDLING -- =========================================================== Net:on("virtu…` |
-| 2398 | `event` | `-- TICK HANDLER -- =========================================================== Net:o…` |
-| 2434 | `event` | `HANDLERS -- =========================================================== Net:on("curs…` |
-| 2451 | `(none)` | `election.y, 0.1, "ease_out_back",` |
-| 2473 | `event` | `print("[games] No cursor found for player " .. player_id) end end) Net:on("player_jo…` |
-| 2491 | `event` | `event.player_id, bot_id) end end end end) Net:on("player_disconnect",` |
-| 2536 | `event` | `= nil end InputSystem.destroy_controller(event.player_id) end) Net:on("player_move",` |
-| 2585 | `event` | `bot_id, target_x, target_y, target_z) end end end) Net:on("player_area_transfer",` |
-
-## 📦 Tables and data
-
-The following **57** table initializer(s) were statically identified. Entries show **source expressions**, not evaluated values or guaranteed runtime table contents.
-
-### 1. `assets` — line 16
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | string literal | `"/server/assets/net-games/fonts/fonts_compressed.png"` |
-| `[2]` | string literal | `"/server/assets/net-games/fonts/fonts_wide.animation"` |
-| `[3]` | string literal | `"/server/assets/net-games/fonts/fonts_gradient.animation"` |
-| `[4]` | string literal | `"/server/assets/net-games/fonts/fonts_thick.animation"` |
-| `[5]` | string literal | `"/server/assets/net-games/fonts/fonts_battle.animation"` |
-| `[6]` | string literal | `"/server/assets/net-games/fonts/fonts_thin.animation"` |
-| `[7]` | string literal | `"/server/assets/net-games/fonts/fonts_tiny.animation"` |
-| `[8]` | string literal | `"/server/assets/net-games/fonts/fonts_compressed.animation"` |
-| `[9]` | string literal | `"/server/assets/net-games/fonts/fonts_dark_compressed.png"` |
-| `[10]` | string literal | `"/server/assets/net-games/fonts/fonts_dark_compressed.animation"` |
-
-### 2. `frame` — line 37
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 3. `last_position_cache` — line 38
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 4. `cosmetic_cache` — line 39
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 5. `avatar_cache` — line 41
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 6. `ui_cache` — line 42
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 7. `map_elements` — line 43
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 8. `ui_update` — line 44
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 9. `online_players` — line 45
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 10. `text_cache` — line 47
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 11. `marquee_cache` — line 48
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 12. `timer_cache` — line 49
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 13. `countdown_cache` — line 50
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 14. `repeat_state` — line 51
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 15. `return` — line 94
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `r` | expression/reference | `color.r or color[1] or 255` |
-| `g` | expression/reference | `color.g or color[2] or 255` |
-| `b` | expression/reference | `color.b or color[3] or 255` |
-| `a` | expression/reference | `color.a or color[4] or 255` |
-
-### 16. `keyframes` — line 178
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{ properties = {{property = "Animation", value = anim_state}}, duration = 0 }` |
-
-### 17. `properties` — line 179
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{property = "Animation", value = anim_state}` |
-
-### 18. `keyframes` — line 365
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{ properties = { { property = "ScaleX", ease = "Linear", value = world_bot_scale }, { property = "ScaleY", ease = "Linear", value = world_bot_scale }, }, …` |
-
-### 19. `properties` — line 366
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{ property = "ScaleX", ease = "Linear", value = world_bot_scale }` |
-| `[2]` | nested table | `{ property = "ScaleY", ease = "Linear", value = world_bot_scale }` |
-
-### 20. `animations` — line 622
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 21. `children` — line 624
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 22. `sprite_data` — line 641
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `id` | expression/reference | `sprite_id .. "_obj"` |
-
-### 23. `return` — line 740
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `x` | expression/reference | `element.x` |
-| `y` | expression/reference | `element.y` |
-| `z` | expression/reference | `element.z` |
-| `sx` | expression/reference | `element.sx` |
-| `sy` | expression/reference | `element.sy` |
-| `ox` | expression/reference | `element.ox` |
-| `oy` | expression/reference | `element.oy` |
-| `ro` | expression/reference | `element.ro` |
-| `opacity` | expression/reference | `element.opacity` |
-| `r` | expression/reference | `element.r` |
-| `g` | expression/reference | `element.g` |
-| `b` | expression/reference | `element.b` |
-| `a` | expression/reference | `element.a` |
-| `setPosition` | function | `function(self, x, y) element.x = x element.y = y frame.update_ui_element(sprite_id, player_id, {x = x, y = y}) end` |
-| `setScale` | function | `function(self, sx, sy) element.sx = sx element.sy = sy or sx frame.update_ui_element(sprite_id, player_id, {sx = sx, sy = sy or sx}) end` |
-| `setRotation` | function | `function(self, ro) element.ro = ro frame.update_ui_element(sprite_id, player_id, {ro = ro}) end` |
-| `setOpacity` | function | `function(self, opacity) element.opacity = opacity frame.update_ui_element(sprite_id, player_id, {opacity = opacity}) end` |
-| `setColor` | function | `function(self, r, g, b, a) element.r = r or element.r element.g = g or element.g element.b = b or element.b element.a = a or element.a frame.update_ui_ele…` |
-| `setRo` | function | `function(self, ro) element.ro = ro frame.update_ui_element(sprite_id, player_id, {ro = ro}) end` |
-
-### 24. `element.animations` — line 839
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 25. `element.animations` — line 907
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 26. `element.animations` — line 983
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 27. `element.animations` — line 1048
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 28. `current_props` — line 1075
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `x` | expression/reference | `element.x` |
-| `y` | expression/reference | `element.y` |
-| `sx` | expression/reference | `element.sx` |
-| `sy` | expression/reference | `element.sy` |
-| `ro` | expression/reference | `element.ro` |
-| `opacity` | expression/reference | `element.opacity` |
-
-### 29. `target_props` — line 1084
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 30. `element.animations` — line 1128
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 31. `target_props` — line 1141
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 32. `proxy` — line 1169
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `y` | expression/reference | `start_y` |
-| `setPosition` | function | `function(self, x, y) element.y = y frame.update_ui_element(sprite_id, player_id, {y = y}) end` |
-
-### 33. `element.animations` — line 1193
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 34. `element.animations` — line 1228
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 35. `current_color` — line 1242
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `r` | expression/reference | `element.r or 255` |
-| `g` | expression/reference | `element.g or 255` |
-| `b` | expression/reference | `element.b or 255` |
-| `a` | expression/reference | `element.a or 255` |
-
-### 36. `element.animations` — line 1329
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 37. `sequence_steps` — line 1362
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 38. `element.animations` — line 1450
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 39. `element.animations` — line 1545
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 40. `element.animations` — line 1615
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 41. `start_color` — line 1645
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `r` | expression/reference | `element.r or 255` |
-| `g` | expression/reference | `element.g or 255` |
-| `b` | expression/reference | `element.b or 255` |
-| `a` | expression/reference | `element.a or 255` |
-
-### 42. `proxy` — line 1653
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `r` | expression/reference | `element.r or 255` |
-| `g` | expression/reference | `element.g or 255` |
-| `b` | expression/reference | `element.b or 255` |
-| `a` | expression/reference | `element.a or 255` |
-| `setColor` | function | `function(self, r, g, b) element.r = r element.g = g element.b = b frame.update_ui_element(sprite_id, player_id, {r = r, g = g, b = b}) end` |
-| `setAlpha` | function | `function(self, alpha) element.a = alpha frame.update_ui_element(sprite_id, player_id, {a = alpha}) end` |
-| `setOpacity` | function | `function(self,opacity) element.opacity = opacity frame.update_ui_element(sprite_id, player_id, {o = opacity}) end` |
-
-### 43. `element.animations` — line 1677
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 44. `start_color` — line 1686
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `r` | expression/reference | `start_r or 255` |
-| `g` | expression/reference | `start_g or 255` |
-| `b` | expression/reference | `start_b or 255` |
-| `a` | expression/reference | `start_a or 255` |
-
-### 45. `target_color` — line 1693
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `r` | expression/reference | `target_r or 255` |
-| `g` | expression/reference | `target_g or 255` |
-| `b` | expression/reference | `target_b or 255` |
-| `a` | expression/reference | `target_a or start_color.a` |
-
-### 46. `element.animations` — line 1755
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 47. `return` — line 1760
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `bob` | expression/reference | `bob_id` |
-| `pulse` | expression/reference | `pulse_id` |
-| `stop` | function | `function() AnimationEngine.stop_animation(bob_id) AnimationEngine.stop_animation(pulse_id) if element.animations then element.animations[bob_id] = nil ele…` |
-
-### 48. `shake_object` — line 1791
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `x` | expression/reference | `proxy.x` |
-| `y` | expression/reference | `proxy.y` |
-| `rotation` | expression/reference | `proxy.ro` |
-| `setPosition` | function | `function(self, x, y) proxy:setPosition(x, y) end` |
-| `setRotation` | function | `function(self, rotation) proxy:setRo(rotation) end` |
-
-### 49. `element.animations` — line 1824
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 50. `element.animations` — line 1900
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 51. `return` — line 1930
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `x` | expression/reference | `element.x` |
-| `y` | expression/reference | `element.y` |
-| `z` | expression/reference | `element.z` |
-| `ox` | expression/reference | `element.ox` |
-| `oy` | expression/reference | `element.oy` |
-| `sx` | expression/reference | `element.sx` |
-| `sy` | expression/reference | `element.sy` |
-| `ro` | expression/reference | `element.ro` |
-| `opacity` | expression/reference | `element.opacity` |
-| `a` | expression/reference | `element.a` |
-| `r` | expression/reference | `element.r` |
-| `g` | expression/reference | `element.g` |
-| `b` | expression/reference | `element.b` |
-| `color_mode` | expression/reference | `element.color_mode` |
-| `animation_state` | expression/reference | `element.animation_state` |
-| `has_animations` | expression/reference | `element.animations and next(element.animations) ~= nil` |
-| `box_width` | expression/reference | `element.box_width` |
-| `box_height` | expression/reference | `element.box_height` |
-| `halign` | expression/reference | `element.halign` |
-| `valign` | expression/reference | `element.valign` |
-| `sprite_width` | expression/reference | `element.sprite_width` |
-| `sprite_height` | expression/reference | `element.sprite_height` |
-
-### 52. `obj_cache.cursor_options` — line 1983
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `selections` | expression/reference | `options.selections` |
-| `movement` | expression/reference | `options.movement or "vertical"` |
-| `current_index` | numeric literal | `1` |
-| `locked` | boolean literal | `false` |
-| `name` | expression/reference | `sprite_id` |
-
-### 53. `opts` — line 2159
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `font` | expression/reference | `font or "THICK"` |
-| `scale` | expression/reference | `scale or 2.0` |
-| `z` | expression/reference | `z_order or 100` |
-| `speed` | expression/reference | `speed or 60` |
-| `loops` | nil | `nil` |
-
-### 54. `t` — line 2299
-
-*Table constructor detected; no simple direct-level fields were extracted (or constructor is empty).*
-
-### 55. `keyframes` — line 2554
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{ properties = { { property = "X", value = tonumber(bot_position.x) or target_x }, { property = "Y", value = tonumber(bot_position.y) or target_y }, { pro…` |
-| `[2]` | nested table | `{ properties = { { property = "X", ease = "Linear", value = target_x }, { property = "Y", ease = "Linear", value = target_y }, { property = "Z", ease = "L…` |
-
-### 56. `properties` — line 2556
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{ property = "X", value = tonumber(bot_position.x) or target_x }` |
-| `[2]` | nested table | `{ property = "Y", value = tonumber(bot_position.y) or target_y }` |
-| `[3]` | nested table | `{ property = "Z", value = tonumber(bot_position.z) or target_z }` |
-
-### 57. `properties` — line 2564
-
-| Field / index | Initializer category | Expression from source |
-|---|---|---|
-| `[1]` | nested table | `{ property = "X", ease = "Linear", value = target_x }` |
-| `[2]` | nested table | `{ property = "Y", ease = "Linear", value = target_y }` |
-| `[3]` | nested table | `{ property = "Z", ease = "Linear", value = target_z }` |
-
-## ⚙️ Runtime API calls
-
-These are **statically detected call sites**, not API definitions or guaranteed successful runtime calls.
-
-| Call identifier | Occurrences |
-|---|---|
-| `Async.await` | 1 |
-| `Async.promisify` | 1 |
-| `Async.sleep` | 2 |
-| `Net.animate_bot` | 2 |
-| `Net.animate_player_properties` | 1 |
-| `Net.create_bot` | 2 |
-| `Net.emit` | 5 |
-| `Net.exclude_actor_for_player` | 1 |
-| `Net.get_player_area` | 5 |
-| `Net.get_player_position` | 1 |
-| `Net.is_bot` | 5 |
-| `Net.lock_player_input` | 1 |
-| `Net.move_bot` | 1 |
-| `Net.move_player` | 1 |
-| `Net.on` | 8 |
-| `Net.player_alloc_sprite` | 2 |
-| `Net.player_draw_sprite` | 5 |
-| `Net.player_erase_sprite` | 2 |
-| `Net.provide_asset_for_player` | 5 |
-| `Net.remove_bot` | 4 |
-| `Net.set_player_animation` | 1 |
-| `Net.set_player_position` | 1 |
-| `Net.transfer_bot` | 2 |
-| `Net.transfer_player` | 2 |
-| `Net.unlock_player_input` | 1 |
-
-## 🧪 Static-analysis notes
-
-- Generated directly from the uploaded server ZIP; source names, signatures, literal dependencies, and line counts were inspected from this copy.
-- Function parameter names preserve Lua declaration spelling and order; Lua varargs are shown as `...`.
-- Table rows are **initializer expressions**, not guarantees about contents after runtime mutation. Tables built dynamically may not appear.
-- Anonymous functions and local functions assigned through computed keys are not fully enumerable using static pattern analysis.
-- No Net/Async runtime behavior, battle compatibility, error contracts, or inferred type information is asserted without source support.
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `_` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `countdown_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `value` | Declared directly in the current Lua. Type not inferred. |
+
+#### 114. `frame.resume_countdown(countdown_id, player_id)`
+
+- **Line:** 2264
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `countdown_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+
+#### 115. `frame.pause_countdown(countdown_id, player_id)`
+
+- **Line:** 2268
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `countdown_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+
+#### 116. `frame.remove_countdown(countdown_id, player_id)`
+
+- **Line:** 2272
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `countdown_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+
+#### 117. `frame.update_countdown(countdown_id, player_id, duration)`
+
+- **Line:** 2280
+- **Declaration:** assigned/declared
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `countdown_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `duration` | Declared directly in the current Lua. Type not inferred. |
+
+#### 118. `splitter(inputstr, sep)`
+
+- **Line:** 2293
+- **Declaration:** local
+
+| # | Parameter | Evidence |
+|---:|---|---|
+| 1 | `inputstr` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `sep` | Declared directly in the current Lua. Type not inferred. |
+
+
+## Tables
+
+| Line | Identifier |
+|---:|---|
+| 17 | `assets` |
+| 38 | `frame` |
+| 39 | `last_position_cache` |
+| 40 | `cosmetic_cache` |
+| 42 | `avatar_cache` |
+| 43 | `ui_cache` |
+| 44 | `map_elements` |
+| 45 | `ui_update` |
+| 46 | `online_players` |
+| 48 | `text_cache` |
+| 49 | `marquee_cache` |
+| 50 | `timer_cache` |
+| 51 | `countdown_cache` |
+| 52 | `repeat_state` |
+| 179 | `keyframes` |
+| 180 | `properties` |
+| 366 | `keyframes` |
+| 367 | `properties` |
+| 623 | `animations` |
+| 625 | `children` |
+| 642 | `sprite_data` |
+| 840 | `element.animations` |
+| 908 | `element.animations` |
+| 984 | `element.animations` |
+| 1049 | `element.animations` |
+| 1076 | `current_props` |
+| 1085 | `target_props` |
+| 1129 | `element.animations` |
+| 1142 | `target_props` |
+| 1170 | `proxy` |
+| 1194 | `element.animations` |
+| 1229 | `element.animations` |
+| 1243 | `current_color` |
+| 1330 | `element.animations` |
+| 1363 | `sequence_steps` |
+| 1451 | `element.animations` |
+| 1546 | `element.animations` |
+| 1616 | `element.animations` |
+| 1646 | `start_color` |
+| 1654 | `proxy` |
+| 1678 | `element.animations` |
+| 1687 | `start_color` |
+| 1694 | `target_color` |
+| 1756 | `element.animations` |
+| 1792 | `shake_object` |
+| 1825 | `element.animations` |
+| 1901 | `element.animations` |
+| 1984 | `obj_cache.cursor_options` |
+| 2160 | `opts` |
+| 2300 | `t` |
+| 2555 | `keyframes` |
+| 2557 | `properties` |
+| 2565 | `properties` |
+
+## Net API calls
+
+| API | Count | First line |
+|---|---:|---:|
+| `Net.animate_bot` | 2 | 438 |
+| `Net.animate_player_properties` | 1 | 183 |
+| `Net.create_bot` | 2 | 347 |
+| `Net.emit` | 5 | 2026 |
+| `Net.exclude_actor_for_player` | 1 | 127 |
+| `Net.get_player_area` | 5 | 200 |
+| `Net.get_player_position` | 1 | 259 |
+| `Net.is_bot` | 5 | 397 |
+| `Net.move_bot` | 1 | 473 |
+| `Net.move_player` | 1 | 161 |
+| `Net.on` | 8 | 135 |
+| `Net.player_alloc_sprite` | 2 | 326 |
+| `Net.player_draw_sprite` | 5 | 331 |
+| `Net.player_erase_sprite` | 2 | 727 |
+| `Net.provide_asset_for_player` | 5 | 137 |
+| `Net.remove_bot` | 4 | 398 |
+| `Net.set_player_animation` | 1 | 190 |
+| `Net.set_player_position` | 1 | 168 |
+| `Net.transfer_bot` | 2 | 475 |
+| `Net.transfer_player` | 2 | 147 |

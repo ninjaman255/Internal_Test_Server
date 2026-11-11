@@ -2,7 +2,7 @@
 
 [🏠 Documentation home](../../../index.md) · [⬆ Folder index](../index.md)
 
-> **Source:** [`scripts/player-control/tests/smoke.lua`](../../../../../../control_impl/src/scripts/player-control/tests/smoke.lua)  
+> **Source:** [`scripts/player-control/tests/smoke.lua`](../../../../player-control/tests/smoke.lua)  
 > **Source lines:** 108  
 > **SHA-256:** `125d1c4d9bb4dbb454c7977fb6dde096a21bda1161ad7f3dd528097ca34d2684`  
 > **Declared/assigned functions:** 20 · **table initializers (simple patterns):** 6 · **event subscriptions detected:** 0

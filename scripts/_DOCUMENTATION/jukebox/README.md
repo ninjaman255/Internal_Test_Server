@@ -81,7 +81,7 @@ The Jukebox emitter uses `"Jukebox Open"`, `"Jukebox Close"`, and `"Jukebox Requ
 
 ## 🪵 Shared logging
 
-Jukebox now uses the canonical `scripts/logger/logger` module with system name `jukebox`. `main.lua` reports under subsystem `main` and `utils.lua` under `utils`, while preserving their pre-existing console message prefixes. Logs are written to `scripts/_DEBUGGING/jukebox/_FULL-LOG.log`, `_MAIN.log` and `_UTILS.log`. See the [shared logger guide](../logger/README.md).
+Jukebox now uses the canonical `scripts/logger/logger` module with system name `jukebox`. `main.lua` reports under subsystem `main` and `utils.lua` under `utils`, while preserving their pre-existing console message prefixes. Logs are written to `scripts/_DEBUGGING/jukebox/_FULL-log.log`, `_MAIN.log` and `_UTILS.log`. See the [shared logger guide](../logger/README.md).
 
 ## Initialization and duplicate registration
 

@@ -20,7 +20,7 @@
 | 📄 Script | `prog_basic_freedraw.lua` | 1 | 4 | 3 | 128 | [Open script reference](prog_basic_freedraw/index.md) |
 | 📄 Script | `prog_basic_nameplate.lua` | 1 | 2 | 5 | 135 | [Open script reference](prog_basic_nameplate/index.md) |
 | 📄 Script | `prog_dramatic_dialogue.lua` | 1 | 2 | 3 | 110 | [Open script reference](prog_dramatic_dialogue/index.md) |
-| 📄 Script | `prog_dyed_dialogue(bak).lua` | 1 | 2 | 4 | 125 | [Open script reference](prog_dyed_dialogue%28bak%29/index.md) |
+| 📄 Script | `prog_dyed_dialogue%28bak%29.lua` | 1 | 2 | 4 | 125 | [Open script reference](prog_dyed_dialogue%28bak%29/index.md) |
 | 📄 Script | `prog_dyed_dialogue.lua` | 1 | 0 | 3 | 18 | [Open script reference](prog_dyed_dialogue/index.md) |
 | 📄 Script | `prog_prompt_dialogue.lua` | 1 | 7 | 5 | 185 | [Open script reference](prog_prompt_dialogue/index.md) |
 | 📄 Script | `prog_prompt_dialogue_2.lua` | 1 | 7 | 4 | 167 | [Open script reference](prog_prompt_dialogue_2/index.md) |

@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/ezrushroads.lua`](../../../ezlibs-scripts/ezrushroads.lua)  
 > **Source lines:** 676  
-> **SHA-256 (UTF-8):** `6a59350a2cec27c2e03b6a75c0fde2ccfcc052c46d06ab8e87aace8d7e1c8734`  
-> **Named/assigned functions detected:** 22  
+> **SHA-256 (UTF-8):** `22dfea6cb48641f3cea143120419eadb751068f33ba38eaf492f6d56bb1ac299`  
+> **Named functions detected:** 22  
 > **Table initializers detected:** 17
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 5 | `scripts/logger/logger` |
 | 11 | `scripts/ezlibs-scripts/helpers` |
 | 12 | `scripts/ezlibs-scripts/ezmemory` |
@@ -42,9 +37,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 | 433 | `ezbus` | `rush_tile_entered` |
 | 456 | `ezbus` | `rush_tile_departed` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 17 | `async` | `p` | local |
 | 24 | `get_table_length` | `tbl` | local |
@@ -69,7 +64,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 | 527 | `ezrushroads.handle_player_transfer` | `player_id` | assigned/declared |
 | 535 | `ezrushroads.handle_object_interaction` | `player_id, object_id` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `async(p)`
 
@@ -78,7 +73,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `p` | Declared in this function; type not inferred. |
+| 1 | `p` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `get_table_length(tbl)`
 
@@ -87,7 +82,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `tbl` | Declared in this function; type not inferred. |
+| 1 | `tbl` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `get_anim_state_from_direction(direction)`
 
@@ -96,7 +91,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `direction` | Declared in this function; type not inferred. |
+| 1 | `direction` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `get_food_item_id(player_id)`
 
@@ -105,7 +100,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `get_player_rush_memory(player_id)`
 
@@ -114,7 +109,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `update_food_item(player_id, count)`
 
@@ -123,37 +118,37 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `count` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `count` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `ezrushroads.get_food(player_id)`
 
 - **Line:** 98
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `ezrushroads.add_food(player_id, amount)`
 
 - **Line:** 103
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `amount` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `amount` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `ezrushroads.remove_food(player_id, amount)`
 
 - **Line:** 112
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `amount` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `amount` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `group_rush_roads_in_area(area_id)`
 
@@ -162,7 +157,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `dfs(start_id, group_id)`
 
@@ -171,8 +166,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `start_id` | Declared in this function; type not inferred. |
-| 2 | `group_id` | Declared in this function; type not inferred. |
+| 1 | `start_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `group_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `create_permanent_bot(area_id, road_id, linked_obj, direction)`
 
@@ -181,10 +176,10 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `road_id` | Declared in this function; type not inferred. |
-| 3 | `linked_obj` | Declared in this function; type not inferred. |
-| 4 | `direction` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `road_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `linked_obj` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `direction` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `process_rush_road(area_id, object)`
 
@@ -193,13 +188,13 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `ezrushroads.init()`
 
 - **Line:** 315
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 15. `update_visibility_for_player(player_id, area_id)`
@@ -209,8 +204,8 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `create_temp_bots_for_player(player_id)`
 
@@ -219,7 +214,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 17. `remove_temp_bots_for_player(player_id)`
 
@@ -228,7 +223,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `clear_active_animation(player_id)`
 
@@ -237,49 +232,49 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `ezrushroads.handle_player_join(player_id)`
 
 - **Line:** 482
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 20. `ezrushroads.handle_player_disconnect(player_id)`
 
 - **Line:** 506
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `ezrushroads.handle_player_transfer(player_id)`
 
 - **Line:** 527
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `ezrushroads.handle_object_interaction(player_id, object_id)`
 
 - **Line:** 535
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 6 | `ezrushroads` |
 | 42 | `rush_roads` |
@@ -301,7 +296,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezrushroads.lua` in the sha
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.animate_bot_properties` | 3 | 625 |
 | `Net.create_item` | 1 | 89 |

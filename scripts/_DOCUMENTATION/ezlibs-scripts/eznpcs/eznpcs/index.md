@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/eznpcs/eznpcs.lua`](../../../../ezlibs-scripts/eznpcs/eznpcs.lua)  
 > **Source lines:** 1946  
-> **SHA-256 (UTF-8):** `40c7fda605a678d3da41e0b8c4c0575d92ef7ccc3b3605151eb0d3315feaa50d`  
-> **Named/assigned functions detected:** 68  
+> **SHA-256 (UTF-8):** `a53a8b3b57ee040289fa05627b7646789f2f411b1ceb8527264af4bd6e113be2`  
+> **Named functions detected:** 68  
 > **Table initializers detected:** 29
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 2 | `scripts/logger/logger` |
 | 3 | `scripts/ezlibs-scripts/direction` |
 | 4 | `scripts/ezlibs-scripts/helpers` |
@@ -47,9 +42,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 | 1062 | `ezbus` | `bot_removed` |
 | 1527 | `ezbus` | `quest_event` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 74 | `set_npc_animation` | `npc, animation, loop, source` | local |
 | 91 | `printd` | `...` | local |
@@ -120,7 +115,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 | 1924 | `eznpcs.attach_chat` | `npc, first_dialogue` | assigned/declared |
 | 1936 | `eznpcs.remove_npc` | `npc_or_bot_id` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `set_npc_animation(npc, animation, loop, source)`
 
@@ -129,10 +124,10 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `animation` | Declared in this function; type not inferred. |
-| 3 | `loop` | Declared in this function; type not inferred. |
-| 4 | `source` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `animation` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `loop` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `source` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `printd(...)`
 
@@ -141,7 +136,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `...` | Declared in this function; type not inferred. |
+| 1 | `...` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `validate_npc_object(area_id, object)`
 
@@ -150,8 +145,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `get_all_players()`
 
@@ -166,8 +161,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `owner_id` | Declared in this function; type not inferred. |
-| 2 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `owner_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `include_for_all(bot_id)`
 
@@ -176,7 +171,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `emit_bot_created(bot_id, area_id, extra)`
 
@@ -185,9 +180,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `extra` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `extra` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `emit_bot_removed(bot_id)`
 
@@ -196,7 +191,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `emit_bot_moved(bot_id, area_id, x, y, z)`
 
@@ -205,149 +200,149 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `x` | Declared in this function; type not inferred. |
-| 4 | `y` | Declared in this function; type not inferred. |
-| 5 | `z` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `z` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `eznpcs.get_dialogue_mugshot(npc,player_id,dialogue)`
 
 - **Line:** 174
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `do_dialogue(npc,player_id,dialogue,relay_object)`
 
 - **Line:** 191
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `dialogue` | Declared in this function; type not inferred. |
-| 4 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `dialogue` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `create_bot_from_object(area_id, object, player_id, options)`
 
 - **Line:** 234
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
-| 3 | `player_id` | Declared in this function; type not inferred. |
-| 4 | `options` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 13. `create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name,npc_turns_to_talk)`
 
 - **Line:** 331
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `asset_name` | Declared in this function; type not inferred. |
-| 3 | `x` | Declared in this function; type not inferred. |
-| 4 | `y` | Declared in this function; type not inferred. |
-| 5 | `z` | Declared in this function; type not inferred. |
-| 6 | `direction` | Declared in this function; type not inferred. |
-| 7 | `bot_name` | Declared in this function; type not inferred. |
-| 8 | `animation_name` | Declared in this function; type not inferred. |
-| 9 | `mug_animation_name` | Declared in this function; type not inferred. |
-| 10 | `npc_turns_to_talk` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `asset_name` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `direction` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `bot_name` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `animation_name` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `mug_animation_name` | Declared directly in the current Lua. Type not inferred. |
+| 10 | `npc_turns_to_talk` | Declared directly in the current Lua. Type not inferred. |
 
 #### 14. `add_behaviour(npc,behaviour)`
 
 - **Line:** 396
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `behaviour` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `behaviour` | Declared directly in the current Lua. Type not inferred. |
 
 #### 15. `clear_player_conversation(player_id)`
 
 - **Line:** 405
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 16. `chat_behaviour()`
 
 - **Line:** 422
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 17. `action(npc,player_id,relay_object)`
 
 - **Line:** 425
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `player_id` | Declared in this function; type not inferred. |
-| 3 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 18. `waypoint_follow_behaviour(first_waypoint_id, options)`
 
 - **Line:** 485
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `first_waypoint_id` | Declared in this function; type not inferred. |
-| 2 | `options` | Declared in this function; type not inferred. |
+| 1 | `first_waypoint_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 19. `initialize(npc)`
 
 - **Line:** 489
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
 
 #### 20. `action(npc,delta_time)`
 
 - **Line:** 509
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `delta_time` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `delta_time` | Declared directly in the current Lua. Type not inferred. |
 
 #### 21. `do_actor_interaction(player_id,actor_id,relay_object)`
 
 - **Line:** 516
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `actor_id` | Declared in this function; type not inferred. |
-| 3 | `relay_object` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `relay_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 22. `is_anyone_talking_to_npc(npc_id)`
 
 - **Line:** 523
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc_id` | Declared in this function; type not inferred. |
+| 1 | `npc_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 23. `start_scripted_waypoint_move(npc, waypoint, move_anim, move_loop, move_duration)`
 
@@ -356,31 +351,31 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `waypoint` | Declared in this function; type not inferred. |
-| 3 | `move_anim` | Declared in this function; type not inferred. |
-| 4 | `move_loop` | Declared in this function; type not inferred. |
-| 5 | `move_duration` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `waypoint` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `move_anim` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `move_loop` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `move_duration` | Declared directly in the current Lua. Type not inferred. |
 
 #### 24. `move_npc(npc,delta_time)`
 
 - **Line:** 640
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `delta_time` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `delta_time` | Declared directly in the current Lua. Type not inferred. |
 
 #### 25. `on_npc_reached_waypoint(npc,waypoint)`
 
 - **Line:** 708
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `waypoint` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `waypoint` | Declared directly in the current Lua. Type not inferred. |
 
 #### 26. `count_and_prune_live_bots(spawner)`
 
@@ -389,7 +384,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `spawner` | Declared in this function; type not inferred. |
+| 1 | `spawner` | Declared directly in the current Lua. Type not inferred. |
 
 #### 27. `warp_out_spawner_npc(spawner, npc)`
 
@@ -398,8 +393,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `spawner` | Declared in this function; type not inferred. |
-| 2 | `npc` | Declared in this function; type not inferred. |
+| 1 | `spawner` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `npc` | Declared directly in the current Lua. Type not inferred. |
 
 #### 28. `make_spawner_path_complete_cb(spawner)`
 
@@ -408,7 +403,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `spawner` | Declared in this function; type not inferred. |
+| 1 | `spawner` | Declared directly in the current Lua. Type not inferred. |
 
 #### 29. `spawn_from_spawner(spawner)`
 
@@ -417,7 +412,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `spawner` | Declared in this function; type not inferred. |
+| 1 | `spawner` | Declared directly in the current Lua. Type not inferred. |
 
 #### 30. `register_npc_spawner(area_id, object)`
 
@@ -426,8 +421,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 31. `update_spawner_triggers(delta_time)`
 
@@ -436,7 +431,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `delta_time` | Declared in this function; type not inferred. |
+| 1 | `delta_time` | Declared directly in the current Lua. Type not inferred. |
 
 #### 32. `update_quest_exclusive_for_player(player_id)`
 
@@ -445,7 +440,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 33. `register_npc_object(area_id, object)`
 
@@ -454,204 +449,204 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 34. `eznpcs.get_bot_for_placeholder(area_id, object_id)`
 
 - **Line:** 1226
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 35. `eznpcs.load_npcs()`
 
 - **Line:** 1232
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 - **Parameters:** none explicitly declared.
 
 #### 36. `eznpcs.add_npcs_to_area(area_id)`
 
 - **Line:** 1239
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 37. `eznpcs.add_event(event_object)`
 
 - **Line:** 1276
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `event_object` | Declared in this function; type not inferred. |
+| 1 | `event_object` | Declared directly in the current Lua. Type not inferred. |
 
 #### 38. `eznpcs.create_npc_from_object(area_id,object_id)`
 
 - **Line:** 1288
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 39. `eznpcs.handle_actor_interaction(player_id,actor_id)`
 
 - **Line:** 1293
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `actor_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `actor_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 40. `eznpcs.on_tick(delta_time)`
 
 - **Line:** 1297
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `delta_time` | Declared in this function; type not inferred. |
+| 1 | `delta_time` | Declared directly in the current Lua. Type not inferred. |
 
 #### 41. `eznpcs.create_npc(area_id,asset_name,x,y,z,direction,bot_name,animation_name,mug_animation_name,dont_face_player)`
 
 - **Line:** 1310
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `asset_name` | Declared in this function; type not inferred. |
-| 3 | `x` | Declared in this function; type not inferred. |
-| 4 | `y` | Declared in this function; type not inferred. |
-| 5 | `z` | Declared in this function; type not inferred. |
-| 6 | `direction` | Declared in this function; type not inferred. |
-| 7 | `bot_name` | Declared in this function; type not inferred. |
-| 8 | `animation_name` | Declared in this function; type not inferred. |
-| 9 | `mug_animation_name` | Declared in this function; type not inferred. |
-| 10 | `dont_face_player` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `asset_name` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `x` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `y` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `z` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `direction` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `bot_name` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `animation_name` | Declared directly in the current Lua. Type not inferred. |
+| 9 | `mug_animation_name` | Declared directly in the current Lua. Type not inferred. |
+| 10 | `dont_face_player` | Declared directly in the current Lua. Type not inferred. |
 
 #### 42. `eznpcs.handle_player_transfer(player_id)`
 
 - **Line:** 1319
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 43. `eznpcs.handle_player_join(player_id)`
 
 - **Line:** 1323
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 44. `eznpcs.handle_player_disconnect(player_id)`
 
 - **Line:** 1358
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 45. `eznpcs.handle_object_interaction(player_id, object_id)`
 
 - **Line:** 1383
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 46. `eznpcs.remove_exclusive_npc(player_id, placeholder_id)`
 
 - **Line:** 1445
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `placeholder_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `placeholder_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 47. `eznpcs.prepare_battle_exit_wait(player_id)`
 
 - **Line:** 1458
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 48. `eznpcs.cancel_battle_exit_wait(player_id)`
 
 - **Line:** 1463
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 49. `eznpcs.handle_battle_exit(player_id, battle_results, exit_event)`
 
 - **Line:** 1470
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `battle_results` | Declared in this function; type not inferred. |
-| 3 | `exit_event` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `battle_results` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `exit_event` | Declared directly in the current Lua. Type not inferred. |
 
 #### 50. `eznpcs.wait_for_battle_exit(player_id)`
 
 - **Line:** 1484
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 51. `eznpcs.handle_battle_results(player_id, stats)`
 
 - **Line:** 1499
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `stats` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `stats` | Declared directly in the current Lua. Type not inferred. |
 
 #### 52. `eznpcs.remove_quest_exclusive_npc(player_id, placeholder_id)`
 
 - **Line:** 1505
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `placeholder_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `placeholder_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 53. `eznpcs.get_bot_id_for_placeholder(area_id, placeholder_id)`
 
 - **Line:** 1519
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `placeholder_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `placeholder_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 54. `_resolve_bot_id(bot_or_npc)`
 
@@ -660,7 +655,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_or_npc` | Declared in this function; type not inferred. |
+| 1 | `bot_or_npc` | Declared directly in the current Lua. Type not inferred. |
 
 #### 55. `_apply_bot_animation(bot_id, state, loop)`
 
@@ -669,9 +664,9 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
-| 2 | `state` | Declared in this function; type not inferred. |
-| 3 | `loop` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `state` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `loop` | Declared directly in the current Lua. Type not inferred. |
 
 #### 56. `_apply_bot_direction(bot_id, direction)`
 
@@ -680,8 +675,8 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
-| 2 | `direction` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `direction` | Declared directly in the current Lua. Type not inferred. |
 
 #### 57. `_bump_hold_generation(bot_id)`
 
@@ -690,7 +685,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 58. `_claim_pose(bot_id)`
 
@@ -699,7 +694,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 59. `_release_pose(bot_id)`
 
@@ -708,36 +703,36 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 60. `eznpcs.get_bot_record(bot_id)`
 
 - **Line:** 1606
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 61. `eznpcs.resolve_bot(area_id, object_id, player_id)`
 
 - **Line:** 1613
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `area_id` | Declared in this function; type not inferred. |
-| 2 | `object_id` | Declared in this function; type not inferred. |
-| 3 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 62. `eznpcs.cancel_bot_hold(bot_or_npc)`
 
 - **Line:** 1634
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_or_npc` | Declared in this function; type not inferred. |
+| 1 | `bot_or_npc` | Declared directly in the current Lua. Type not inferred. |
 
 #### 63. `_apply_pose_with_reassert(bot_id, animation, loop, reassert_interval)`
 
@@ -746,66 +741,66 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_id` | Declared in this function; type not inferred. |
-| 2 | `animation` | Declared in this function; type not inferred. |
-| 3 | `loop` | Declared in this function; type not inferred. |
-| 4 | `reassert_interval` | Declared in this function; type not inferred. |
+| 1 | `bot_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `animation` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `loop` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `reassert_interval` | Declared directly in the current Lua. Type not inferred. |
 
 #### 64. `eznpcs.move_bot_to_spot(bot_or_npc, target, options)`
 
 - **Line:** 1685
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_or_npc` | Declared in this function; type not inferred. |
-| 2 | `target` | Declared in this function; type not inferred. |
-| 3 | `options` | Declared in this function; type not inferred. |
+| 1 | `bot_or_npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `target` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 65. `eznpcs.set_bot_pose(bot_or_npc, options)`
 
 - **Line:** 1780
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `bot_or_npc` | Declared in this function; type not inferred. |
-| 2 | `options` | Declared in this function; type not inferred. |
+| 1 | `bot_or_npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 66. `eznpcs.attach_waypoint_follow(npc, first_waypoint_id, options)`
 
 - **Line:** 1910
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `first_waypoint_id` | Declared in this function; type not inferred. |
-| 3 | `options` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `first_waypoint_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `options` | Declared directly in the current Lua. Type not inferred. |
 
 #### 67. `eznpcs.attach_chat(npc, first_dialogue)`
 
 - **Line:** 1924
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc` | Declared in this function; type not inferred. |
-| 2 | `first_dialogue` | Declared in this function; type not inferred. |
+| 1 | `npc` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `first_dialogue` | Declared directly in the current Lua. Type not inferred. |
 
 #### 68. `eznpcs.remove_npc(npc_or_bot_id)`
 
 - **Line:** 1936
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `npc_or_bot_id` | Declared in this function; type not inferred. |
+| 1 | `npc_or_bot_id` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 24 | `eznpcs` |
 | 28 | `battle_exit_generation` |
@@ -839,7 +834,7 @@ Current source inventory for `scripts/ezlibs-scripts/eznpcs/eznpcs.lua` in the s
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.create_bot` | 2 | 376 |
 | `Net.exclude_actor_for_player` | 3 | 131 |

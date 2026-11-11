@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- enemy.lua
 local SharedLogger = require("scripts/logger/logger")
 local log = SharedLogger.register("nebulous-liberations"):register_subsystem("enemy")
@@ -158,7 +158,7 @@ function Enemy.destroy(instance, enemy)
         local hold_time = 3
         local extra_explosion_time = .5
         for _, player in ipairs(instance.players) do
-            LegacyCapture.lock(player.id, "liberation:enemy")
+            PlayerControl.acquire_capture(player.id, "liberation:enemy")
             Net.slide_player_camera(player.id, enemy.x + .5, enemy.y + .5, enemy.z, slide_time)
             Net.move_player_camera(player.id, enemy.x + .5, enemy.y + .5, enemy.z, hold_time)
             Net.slide_player_camera(player.id, player.x, player.y, player.z, slide_time)
@@ -182,7 +182,7 @@ function Enemy.destroy(instance, enemy)
         local unlock_padding = .3
         Async.await(Async.sleep(slide_time + unlock_padding))
         for _, player in ipairs(instance.players) do
-            LegacyCapture.unlock(player.id, "liberation:enemy")
+            PlayerControl.release_capture(player.id, "liberation:enemy")
         end
     end)
     return Async.promisify(co)

@@ -5,7 +5,9 @@
 > 📡 **Current-source update · 2026-11-11:** This authored guide is retained from the uploaded `internal_test_server(2).zip`. Its existing narrative/examples have **not** been exhaustively rewritten. For refreshed function signatures, parameters, dependencies, table initializers, and source line numbers, see the [regenerated module index](index.md) and [current systems guide](../CURRENT_SYSTEMS.md). If older instructions here conflict with the current Lua implementation, follow the linked source references.
 
 
-Module: `scripts/net-games/ui-suppression.lua`
+**Canonical implementation:** `scripts/player-control/resources/ui-suppression.lua`
+
+The original `scripts/net-games/ui-suppression.lua` path now forwards to the canonical module for older external callers.
 
 ## Engine HUD vs custom UI
 
@@ -18,7 +20,7 @@ Module: `scripts/net-games/ui-suppression.lua`
 ## API
 
 ```lua
-local UISuppression = require("scripts/net-games/ui-suppression")
+local UISuppression = require("scripts/player-control/resources/ui-suppression")
 
 local hud = UISuppression.acquire_engine_hud(player_id, "my-feature:hud")
 local input = UISuppression.acquire_input_lock(player_id, "my-feature:input")

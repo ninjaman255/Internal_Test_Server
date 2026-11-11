@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- ezpushback.lua
 -- A Pushback NPC uses the regular eznpcs NPC pipeline, with a moving rectangle
 -- trigger that follows its bot. On collision, a temporary bot uses the player's
@@ -253,7 +253,7 @@ local function cleanup_push(player_id, state, reason, restore_player)
 
     if restore_player and type(Net.is_player) == 'function' and Net.is_player(player_id) then
         if state.area_id then set_player_actor_hidden(player_id, state.area_id, false) end
-        pcall(LegacyCapture.unlock, player_id, "ezlibs-scripts/ezpushback")
+        pcall(PlayerControl.release_capture, player_id, "ezlibs-scripts/ezpushback")
     end
 
     if state.entry then
@@ -312,7 +312,7 @@ local function perform_pushback(entry, player_id)
     active_by_player[player_id] = state
 
     -- Lock and hide the real player before introducing the visual replacement.
-    pcall(LegacyCapture.lock, player_id, "ezlibs-scripts/ezpushback")
+    pcall(PlayerControl.acquire_capture, player_id, "ezlibs-scripts/ezpushback")
     set_player_actor_hidden(player_id, entry.area_id, true)
     provide_avatar_to_area(entry.area_id, avatar)
 

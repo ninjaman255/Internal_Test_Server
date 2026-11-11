@@ -28,11 +28,14 @@ Original runtime files are kept at their existing paths; only documentation file
 | `Root references` | [📖 `PLAYERCONTROL_CHANGELOG.md`](PLAYERCONTROL_CHANGELOG.md) | 🧩 PlayerControl change digest |
 | `player-control` | [📖 `README.md`](player-control/README.md) | 🎮 PlayerControl v2 programmer guide |
 | `player-control` | [📖 `CAMERA_FOCUS.md`](player-control/CAMERA_FOCUS.md) | 📷 Exclusive camera leases |
-| `player-control` | [📖 `LEGACY_CAPTURE.md`](player-control/LEGACY_CAPTURE.md) | 🔌 Compatibility engine input capture |
+| `player-control` | [📖 `CAPTURE_SCOPES.md`](player-control/CAPTURE_SCOPES.md) | 🔌 Managed named engine input and HUD capture |
+| `player-control` | [📖 `CAPTURE_SCOPES.md`](player-control/CAPTURE_SCOPES.md) | 🧰 Non-focused named captures and HUD scopes |
+| `player-control` | [📖 `resources/index.md`](player-control/resources/index.md) | 🧰 Canonical engine input/HUD suppression |
 | `player-control` | [📖 `TESTING.md`](player-control/TESTING.md) | 🧪 Test and regression coverage |
 | `player-control` | [📖 `V2_UPDATE_REPORT.md`](player-control/V2_UPDATE_REPORT.md) | 🧩 Input/camera v2 implementation report |
 | `player-control` | [📖 `CONTROL_FLOW.md`](player-control/CONTROL_FLOW.md) | 🧭 Session lifecycle |
 | `player-control` | [📖 `MIGRATION_AUDIT.md`](player-control/MIGRATION_AUDIT.md) | 🛠 Low-level lock migration inventory |
+| `simon-says` | [📖 `README.md`](simon-says/README.md) | 🎮 Simon Says movement capture, facing, and sprite-safe jitter |
 | `hp_manager` | [📖 `README.md`](hp_manager/README.md) | 🖥️ HP Manager complete guide |
 | `jukebox` | [📖 `README.md`](jukebox/README.md) | 🎵 Jukebox complete guide |
 | `real_daytime` | [📖 `README.md`](real_daytime/README.md) | 🌤️ Preserved Real Daytime README |
@@ -76,7 +79,7 @@ Original runtime files are kept at their existing paths; only documentation file
 | `net-games` | [📖 `readme.md`](net-games/readme.md) | 🎮 Net-Games Library — Complete Documentation |
 | `net-games/utilities` | [📖 `README.md`](net-games/utilities/README.md) | README.md |
 | `persistence` | [📖 `README.md`](persistence/README.md) | README.md |
-| `player-control` | [📖 `README.md`](player-control/README.md) | 🎮 PlayerControl — Scoped engine capture, managed focus and HP Manager migration |
+| `player-control` | [📖 `README.md`](player-control/README.md) | 🎮 Scoped engine capture, menu focus and native-dialog handoffs |
 | `utils` | [📖 `README.md`](utils/README.md) | Async, EventEmitter & Utility Modules |
 
 ## 📚 Collection contents
@@ -116,7 +119,7 @@ Original runtime files are kept at their existing paths; only documentation file
 | 📄 Script | `ezlibs-config.lua` | 1 | 0 | 1 | 15 | [Open script reference](ezlibs-config/index.md) |
 | 📄 Script | `flavor_text.lua` | 1 | 1 | 0 | 12 | [Open script reference](flavor_text/index.md) |
 | 📄 Script | `run-gen.lua` | 1 | 0 | 0 | 2 | [Open script reference](run-gen/index.md) |
-| 📄 Script | `simon-says.lua` | 1 | 9 | 8 | 433 | [Open script reference](simon-says/index.md) |
+| 📄 Script | `simon-says.lua` | 1 | 12 | 10 | 517 | [Open script reference](simon-says/index.md) |
 | 📄 Script | `world-attachment.lua` | 1 | 9 | 13 | 428 | [Open script reference](world-attachment/index.md) |
 
 ## 🔎 Module API overview

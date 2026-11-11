@@ -1,4 +1,4 @@
-local LegacyCapture = require("scripts/player-control/legacy-capture")
+local PlayerControl = require("scripts/player-control/main")
 -- tournament-flow.lua
 local TournamentFlow = {}
 
@@ -94,8 +94,8 @@ local function open_board_for_player(player_id, tournament)
             visual_epoch = visual_epoch,
         }
 
-        pcall(LegacyCapture.lock, player_id, "net-game-tourney/tournament-flow")
-        pcall(LegacyCapture.hide_hud, player_id, "net-game-tourney/tournament-flow")
+        pcall(PlayerControl.acquire_capture, player_id, "net-game-tourney/tournament-flow")
+        pcall(PlayerControl.suppress_hud, player_id, "net-game-tourney/tournament-flow")
 
         TournamentUI.fade_to_black(player_id, FADE_SECONDS)
         await(Async.sleep(FADE_SECONDS))
@@ -116,7 +116,7 @@ function TournamentFlow.close_board_for_player(player_id, keep_locked)
         local state = presentation_state[player_id]
         if not state then
             if Net.is_player(player_id) and not keep_locked then
-                pcall(LegacyCapture.unlock, player_id, "net-game-tourney/tournament-flow")
+                pcall(PlayerControl.release_capture, player_id, "net-game-tourney/tournament-flow")
             end
             return true
         end
@@ -134,15 +134,15 @@ function TournamentFlow.close_board_for_player(player_id, keep_locked)
         if Net.is_player(player_id) then
             TournamentUI.cleanup_ui_elements(player_id)
 
-            pcall(LegacyCapture.show_hud, player_id, "net-game-tourney/tournament-flow")
+            pcall(PlayerControl.restore_hud, player_id, "net-game-tourney/tournament-flow")
 
             TournamentUI.release_tournament_music(state.music_area)
             TournamentUI.fade_from_black(player_id, FADE_SECONDS)
 
             if keep_locked then
-                pcall(LegacyCapture.lock, player_id, "net-game-tourney/tournament-flow")
+                pcall(PlayerControl.acquire_capture, player_id, "net-game-tourney/tournament-flow")
             else
-                pcall(LegacyCapture.unlock, player_id, "net-game-tourney/tournament-flow")
+                pcall(PlayerControl.release_capture, player_id, "net-game-tourney/tournament-flow")
             end
         else
             TournamentUI.release_tournament_music(state.music_area)
@@ -397,8 +397,8 @@ local function run_player_vs_player(tournament, match)
             force_pvp_hp(p2)
         end
 
-        pcall(LegacyCapture.lock, p1, "net-game-tourney/tournament-flow")
-        pcall(LegacyCapture.lock, p2, "net-game-tourney/tournament-flow")
+        pcall(PlayerControl.acquire_capture, p1, "net-game-tourney/tournament-flow")
+        pcall(PlayerControl.acquire_capture, p2, "net-game-tourney/tournament-flow")
 
         local cleanup_done = false
         local function cleanup()
@@ -406,12 +406,12 @@ local function run_player_vs_player(tournament, match)
             cleanup_done = true
 
             if Net.is_player(p1) then
-                pcall(LegacyCapture.unlock, p1, "net-game-tourney/tournament-flow")
+                pcall(PlayerControl.release_capture, p1, "net-game-tourney/tournament-flow")
                 if force_hp then restore_hp(p1, hp1) end
             end
 
             if Net.is_player(p2) then
-                pcall(LegacyCapture.unlock, p2, "net-game-tourney/tournament-flow")
+                pcall(PlayerControl.release_capture, p2, "net-game-tourney/tournament-flow")
                 if force_hp then restore_hp(p2, hp2) end
             end
         end
@@ -475,14 +475,14 @@ local function run_player_vs_npc(tournament, player, npc)
 
         await(wait_until_players_ready({ player_id }))
         await(close_board_if_open(player_id))
-        pcall(LegacyCapture.lock, player_id, "net-game-tourney/tournament-flow")
+        pcall(PlayerControl.acquire_capture, player_id, "net-game-tourney/tournament-flow")
 
         local cleanup_done = false
         local function cleanup()
             if cleanup_done then return end
             cleanup_done = true
             if Net.is_player(player_id) then
-                pcall(LegacyCapture.unlock, player_id, "net-game-tourney/tournament-flow")
+                pcall(PlayerControl.release_capture, player_id, "net-game-tourney/tournament-flow")
             end
         end
 

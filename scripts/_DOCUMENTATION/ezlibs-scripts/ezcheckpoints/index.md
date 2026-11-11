@@ -4,29 +4,24 @@
 
 > **Source:** [`scripts/ezlibs-scripts/ezcheckpoints.lua`](../../../ezlibs-scripts/ezcheckpoints.lua)  
 > **Source lines:** 534  
-> **SHA-256 (UTF-8):** `8be7f5f4314f0ed18d6f781cbaa2aa23902f8608694031aaf93a0502776c2bb9`  
-> **Named/assigned functions detected:** 12  
+> **SHA-256 (UTF-8):** `9578485faf87fd57ee35daa910410bcf56692767d68f5e8df0c3c3bc6c4e447f`  
+> **Named functions detected:** 12  
 > **Table initializers detected:** 11
 
-> **Static reference:** Function names, parameter names, dependencies and call counts below were regenerated from the current Lua. Not all locals are part of the public API. See the [shared logger guide](../../logger/README.md) for logging semantics.
+> **Static reference:** Function signatures, dependency paths, and event names are extracted from current Lua. The listing does not establish runtime reachability or public API exposure. See the authored guide for semantics.
 
-## 🧭 Contents
-- [Overview](#overview)
+## Contents
 - [Dependencies](#dependencies)
 - [Event hooks](#event-hooks)
-- [Functions](#functions)
+- [Functions and parameters](#functions-and-parameters)
 - [Tables](#tables)
 - [Net API calls](#net-api-calls)
 
-## Overview
-
-Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the shared-logger migration.
-
 ## Dependencies
 
-| Line | `require` module |
+| Line | `require` path |
 |---:|---|
-| 1 | `scripts/player-control/legacy-capture` |
+| 1 | `scripts/player-control/main` |
 | 2 | `scripts/logger/logger` |
 | 3 | `scripts/ezlibs-scripts/ezmemory` |
 | 4 | `scripts/ezlibs-scripts/helpers` |
@@ -43,9 +38,9 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 | 134 | `Net` | `player_avatar_change` |
 | 334 | `Net` | `object_interaction` |
 
-## Functions
+## Functions and parameters
 
-| Source line | Function | Parameters | Declaration |
+| Line | Function | Arguments | Declaration |
 |---:|---|---|---|
 | 34 | `is_player_alive` | `player_id` | local |
 | 45 | `safe_net` | `fn, ...` | local |
@@ -60,7 +55,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 | 269 | `ezcheckpoints.force_unlock_checkpoint` | `player_id, area_id, object_id, once, opts` | assigned/declared |
 | 291 | `ezcheckpoints.relock_checkpoint` | `player_id, area_id, object_id` | assigned/declared |
 
-### Detailed parameter inventory
+### Parameter inventory
 
 #### 1. `is_player_alive(player_id)`
 
@@ -69,7 +64,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 2. `safe_net(fn, ...)`
 
@@ -78,26 +73,26 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `fn` | Declared in this function; type not inferred. |
-| 2 | `...` | Declared in this function; type not inferred. |
+| 1 | `fn` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `...` | Declared directly in the current Lua. Type not inferred. |
 
 #### 3. `ezcheckpoints.handle_player_disconnect(player_id)`
 
 - **Line:** 86
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 4. `ezcheckpoints.get_player_navi_info(player_id)`
 
 - **Line:** 94
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
 
 #### 5. `names_equal(a, b)`
 
@@ -106,38 +101,38 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `a` | Declared in this function; type not inferred. |
-| 2 | `b` | Declared in this function; type not inferred. |
+| 1 | `a` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `b` | Declared directly in the current Lua. Type not inferred. |
 
 #### 6. `ezcheckpoints.player_has_navi(player_id, name)`
 
 - **Line:** 107
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `name` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `name` | Declared directly in the current Lua. Type not inferred. |
 
 #### 7. `ezcheckpoints.player_has_navi_element(player_id, element)`
 
 - **Line:** 112
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `element` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `element` | Declared directly in the current Lua. Type not inferred. |
 
 #### 8. `ezcheckpoints.player_has_any_navi(player_id, names)`
 
 - **Line:** 117
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `names` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `names` | Declared directly in the current Lua. Type not inferred. |
 
 #### 9. `evaluate_navi_check(player_id, navi_check)`
 
@@ -146,53 +141,53 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `navi_check` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `navi_check` | Declared directly in the current Lua. Type not inferred. |
 
 #### 10. `ezcheckpoints.unlock_checkpoint_for_player(player_id, area_id, object_id, unlocking_asset_name, unlocking_sound_path, unlocking_animation_time, once, opts)`
 
 - **Line:** 180
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `object_id` | Declared in this function; type not inferred. |
-| 4 | `unlocking_asset_name` | Declared in this function; type not inferred. |
-| 5 | `unlocking_sound_path` | Declared in this function; type not inferred. |
-| 6 | `unlocking_animation_time` | Declared in this function; type not inferred. |
-| 7 | `once` | Declared in this function; type not inferred. |
-| 8 | `opts` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `unlocking_asset_name` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `unlocking_sound_path` | Declared directly in the current Lua. Type not inferred. |
+| 6 | `unlocking_animation_time` | Declared directly in the current Lua. Type not inferred. |
+| 7 | `once` | Declared directly in the current Lua. Type not inferred. |
+| 8 | `opts` | Declared directly in the current Lua. Type not inferred. |
 
 #### 11. `ezcheckpoints.force_unlock_checkpoint(player_id, area_id, object_id, once, opts)`
 
 - **Line:** 269
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `object_id` | Declared in this function; type not inferred. |
-| 4 | `once` | Declared in this function; type not inferred. |
-| 5 | `opts` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `object_id` | Declared directly in the current Lua. Type not inferred. |
+| 4 | `once` | Declared directly in the current Lua. Type not inferred. |
+| 5 | `opts` | Declared directly in the current Lua. Type not inferred. |
 
 #### 12. `ezcheckpoints.relock_checkpoint(player_id, area_id, object_id)`
 
 - **Line:** 291
-- **Declaration:** table/global or assignment
+- **Declaration:** assigned/declared
 
 | # | Parameter | Evidence |
 |---:|---|---|
-| 1 | `player_id` | Declared in this function; type not inferred. |
-| 2 | `area_id` | Declared in this function; type not inferred. |
-| 3 | `object_id` | Declared in this function; type not inferred. |
+| 1 | `player_id` | Declared directly in the current Lua. Type not inferred. |
+| 2 | `area_id` | Declared directly in the current Lua. Type not inferred. |
+| 3 | `object_id` | Declared directly in the current Lua. Type not inferred. |
 
 
 ## Tables
 
-| Source line | Assignment |
+| Line | Identifier |
 |---:|---|
 | 20 | `ezcheckpoints` |
 | 61 | `navi_cache` |
@@ -208,7 +203,7 @@ Current source inventory for `scripts/ezlibs-scripts/ezcheckpoints.lua` in the s
 
 ## Net API calls
 
-| API | Occurrences | First line |
+| API | Count | First line |
 |---|---:|---:|
 | `Net.create_bot` | 1 | 237 |
 | `Net.get_object_by_id` | 3 | 190 |

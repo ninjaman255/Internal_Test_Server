@@ -39,4 +39,14 @@ A scene can use `profile="cinematic",camera="scripted"`. Scripted buttons stay s
 * Do not assume a timed `Net.slide_player_camera` has a completion event; the controller's pending timer is a local estimate.
 * A camera callback must check that its camera lease is current before movement. Direct legacy camera calls remain outside this protection.
 
-See [TESTING.md](TESTING.md) for regression scenarios and [LEGACY_CAPTURE.md](LEGACY_CAPTURE.md) for compatibility callers.
+See [TESTING.md](TESTING.md) for regression scenarios and [CAPTURE_SCOPES.md](CAPTURE_SCOPES.md) for named capture callers.
+
+## Native dialog handoff (new)
+
+1. Active scripted menu calls `session:begin_native_handoff({swallow_seconds=0.35})`.
+2. Its PlayerControl session stays alive and keeps engine capture, but scripted button callbacks are suspended.
+3. After the client closes the native dialog, the owner invokes `handoff:resume()`.
+4. Focus is restored only if the session is still valid, old button edges are discarded, and held actions must release.
+5. Disposed/duplicate handoffs are ignored rather than reopening an expired UI.
+
+For gameplay operations that do not need button focus, use named captures described in [CAPTURE_SCOPES.md](CAPTURE_SCOPES.md).
