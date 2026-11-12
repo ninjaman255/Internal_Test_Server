@@ -10,6 +10,8 @@
 >
 > The implementation was reviewed statically. The host game's `Net`, `Async`, battle, map, asset, and transfer APIs are runtime-provided; this document does not claim that the module has been integration-tested in a live server.
 
+**New selector (November 11, 2026):** [🟡 Golden Prog mission selector — permanent Home Warp NPC, centered mugshot, 5-row scrolling menu](GOLDEN_PROG_MISSIONS.md). The selector offers only loaded maps that contain a valid `Liberation Config`/`Liberation Tileset` and a named `Spawn`, and uses the existing party-aware mission launcher.
+
 ## 🗂️ Table of Contents
 
 - [🔗 Shared Systems & Cross-Module Dependencies](#shared-systems--cross-module-dependencies)

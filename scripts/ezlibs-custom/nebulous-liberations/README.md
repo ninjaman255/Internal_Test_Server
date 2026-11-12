@@ -1168,3 +1168,8 @@ These are source-level corrections. They still require validation in the target 
 | Explosion/paralysis/recovery effects | `utils/*_effect.lua` |
 | Shared player memory and health | `scripts/ezlibs-scripts/ezmemory.lua` |
 | Shared helper functions | `scripts/ezlibs-scripts/helpers.lua` |
+
+
+## Battle ZIP provisioning in mission clones
+
+`Mission:new` requests `PanelEncounters.provide_mission_encounter_assets` after cloning and ordinary preloading, before players enter the mission. Each panel/Dark Hole battle calls `PanelEncounters.ensure_encounter_asset` for override ZIP paths. `Mission:clean_up` clears the instance cache. This mirrors the asset provisioning that ordinary `ezencounters/main.lua` performs for base areas, without changing the separate Liberation battle-result and rewards rules. The shared logger records preflight and launch details.

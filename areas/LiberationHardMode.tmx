@@ -1,0 +1,1131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="isometric" renderorder="right-down" width="35" height="35" tilewidth="64" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="446">
+ <properties>
+  <property name="Background" value="custom"/>
+  <property name="Background Animation" value="/server/assets/ezlibs-custom/nebulous-liberations/backgrounds/block/GrayBG.animation"/>
+  <property name="Background Texture" value="/server/assets/ezlibs-custom/nebulous-liberations/backgrounds/block/Undernet_BG.png"/>
+  <property name="Background Vel X" value="0.2"/>
+  <property name="Background Vel Y" value="-1"/>
+  <property name="Honor HPMem" type="bool" value="true"/>
+  <property name="Name" value="LibHard"/>
+  <property name="Song" value="/server/assets/music/undernet4theme.ogg"/>
+ </properties>
+ <tileset firstgid="1" source="../assets/ezlibs-custom/nebulous-liberations/tiles/panel base.tsx"/>
+ <tileset firstgid="4" source="../assets/ezlibs-custom/nebulous-liberations/tiles/panels.tsx"/>
+ <tileset firstgid="74" source="../assets/ezlibs-custom/nebulous-liberations/tiles/Liberation Collision.tsx"/>
+ <tileset firstgid="75" source="../assets/ezlibs-custom/nebulous-liberations/tiles/selected tile.tsx"/>
+ <tileset firstgid="81" source="../assets/ezlibs-custom/nebulous-liberations/tiles/attack indicator.tsx"/>
+ <layer id="1" name="Tile Layer 1" width="35" height="35">
+  <data encoding="csv">
+0,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+3,1,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+3,1,1,1,1,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+3,1,1,1,1,1,1,1,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,3,1,1,2,1,1,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,3,3,2,2,2,2,2,2,0,2,2,2,2,2,0,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,3,2,2,2,2,3,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,2,2,2,2,3,0,0,0,0,2,2,2,2,2,2,2,2,2,1,2,2,1,1,1,0,0,0,0,0,0,0,0,
+0,0,0,0,2,2,2,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,1,2,2,1,1,1,1,0,0,0,0,0,0,
+0,0,0,0,0,2,0,0,2,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,0,0,0,0,0,
+0,0,0,0,0,0,0,2,2,3,2,1,1,1,1,1,1,1,1,2,1,1,1,0,1,1,1,1,1,1,0,0,0,0,0,
+0,0,0,0,0,0,2,2,2,2,1,1,1,1,1,1,1,1,1,2,2,0,0,0,0,2,2,2,1,1,0,0,0,0,0,
+0,0,0,0,0,0,0,2,2,2,2,1,1,1,1,1,1,1,1,2,2,2,2,0,0,0,2,2,2,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,2,2,2,1,1,1,1,1,1,1,2,2,2,2,0,0,0,0,2,2,2,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,2,2,1,1,1,1,1,1,1,1,2,2,2,2,0,0,0,2,2,2,2,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1,1,1,1,2,2,2,2,0,0,0,2,2,2,2,2,0,0,0,
+0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1,1,1,1,2,2,2,2,2,0,0,0,2,2,2,2,0,0,0,
+0,0,0,0,0,0,0,0,0,0,2,2,1,1,1,1,1,1,1,1,2,2,2,2,2,0,0,0,2,2,2,2,2,0,0,
+0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,1,2,2,2,1,1,2,2,0,0,0,0,0,2,2,2,2,0,0,
+0,0,0,0,0,0,0,0,1,1,2,2,2,3,3,3,3,1,2,2,2,1,1,0,0,0,0,0,0,2,2,2,2,0,0,
+0,0,0,0,0,0,0,0,1,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,2,2,2,2,0,0,
+0,0,0,0,0,0,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,1,1,0,2,2,2,2,0,0,
+0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,0,0,1,1,2,2,2,1,2,2,2,0,0,0,
+0,0,0,0,0,1,1,1,1,1,0,2,2,2,2,2,2,2,2,2,2,0,1,2,2,2,2,2,1,2,1,0,0,0,0,
+0,0,0,0,0,0,1,1,1,1,0,0,0,2,2,2,2,2,2,2,0,0,1,2,2,2,2,1,2,2,1,1,0,0,0,
+0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,2,2,2,0,1,1,2,2,1,1,1,1,1,2,2,0,0,
+0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,2,2,2,2,1,1,2,2,1,1,1,1,1,1,2,2,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,1,1,1,1,1,1,2,2,1,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,1,2,1,2,1,1,1,1,2,1,1,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,1,2,2,2,1,1,1,1,2,1,1,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,1,1,1,1,1,1,2,2,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,1,1,1,1,1,1,3,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,1,1,1,1,2,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,1,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0
+</data>
+ </layer>
+ <objectgroup id="2" name="Object Layer 1">
+  <object id="1" name="Spawn" type="Spawn Point" x="496" y="528">
+   <properties>
+    <property name="Facing Direction" propertytype="Direction" value="Down Left"/>
+    <property name="Next Spawn" type="int" value="2"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="2" name="Spawn2" type="Spawn Point" x="528" y="496">
+   <properties>
+    <property name="Facing Direction" propertytype="Direction" value="Down Right"/>
+    <property name="Next Spawn" type="int" value="3"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="3" name="Spawn3" type="Spawn Point" x="496" y="464">
+   <properties>
+    <property name="Facing Direction" propertytype="Direction" value="Up Right"/>
+    <property name="Next Spawn" type="int" value="4"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="4" name="Spawn4" type="Spawn Point" x="464" y="496">
+   <properties>
+    <property name="Facing Direction" propertytype="Direction" value="Up Left"/>
+    <property name="Next Spawn" type="int" value="5"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="5" name="Spawn5" type="Spawn Point" x="464" y="464">
+   <properties>
+    <property name="Facing Direction" propertytype="Direction" value="Up"/>
+    <property name="Next Spawn" type="int" value="1"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="10" type="Dark Panel" gid="4" x="416" y="416" width="50" height="30"/>
+  <object id="11" type="Dark Panel" gid="4" x="448" y="416" width="50" height="30"/>
+  <object id="12" type="Dark Panel" gid="4" x="480" y="416" width="50" height="30"/>
+  <object id="13" type="Dark Panel" gid="4" x="512" y="416" width="50" height="30"/>
+  <object id="14" type="Dark Panel" gid="4" x="544" y="416" width="50" height="30"/>
+  <object id="15" type="Dark Panel" gid="4" x="544" y="448" width="50" height="30"/>
+  <object id="16" type="Dark Panel" gid="4" x="544" y="480" width="50" height="30"/>
+  <object id="17" type="Dark Panel" gid="4" x="544" y="512" width="50" height="30"/>
+  <object id="18" type="Dark Panel" gid="4" x="544" y="544" width="50" height="30"/>
+  <object id="19" type="Dark Panel" gid="4" x="512" y="544" width="50" height="30"/>
+  <object id="20" type="Dark Panel" gid="4" x="480" y="544" width="50" height="30"/>
+  <object id="21" type="Dark Panel" gid="4" x="448" y="544" width="50" height="30"/>
+  <object id="22" type="Dark Panel" gid="4" x="416" y="544" width="50" height="30"/>
+  <object id="23" type="Dark Panel" gid="4" x="576" y="416" width="50" height="30"/>
+  <object id="24" type="Dark Panel" gid="4" x="416" y="576" width="50" height="30"/>
+  <object id="25" type="Dark Panel" gid="4" x="384" y="416" width="50" height="30"/>
+  <object id="26" type="Dark Panel" gid="4" x="416" y="512" width="50" height="30"/>
+  <object id="27" type="Dark Panel" gid="4" x="416" y="480" width="50" height="30"/>
+  <object id="28" type="Dark Panel" gid="4" x="416" y="448" width="50" height="30"/>
+  <object id="29" type="Dark Panel" gid="4" x="416" y="384" width="50" height="30"/>
+  <object id="30" type="Dark Panel" gid="4" x="544" y="384" width="50" height="30"/>
+  <object id="31" type="Dark Panel" gid="4" x="384" y="544" width="50" height="30"/>
+  <object id="32" type="Dark Panel" gid="4" x="576" y="544" width="50" height="30"/>
+  <object id="33" type="Dark Panel" gid="4" x="544" y="576" width="50" height="30"/>
+  <object id="34" type="Dark Panel" gid="4" x="480" y="576" width="50" height="30"/>
+  <object id="35" type="Dark Panel" gid="4" x="576" y="480" width="50" height="30"/>
+  <object id="36" type="Dark Panel" gid="4" x="480" y="384" width="50" height="30"/>
+  <object id="37" type="Dark Panel" gid="4" x="384" y="480" width="50" height="30"/>
+  <object id="38" type="Dark Panel" gid="4" x="384" y="512" width="50" height="30"/>
+  <object id="39" type="Dark Panel" gid="4" x="384" y="448" width="50" height="30"/>
+  <object id="40" type="Dark Panel" gid="4" x="384" y="384" width="50" height="30"/>
+  <object id="41" type="Dark Panel" gid="4" x="448" y="384" width="50" height="30"/>
+  <object id="42" type="Dark Panel" gid="4" x="512" y="384" width="50" height="30"/>
+  <object id="43" type="Dark Panel" gid="4" x="576" y="384" width="50" height="30"/>
+  <object id="44" type="Dark Panel" gid="4" x="576" y="448" width="50" height="30"/>
+  <object id="45" type="Dark Panel" gid="4" x="576" y="512" width="50" height="30"/>
+  <object id="46" type="Dark Panel" gid="4" x="576" y="576" width="50" height="30"/>
+  <object id="47" type="Dark Panel" gid="4" x="512" y="576" width="50" height="30"/>
+  <object id="48" type="Dark Panel" gid="4" x="448" y="576" width="50" height="30"/>
+  <object id="49" type="Dark Panel" gid="4" x="384" y="576" width="50" height="30"/>
+  <object id="50" type="Panel Gate" gid="9" x="288" y="672" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="51" type="Panel Gate" gid="9" x="288" y="704" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="52" type="Panel Gate" gid="9" x="256" y="672" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="53" type="Panel Gate" gid="9" x="256" y="640" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="54" type="Panel Gate" gid="9" x="320" y="704" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="55" type="Panel Gate" gid="9" x="224" y="672" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="56" type="Panel Gate" gid="9" x="256" y="704" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="57" type="Panel Gate" gid="9" x="288" y="736" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="70" type="Dark Panel" gid="4" x="544" y="608" width="50" height="30"/>
+  <object id="71" type="Dark Panel" gid="4" x="576" y="608" width="50" height="30"/>
+  <object id="72" type="Dark Panel" gid="4" x="544" y="640" width="50" height="30"/>
+  <object id="73" type="Dark Panel" gid="4" x="576" y="640" width="50" height="30"/>
+  <object id="74" type="Dark Panel" gid="4" x="512" y="608" width="50" height="30"/>
+  <object id="75" type="Dark Panel" gid="4" x="512" y="640" width="50" height="30"/>
+  <object id="76" type="Dark Panel" gid="4" x="480" y="608" width="50" height="30"/>
+  <object id="77" type="Dark Panel" gid="4" x="480" y="640" width="50" height="30"/>
+  <object id="78" type="Dark Panel" gid="4" x="576" y="672" width="50" height="30"/>
+  <object id="79" type="Dark Panel" gid="4" x="608" y="640" width="50" height="30"/>
+  <object id="80" type="Dark Panel" gid="4" x="608" y="608" width="50" height="30"/>
+  <object id="81" type="Dark Panel" gid="4" x="608" y="576" width="50" height="30"/>
+  <object id="82" type="Dark Panel" gid="4" x="608" y="544" width="50" height="30"/>
+  <object id="83" type="Dark Panel" gid="4" x="608" y="512" width="50" height="30"/>
+  <object id="84" type="Dark Panel" gid="4" x="448" y="608" width="50" height="30"/>
+  <object id="85" type="Dark Panel" gid="4" x="608" y="480" width="50" height="30"/>
+  <object id="86" type="Dark Panel" gid="4" x="608" y="448" width="50" height="30"/>
+  <object id="87" type="Dark Panel" gid="4" x="640" y="608" width="50" height="30"/>
+  <object id="88" type="Dark Panel" gid="4" x="640" y="576" width="50" height="30"/>
+  <object id="89" type="Dark Panel" gid="4" x="640" y="544" width="50" height="30"/>
+  <object id="90" type="Dark Panel" gid="4" x="640" y="512" width="50" height="30"/>
+  <object id="91" type="Dark Panel" gid="4" x="640" y="480" width="50" height="30"/>
+  <object id="92" type="Dark Panel" gid="4" x="608" y="416" width="50" height="30"/>
+  <object id="93" type="Dark Panel" gid="4" x="640" y="640" width="50" height="30"/>
+  <object id="94" type="Dark Panel" gid="4" x="640" y="448" width="50" height="30"/>
+  <object id="95" type="Dark Panel" gid="4" x="640" y="416" width="50" height="30"/>
+  <object id="96" type="Dark Panel" gid="4" x="608" y="384" width="50" height="30"/>
+  <object id="97" type="Dark Panel" gid="4" x="352" y="576" width="50" height="30"/>
+  <object id="98" type="Dark Panel" gid="4" x="320" y="544" width="50" height="30"/>
+  <object id="99" type="Dark Panel" gid="4" x="320" y="512" width="50" height="30"/>
+  <object id="100" type="Dark Panel" gid="4" x="320" y="480" width="50" height="30"/>
+  <object id="101" type="Dark Panel" gid="4" x="320" y="448" width="50" height="30"/>
+  <object id="102" type="Dark Panel" gid="4" x="320" y="416" width="50" height="30"/>
+  <object id="103" type="Dark Panel" gid="4" x="320" y="384" width="50" height="30"/>
+  <object id="104" type="Dark Panel" gid="4" x="320" y="352" width="50" height="30"/>
+  <object id="105" type="Dark Panel" gid="4" x="320" y="320" width="50" height="30"/>
+  <object id="106" type="Dark Panel" gid="4" x="352" y="352" width="50" height="30"/>
+  <object id="107" type="Dark Panel" gid="4" x="352" y="320" width="50" height="30"/>
+  <object id="108" type="Dark Panel" gid="4" x="352" y="384" width="50" height="30"/>
+  <object id="109" type="Dark Panel" gid="4" x="352" y="416" width="50" height="30"/>
+  <object id="110" type="Dark Panel" gid="4" x="352" y="448" width="50" height="30"/>
+  <object id="111" type="Dark Panel" gid="4" x="352" y="480" width="50" height="30"/>
+  <object id="112" type="Dark Panel" gid="4" x="352" y="512" width="50" height="30"/>
+  <object id="113" type="Dark Panel" gid="4" x="320" y="288" width="50" height="30"/>
+  <object id="114" type="Dark Panel" gid="4" x="352" y="288" width="50" height="30"/>
+  <object id="115" type="Dark Panel" gid="4" x="672" y="512" width="50" height="30"/>
+  <object id="116" type="Dark Panel" gid="4" x="288" y="288" width="50" height="30"/>
+  <object id="117" type="Dark Panel" gid="4" x="288" y="320" width="50" height="30"/>
+  <object id="118" type="Dark Panel" gid="4" x="288" y="352" width="50" height="30"/>
+  <object id="119" type="Dark Panel" gid="4" x="288" y="384" width="50" height="30"/>
+  <object id="120" type="Dark Panel" gid="4" x="288" y="416" width="50" height="30"/>
+  <object id="121" type="Dark Panel" gid="4" x="384" y="608" width="50" height="30" rotation="359.027"/>
+  <object id="122" type="Dark Panel" gid="4" x="256" y="352" width="50" height="30"/>
+  <object id="123" type="Dark Panel" gid="4" x="256" y="320" width="50" height="30"/>
+  <object id="124" type="Dark Panel" gid="4" x="224" y="352" width="50" height="30"/>
+  <object id="125" type="Dark Panel" gid="4" x="192" y="352" width="50" height="30"/>
+  <object id="126" type="Dark Panel" gid="4" x="224" y="384" width="50" height="30"/>
+  <object id="127" type="Dark Panel" gid="4" x="224" y="320" width="50" height="30"/>
+  <object id="128" type="Dark Panel" gid="4" x="256" y="288" width="50" height="30"/>
+  <object id="129" type="Dark Panel" gid="4" x="384" y="192" width="50" height="30"/>
+  <object id="130" type="Dark Panel" gid="4" x="384" y="160" width="50" height="30"/>
+  <object id="131" type="Dark Panel" gid="4" x="384" y="128" width="50" height="30"/>
+  <object id="132" type="Dark Panel" gid="4" x="320" y="160" width="50" height="30"/>
+  <object id="133" type="Dark Panel" gid="4" x="320" y="128" width="50" height="30"/>
+  <object id="134" type="Dark Panel" gid="4" x="320" y="96" width="50" height="30"/>
+  <object id="135" type="Dark Panel" gid="4" x="288" y="128" width="50" height="30"/>
+  <object id="136" type="Dark Panel" gid="4" x="256" y="160" width="50" height="30"/>
+  <object id="137" type="Dark Panel" gid="4" x="224" y="192" width="50" height="30"/>
+  <object id="139" type="Dark Panel" gid="4" x="224" y="224" width="50" height="30"/>
+  <object id="140" type="Dark Panel" gid="4" x="192" y="224" width="50" height="30"/>
+  <object id="142" type="Dark Panel" gid="4" x="192" y="256" width="50" height="30"/>
+  <object id="144" type="Dark Panel" gid="4" x="160" y="288" width="50" height="30"/>
+  <object id="145" type="Dark Panel" gid="4" x="160" y="256" width="50" height="30"/>
+  <object id="146" type="Item Panel" gid="5" x="352" y="544" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="147" type="Item Panel" gid="5" x="384" y="352" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="148" type="Item Panel" gid="5" x="672" y="544" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="149" type="Item Panel" gid="5" x="640" y="384" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="150" type="Item Panel" gid="5" x="576" y="352" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="151" type="Item Panel" gid="5" x="608" y="672" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="152" type="Item Panel" gid="5" x="672" y="672" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="153" type="Item Panel" gid="5" x="320" y="576" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="154" type="Bonus Panel" gid="8" x="416" y="768" width="50" height="30">
+   <properties>
+    <property name="Order Point" type="int" value="8"/>
+   </properties>
+  </object>
+  <object id="155" type="Bonus Panel" gid="8" x="992" y="1088" width="50" height="30">
+   <properties>
+    <property name="Order Point" type="int" value="8"/>
+   </properties>
+  </object>
+  <object id="156" type="Bonus Panel" gid="8" x="1024" y="800" width="50" height="30">
+   <properties>
+    <property name="Order Point" type="int" value="8"/>
+   </properties>
+  </object>
+  <object id="157" type="Bonus Panel" gid="8" x="992" y="480" width="50" height="30">
+   <properties>
+    <property name="Order Point" type="int" value="8"/>
+   </properties>
+  </object>
+  <object id="158" type="Bonus Panel" gid="8" x="768" y="512" width="50" height="30">
+   <properties>
+    <property name="Order Point" type="int" value="8"/>
+   </properties>
+  </object>
+  <object id="159" type="Bonus Panel" gid="8" x="704" y="320" width="50" height="30">
+   <properties>
+    <property name="Order Point" type="int" value="8"/>
+   </properties>
+  </object>
+  <object id="160" type="Dark Hole" gid="6" x="544" y="672" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+    <property name="Direction" value="Up Left"/>
+    <property name="Liberation Encounters" type="object" value="443"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="161" type="Dark Hole" gid="6" x="672" y="448" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+    <property name="Direction" value="Up Right"/>
+    <property name="Liberation Encounters" type="object" value="443"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="162" type="Dark Hole" gid="6" x="480" y="352" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+    <property name="Direction" value="Down Right"/>
+    <property name="Liberation Encounters" type="object" value="443"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="163" type="Dark Hole" gid="6" x="768" y="768" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+    <property name="Direction" value="Down Right"/>
+    <property name="Liberation Encounters" type="object" value="443"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="164" type="Dark Hole" gid="6" x="800" y="832" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+    <property name="Direction" value="Up Right"/>
+    <property name="Liberation Encounters" type="object" value="443"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="165" type="Dark Hole" gid="6" x="864" y="800" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+    <property name="Direction" value="Up Left"/>
+    <property name="Liberation Encounters" type="object" value="443"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="166" type="Panel Gate" gid="10" x="928" y="704" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="167" type="Panel Gate" gid="10" x="960" y="736" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="168" type="Panel Gate" gid="10" x="736" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="169" type="Panel Gate" gid="10" x="736" y="256" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="170" type="Panel Gate" gid="10" x="736" y="224" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="171" type="Dark Hole" gid="6" x="992" y="608" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+    <property name="Direction" value="Down Left"/>
+    <property name="Liberation Encounters" type="object" value="445"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="172" type="Dark Hole" gid="6" x="928" y="480" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+    <property name="Direction" value="Up Right"/>
+    <property name="Liberation Encounters" type="object" value="445"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="173" type="Dark Hole" gid="6" x="864" y="352" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+    <property name="Direction" value="Up Left"/>
+    <property name="Liberation Encounters" type="object" value="445"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="174" type="Dark Hole" gid="6" x="800" y="256" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+    <property name="Direction" value="Up Right"/>
+    <property name="Liberation Encounters" type="object" value="445"/>
+    <property name="Max HP" type="int" value="240"/>
+    <property name="Minion Health Override" value="240"/>
+    <property name="OW Attack Damage" type="int" value="240"/>
+    <property name="OW Bot Encounter" value="BigBrute"/>
+    <property name="OW Encounter Pool" type="object" value="444"/>
+    <property name="Spawns" value="BigBrute"/>
+   </properties>
+  </object>
+  <object id="175" type="Dark Panel" gid="4" x="768" y="288" width="50" height="30"/>
+  <object id="176" type="Dark Panel" gid="4" x="768" y="256" width="50" height="30"/>
+  <object id="177" type="Dark Panel" gid="4" x="768" y="224" width="50" height="30"/>
+  <object id="178" type="Dark Panel" gid="4" x="800" y="224" width="50" height="30"/>
+  <object id="179" type="Dark Panel" gid="4" x="832" y="288" width="50" height="30"/>
+  <object id="180" type="Dark Panel" gid="4" x="832" y="256" width="50" height="30"/>
+  <object id="181" type="Dark Panel" gid="4" x="832" y="224" width="50" height="30"/>
+  <object id="182" type="Dark Panel" gid="4" x="800" y="288" width="50" height="30"/>
+  <object id="183" type="Dark Panel" gid="4" x="832" y="320" width="50" height="30"/>
+  <object id="184" type="Dark Panel" gid="4" x="800" y="320" width="50" height="30"/>
+  <object id="185" type="Dark Panel" gid="4" x="864" y="288" width="50" height="30"/>
+  <object id="186" type="Dark Panel" gid="4" x="864" y="320" width="50" height="30"/>
+  <object id="187" type="Dark Panel" gid="4" x="864" y="384" width="50" height="30"/>
+  <object id="188" type="Dark Panel" gid="4" x="896" y="352" width="50" height="30"/>
+  <object id="189" type="Dark Panel" gid="4" x="896" y="320" width="50" height="30"/>
+  <object id="190" type="Dark Panel" gid="4" x="896" y="288" width="50" height="30"/>
+  <object id="191" type="Dark Panel" gid="4" x="896" y="256" width="50" height="30"/>
+  <object id="192" type="Dark Panel" gid="4" x="864" y="256" width="50" height="30"/>
+  <object id="193" type="Dark Panel" gid="4" x="896" y="384" width="50" height="30"/>
+  <object id="194" type="Dark Panel" gid="4" x="928" y="352" width="50" height="30"/>
+  <object id="195" type="Dark Panel" gid="4" x="896" y="416" width="50" height="30"/>
+  <object id="196" type="Dark Panel" gid="4" x="928" y="448" width="50" height="30"/>
+  <object id="197" type="Dark Panel" gid="4" x="928" y="416" width="50" height="30"/>
+  <object id="198" type="Dark Panel" gid="4" x="896" y="448" width="50" height="30"/>
+  <object id="199" type="Dark Panel" gid="4" x="896" y="480" width="50" height="30"/>
+  <object id="200" type="Dark Panel" gid="4" x="928" y="512" width="50" height="30"/>
+  <object id="201" type="Dark Panel" gid="4" x="960" y="480" width="50" height="30"/>
+  <object id="202" type="Dark Panel" gid="4" x="960" y="448" width="50" height="30"/>
+  <object id="203" type="Dark Panel" gid="4" x="960" y="512" width="50" height="30"/>
+  <object id="204" type="Dark Panel" gid="4" x="992" y="512" width="50" height="30"/>
+  <object id="205" type="Dark Panel" gid="4" x="960" y="544" width="50" height="30"/>
+  <object id="206" type="Dark Panel" gid="4" x="928" y="544" width="50" height="30"/>
+  <object id="207" type="Dark Panel" gid="4" x="896" y="512" width="50" height="30"/>
+  <object id="208" type="Dark Panel" gid="4" x="864" y="480" width="50" height="30"/>
+  <object id="209" type="Dark Panel" gid="4" x="864" y="448" width="50" height="30"/>
+  <object id="210" type="Dark Panel" gid="4" x="992" y="544" width="50" height="30"/>
+  <object id="211" type="Dark Panel" gid="4" x="1024" y="576" width="50" height="30"/>
+  <object id="212" type="Dark Panel" gid="4" x="992" y="576" width="50" height="30"/>
+  <object id="213" type="Dark Panel" gid="4" x="960" y="576" width="50" height="30"/>
+  <object id="214" type="Dark Panel" gid="4" x="960" y="608" width="50" height="30"/>
+  <object id="215" type="Dark Panel" gid="4" x="1024" y="608" width="50" height="30"/>
+  <object id="216" type="Dark Panel" gid="4" x="1024" y="544" width="50" height="30"/>
+  <object id="217" type="Dark Panel" gid="4" x="1024" y="640" width="50" height="30"/>
+  <object id="218" type="Dark Panel" gid="4" x="992" y="640" width="50" height="30"/>
+  <object id="219" type="Dark Panel" gid="4" x="992" y="672" width="50" height="30"/>
+  <object id="220" type="Dark Panel" gid="4" x="1024" y="672" width="50" height="30"/>
+  <object id="221" type="Dark Panel" gid="4" x="960" y="640" width="50" height="30"/>
+  <object id="222" type="Dark Panel" gid="4" x="928" y="640" width="50" height="30"/>
+  <object id="223" type="Dark Panel" gid="4" x="928" y="608" width="50" height="30"/>
+  <object id="224" type="Dark Panel" gid="4" x="928" y="576" width="50" height="30"/>
+  <object id="225" type="Dark Panel" gid="4" x="896" y="544" width="50" height="30"/>
+  <object id="226" type="Dark Panel" gid="4" x="960" y="672" width="50" height="30"/>
+  <object id="227" type="Dark Panel" gid="4" x="832" y="352" width="50" height="30"/>
+  <object id="228" type="Item Panel" gid="5" x="544" y="704" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="229" type="Item Panel" gid="5" x="448" y="640" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="230" type="Item Panel" gid="5" x="448" y="768" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="231" type="Item Panel" gid="5" x="672" y="480" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="232" type="Item Panel" gid="5" x="416" y="128" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="233" type="Item Panel" gid="5" x="384" y="256" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="234" type="Item Panel" gid="5" x="576" y="160" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="235" type="Item Panel" gid="5" x="544" y="192" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="HEART"/>
+   </properties>
+  </object>
+  <object id="236" type="Trap Panel" gid="5" x="576" y="192" width="50" height="30">
+   <properties>
+    <property name="Stun Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="237" type="Trap Panel" gid="5" x="512" y="160" width="50" height="30">
+   <properties>
+    <property name="Stun Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="238" type="Trap Panel" gid="5" x="512" y="192" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="200"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="239" type="Item Panel" gid="5" x="544" y="160" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="240" type="Trap Panel" gid="5" x="448" y="352" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="20"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="241" type="Trap Panel" gid="5" x="480" y="320" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="30"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="242" type="Trap Panel" gid="5" x="416" y="608" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="200"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="243" type="Trap Panel" gid="5" x="832" y="768" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="200"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="244" type="Trap Panel" gid="5" x="928" y="672" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="200"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="245" type="Trap Panel" gid="5" x="288" y="640" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="200"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="246" type="Trap Panel" gid="5" x="160" y="704" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="80"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="247" type="Trap Panel" gid="5" x="256" y="96" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="200"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="248" type="Trap Panel" gid="5" x="128" y="232" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="100"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="249" type="Trap Panel" gid="5" x="192" y="160" width="50" height="30">
+   <properties>
+    <property name="Damage Dealt" type="int" value="250"/>
+    <property name="Damage Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="250" type="Dark Panel" gid="4" x="864" y="768" width="50" height="30"/>
+  <object id="251" type="Dark Panel" gid="4" x="896" y="800" width="50" height="30"/>
+  <object id="252" type="Dark Panel" gid="4" x="896" y="832" width="50" height="30"/>
+  <object id="253" type="Dark Panel" gid="4" x="864" y="832" width="50" height="30"/>
+  <object id="254" type="Dark Panel" gid="4" x="832" y="832" width="50" height="30"/>
+  <object id="255" type="Dark Panel" gid="4" x="864" y="864" width="50" height="30"/>
+  <object id="256" type="Dark Panel" gid="4" x="832" y="864" width="50" height="30"/>
+  <object id="257" type="Dark Panel" gid="4" x="832" y="896" width="50" height="30"/>
+  <object id="258" type="Dark Panel" gid="4" x="896" y="864" width="50" height="30"/>
+  <object id="259" type="Dark Panel" gid="4" x="800" y="864" width="50" height="30"/>
+  <object id="260" type="Dark Panel" gid="4" x="768" y="832" width="50" height="30"/>
+  <object id="261" type="Dark Panel" gid="4" x="736" y="768" width="50" height="30"/>
+  <object id="262" type="Dark Panel" gid="4" x="768" y="736" width="50" height="30"/>
+  <object id="263" type="Dark Panel" gid="4" x="800" y="768" width="50" height="30"/>
+  <object id="264" type="Dark Panel" gid="4" x="800" y="800" width="50" height="30"/>
+  <object id="265" type="Dark Panel" gid="4" x="768" y="800" width="50" height="30"/>
+  <object id="266" type="Dark Panel" gid="4" x="704" y="768" width="50" height="30"/>
+  <object id="267" type="Dark Panel" gid="4" x="736" y="800" width="50" height="30"/>
+  <object id="268" type="Dark Panel" gid="4" x="768" y="864" width="50" height="30"/>
+  <object id="269" type="Dark Panel" gid="4" x="800" y="896" width="50" height="30"/>
+  <object id="270" type="Dark Panel" gid="4" x="928" y="832" width="50" height="30"/>
+  <object id="271" type="Dark Panel" gid="4" x="896" y="768" width="50" height="30"/>
+  <object id="272" type="Dark Panel" gid="4" x="928" y="800" width="50" height="30"/>
+  <object id="273" type="Dark Panel" gid="4" x="864" y="736" width="50" height="30"/>
+  <object id="274" type="Dark Panel" gid="4" x="864" y="704" width="50" height="30"/>
+  <object id="275" type="Dark Panel" gid="4" x="832" y="736" width="50" height="30"/>
+  <object id="276" type="Dark Panel" gid="4" x="800" y="736" width="50" height="30"/>
+  <object id="277" type="Dark Panel" gid="4" x="736" y="736" width="50" height="30"/>
+  <object id="278" type="Dark Panel" gid="4" x="736" y="704" width="50" height="30"/>
+  <object id="280" type="Dark Panel" gid="4" x="736" y="832" width="50" height="30"/>
+  <object id="281" type="Dark Panel" gid="4" x="704" y="832" width="50" height="30"/>
+  <object id="282" type="Dark Panel" gid="4" x="928" y="864" width="50" height="30"/>
+  <object id="283" type="Dark Panel" gid="4" x="928" y="736" width="50" height="30"/>
+  <object id="284" type="Dark Panel" gid="4" x="672" y="864" width="50" height="30"/>
+  <object id="285" type="Dark Panel" gid="4" x="704" y="896" width="50" height="30"/>
+  <object id="286" type="Dark Panel" gid="4" x="672" y="896" width="50" height="30"/>
+  <object id="287" type="Dark Panel" gid="4" x="640" y="896" width="50" height="30"/>
+  <object id="288" type="Dark Panel" gid="4" x="736" y="896" width="50" height="30"/>
+  <object id="289" type="Dark Panel" gid="4" x="704" y="864" width="50" height="30"/>
+  <object id="290" type="Dark Panel" gid="4" x="736" y="864" width="50" height="30"/>
+  <object id="291" type="Dark Panel" gid="4" x="672" y="928" width="50" height="30"/>
+  <object id="292" type="Dark Panel" gid="4" x="704" y="928" width="50" height="30"/>
+  <object id="293" type="Dark Panel" gid="4" x="416" y="736" width="50" height="30"/>
+  <object id="294" type="Dark Panel" gid="4" x="384" y="736" width="50" height="30"/>
+  <object id="295" type="Dark Panel" gid="4" x="480" y="768" width="50" height="30"/>
+  <object id="296" type="Dark Panel" gid="4" x="448" y="736" width="50" height="30"/>
+  <object id="297" type="Dark Panel" gid="4" x="512" y="672" width="50" height="30"/>
+  <object id="298" type="Dark Panel" gid="4" x="512" y="704" width="50" height="30"/>
+  <object id="299" type="Dark Panel" gid="4" x="640" y="800" width="50" height="30"/>
+  <object id="300" type="Dark Panel" gid="4" x="640" y="864" width="50" height="30"/>
+  <object id="301" type="Dark Panel" gid="4" x="672" y="832" width="50" height="30"/>
+  <object id="302" type="Dark Panel" gid="4" x="896" y="896" width="50" height="30"/>
+  <object id="303" type="Dark Panel" gid="4" x="864" y="896" width="50" height="30"/>
+  <object id="304" type="Item Panel" gid="5" x="832" y="800" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+    <property name="Specific Loot" value="KEY"/>
+   </properties>
+  </object>
+  <object id="305" type="Dark Panel" gid="4" x="928" y="896" width="50" height="30"/>
+  <object id="306" type="Dark Panel" gid="4" x="928" y="928" width="50" height="30"/>
+  <object id="307" type="Dark Panel" gid="4" x="960" y="896" width="50" height="30"/>
+  <object id="308" type="Dark Panel" gid="4" x="896" y="1024" width="50" height="30"/>
+  <object id="309" type="Dark Panel" gid="4" x="864" y="1024" width="50" height="30"/>
+  <object id="310" type="Dark Panel" gid="4" x="960" y="864" width="50" height="30"/>
+  <object id="311" type="Item Panel" gid="5" x="896" y="928" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="312" type="Item Panel" gid="5" x="736" y="928" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="313" type="Item Panel" gid="5" x="864" y="672" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="314" type="Item Panel" gid="5" x="768" y="704" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="315" type="Item Panel" gid="5" x="1088" y="928" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="316" type="Trap Panel" gid="5" x="896" y="1056" width="50" height="30">
+   <properties>
+    <property name="Stun Trap" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="317" type="Boss Dark Panel" gid="4" x="224" y="768" width="50" height="30">
+   <properties>
+    <property name="Auto Face Player" type="bool" value="true"/>
+    <property name="Boss" value="ShadeMan"/>
+    <property name="Boss Health Override" value="1500"/>
+    <property name="Boss ID" value="ShadeMan_01"/>
+    <property name="Direction" value="Down Right"/>
+    <property name="Encounter Category" propertytype="LiberationEncounterCategory" value="bosses"/>
+    <property name="Encounter Mode" propertytype="LiberationEncounterMode" value="Auto"/>
+    <property name="Max HP" type="int" value="1500"/>
+    <property name="Starting HP" type="int" value="1500"/>
+   </properties>
+  </object>
+  <object id="318" type="Indestructible Panel" gid="7" x="224" y="800" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="319" type="Indestructible Panel" gid="7" x="192" y="800" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="320" type="Indestructible Panel" gid="7" x="192" y="768" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="321" type="Indestructible Panel" gid="7" x="192" y="736" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="322" type="Indestructible Panel" gid="7" x="224" y="736" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="324" type="Indestructible Panel" gid="7" x="256" y="800" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="325" type="Indestructible Panel" gid="7" x="256" y="736" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="326" type="Indestructible Panel" gid="7" x="256" y="768" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_01"/>
+   </properties>
+  </object>
+  <object id="327" type="Dark Panel" gid="4" x="256" y="832" width="50" height="30"/>
+  <object id="328" type="Dark Panel" gid="4" x="224" y="832" width="50" height="30"/>
+  <object id="329" type="Dark Panel" gid="4" x="288" y="800" width="50" height="30"/>
+  <object id="330" type="Dark Panel" gid="4" x="288" y="768" width="50" height="30"/>
+  <object id="331" type="Boss Dark Panel" gid="4" x="96" y="64" width="50" height="30">
+   <properties>
+    <property name="Auto Face Player" type="bool" value="true"/>
+    <property name="Boss" value="ShadeMan"/>
+    <property name="Boss Health Override" value="2500"/>
+    <property name="Boss ID" value="ShadeMan_02"/>
+    <property name="Direction" value="Down Left"/>
+    <property name="Encounter Category" propertytype="LiberationEncounterCategory" value="bosses"/>
+    <property name="Encounter Mode" propertytype="LiberationEncounterMode" value="Auto"/>
+    <property name="Max HP" type="int" value="2500"/>
+    <property name="Starting HP" type="int" value="2500"/>
+   </properties>
+  </object>
+  <object id="332" type="Dark Panel" gid="4" x="672" y="416" width="50" height="30"/>
+  <object id="333" type="Dark Panel" gid="4" x="704" y="448" width="50" height="30"/>
+  <object id="334" type="Dark Panel" gid="4" x="704" y="416" width="50" height="30"/>
+  <object id="335" type="Dark Panel" gid="4" x="512" y="352" width="50" height="30"/>
+  <object id="336" type="Dark Panel" gid="4" x="544" y="352" width="50" height="30"/>
+  <object id="337" type="Indestructible Panel" gid="7" x="128" y="64" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="338" type="Indestructible Panel" gid="7" x="64" y="64" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="339" type="Indestructible Panel" gid="7" x="96" y="96" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="340" type="Indestructible Panel" gid="7" x="128" y="96" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="341" type="Indestructible Panel" gid="7" x="64" y="96" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="342" type="Indestructible Panel" gid="7" x="96" y="32" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="343" type="Indestructible Panel" gid="7" x="64" y="32" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="344" type="Indestructible Panel" gid="7" x="128" y="32" width="50" height="30">
+   <properties>
+    <property name="Boss ID 1" value="ShadeMan_02"/>
+   </properties>
+  </object>
+  <object id="345" type="Dark Panel" gid="4" x="160" y="96" width="50" height="30"/>
+  <object id="346" type="Dark Panel" gid="4" x="160" y="64" width="50" height="30"/>
+  <object id="347" type="Dark Panel" gid="4" x="160" y="32" width="50" height="30"/>
+  <object id="348" type="Dark Panel" gid="4" x="128" y="128" width="50" height="30"/>
+  <object id="349" type="Dark Panel" gid="4" x="96" y="128" width="50" height="30"/>
+  <object id="350" type="Dark Panel" gid="4" x="64" y="128" width="50" height="30"/>
+  <object id="351" type="Dark Panel" gid="4" x="32" y="128" width="50" height="30"/>
+  <object id="352" type="Dark Panel" gid="4" x="32" y="96" width="50" height="30"/>
+  <object id="353" type="Dark Panel" gid="4" x="160" y="128" width="50" height="30"/>
+  <object id="354" type="Dark Panel" gid="4" x="32" y="64" width="50" height="30"/>
+  <object id="355" type="Dark Panel" gid="4" x="32" y="32" width="50" height="30"/>
+  <object id="356" type="Dark Panel" gid="4" x="32" y="0" width="50" height="30"/>
+  <object id="357" type="Dark Panel" gid="4" x="64" y="0" width="50" height="30"/>
+  <object id="358" type="Dark Panel" gid="4" x="96" y="0" width="50" height="30"/>
+  <object id="359" type="Dark Panel" gid="4" x="128" y="0" width="50" height="30"/>
+  <object id="360" type="Dark Panel" gid="4" x="160" y="0" width="50" height="30"/>
+  <object id="361" type="Dark Panel" gid="4" x="192" y="0" width="50" height="30"/>
+  <object id="362" type="Dark Panel" gid="4" x="0" y="32" width="50" height="30"/>
+  <object id="363" type="Dark Panel" gid="4" x="0" y="64" width="50" height="30"/>
+  <object id="364" type="Dark Panel" gid="4" x="0" y="96" width="50" height="30"/>
+  <object id="365" type="Dark Panel" gid="4" x="32" y="160" width="50" height="30"/>
+  <object id="366" type="Dark Panel" gid="4" x="64" y="160" width="50" height="30"/>
+  <object id="367" type="Dark Panel" gid="4" x="96" y="160" width="50" height="30"/>
+  <object id="368" type="Dark Panel" gid="4" x="192" y="96" width="50" height="30"/>
+  <object id="369" type="Dark Panel" gid="4" x="192" y="64" width="50" height="30"/>
+  <object id="370" type="Dark Panel" gid="4" x="192" y="32" width="50" height="30"/>
+  <object id="371" type="Dark Panel" gid="4" x="544" y="224" width="50" height="30"/>
+  <object id="372" type="Dark Panel" gid="4" x="544" y="256" width="50" height="30"/>
+  <object id="373" type="Dark Panel" gid="4" x="640" y="288" width="50" height="30"/>
+  <object id="374" type="Dark Panel" gid="4" x="448" y="224" width="50" height="30"/>
+  <object id="375" type="Liberation Config" x="64" y="512">
+   <properties>
+    <property name="Encounter Music" type="object" value="376"/>
+    <property name="Honor HPMem" type="bool" value="true"/>
+    <property name="Liberation Tileset" value="/server/assets/ezlibs-custom/nebulous-liberations/tiles/panels.tsx"/>
+    <property name="Max Order Points" value="40"/>
+    <property name="Minimum Target Phase Count" value="10"/>
+    <property name="Respawn Area" value="default"/>
+    <property name="Target Phase Count" type="int" value="13"/>
+    <property name="Target Player Count" type="int" value="5"/>
+    <property name="Victory Lap Song" value="/server/assets/exe4-hero.ogg"/>
+    <property name="Waiting Area" value="default"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="376" type="Music Definition" x="96" y="512">
+   <point/>
+  </object>
+  <object id="377" name="Point of Interest" type="Point of Interest" x="544" y="672">
+   <properties>
+    <property name="isBoss" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="378" name="Point of Interest" type="Point of Interest" x="536" y="376">
+   <properties>
+    <property name="isBoss" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="379" name="Point of Interest" type="Point of Interest" x="656" y="456">
+   <properties>
+    <property name="isBoss" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="380" name="Point of Interest" type="Point of Interest" x="816" y="808">
+   <properties>
+    <property name="isBoss" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="381" name="Point of Interest" type="Point of Interest" x="944" y="488">
+   <properties>
+    <property name="isBoss" type="bool" value="false"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="382" name="Point of Interest" type="Point of Interest" x="240" y="784">
+   <properties>
+    <property name="isBoss" type="bool" value="true"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="383" name="Point of Interest" type="Point of Interest" x="112" y="80">
+   <properties>
+    <property name="isBoss" type="bool" value="true"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="384" type="Panel Gate" gid="10" x="640" y="352" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="385" type="Panel Gate" gid="10" x="608" y="320" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="386" type="Panel Gate" gid="10" x="576" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="387" type="Panel Gate" gid="10" x="544" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="388" type="Panel Gate" gid="10" x="512" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="389" type="Panel Gate" gid="10" x="480" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="390" type="Panel Gate" gid="10" x="448" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="391" type="Panel Gate" gid="10" x="416" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="392" type="Panel Gate" gid="10" x="384" y="288" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="393" type="Panel Gate" gid="10" x="352" y="256" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="394" type="Panel Gate" gid="10" x="832" y="672" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="395" type="Panel Gate" gid="10" x="832" y="704" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="396" type="Panel Gate" gid="10" x="704" y="736" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="397" type="Dark Panel" gid="4" x="928" y="1056" width="50" height="30"/>
+  <object id="398" type="Dark Panel" gid="4" x="1056" y="928" width="50" height="30"/>
+  <object id="399" type="Dark Panel" gid="4" x="1088" y="896" width="50" height="30"/>
+  <object id="400" type="Dark Panel" gid="4" x="1088" y="864" width="50" height="30"/>
+  <object id="401" type="Dark Panel" gid="4" x="352" y="160" width="50" height="30"/>
+  <object id="402" type="Dark Panel" gid="4" x="352" y="128" width="50" height="30"/>
+  <object id="403" type="Dark Panel" gid="4" x="352" y="96" width="50" height="30"/>
+  <object id="404" type="Dark Panel" gid="4" x="288" y="96" width="50" height="30"/>
+  <object id="405" type="Dark Panel" gid="4" x="128" y="160" width="50" height="30"/>
+  <object id="406" type="Dark Panel" gid="4" x="160" y="160" width="50" height="30"/>
+  <object id="407" type="Dark Panel" gid="4" x="224" y="160" width="50" height="30"/>
+  <object id="408" type="Item Panel" gid="5" x="256" y="384" width="50" height="30">
+   <properties>
+    <property name="Specific Loot" value="ORDER_POINT"/>
+   </properties>
+  </object>
+  <object id="409" type="Dark Panel" gid="4" x="960" y="928" width="50" height="30"/>
+  <object id="410" type="Dark Panel" gid="4" x="960" y="960" width="50" height="30"/>
+  <object id="411" type="Dark Panel" gid="4" x="992" y="928" width="50" height="30"/>
+  <object id="412" type="Dark Panel" gid="4" x="992" y="896" width="50" height="30"/>
+  <object id="413" type="Dark Panel" gid="4" x="960" y="832" width="50" height="30"/>
+  <object id="414" type="Dark Panel" gid="4" x="992" y="864" width="50" height="30"/>
+  <object id="415" type="Dark Panel" gid="4" x="928" y="960" width="50" height="30"/>
+  <object id="416" type="Dark Panel" gid="4" x="864" y="928" width="50" height="30"/>
+  <object id="417" type="Dark Panel" gid="4" x="896" y="960" width="50" height="30"/>
+  <object id="418" type="Dark Panel" gid="4" x="864" y="960" width="50" height="30"/>
+  <object id="419" type="Dark Panel" gid="4" x="832" y="928" width="50" height="30"/>
+  <object id="420" type="Dark Panel" gid="4" x="992" y="960" width="50" height="30"/>
+  <object id="421" type="Dark Panel" gid="4" x="960" y="800" width="50" height="30"/>
+  <object id="422" type="Dark Panel" gid="4" x="992" y="832" width="50" height="30"/>
+  <object id="423" type="Dark Panel" gid="4" x="768" y="896" width="50" height="30"/>
+  <object id="424" type="Dark Panel" gid="4" x="960" y="1056" width="50" height="30"/>
+  <object id="425" type="Dark Panel" gid="4" x="1056" y="960" width="50" height="30"/>
+  <object id="426" type="Panel Gate" gid="10" x="832" y="1024" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="427" type="Panel Gate" gid="10" x="832" y="992" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="428" type="Panel Gate" gid="10" x="864" y="992" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="429" type="Panel Gate" gid="10" x="896" y="992" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="430" type="Panel Gate" gid="10" x="928" y="992" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="431" type="Panel Gate" gid="10" x="928" y="1024" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="432" type="Panel Gate" gid="9" x="1056" y="992" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="433" type="Panel Gate" gid="9" x="1024" y="992" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="434" type="Panel Gate" gid="9" x="1024" y="960" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="435" type="Panel Gate" gid="9" x="1024" y="928" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="436" type="Panel Gate" gid="9" x="1024" y="896" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="437" type="Panel Gate" gid="9" x="1056" y="896" width="50" height="30">
+   <properties>
+    <property name="Gate Key" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="438" type="Dark Panel" gid="4" x="992" y="992" width="50" height="30"/>
+  <object id="439" type="Dark Panel" gid="4" x="960" y="992" width="50" height="30"/>
+  <object id="440" type="Dark Panel" gid="4" x="960" y="1024" width="50" height="30"/>
+  <object id="441" type="Dark Panel" gid="4" x="992" y="1024" width="50" height="30"/>
+  <object id="442" type="Dark Panel" gid="4" x="992" y="1056" width="50" height="30"/>
+  <object id="443" name="PlzWork1" type="Dark Hole Encounter List" x="616" y="1032">
+   <properties>
+    <property name="Name 1" value="BigBrute1"/>
+    <property name="Name 2" value="BigBrute2"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="444" name="LibNorm - BigBrute OW Pool" type="Liberation Encounter Pool" x="512" y="1016">
+   <properties>
+    <property name="Encounter Category" propertytype="LiberationEncounterCategory" value="special_encounters"/>
+    <property name="Name 1" value="BigBrute"/>
+    <property name="Weight 1" type="float" value="1"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="445" name="PlzWork2" type="Dark Hole Encounter List" x="1152" y="456">
+   <properties>
+    <property name="Name 1" value="BigBrute3"/>
+    <property name="Name 2" value="BigBrute4"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
+</map>

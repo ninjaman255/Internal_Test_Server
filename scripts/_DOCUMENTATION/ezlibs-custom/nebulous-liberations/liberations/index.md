@@ -27,6 +27,7 @@
 | 📄 Script | `instance.lua` | 1 | 42 | 57 | 2289 | [Open script reference](instance/index.md) |
 | 📄 Script | `logger.lua` | 1 | 0 | 1 | 12 | [Open script reference](logger/index.md) |
 | 📄 Script | `loot.lua` | 1 | 16 | 20 | 368 | [Open script reference](loot/index.md) |
+| 📄 Script | `mission_selector.lua` | 1 | 4 | 4 | 148 | [Open script reference](mission_selector/index.md) |
 | 📄 Script | `option_menu.lua` | 1 | 12 | 12 | 448 | [Open script reference](option_menu/index.md) |
 | 📄 Script | `panel_encounters.lua` | 1 | 16 | 14 | 511 | [Open script reference](panel_encounters/index.md) |
 | 📄 Script | `panel_registry.lua` | 1 | 7 | 6 | 98 | [Open script reference](panel_registry/index.md) |

@@ -721,6 +721,12 @@ local function initialize_areas()
     end
 end
 
+-- The persistent Gold Prog is spawned by eznpcs from the default-map NPC
+-- placeholder. Its Dialogue event reuses this plugin's party-aware launcher.
+local MissionSelector = require(
+    "scripts/ezlibs-custom/nebulous-liberations/liberations/mission_selector")
+MissionSelector.register(LibPlugin)
+
 -- TilesetEmbedder.run() already returns the promise created by
 -- Async.promisify(). Chain initialization directly to that promise instead of
 -- wrapping it in another coroutine and awaiting it again.

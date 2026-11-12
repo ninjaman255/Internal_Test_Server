@@ -3,8 +3,8 @@
 [🏠 Documentation home](../../../index.md) · [⬆ Folder index](../index.md)
 
 > **Source:** [`scripts/ezlibs-custom/nebulous-liberations/main.lua`](../../../../ezlibs-custom/nebulous-liberations/main.lua)  
-> **Source lines:** 731  
-> **SHA-256 (UTF-8):** `7ccf10b847cbc1b6eb965d462f3e6eef7bb064a15c11d2ece9cd80981805bea4`  
+> **Source lines:** 737  
+> **SHA-256 (UTF-8):** `45c6db2ddab0e055fecc8a942ed80d979a2f402c7a3a47a4afc6a2252a2c34f8`  
 > **Named/assigned functions detected:** 22  
 > **Table initializers detected:** 11
 
@@ -323,3 +323,8 @@ No literal `:on` event registration detected by the simple source pattern.
 | `Net.list_areas` | 1 | 594 |
 | `Net.list_objects` | 1 | 612 |
 | `Net.transfer_player` | 1 | 308 |
+
+
+## 🟡 Persistent Golden Prog selector integration
+
+`main.lua` now requires `liberations/mission_selector.lua` and calls `MissionSelector.register(LibPlugin)` before initiating the asynchronous tileset embedding pass. The selector owns the eznpcs Dialogue event, uses `LibPlugin.start_game_for_player` and does not replace or consume normal Liberation Gates. See [Golden Prog mission selector](../GOLDEN_PROG_MISSIONS.md).

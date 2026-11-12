@@ -68,6 +68,8 @@ Counts represent static matching of archived code and may omit anonymous closure
 | Document | Description |
 |---|---|
 | [📘 `README.md`](README.md) | 🌌 Nebulous Liberations — Complete Documentation |
+| [🧪 `ENCOUNTER_CLIENT_CRASH.md`](ENCOUNTER_CLIENT_CRASH.md) | Cloned-area battle ZIP provisioning, diagnostics, and reproducible test |
+| [⚔️ `V21_ENCOUNTER_AND_MAP_AUDIT.md`](V21_ENCOUNTER_AND_MAP_AUDIT.md) | Map reference checks, V2.1 encounter schema, mission packages and remaining warnings |
 
 ## 📂 Additional documentation folders
 

@@ -1,4 +1,4 @@
-imagePath="shockwave.png"
+imagePath="shockwaves_all_directions.png"
 
 animation state="SHOCKWAVE_UL"
 frame duration="0.09" x="0" y="0" w="64" h="64" originx="32" originy="48"

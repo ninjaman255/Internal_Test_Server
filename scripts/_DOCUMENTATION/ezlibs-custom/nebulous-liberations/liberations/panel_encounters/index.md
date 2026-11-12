@@ -3,8 +3,8 @@
 [🏠 Documentation home](../../../../index.md) · [⬆ Folder index](../index.md)
 
 > **Source:** [`scripts/ezlibs-custom/nebulous-liberations/liberations/panel_encounters.lua`](../../../../../ezlibs-custom/nebulous-liberations/liberations/panel_encounters.lua)  
-> **Source lines:** 511  
-> **SHA-256 (UTF-8):** `8d8cdf20974d3800339731cd057e11cb6b083abc0fa098d7f6f182b625da4fdc`  
+> **Source lines:** 702  
+> **SHA-256 (UTF-8):** `e3e57a7a8cf68e20ab9e4d3de6a75c1538b71b6c1af156be1b5ea6458cad6403`  
 > **Named/assigned functions detected:** 16  
 > **Table initializers detected:** 17
 
@@ -248,3 +248,18 @@ No literal `:on` event registration detected by the simple source pattern.
 | `Net.get_area_name` | 4 | 420 |
 | `Net.get_object_by_id` | 1 | 268 |
 | `Net.list_areas` | 1 | 470 |
+
+
+## V2.1 source update
+
+`PanelEncounters.validate_encounter_data(definition, package_path)` validates
+the 6×3 battle matrices and enemy indexes before client dispatch.
+`package_path` supplies the selected ZIP when checking a built battle payload
+whose `path` was stripped by the encounter builder.
+`provide_mission_encounter_assets` also checks definitions before provisioning.
+The startup area scan now checks `Liberation Config` objects instead of the
+obsolete map-level `Liberation Tileset` property.
+
+See [V2.1 encounter audit](../../V21_ENCOUNTER_AND_MAP_AUDIT.md).
+
+> **Static inventory note:** The original function line-number table predates the V2.1 patch. Follow the current source link above or the V2.1 addendum for added APIs.

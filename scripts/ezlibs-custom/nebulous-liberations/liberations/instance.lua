@@ -194,6 +194,10 @@ local function build_encounter_data(encounter_definition, overrides, persistent_
         end
     end
 
+    -- Liberation missions award loot through panels, never battle result drops.
+    -- Do not mutate the cached encounter definition or regular EZEncounters.
+    data.no_battle_rewards = true
+
     -- Liberation flipping belongs to the WORLD formation, never to an
     -- encounter's authored flip flag. The editor can carry these same
     -- encounter definitions to regular ezencounters / the Endless Runner,
@@ -761,6 +765,42 @@ local function liberate_panel(self, player_session)
                     minion_health_override = minion_health_override,
                 })
             end
+            -- Always check the chosen package on the actual cloned area. This
+            -- also handles Encounter Path overrides not in the base table.
+            if not PanelEncounters.ensure_encounter_asset(self.area_id, encounter_definition.path) then
+                log:error_data("Liberation encounter aborted: battle package unavailable", {
+                    base_area_id = self.base_area_id,
+                    instance_area_id = self.area_id,
+                    encounter_name = encounter_definition.name,
+                    package_path = encounter_definition.path,
+                    player_id = player.id,
+                })
+                player_session:complete_turn()
+                return
+            end
+            local encounter_valid, encounter_problem =
+                PanelEncounters.validate_encounter_data(encounter_data, encounter_definition.path)
+            if not encounter_valid then
+                log:error_data("Blocked invalid Liberation battle payload", {
+                    base_area_id = self.base_area_id,
+                    instance_area_id = self.area_id,
+                    encounter_name = encounter_definition.name,
+                    problem = encounter_problem,
+                })
+                player_session:complete_turn()
+                return
+            end
+            log:info_data("Dispatching liberation encounter to client", {
+                base_area_id = self.base_area_id,
+                instance_area_id = self.area_id,
+                encounter_name = encounter_definition.name,
+                package_path = encounter_definition.path,
+                enemy_count = type(encounter_data.enemies) == "table" and #encounter_data.enemies or 0,
+                has_positions = type(encounter_data.positions) == "table",
+                has_player_positions = type(encounter_data.player_positions) == "table",
+                terrain = encounter_data.terrain,
+                player_id = player.id,
+            })
             local results = Async.await(player_session:initiate_encounter(encounter_definition.path, encounter_data))
             -- Deliberately do not synchronize Dark Hole battle results to the
             -- persistent bot. Only a battle started directly on an active bot
@@ -887,6 +927,42 @@ local function liberate_panel(self, player_session)
                 resolved_terrain = encounter_data.terrain,
                 player_can_flip = encounter_data.freedom_mission
                     and encounter_data.freedom_mission.player_can_flip or false,
+            })
+            -- Always check the chosen package on the actual cloned area. This
+            -- also handles Encounter Path overrides not in the base table.
+            if not PanelEncounters.ensure_encounter_asset(self.area_id, encounter_definition.path) then
+                log:error_data("Liberation encounter aborted: battle package unavailable", {
+                    base_area_id = self.base_area_id,
+                    instance_area_id = self.area_id,
+                    encounter_name = encounter_definition.name,
+                    package_path = encounter_definition.path,
+                    player_id = player.id,
+                })
+                player_session:complete_turn()
+                return
+            end
+            local encounter_valid, encounter_problem =
+                PanelEncounters.validate_encounter_data(encounter_data, encounter_definition.path)
+            if not encounter_valid then
+                log:error_data("Blocked invalid Liberation battle payload", {
+                    base_area_id = self.base_area_id,
+                    instance_area_id = self.area_id,
+                    encounter_name = encounter_definition.name,
+                    problem = encounter_problem,
+                })
+                player_session:complete_turn()
+                return
+            end
+            log:info_data("Dispatching liberation encounter to client", {
+                base_area_id = self.base_area_id,
+                instance_area_id = self.area_id,
+                encounter_name = encounter_definition.name,
+                package_path = encounter_definition.path,
+                enemy_count = type(encounter_data.enemies) == "table" and #encounter_data.enemies or 0,
+                has_positions = type(encounter_data.positions) == "table",
+                has_player_positions = type(encounter_data.player_positions) == "table",
+                terrain = encounter_data.terrain,
+                player_id = player.id,
             })
             local results = Async.await(player_session:initiate_encounter(encounter_definition.path, encounter_data))
             -- Synchronize before branching: survivors retain their health on
@@ -1379,6 +1455,21 @@ function Mission:new(base_area_id, new_area_id, players, max_order_points)
         mission_area_id = tostring(new_area_id),
         collision_tileset_path = "/server/assets/ezlibs-custom/nebulous-liberations/tiles/Liberation Collision.tsx",
     })
+
+    -- Cloned mission areas do not go through ezencounters' base-area package
+    -- provisioning. Supply registered battle ZIPs now, before transferring
+    -- players into this instance. The launch path still provisions any
+    -- per-panel override that was not in the base encounter table.
+    local package_ok, package_count, package_failures =
+        PanelEncounters.provide_mission_encounter_assets(base_area_id, new_area_id)
+    if not package_ok then
+        log:warn_data("Liberation mission encounter asset preflight reported failures", {
+            base_area_id = base_area_id,
+            mission_area_id = new_area_id,
+            distinct_packages = package_count,
+            failed_packages = package_failures,
+        })
+    end
 
     -- Diagnostic only: verify the new collision tileset can be retrieved from
     -- the cloned/provisioned mission area. Keep the old panel GID lookup below
@@ -1881,6 +1972,7 @@ function Mission:clean_up()
     for _, id in ipairs(Net.list_bots(self.area_id)) do
         Net.remove_bot(id)
     end
+    PanelEncounters.clear_mission_encounter_assets(self.area_id)
     Net.remove_area(self.area_id)
     self.resolve_disposal()
     return self.disposal_promise

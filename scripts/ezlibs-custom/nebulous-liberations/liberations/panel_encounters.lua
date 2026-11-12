@@ -181,6 +181,189 @@ local function pick_encounter(encounter_table, category)
   return options[#options]
 end
 
+-- Validate the payload shape *before* handing it to the client. The ONB
+-- client cannot recover gracefully from invalid battle character indexes.
+-- These checks cover the V2.1 matrices consumed by the packaged entry.lua;
+-- missing optional terrain matrices are still handled by that package.
+function PanelEncounters.validate_encounter_data(definition, package_path)
+  if type(definition) ~= "table" then return false, "encounter is not a table" end
+  local path = definition.path or package_path
+  if type(path) ~= "string" or path == "" then
+    return false, "missing encounter ZIP path"
+  end
+  local enemies = definition.enemies
+  if type(enemies) ~= "table" or #enemies < 1 or #enemies > 9 then
+    return false, "expected between 1 and 9 enemy entries"
+  end
+  for i, enemy in ipairs(enemies) do
+    if type(enemy) ~= "table" or type(enemy.name) ~= "string" or enemy.name == "" then
+      return false, "enemy " .. i .. " has no package alias"
+    end
+    local rank = tonumber(enemy.rank)
+    if rank == nil or rank % 1 ~= 0 or rank < 0 or rank > 7 then
+      return false, "enemy " .. i .. " has invalid rank " .. tostring(enemy.rank)
+    end
+  end
+
+  local function check_matrix(key)
+    local matrix = definition[key]
+    if matrix == nil then return true end
+    if type(matrix) ~= "table" or #matrix ~= 3 then
+      return false, key .. " must contain 3 rows"
+    end
+    for y = 1, 3 do
+      local row = matrix[y]
+      if type(row) ~= "table" or #row ~= 6 then
+        return false, key .. " row " .. y .. " must contain 6 cells"
+      end
+      for x = 1, 6 do
+        local value = tonumber(row[x])
+        if value == nil or value % 1 ~= 0 or value < 0 then
+          return false, key .. " has invalid cell at " .. x .. "," .. y
+        end
+      end
+    end
+    return true
+  end
+
+  for _, key in ipairs({"positions", "player_positions", "obstacle_positions", "tiles", "teams"}) do
+    local ok, err = check_matrix(key)
+    if not ok then return false, err end
+  end
+
+  local pos = definition.positions
+  if pos then
+    local seen = {}
+    for y = 1, 3 do
+      for x = 1, 6 do
+        local index = pos[y][x]
+        if index ~= 0 then
+          if index > #enemies or seen[index] then
+            return false, "invalid/duplicate enemy position index " .. tostring(index)
+          end
+          seen[index] = true
+        end
+      end
+    end
+    for i = 1, #enemies do
+      if not seen[i] then return false, "enemy " .. i .. " has no position" end
+    end
+  end
+  if type(definition.player_positions) == "table" then
+    local pos_players = definition.player_positions
+    for y = 1, 3 do
+      for x = 1, 6 do
+        local player_index = pos_players[y][x]
+        if player_index ~= 0 and definition.positions
+            and definition.positions[y][x] ~= 0 then
+          return false, "player/enemy position collision at " .. x .. "," .. y
+        end
+      end
+    end
+  end
+  if definition.freedom_mission ~= nil then
+    local fm = definition.freedom_mission
+    if type(fm) ~= "table" then return false, "freedom_mission must be a table" end
+    local turns = tonumber(fm.turn_count or fm.turns or 3)
+    if turns == nil or turns % 1 ~= 0 or turns < 1 then
+      return false, "freedom_mission requires a positive turn_count"
+    end
+  end
+  return true
+end
+
+-- The regular ezencounters loader supplies encounter ZIPs to each BASE area.
+-- Liberation battles run in dynamically cloned areas, which must receive the
+-- package as well. Provision registered packages immediately after cloning,
+-- before players transfer, rather than waiting for the first battle packet.
+-- Keep a per-area cache to avoid resending the same package for every panel.
+local provided_package_paths = {}
+
+function PanelEncounters.ensure_encounter_asset(area_id, package_path)
+  if area_id == nil or type(package_path) ~= "string" or package_path == "" then
+    log:error_data("Cannot provision liberation encounter: missing area or package", {
+      area_id = tostring(area_id), package_path = tostring(package_path),
+    })
+    return false
+  end
+
+  local area_key = tostring(area_id)
+  local provided = provided_package_paths[area_key]
+  if provided and provided[package_path] then
+    return true
+  end
+
+  local ok, err = pcall(Net.provide_asset, area_id, package_path)
+  if not ok or err == false then
+    log:error_data("Could not provision liberation encounter package", {
+      area_id = area_id, package_path = package_path, error = tostring(err),
+    })
+    return false
+  end
+
+  provided = provided or {}
+  provided_package_paths[area_key] = provided
+  provided[package_path] = true
+  log:info_data("Liberation encounter package provision requested", {
+    area_id = area_id, package_path = package_path,
+  })
+  return true
+end
+
+function PanelEncounters.provide_mission_encounter_assets(base_area_id, mission_area_id)
+  local encounter_table, key_used = load_area_encounter_table(base_area_id)
+  local requested, failures = 0, 0
+  local unique = {}
+
+  for _, section_name in ipairs({"encounters", "bosses", "special_encounters"}) do
+    local section = encounter_table and encounter_table[section_name]
+    if type(section) == "table" then
+      for _, definition in ipairs(section) do
+        local valid, reason = PanelEncounters.validate_encounter_data(definition)
+        if not valid then
+          failures = failures + 1
+          log:error_data("Invalid authored Liberation encounter", {
+            area_id = base_area_id, section = section_name,
+            encounter_name = definition and definition.name,
+            problem = reason,
+          })
+        end
+        local path = type(definition) == "table" and definition.path or nil
+        if type(path) == "string" and path ~= "" and not unique[path] then
+          unique[path] = true
+          requested = requested + 1
+          if not PanelEncounters.ensure_encounter_asset(mission_area_id, path) then
+            failures = failures + 1
+          end
+        end
+      end
+    end
+  end
+
+  log:info_data("Liberation mission encounter asset preflight", {
+    base_area_id = base_area_id,
+    mission_area_id = mission_area_id,
+    encounter_key = key_used,
+    distinct_packages = requested,
+    failed_packages = failures,
+    has_area_encounter_table = encounter_table ~= nil,
+  })
+  if not encounter_table then
+    log:warn_data("No encounter table for preflight; override paths will be provisioned on demand", {
+      base_area_id = base_area_id, mission_area_id = mission_area_id,
+    })
+  end
+  return failures == 0, requested, failures
+end
+
+-- Release an instance's provisioning cache when it is disposed. A later clone
+-- may use a different package set and must not inherit a dead area's cache.
+function PanelEncounters.clear_mission_encounter_assets(mission_area_id)
+  if mission_area_id ~= nil then
+    provided_package_paths[tostring(mission_area_id)] = nil
+  end
+end
+
 -- Weighted selection is also used by the separate Dark Hole liberation list.
 -- Never mutate cached area encounter definitions when assigning pool weights.
 function PanelEncounters.pick_weighted(candidates)
@@ -469,8 +652,16 @@ end
 local function startup_diagnostic()
   local areas = Net.list_areas()
   for _, area_id in ipairs(areas) do
-    local tileset = Net.get_area_custom_property(area_id, "Liberation Tileset")
-    if tileset ~= nil and tostring(tileset) ~= "" then
+    local is_liberation_area = false
+    for _, object_id in ipairs(Net.list_objects(area_id) or {}) do
+      local object = Net.get_object_by_id(area_id, object_id)
+      if object and object.type == "Liberation Config" then
+        local props = object.custom_properties or {}
+        if props["Liberation Tileset"] then is_liberation_area = true end
+        break
+      end
+    end
+    if is_liberation_area then
       local table_data, key_used = load_area_encounter_table(area_id)
       if table_data == nil then
         log:warn_data("Liberation area has NO encounter file", {

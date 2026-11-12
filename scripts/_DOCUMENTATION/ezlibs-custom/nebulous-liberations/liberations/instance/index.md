@@ -3,8 +3,8 @@
 [🏠 Documentation home](../../../../index.md) · [⬆ Folder index](../index.md)
 
 > **Source:** [`scripts/ezlibs-custom/nebulous-liberations/liberations/instance.lua`](../../../../../ezlibs-custom/nebulous-liberations/liberations/instance.lua)  
-> **Source lines:** 2290  
-> **SHA-256 (UTF-8):** `d9285f157aaa91d5fe4ece2e2d06bfaf509af7594a89c9cf2ff885443e1650ac`  
+> **Source lines:** 2382  
+> **SHA-256 (UTF-8):** `c3752a92f804784a31c9cfbfdcb6afa4070bd71dd64ded276bb06e95b284a7da`  
 > **Named functions detected:** 42  
 > **Table initializers detected:** 56
 
@@ -587,3 +587,16 @@ No static literal subscriptions detected.
 | `Net.set_song` | 2 | 414 |
 | `Net.slide_player_camera` | 8 | 557 |
 | `Net.unlock_player_camera` | 4 | 601 |
+
+
+## V2.1 source update
+
+Before either regular/boss or Dark Hole battle is dispatched,
+`instance.lua` calls `PanelEncounters.validate_encounter_data(data, path)`.
+Malformed payloads log an error, then return control without sending an
+invalid encounter to the client. The per-battle payload enforces
+`no_battle_rewards=true`, with panel/mission loot processed separately.
+
+See [V2.1 encounter audit](../../V21_ENCOUNTER_AND_MAP_AUDIT.md).
+
+> **Static inventory note:** The original function line-number table predates the V2.1 patch. Follow the current source link above or the V2.1 addendum for added APIs.

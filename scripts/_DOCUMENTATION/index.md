@@ -18,6 +18,8 @@ Original runtime files are kept at their existing paths; only documentation file
 
 | Collection | Document | Guide |
 |---|---|---|
+| `ezlibs-custom/nebulous-liberations` | [⚔️ Liberation V2.1 encounter and map audit](ezlibs-custom/nebulous-liberations/V21_ENCOUNTER_AND_MAP_AUDIT.md) | Encounter schema, map validity and scoped battle dependencies |
+| `ezlibs-custom/nebulous-liberations` | [🟡 Golden Prog Liberation selector](ezlibs-custom/nebulous-liberations/GOLDEN_PROG_MISSIONS.md) | 🕹️ Home Warp NPC, centered 9-slice menu, 5-row scrolling, mission discovery |
 | `logger` | [📖 Shared Logger programmer guide](logger/README.md) | 🪵 System/subsystem logs at `scripts/_DEBUGGING/` |
 | `logger` | [📖 Logger migration](logger/MIGRATION.md) | 🔄 Old API adapters and historical log handling |
 | `logger` | [📖 Logger tests](logger/TESTING.md) | 🧪 Validation and in-game checklist |
@@ -35,7 +37,6 @@ Original runtime files are kept at their existing paths; only documentation file
 | `player-control` | [📖 `V2_UPDATE_REPORT.md`](player-control/V2_UPDATE_REPORT.md) | 🧩 Input/camera v2 implementation report |
 | `player-control` | [📖 `CONTROL_FLOW.md`](player-control/CONTROL_FLOW.md) | 🧭 Session lifecycle |
 | `player-control` | [📖 `MIGRATION_AUDIT.md`](player-control/MIGRATION_AUDIT.md) | 🛠 Low-level lock migration inventory |
-| `simon-says` | [📖 `README.md`](simon-says/README.md) | 🎮 Simon Says movement capture, facing, and sprite-safe jitter |
 | `hp_manager` | [📖 `README.md`](hp_manager/README.md) | 🖥️ HP Manager complete guide |
 | `jukebox` | [📖 `README.md`](jukebox/README.md) | 🎵 Jukebox complete guide |
 | `real_daytime` | [📖 `README.md`](real_daytime/README.md) | 🌤️ Preserved Real Daytime README |
@@ -119,7 +120,7 @@ Original runtime files are kept at their existing paths; only documentation file
 | 📄 Script | `ezlibs-config.lua` | 1 | 0 | 1 | 15 | [Open script reference](ezlibs-config/index.md) |
 | 📄 Script | `flavor_text.lua` | 1 | 1 | 0 | 12 | [Open script reference](flavor_text/index.md) |
 | 📄 Script | `run-gen.lua` | 1 | 0 | 0 | 2 | [Open script reference](run-gen/index.md) |
-| 📄 Script | `simon-says.lua` | 1 | 12 | 10 | 517 | [Open script reference](simon-says/index.md) |
+| 📄 Script | `simon-says.lua` | 1 | 9 | 8 | 433 | [Open script reference](simon-says/index.md) |
 | 📄 Script | `world-attachment.lua` | 1 | 9 | 13 | 428 | [Open script reference](world-attachment/index.md) |
 
 ## 🔎 Module API overview
