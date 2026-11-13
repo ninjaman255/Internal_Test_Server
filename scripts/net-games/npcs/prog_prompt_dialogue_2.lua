@@ -37,6 +37,10 @@ local bot_id = Net.create_bot({
 dbg("LOADED bot_id=" .. tostring(bot_id))
 DebugLog:info_data("Direct prompt PROG created", {npc = obj_name, area_id = area_id, bot_id = bot_id})
 
+-- Keep the same Displayer textbox across the Yes/No -> dialogue handoff.
+-- Prompt.close(keep_textbox=true) deliberately leaves the original box alive.
+local SHARED_BOX_ID = "prog_prompt_yesno_box"
+
 --=====================================================
 -- Shared UI base (clone of prog_basic_dialogue.lua settings)
 --=====================================================
@@ -133,7 +137,7 @@ Net:on("actor_interaction", function(event)
   local prompt_box_id, prompt_err = Dialogue.prompt_yesno(player_id, {
     question = "Want to hear a story? I promise it won't take too long...",
 
-    ui = prog_ui_prompt("prog_prompt_yesno_box"),
+    ui = prog_ui_prompt(SHARED_BOX_ID),
 
     on_yes = function()
       DebugLog:info_data("Direct prompt PROG Yes selected", {npc = obj_name, player_id = player_id})
@@ -145,10 +149,11 @@ Net:on("actor_interaction", function(event)
         "always gave him commands.",
         "He's still there to this very day.",
       }, {
-        from_prompt = true, -- prevents the double-confirm after prompt
+        from_prompt = true, -- guards against a held Confirm during handoff
+        reuse_existing_box = true, -- reset the preserved prompt textbox, do not orphan it
         page_advance = "wait_for_confirm",
         confirm_during_typing = true,
-        ui = prog_ui_dialogue("prog_prompt_followup_box"),
+        ui = prog_ui_dialogue(SHARED_BOX_ID),
       })
       if followup_box_id then
         DebugLog:info_data("Direct prompt PROG Yes follow-up opened", {
@@ -167,10 +172,11 @@ Net:on("actor_interaction", function(event)
         "All good.",
         "Come back when you want to hear a banger.",
       }, {
-        from_prompt = true, -- prevents the double-confirm after prompt
+        from_prompt = true, -- guards against a held Confirm during handoff
+        reuse_existing_box = true, -- reset the preserved prompt textbox, do not orphan it
         page_advance = "wait_for_confirm",
         confirm_during_typing = true,
-        ui = prog_ui_dialogue("prog_prompt_no_box"),
+        ui = prog_ui_dialogue(SHARED_BOX_ID),
       })
       if followup_box_id then
         DebugLog:info_data("Direct prompt PROG No follow-up opened", {

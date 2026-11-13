@@ -104,6 +104,9 @@ end
 -- option after the typewriter question reaches the last page.
 local CHOICE_YES_SUFFIX = "_yes_label"
 local CHOICE_NO_SUFFIX = "_no_label"
+-- Shared vertical adjustment for both labels and their cursor anchors.
+-- Positions here are virtual 240x160 units (2 = four screen pixels).
+local CHOICE_VERTICAL_OFFSET = 2
 
 local function build_prompt_text(question, ui)
     local max_lines = math.max(2, tonumber(ui.backdrop and ui.backdrop.max_lines) or math.floor(ui.h / (12 * ui.scale / 2)))
@@ -279,7 +282,7 @@ function PromptInstance:render_choices()
     local no_x = math.min(yes_x + math.max(54, yes_width + 22),
                           base_x + width - no_width - 4)
     no_x = math.max(no_x, yes_x + yes_width + 6)
-    local y = last_line.y
+    local y = last_line.y + CHOICE_VERTICAL_OFFSET
     local options = {font = font, scale = scale, z = (self.ui.z or 100) + 1}
 
     Displayer.Text.drawStatic(self.player_id, self.box_id .. CHOICE_YES_SUFFIX,
