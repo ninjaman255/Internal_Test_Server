@@ -8,6 +8,7 @@ local TalkPresets = require("scripts/net-games/npcs/talk_presets")
 local Dialogue = require("scripts/net-games/dialogue/dialogue")
 local Prompt = require("scripts/net-games/dialogue/prompt")
 local PromptVertical = require("scripts/net-games/dialogue/prompt_vertical")
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "TALK-MENU", {console = false, maxBufferSize = 1})
 
 local TalkVertMenu = {}
 local flows = {}
@@ -60,6 +61,10 @@ local function say_with_menu(pid, state, text, finish_on_waiting, on_done)
         return nil, "menu session no longer available"
     end
     set_indicator(state.ui, true)
+    DebugLog:info_data("Talk menu follow-up dialogue requested", {
+        player_id = pid, box_id = state.ui.box_id,
+        finish_on_waiting = finish_on_waiting == true,
+    })
     local box_id, err = Dialogue.start(pid, {text}, {
         reuse_existing_box = true,
         parent_session = state.menu.control_session,
@@ -71,7 +76,9 @@ local function say_with_menu(pid, state, text, finish_on_waiting, on_done)
         end,
     })
     if not box_id then
-        print("[TalkVertMenu] could not start child dialogue: "..tostring(err))
+        DebugLog:error_data("Talk menu child dialogue failed", {
+            player_id = pid, error = tostring(err),
+        })
         set_menu_locked(state.menu, false)
     end
     return box_id, err
@@ -103,6 +110,9 @@ local function begin_confirmation(pid, state, choice_id, choice_text)
     local flow = state.flow
     local menu = state.menu
     if not pending_menu(pid, state) then return end
+    DebugLog:info_data("Talk menu confirmation requested", {
+        player_id = pid, box_id = state.ui.box_id, choice_id = choice_id,
+    })
     local fmt = flow.confirm.text_format or 'Are you sure you want "%s"?'
     local box_id, err = Prompt.yesno(pid, {
         ui = state.ui,
@@ -111,11 +121,13 @@ local function begin_confirmation(pid, state, choice_id, choice_text)
         question = string.format(fmt, choice_text),
         cancel_behavior = "select_no",
         on_yes = function()
+            DebugLog:info_data("Talk menu confirmation Yes callback", {player_id = pid, choice_id = choice_id})
             if flows[pid] ~= state then return end
             play_sfx(pid, flow.sfx.confirm)
             show_post_selection(pid, state, choice_id, choice_text)
         end,
         on_no = function()
+            DebugLog:info_data("Talk menu confirmation No callback", {player_id = pid, choice_id = choice_id})
             if flows[pid] ~= state then return end
             play_sfx(pid, flow.sfx.close)
             ask_for_more(pid, state, flow.after_no_text or flow.after_text
@@ -123,7 +135,9 @@ local function begin_confirmation(pid, state, choice_id, choice_text)
         end,
     })
     if not box_id then
-        print("[TalkVertMenu] confirmation could not open: "..tostring(err))
+        DebugLog:error_data("Talk menu confirmation failed to open", {
+            player_id = pid, error = tostring(err),
+        })
         set_menu_locked(menu, false)
     end
 end
@@ -145,7 +159,9 @@ local function ensure_tick()
                         end,
                     })
                 if not box_id then
-                    print("[TalkVertMenu] goodbye could not open: "..tostring(err))
+                    DebugLog:error_data("Talk menu goodbye failed", {
+                        player_id = pid, error = tostring(err),
+                    })
                     flows[pid] = nil
                 end
             elseif not state.exiting and not pending_menu(pid, state)
@@ -169,7 +185,11 @@ function TalkVertMenu.is_busy(player_id)
 end
 
 function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
-    if TalkVertMenu.is_busy(player_id) then return nil, "dialogue or menu already active" end
+    if TalkVertMenu.is_busy(player_id) then
+        DebugLog:warn_data("Talk menu busy; opening rejected", {player_id = player_id, bot_name = bot_name})
+        return nil, "dialogue or menu already active"
+    end
+    DebugLog:info_data("Talk menu opening", {player_id = player_id, bot_name = bot_name})
     ensure_tick()
     talk_cfg = talk_cfg or {}
     menu_cfg = menu_cfg or {}
@@ -201,6 +221,9 @@ function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
         lock_dim_alpha = tonumber(flow.lock_dim_alpha or 0.35) or 0.35,
         hide_cursor_when_locked = flow.hide_cursor_when_locked ~= false,
         on_choose = function(choice, index, menu)
+            DebugLog:info_data("Talk menu choice callback", {
+                player_id = player_id, index = index, choice_id = choice and choice.id,
+            })
             if flows[player_id] ~= state then return end
             state.menu = menu
             local choice_id = (choice and choice.id) or index
@@ -220,7 +243,11 @@ function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
             end
         end,
     })
-    if not menu_id then return nil, err end
+    if not menu_id then
+        DebugLog:error_data("Talk menu failed to open", {player_id = player_id, error = tostring(err)})
+        return nil, err
+    end
+    DebugLog:info_data("Talk menu opened", {player_id = player_id, box_id = menu_id})
     state.menu = PromptVertical.instances[player_id]
     flows[player_id] = state
     return menu_id

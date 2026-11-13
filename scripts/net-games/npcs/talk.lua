@@ -4,6 +4,7 @@
 --=====================================================
 
 local Direction = require("scripts/libs/direction")
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "DEMO-PROGS", {console = false, maxBufferSize = 1})
 local Dialogue  = require("scripts/net-games/dialogue/dialogue")
 local Presets   = require("scripts/net-games/npcs/talk_presets")
 local MenuOptions  = require("scripts/net-games/npcs/menu_options")
@@ -529,12 +530,22 @@ function Talk.npc(cfg)
   })
 
   local BOT_NAME = Net.get_bot_name(bot_id)
+  DebugLog:info_data("Talk NPC created", {
+    area_id = area_id, npc = obj_name, bot_id = bot_id, bot_name = BOT_NAME,
+  })
 
   Net:on("actor_interaction", function(event)
     if event.actor_id ~= bot_id then return end
 
     local player_id = event.player_id
-    if Dialogue.is_active(player_id) then return end
+    DebugLog:info_data("Talk NPC interacted", {
+      npc = obj_name, player_id = player_id, bot_id = bot_id,
+      mode = cfg.on_interact and "custom" or (cfg.prompt and "prompt" or "dialogue"),
+    })
+    if Dialogue.is_active(player_id) then
+      DebugLog:warn_data("Talk NPC interaction ignored; dialogue active", {npc = obj_name, player_id = player_id})
+      return
+    end
 
     -- Face the player
     local player_pos = Net.get_player_position(player_id)
@@ -562,7 +573,12 @@ function Talk.npc(cfg)
 
     -- Normal dialogue
     local lines = cfg.lines or cfg.text or { "..." }
-    Talk.start(player_id, lines, cfg, BOT_NAME)
+    local box_id, err = Talk.start(player_id, lines, cfg, BOT_NAME)
+    if not box_id then
+      DebugLog:error_data("Talk NPC dialogue failed to open", {
+        npc = obj_name, player_id = player_id, error = tostring(err),
+      })
+    end
   end)
 
   return bot_id

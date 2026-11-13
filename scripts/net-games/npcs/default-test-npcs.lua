@@ -4,6 +4,7 @@
 -- Placement preflight prevents a missing Tiled object from aborting startup.
 
 local M = {}
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "DEMO-PROGS", {console = false, maxBufferSize = 1})
 local AREA_ID = "default"
 local initialized = false
 
@@ -47,6 +48,9 @@ function M.activate()
         end
 
         if #missing > 0 then
+            DebugLog:warn_data("Demo PROG script skipped; Tiled objects missing", {
+                script = definition.script, area_id = AREA_ID, missing = missing,
+            })
             skipped = skipped + 1
             print("[net-games/npcs] SKIP " .. definition.script
                 .. ": missing default-area Tiled object(s): " .. table.concat(missing, ", "))
@@ -54,15 +58,20 @@ function M.activate()
             local module_path = "scripts/net-games/npcs/" .. definition.script
             local ok, err = pcall(require, module_path)
             if ok then
+                DebugLog:info_data("Demo PROG script loaded", {script = definition.script, area_id = AREA_ID})
                 loaded = loaded + 1
                 print("[net-games/npcs] Active " .. definition.script)
             else
+                DebugLog:error_data("Demo PROG script failed to load", {
+                    script = definition.script, area_id = AREA_ID, error = tostring(err),
+                })
                 failed = failed + 1
                 print("[net-games/npcs] ERROR " .. definition.script .. ": " .. tostring(err))
             end
         end
     end
 
+    DebugLog:info_data("Demo PROG activation summary", {loaded = loaded, skipped = skipped, failed = failed})
     print(string.format(
         "[net-games/npcs] default test NPC modules: %d active, %d skipped, %d failed",
         loaded, skipped, failed))

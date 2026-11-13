@@ -222,26 +222,24 @@ function Nameplate:_redraw(player_id, np, assets)
         local text_x_v  = text_x_px / 2
         local text_y_v  = text_y_px / 2
 
-        if np.text_glyph_ids then
-            for _, id in ipairs(np.text_glyph_ids) do
-                self.font_system:eraseGlyph(player_id, id)
-            end
-        end
-
+        -- A bob animation can redraw every tick. Keep deterministic glyph IDs
+        -- instead of erasing and allocating new client-side draw instances
+        -- for every letter on every frame. FontSystem remains authoritative
+        -- for glyph states, origins and scales.
         local glyph_ids = {}
         local cx = text_x_v
         for i = 1, #np.text do
             local ch = np.text:sub(i, i)
             if ch ~= " " then
-                local inst_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y_v, {
+                local glyph_id = np.idp .. "_text_" .. tostring(i)
+                local drawn_id = self.font_system:drawGlyph(player_id, np.font, ch, cx, text_y_v, {
+                    instance_id = glyph_id,
                     scale = np.text_scale,
                     z = z + 2,
                     r = 255, g = 255, b = 255,
                     opacity = 255, a = 255,
                 })
-                if inst_id then
-                    table.insert(glyph_ids, inst_id)
-                end
+                if drawn_id then glyph_ids[#glyph_ids + 1] = drawn_id end
             end
             cx = cx + self.font_system:getVirtualAdvance(np.font, ch, np.text_scale)
         end
@@ -277,6 +275,14 @@ function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
             if old_np.unfold_anim_id then AnimationEngine.stop_animation(old_np.unfold_anim_id) end
             if old_np.bob_anim_id then AnimationEngine.stop_animation(old_np.bob_anim_id) end
             if old_np.close_anim_id then AnimationEngine.stop_animation(old_np.close_anim_id) end
+            -- A new name may be shorter than the previous one. Retire its
+            -- stable glyph IDs before replacing this box's nameplate.
+            if old_np.text_glyph_ids then
+                for _, glyph_id in ipairs(old_np.text_glyph_ids) do
+                    self.font_system:eraseGlyph(player_id, glyph_id)
+                end
+                old_np.text_glyph_ids = nil
+            end
         end
     end
 
@@ -422,6 +428,18 @@ function Nameplate:attach(player_id, player_data, box_id, box_data, cfg)
                     np.complete = true
                 end
                 self:_redraw(player_id, np, assets)
+            end,
+            on_complete = function(_, interrupted)
+                -- The text should appear on the completed plate even if a
+                -- frame callback was skipped at the end of the unfold.
+                if interrupted or np.closing or np.erasing then return end
+                np.mids_drawn = np.mids_target
+                np.complete = true
+                self:_redraw(player_id, np, assets)
+                if np.text:match("%S") and (not np.text_glyph_ids or #np.text_glyph_ids == 0) then
+                    print("[Nameplate] No glyphs drawn for " .. tostring(np.text)
+                        .. " using " .. tostring(np.font))
+                end
             end,
         }
     )
@@ -605,8 +623,15 @@ function Nameplate:begin_close(player_id, player_data, box_data, cfg)
                 np.mids_drawn = math.max(0, math.floor(np.mids_target * values.progress + 0.5))
                 self:_redraw(player_id, np, self.player_assets[player_id])
             end,
-            on_complete = function()
-                print("Nameplate close animation on_complete fired")
+            on_complete = function(_, interrupted)
+                -- stop_animation() invokes on_complete with interrupted=true.
+                -- In particular, erase() stops np.close_anim_id; without this
+                -- guard a completed close recursively calls erase() again.
+                if interrupted or np.erasing then return end
+                local registry = self.nameplate_registry[player_id]
+                if not registry or registry[np.box_id] ~= np then return end
+                -- The timer is completing now. Do not stop it again from erase().
+                np.close_anim_id = nil
                 self:erase(player_id, player_data, box_data)
             end,
         }

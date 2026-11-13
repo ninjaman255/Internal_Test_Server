@@ -13,6 +13,7 @@ local PlayerControl = require("scripts/player-control/main")
 local C           = require("scripts/net-games/dialogue/constants")
 local Prompt      = require("scripts/net-games/dialogue/prompt")
 local PromptVertical = require("scripts/net-games/dialogue/prompt_vertical")
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "DIALOGUE", {console = false, maxBufferSize = 1})
 
 local Dialogue = {}
 Dialogue.instances = {}
@@ -80,6 +81,9 @@ local function close_instance(player_id, reason)
 
     inst.closing = true
     inst.close_reason = reason
+    DebugLog:info_data("Dialogue close requested", {
+        player_id = player_id, box_id = inst.box_id, reason = reason,
+    })
 
     local bd = inst.box_id and Displayer.Text.getTextBoxData(player_id, inst.box_id) or nil
     if bd and inst.ui and inst.ui.nameplate then
@@ -102,6 +106,10 @@ end
 local function finish_instance(player_id, inst)
     if inst.finished then return end
     inst.finished = true
+    DebugLog:info_data("Dialogue finished", {
+        player_id = player_id, box_id = inst.box_id,
+        reason = inst.close_reason, keep_backdrop = inst.keep_backdrop,
+    })
     -- Remove the record and release ownership BEFORE running user callbacks.
     -- Callbacks may synchronously open another prompt or dialogue using the same box.
     if Dialogue.instances[player_id] == inst then Dialogue.instances[player_id] = nil end
@@ -117,7 +125,11 @@ local function finish_instance(player_id, inst)
     if inst.on_complete and not inst._on_complete_ran then
         inst._on_complete_ran = true
         local ok, err = pcall(inst.on_complete)
-        if not ok then print("[Dialogue] completion callback error: "..tostring(err)) end
+        if not ok then
+            DebugLog:error_data("Dialogue completion callback failed", {
+                player_id = player_id, box_id = inst.box_id, error = tostring(err),
+            })
+        end
     end
 end
 
@@ -130,6 +142,15 @@ local function attach_tick()
             local bd = Displayer.Text.getTextBoxData(player_id, inst.box_id)
             local state = bd and Displayer.Text.getTextBoxState(player_id, inst.box_id)
             local session = inst.control_session
+            if inst._logged_state ~= state then
+                DebugLog:debug_data("Dialogue text state changed", {
+                    player_id = player_id, box_id = inst.box_id,
+                    previous = inst._logged_state, state = state,
+                    page = bd and bd.current_page, page_count = bd and bd.page_count,
+                    session_current = session and session:is_current() or false,
+                })
+                inst._logged_state = state
+            end
             if inst.backdrop_id then
                 Visuals.update(player_id, inst.backdrop_id, inst.visual_ui, state)
             end
@@ -149,6 +170,9 @@ local function attach_tick()
                     end
                     inst.last_state = state
                     if session_button(session, "Cancel") then
+                        DebugLog:info_data("Dialogue Cancel pressed", {
+                            player_id = player_id, box_id = inst.box_id, state = state,
+                        })
                         local behavior = (inst.opts and inst.opts.cancel_behavior) or "battle_network"
                         if behavior == "close_dialogue" then
                             close_instance(player_id, "cancel")
@@ -157,6 +181,9 @@ local function attach_tick()
                             Displayer.Text.advanceTextBox(player_id, inst.box_id)
                         end
                     elseif session_button(session, "Confirm") then
+                        DebugLog:info_data("Dialogue Confirm pressed", {
+                            player_id = player_id, box_id = inst.box_id, state = state,
+                        })
                         if state == "printing" then
                             if inst.opts.confirm_during_typing then
                                 Displayer.Text.advanceTextBox(player_id, inst.box_id)
@@ -198,6 +225,13 @@ end
 
 function Dialogue.start(player_id, script, opts)
     attach_tick()
+    DebugLog:info_data("Dialogue start requested", {
+        player_id = player_id,
+        box_id = opts and (opts.ui or opts.textbox) and (opts.ui or opts.textbox).box_id,
+        parent_session = opts and opts.parent_session ~= nil,
+        from_prompt = opts and opts.from_prompt == true,
+        reuse_existing_box = opts and opts.reuse_existing_box == true,
+    })
 
     local old = Dialogue.instances[player_id]
     if old then
@@ -206,6 +240,9 @@ function Dialogue.start(player_id, script, opts)
         local next_ui = opts and (opts.ui or opts.textbox)
         local next_id = mk_box_id(player_id, next_ui)
         Dialogue.instances[player_id] = nil
+        DebugLog:info_data("Dialogue replaced", {
+            player_id = player_id, old_box_id = old.box_id, next_box_id = next_id,
+        })
         old.finished = true
         if old.backdrop_id then pcall(erase_backdrop, player_id) end
         if old.box_id ~= next_id then
@@ -237,6 +274,9 @@ function Dialogue.start(player_id, script, opts)
 
     local control_session, control_error = begin_session(player_id, o)
     if o.input_mode ~= C.InputMode.OVERLAY_ONLY and not control_session then
+        DebugLog:warn_data("Dialogue input ownership rejected", {
+            player_id = player_id, error = tostring(control_error),
+        })
         return nil, control_error
     end
     if control_session then
@@ -261,6 +301,12 @@ function Dialogue.start(player_id, script, opts)
     local reuse = o.reuse_existing_box == true
     local existing = Displayer.Text.getTextBoxData(player_id, box_id)
     local can_reuse = reuse and existing and existing.marked_for_removal ~= true
+    DebugLog:info_data("Dialogue textbox create or reuse", {
+        player_id = player_id, box_id = box_id,
+        font = o.font, scale = o.scale, page_count = #pages,
+        existing = existing ~= nil, reuse_requested = reuse,
+        can_reuse = not not can_reuse,
+    })
 
     local text_options = {
         font = o.font,
@@ -273,6 +319,7 @@ function Dialogue.start(player_id, script, opts)
     }
 
     local visual_ui = {
+        box_id = box_id,
         x = o.x, y = o.y, w = o.w, h = o.h,
         font = o.font, scale = o.scale, z = o.z,
         backdrop = backdrop, mugshot = ui and ui.mugshot,
@@ -302,6 +349,9 @@ function Dialogue.start(player_id, script, opts)
     if not Displayer.Text.getTextBoxData(player_id, box_id) then
         if control_session then control_session:close() end
         if backdrop_id then erase_backdrop(player_id) end
+        DebugLog:error_data("Dialogue textbox unavailable after rendering", {
+            player_id = player_id, box_id = box_id,
+        })
         return nil, "Displayer did not create dialogue textbox"
     end
 
@@ -330,6 +380,10 @@ function Dialogue.start(player_id, script, opts)
             pcall(Displayer.Text.closeTextBox, player_id, inst.box_id)
         end)
     end
+    DebugLog:info_data("Dialogue started", {
+        player_id = player_id, box_id = box_id,
+        reused = not not can_reuse, input_mode = o.input_mode,
+    })
     return box_id
 end
 
@@ -342,6 +396,9 @@ Net:on("player_disconnect", function(event)
     if not player_id then return end
     local inst = Dialogue.instances[player_id]
     if inst then
+        DebugLog:info_data("Dialogue player disconnected", {
+            player_id = player_id, box_id = inst.box_id,
+        })
         inst.finished = true
         Dialogue.instances[player_id] = nil
         if inst.control_session and inst.control_session:is_alive() then inst.control_session:close() end

@@ -20,7 +20,9 @@ local InputSystem = require("scripts/input-controller/main")
 -- ===========================================================
 -- INITIALIZATION
 -- ===========================================================
-Displayer:init()
+-- scripts/displayer/displayer.lua initializes its singleton before returning
+-- from require(). Calling :init() here registers another set of Net event
+-- callbacks (notably timer-display player_join), so use the loaded instance.
 
 -- ===========================================================
 -- CACHE MANAGEMENT

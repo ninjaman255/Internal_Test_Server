@@ -156,6 +156,8 @@ local function build_layout_config()
     align_above_textbox = true,
     textbox_gap_px = 13,
     scale_screen_offsets = true,
+    align_row_elements = true,
+    cursor_text_gap_px = 5,
 
     width = 160,
     height = 64,

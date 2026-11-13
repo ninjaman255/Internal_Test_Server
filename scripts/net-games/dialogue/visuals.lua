@@ -5,6 +5,7 @@
 -- This is rendering code, not a legacy input/controller compatibility layer.
 
 local Visuals = {}
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "VISUALS", {console = false, maxBufferSize = 1})
 local players = {}  -- per-player allocated sprite assets and active draw instances
 
 local PANEL_TEXTURE = "/server/assets/net-games/displayer/textbox.png"
@@ -16,7 +17,7 @@ local SOLID_TEXTURE_SIZE = 4  -- actual source image is 4x4 pixels
 local function player_data(player_id)
     local data = players[player_id]
     if not data then
-        data = {assets = {}, count = 0, draws = {}}
+        data = {assets = {}, count = 0, draws = {}, surfaces = {}}
         players[player_id] = data
     end
     return data
@@ -119,7 +120,7 @@ local function draw_mug(player_id, draw_id, ui, state, d)
     local desired = state == "printing"
         and (mug.talk_anim_state or mug.idle_anim_state or "IDLE")
         or (mug.idle_anim_state or mug.anim_state or "IDLE")
-    if d.mug_state == desired then return end
+    if d.mug_state == desired and d.mug_sprite_id == sprite_id then return end
     Net.player_draw_sprite(player_id, sprite_id, {
         id = draw_id .. "_mug", x = x, y = y,
         z = (tonumber(ui.z) or 100) + (tonumber(mug.z_bias) or 0),
@@ -128,6 +129,7 @@ local function draw_mug(player_id, draw_id, ui, state, d)
         anim_state = desired,
     })
     d.mug_state = desired
+    d.mug_sprite_id = sprite_id
 end
 
 -- Draw a textbox background using actual available server assets. Keep every
@@ -139,8 +141,39 @@ function Visuals.draw(player_id, draw_id, ui)
     local mug = ui.mugshot
     if not b and not mug then return nil end
     local data = player_data(player_id)
-    local d = data.draws[draw_id] or {}
-    data.draws[draw_id] = d
+    -- Dialogue, Yes/No and its parent vertical menu can all reuse one
+    -- TextDisplay box. They must NOT layer separate textbox backgrounds at
+    -- the same z: insertion order otherwise makes the tint appear to reset.
+    -- A caller keeps its own handle; the actual backdrop is one shared draw.
+    local handle_id = draw_id
+    local key = (type(ui.box_id) == "string" and ui.box_id ~= "")
+        and ("box:" .. ui.box_id) or ("draw:" .. draw_id)
+    local existing = data.surfaces[key]
+    if existing then
+        DebugLog:debug_data("Textbox visuals shared with existing owner", {
+            player_id = player_id, box_id = ui.box_id, draw_id = handle_id,
+            surface_key = key,
+        })
+        existing.owners[handle_id] = true
+        data.draws[handle_id] = existing
+        draw_mug(player_id, existing.native_draw_id, ui, "printing", existing)
+        return handle_id
+    end
+    DebugLog:info_data("Textbox visuals created", {
+        player_id = player_id, box_id = ui.box_id,
+        draw_id = handle_id, surface_key = key,
+        backdrop_style = b and b.style, has_mugshot = mug ~= nil,
+    })
+    local d = {
+        native_draw_id = (key:sub(1, 4) == "box:")
+            and ("ng_dialogue_box_" .. tostring(player_id) .. "_" .. ui.box_id)
+            or draw_id,
+        surface_key = key,
+        owners = {[handle_id] = true},
+    }
+    data.surfaces[key] = d
+    data.draws[handle_id] = d
+    draw_id = d.native_draw_id
     local z = (tonumber(ui.z) or 100) - 1
     local scale = tonumber(ui.scale) or 2.0
     if type(b) == "table" then
@@ -186,23 +219,38 @@ function Visuals.draw(player_id, draw_id, ui)
         end
     end
     draw_mug(player_id, draw_id, ui, "printing", d)
-    return draw_id
+    return handle_id
 end
 
 function Visuals.update(player_id, draw_id, ui, textbox_state)
     local d = players[player_id] and players[player_id].draws[draw_id]
     if d and ui and ui.mugshot then
-        draw_mug(player_id, draw_id, ui, textbox_state, d)
+        draw_mug(player_id, d.native_draw_id, ui, textbox_state, d)
     end
 end
 
 function Visuals.erase(player_id, draw_id)
     if not draw_id then return end
-    Net.player_erase_sprite(player_id, draw_id)
-    Net.player_erase_sprite(player_id, draw_id .. "_frame")
-    Net.player_erase_sprite(player_id, draw_id .. "_mug")
     local data = players[player_id]
-    if data then data.draws[draw_id] = nil end
+    local surface = data and data.draws[draw_id]
+    if not surface then return end
+    surface.owners[draw_id] = nil
+    data.draws[draw_id] = nil
+    -- Another nested screen still owns the same visible panel.
+    if next(surface.owners) then
+        DebugLog:debug_data("Textbox visuals owner released; other owner remains", {
+            player_id = player_id, draw_id = draw_id, surface_key = surface.surface_key,
+        })
+        return
+    end
+    DebugLog:info_data("Textbox visuals erased after last owner released", {
+        player_id = player_id, draw_id = draw_id, surface_key = surface.surface_key,
+    })
+    local native = surface.native_draw_id
+    Net.player_erase_sprite(player_id, native)
+    Net.player_erase_sprite(player_id, native .. "_frame")
+    Net.player_erase_sprite(player_id, native .. "_mug")
+    data.surfaces[surface.surface_key] = nil
 end
 
 Net:on("player_disconnect", function(event)

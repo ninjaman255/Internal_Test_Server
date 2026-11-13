@@ -6,6 +6,7 @@ local Displayer  = require("scripts/displayer/displayer")
 local TextLayout = require("scripts/displayer/text-layout")
 local TextDisplay = require("scripts/displayer/text-display")
 local Visuals = require("scripts/net-games/dialogue/visuals")
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "PROMPT", {console = false, maxBufferSize = 1})
 
 
 local Prompt = {}
@@ -75,7 +76,7 @@ local function normalize_ui(ui)
     ui = ui or {}
     local o = {
         box_id = ui.box_id,
-        font = (ui.font or "THIN_BLACK"),
+        font = ui.font or "THIN_BLACK",
         scale = ui.scale or 2.0,
         z = ui.z or 100,
         x = ui.x or 8, y = ui.y or 110,
@@ -207,6 +208,11 @@ function PromptInstance:new(player_id, opts)
     o.choice_positions = nil
     o.choices_drawn = false
     o.backdrop_id = nil
+    DebugLog:info_data("Yes/No prompt rendering started", {
+        player_id = player_id, box_id = o.box_id, font = o.ui.font,
+        question = tostring(o.question), selection = o.selection,
+        reuse_existing_box = o.reuse_existing_box,
+    })
     o:render_initial()
     return o
 end
@@ -218,6 +224,11 @@ function PromptInstance:render_initial()
     local text = build_prompt_text(tostring(self.question or "Continue?"), ui)
     local x_v, y_v, w_v, h_v = Visuals.text_rect(ui)
     local existing = Displayer.Text.getTextBoxData(player_id, self.box_id)
+    DebugLog:info_data("Prompt textbox create or reuse", {
+        player_id = player_id, box_id = self.box_id,
+        existing = existing ~= nil, reuse = self.reuse_existing_box,
+        x = x_v, y = y_v, width = w_v, height = h_v, font = ui.font,
+    })
     local text_options = {
         font = ui.font, scale = ui.scale, z = ui.z,
         speed = ui.typing_speed,
@@ -275,20 +286,43 @@ function PromptInstance:render_choices()
                              "Yes", yes_x, y, options)
     Displayer.Text.drawStatic(self.player_id, self.box_id .. CHOICE_NO_SUFFIX,
                              "No", no_x, y, options)
+    -- FontSystem draws text glyphs from their top edge, whereas the
+    -- CURSOR_RIGHT animation is centered on its originy (6 of 13 pixels).
+    -- Place that cursor anchor at the *rendered* label's vertical center.
+    -- A fixed +4 virtual-unit offset was too high for THIN's 15px glyphs.
+    -- Use Displayer's public font metrics instead of an additional direct
+    -- dependency on the FontSystem singleton. If a font is unavailable while
+    -- assets are being reloaded, retain a safe cursor position rather than
+    -- throwing from the prompt tick callback.
+    local function glyph_height(char)
+        if Displayer.Font and type(Displayer.Font.getGlyphDimensions) == "function" then
+            local ok, _, height = pcall(Displayer.Font.getGlyphDimensions, font, char)
+            if ok and type(height) == "number" and height > 0 then
+                return height
+            end
+        end
+        return 12 -- FontSystem's own missing-glyph height fallback
+    end
+    local yes_height = glyph_height("Y")
+    local no_height = glyph_height("N")
     self.choice_positions = {
-        {x = yes_x, y = y + (4 * scale / 2)},
-        {x = no_x, y = y + (4 * scale / 2)},
+        {x = yes_x, y = y + (yes_height * scale / 4), scale = scale},
+        {x = no_x, y = y + (no_height * scale / 4), scale = scale},
     }
     self.choices_drawn = true
+    DebugLog:info_data("Yes/No choices drawn", {
+        player_id = self.player_id, box_id = self.box_id,
+        yes_x = yes_x, no_x = no_x, y = y, font = font, scale = scale,
+    })
 end
 
 function PromptInstance:render_cursor()
     self:render_choices()
     local choice = self.choice_positions and self.choice_positions[self.selection]
     if not choice then return end
-    local scale = self.ui.scale or 2.0
-    -- The CURSOR_RIGHT frame's right-facing tip lands ten screen pixels
-    -- before the label; all positions originate in virtual coordinates.
+    local scale = choice.scale or self.ui.scale or 2.0
+    -- CURSOR_RIGHT uses originx=8, originy=6: its x anchor is the tip,
+    -- and its y anchor is the center. Keep the existing horizontal gap.
     local x, y = choice.x - 5, choice.y
     self.cursor_base_x, self.cursor_base_y = x, y
     selector_draw(self.player_id, self.cursor_id, x, y, self.ui.z + 2, scale)
@@ -299,6 +333,13 @@ function PromptInstance:update(dt)
     local session = self.control_session
     if not session or not session:is_current() then return end
     local state = Displayer.Text.getTextBoxState(player_id, self.box_id)
+    if self._last_logged_state ~= state then
+        DebugLog:debug_data("Prompt text state changed", {
+            player_id = player_id, box_id = self.box_id, previous = self._last_logged_state,
+            state = state, has_choices = self.choices_drawn,
+        })
+        self._last_logged_state = state
+    end
     if self.backdrop_id then
         Visuals.update(player_id, self.backdrop_id, self.ui, state)
     end
@@ -314,6 +355,9 @@ function PromptInstance:update(dt)
     if not self.ready_for_input then
         if (state == "waiting" or state == "completed") and options_visible(player_id, self.box_id) then
             self.ready_for_input = true
+            DebugLog:info_data("Prompt accepting Yes/No input", {
+                player_id = player_id, box_id = self.box_id, selection = self.selection,
+            })
             guard(session, 0)
             self:render_cursor()
             return
@@ -328,14 +372,19 @@ function PromptInstance:update(dt)
     dt = math.min(tonumber(dt) or 0, 1 / 30)
     self.cursor_phase = (self.cursor_phase + dt * 3.8) % 1
     local eased = 1 - (1 - self.cursor_phase) * (1 - self.cursor_phase)
-    local push = eased * (self.ui.scale or 1)
+    local choice = self.choice_positions and self.choice_positions[self.selection]
+    local cursor_scale = (choice and choice.scale) or self.ui.scale or 2.0
+    local push = eased * cursor_scale
     if self.cursor_base_x then
         selector_draw(player_id, self.cursor_id, self.cursor_base_x + push, self.cursor_base_y,
-            self.ui.z + 2, self.ui.scale)
+            self.ui.z + 2, cursor_scale)
     end
 
     if pressed(session, "Left") or pressed(session, "Right") then
         self.selection = self.selection == 1 and 2 or 1
+        DebugLog:info_data("Prompt selection changed", {
+            player_id = player_id, box_id = self.box_id, selection = self.selection,
+        })
         play_cursor_move_sfx(player_id)
         self:render_cursor()
         return
@@ -343,12 +392,24 @@ function PromptInstance:update(dt)
 
     if pressed(session, "Confirm") then
         local selection = self.selection
+        DebugLog:info_data("Prompt confirmed", {
+            player_id = player_id, box_id = self.box_id,
+            selection = selection, choice = selection == 1 and "yes" or "no",
+        })
         Prompt.close(player_id, "confirm", { keep_textbox = true })
-        if selection == 1 then self.on_yes() else self.on_no() end
+        local ok, err
+        if selection == 1 then ok, err = pcall(self.on_yes) else ok, err = pcall(self.on_no) end
+        if not ok then DebugLog:error_data("Prompt selection callback failed", {
+            player_id = player_id, box_id = self.box_id, error = tostring(err),
+        }) end
         return
     end
 
     if pressed(session, "Cancel") then
+        DebugLog:info_data("Prompt Cancel pressed", {
+            player_id = player_id, box_id = self.box_id,
+            behavior = self.cancel_behavior, selection = self.selection,
+        })
         local behavior = self.cancel_behavior
         if behavior == "close" then
             Prompt.close(player_id, "cancel")
@@ -384,11 +445,28 @@ function Prompt.yesno(player_id, opts)
     ensure_tick()
     if Prompt.instances[player_id] then Prompt.close(player_id, "replace") end
     opts = opts or {}
+    DebugLog:info_data("Prompt requested", {
+        player_id = player_id,
+        box_id = opts.ui and opts.ui.box_id,
+        question = opts.question,
+        parent_session = opts.parent_session ~= nil,
+        reuse_existing_box = opts.reuse_existing_box == true,
+    })
     local session, err = begin_session(player_id, opts)
-    if not session then return nil, err end
+    if not session then
+        DebugLog:warn_data("Prompt input ownership rejected", {player_id = player_id, error = tostring(err)})
+        return nil, err
+    end
     guard(session, 0.10)
     local ok, inst = pcall(PromptInstance.new, PromptInstance, player_id, opts)
-    if not ok then session:close(); return nil, inst end
+    if not ok then
+        DebugLog:error_data("Prompt constructor failed", {
+            player_id = player_id, box_id = opts.ui and opts.ui.box_id,
+            error = tostring(inst),
+        })
+        session:close()
+        return nil, inst
+    end
     inst.control_session = session
     Prompt.instances[player_id] = inst
     session:on_close(function()
@@ -407,6 +485,10 @@ function Prompt.close(player_id, _reason, opts)
     if not inst then return end
     opts = opts or {}
     local keep = opts.keep_textbox == true
+    DebugLog:info_data("Prompt closing", {
+        player_id = player_id, box_id = inst.box_id,
+        reason = _reason, keep_textbox = keep,
+    })
 
     selector_erase(player_id, inst.cursor_id)
     remove_choices(player_id, inst)
@@ -432,6 +514,7 @@ Net:on("player_disconnect", function(event)
     local player_id = event.player_id
     local inst = Prompt.instances[player_id]
     if inst then
+        DebugLog:info_data("Prompt player disconnected", {player_id = player_id, box_id = inst.box_id})
         selector_erase(player_id, inst.cursor_id)
         remove_choices(player_id, inst)
         erase_backdrop(player_id)

@@ -8,12 +8,13 @@ local PlayerControl = require("scripts/player-control/main")
 local Displayer  = require("scripts/displayer/displayer")
 local TextDisplay = require("scripts/displayer/text-display")
 local Visuals = require("scripts/net-games/dialogue/visuals")
+local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "VERTICAL-MENU", {console = false, maxBufferSize = 1})
 
 
 local MENUDBG = true
 local function mdbg(pid, msg)
     if not MENUDBG then return end
-    print(string.format("[MENUDBG t=%.3f p=%s] %s", os.clock(), tostring(pid), tostring(msg)))
+    DebugLog:debug_data("Menu animation", {player_id = pid, detail = tostring(msg)})
 end
 
 local PromptVertical = {}
@@ -320,6 +321,8 @@ local function normalize_layout(layout)
         textbox_gap_px = tonumber(layout.textbox_gap_px) or 13,
         screen_width_px = tonumber(layout.screen_width_px) or 480,
         scale_screen_offsets = layout.scale_screen_offsets == true,
+        align_row_elements = layout.align_row_elements == true,
+        cursor_text_gap_px = tonumber(layout.cursor_text_gap_px) or 5,
         width  = layout.width  or 160,
         height = layout.height or 64,
         font  = (layout.font or "THIN_BLACK"),
@@ -474,6 +477,12 @@ function PromptMenuInstance:new(player_id, opts)
     o.pending_close_reason = nil
     o.backdrop_id = nil
 
+    DebugLog:info_data("Vertical menu rendering started", {
+        player_id = player_id, box_id = o.box_id,
+        font = o.ui.font, option_count = #o.options,
+        default_index = o.default_index,
+        reuse_existing_box = o.reuse_existing_box,
+    })
     o:render_textbox()
     o.menu_contents_pending = true
     return o
@@ -500,6 +509,11 @@ function PromptMenuInstance:render_textbox()
     local existing = Displayer.Text.getTextBoxData(self.player_id, self.box_id)
     local can_reuse = self.reuse_existing_box and existing
         and existing.marked_for_removal ~= true
+    DebugLog:info_data("Vertical menu textbox create or reuse", {
+        player_id = self.player_id, box_id = self.box_id,
+        existing = existing ~= nil, reused = not not can_reuse,
+        x = x_v, y = y_v, width = w_v, height = h_v,
+    })
     if can_reuse then
         -- Reset rather than destroying the textbox. The old server deliberately
         -- retained the same window/nameplate between Yes/No and menu screens.
@@ -554,6 +568,10 @@ function PromptMenuInstance:start_close(reason, keep_textbox)
     if self.state == STATE.CLOSING or self.pending_close then return end
     self.pending_close = true
     self.pending_close_reason = reason
+    DebugLog:info_data("Vertical menu closing animation started", {
+        player_id = self.player_id, box_id = self.box_id,
+        reason = reason, keep_textbox = keep_textbox == true,
+    })
     self.pending_close_keep_textbox = (keep_textbox == true)
     self.state = STATE.CLOSING
     self.ready_for_input = false
@@ -640,6 +658,9 @@ function PromptMenuInstance:menu_overlays_visible()
 end
 
 function PromptMenuInstance:set_locked(locked)
+    DebugLog:debug_data("Vertical menu lock changed", {
+        player_id = self.player_id, box_id = self.box_id, locked = locked == true,
+    })
     self.locked = (locked == true)
     if self.locked then
         self.ready_for_input = false
@@ -944,9 +965,25 @@ function PromptMenuInstance:render_menu_contents(force)
         if self.state == STATE.MENU then
             local hx = x0 + frame_offset(L, L.highlight_inset_x or 0)
             local hy = cy + (sel_row * row_h) + ((L.highlight_inset_y or 0) * scale)
-            draw_sprite(self, self.spr.HILITE, self.draw.hilite, hx, hy, (L.z + 1), L.scale)
             local curx = x0 + frame_offset(L, L.cursor_offset_x or 0)
             local cury = cy + (sel_row * row_h) + ((L.cursor_offset_y or 0) * scale)
+            if L.align_row_elements then
+                -- All three share the same row rectangle. The source cursor
+                -- is 11px tall and the highlight 13px tall; glyph height is
+                -- taken from the active font, not guessed from layout scale.
+                local _, font_h = Displayer.Font.getGlyphDimensions(L.font, "A")
+                local glyph_h = (tonumber(font_h) or 15) * scale
+                local text_row_top = cy + (sel_row * row_h)
+                local cursor_h, highlight_h = 11 * scale, 13 * scale
+                -- Center the overlays on the visible text height, clamped
+                -- to the row so long glyphs cannot overlap adjacent rows.
+                local text_center_y = text_row_top + math.min(row_h, glyph_h) / 2
+                hy = text_center_y - highlight_h / 2
+                cury = text_center_y - cursor_h / 2
+                -- Keep the cursor immediately before the actual text origin.
+                curx = cx - (11 * scale) - L.cursor_text_gap_px
+            end
+            draw_sprite(self, self.spr.HILITE, self.draw.hilite, hx, hy, (L.z + 1), L.scale)
             self.cursor_base_x = curx
             self.cursor_base_y = cury
             if not (self.locked and self.hide_cursor_when_locked) then
@@ -1002,6 +1039,10 @@ function PromptMenuInstance:start_text_intro()
 end
 
 function PromptMenuInstance:become_ready()
+    DebugLog:info_data("Vertical menu accepting input", {
+        player_id = self.player_id, box_id = self.box_id,
+        selection = self.selection_index, scroll_top = self.scroll_top_index,
+    })
     self.state = STATE.MENU
     self.ready_for_input = true
     set_textbox_indicator_enabled(self.player_id, self.box_id, false)
@@ -1024,9 +1065,17 @@ end
 function PromptMenuInstance:select_current()
     local idx = self.selection_index
     local choice = self.options[idx]
+    DebugLog:info_data("Vertical menu selection confirmed", {
+        player_id = self.player_id, box_id = self.box_id,
+        index = idx, choice_id = choice and choice.id,
+        choice_text = choice and choice.text,
+        selection_behavior = self.selection_behavior,
+    })
     if self.selection_behavior == "callback_only" and type(self.on_choose) == "function" then
         local ok, err = pcall(self.on_choose, choice, idx, self)
-        if not ok then print("[PromptVertical] choice callback failed: "..tostring(err)) end
+        if not ok then DebugLog:error_data("Vertical menu choice callback failed", {
+            player_id = self.player_id, box_id = self.box_id, error = tostring(err),
+        }) end
         return
     end
     self._post_close_cb = function() self.on_select(choice, idx) end
@@ -1035,6 +1084,10 @@ end
 
 function PromptMenuInstance:do_cancel()
     local beh = self.cancel_behavior or "jump_to_exit"
+    DebugLog:info_data("Vertical menu Cancel pressed", {
+        player_id = self.player_id, box_id = self.box_id,
+        behavior = beh, selection = self.selection_index, exit_index = self.exit_index,
+    })
     if beh == "ignore" then
         return
     end
@@ -1066,6 +1119,13 @@ function PromptMenuInstance:update(_dt)
     local session = self.control_session
     if not session or not session:is_current() then return end
     local st = Displayer.Text.getTextBoxState(player_id, self.box_id)
+    if self._logged_text_state ~= st then
+        DebugLog:debug_data("Vertical menu text state changed", {
+            player_id = player_id, box_id = self.box_id,
+            state = st, previous = self._logged_text_state,
+        })
+        self._logged_text_state = st
+    end
     if self.backdrop_id then
         Visuals.update(player_id, self.backdrop_id, self.ui, st)
     end
@@ -1181,6 +1241,10 @@ function PromptMenuInstance:update(_dt)
             self.selection_index = self.selection_index - 1
         end
         if self.selection_index ~= prev then
+            DebugLog:info_data("Vertical menu selection moved", {
+                player_id = player_id, box_id = self.box_id,
+                from = prev, to = self.selection_index, direction = "Up",
+            })
             self:restart_shop_item_intro()
             local sc_changed = self:update_scroll_for_selection(false)
             play_cursor_move_sfx(player_id)
@@ -1197,6 +1261,10 @@ function PromptMenuInstance:update(_dt)
             self.selection_index = self.selection_index + 1
         end
         if self.selection_index ~= prev then
+            DebugLog:info_data("Vertical menu selection moved", {
+                player_id = player_id, box_id = self.box_id,
+                from = prev, to = self.selection_index, direction = "Down",
+            })
             self:restart_shop_item_intro()
             local sc_changed = self:update_scroll_for_selection(false)
             play_cursor_move_sfx(player_id)
@@ -1225,11 +1293,24 @@ function PromptVertical.menu(player_id, opts)
         PromptVertical._finalize_close(player_id, "replace", { keep_textbox = true })
     end
     opts = opts or {}
+    DebugLog:info_data("Vertical menu requested", {
+        player_id = player_id, box_id = opts.ui and opts.ui.box_id,
+        parent_session = opts.parent_session ~= nil, reuse_existing_box = opts.reuse_existing_box == true,
+    })
     local session, err = begin_session(player_id, opts)
-    if not session then return nil, err end
+    if not session then
+        DebugLog:warn_data("Vertical menu input ownership rejected", {player_id = player_id, error = tostring(err)})
+        return nil, err
+    end
     guard(session, 0.10)
     local ok, inst = pcall(PromptMenuInstance.new, PromptMenuInstance, player_id, opts)
-    if not ok then session:close(); return nil, inst end
+    if not ok then
+        DebugLog:error_data("Vertical menu constructor failed", {
+            player_id = player_id, error = tostring(inst),
+        })
+        session:close()
+        return nil, inst
+    end
     inst.control_session = session
     PromptVertical.instances[player_id] = inst
     session:on_close(function()
@@ -1245,6 +1326,10 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
     if not inst then return end
     opts = opts or {}
     local keep = opts.keep_textbox == true
+    DebugLog:info_data("Vertical menu finalized", {
+        player_id = player_id, box_id = inst.box_id,
+        reason = _reason, keep_textbox = keep,
+    })
     PromptVertical.instances[player_id] = nil
 
     erase_sprite(player_id, inst.draw.menu_bg)
@@ -1276,7 +1361,9 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
         local cb = inst._post_close_cb
         inst._post_close_cb = nil
         local ok, err = pcall(cb)
-        if not ok then print("[PromptVertical] selection callback error: "..tostring(err)) end
+        if not ok then DebugLog:error_data("Vertical menu selection callback failed", {
+            player_id = player_id, box_id = inst.box_id, error = tostring(err),
+        }) end
     end
 end
 
