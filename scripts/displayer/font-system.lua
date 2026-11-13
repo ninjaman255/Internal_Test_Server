@@ -137,6 +137,30 @@ local FONTS = {
     },
 }
 
+-- Load the fonts used by NPC dialogue, menus, and nameplates before the
+-- less frequently used families. The remaining families are still available
+-- through the same FontSystem API.
+local PRIORITY_FONTS = {
+    "THIN_BLACK", "TINY_BLACK", "THICK", "THICK_BLACK", "THIN", "WIDE_BLACK"
+}
+
+local function ordered_font_names()
+    local names, seen = {}, {}
+    for _, name in ipairs(PRIORITY_FONTS) do
+        if FONTS[name] then
+            names[#names + 1] = name
+            seen[name] = true
+        end
+    end
+    local others = {}
+    for name in pairs(FONTS) do
+        if not seen[name] then others[#others + 1] = name end
+    end
+    table.sort(others)
+    for _, name in ipairs(others) do names[#names + 1] = name end
+    return names
+end
+
 -- Global glyph metrics and available states loaded from animation files
 ---@type table<string, table<string, {w:number, h:number, ox:number, oy:number}>>
 local GLYPH_METRICS = {}          -- font_name -> state -> { w, h, ox, oy }
@@ -332,30 +356,67 @@ end
 -- --------------------------------------------------------------------
 ---@param player_id string
 function FontSystem:setupPlayer(player_id)
-    self.player_assets = self.player_assets or {}      -- player_id -> { font_name = sprite_id }
-    self.player_instances = self.player_instances or {} -- player_id -> { instance_id = { font, char, props } }
-    self.next_instance_id = self.next_instance_id or {} -- player_id -> counter
+    self.player_assets = self.player_assets or {}
+    self.player_instances = self.player_instances or {}
+    self.next_instance_id = self.next_instance_id or {}
+    self.player_provided_paths = self.player_provided_paths or {}
+    self.player_generation = self.player_generation or {}
 
+    -- A repeated request must not lose allocated sprite IDs or glyph tracking.
+    if self.player_assets[player_id] then return end
+
+    self.player_generation[player_id] = (self.player_generation[player_id] or 0) + 1
     self.player_assets[player_id] = {}
     self.player_instances[player_id] = {}
     self.next_instance_id[player_id] = 1
+    self.player_provided_paths[player_id] = {}
 
-    -- Eagerly provide all font assets (textures + animation files)
+    -- On a cold first connection, put THIN_BLACK and other frequently used
+    -- fonts on the wire first. Sprite allocation is idempotent per font.
+    for _, font_name in ipairs(PRIORITY_FONTS) do
+        self:ensureAssetAllocated(player_id, font_name)
+    end
+
+    -- Preserve existing eager provisioning for the other font families.
     self:provideAllFontAssets(player_id)
+    Log:info_data("Priority NPC fonts allocated", {
+        player_id = player_id, font_count = #PRIORITY_FONTS,
+        generation = self.player_generation[player_id],
+    })
 end
 
---- Provide all font textures and animation files for a player.
----@param player_id string
+-- Each font's resources are provided once per player connection. This avoids
+-- resending all the separated font resources during initial setup and draws.
+function FontSystem:provideFontAssets(player_id, font_name)
+    local font_def = FONTS[font_name]
+    if not font_def then error("Unknown font: " .. tostring(font_name)) end
+    self.player_provided_paths = self.player_provided_paths or {}
+    local provided = self.player_provided_paths[player_id]
+    if not provided then
+        provided = {}
+        self.player_provided_paths[player_id] = provided
+    end
+    for _, asset_path in ipairs({font_def.texture_path, font_def.anim_path}) do
+        if not provided[asset_path] then
+            Net.provide_asset_for_player(player_id, asset_path)
+            provided[asset_path] = true
+        end
+    end
+end
+
 function FontSystem:provideAllFontAssets(player_id)
-    for font_name, font_def in pairs(FONTS) do
-        Net.provide_asset_for_player(player_id, font_def.texture_path)
-        Net.provide_asset_for_player(player_id, font_def.anim_path)  -- already with /server/
+    for _, font_name in ipairs(ordered_font_names()) do
+        self:provideFontAssets(player_id, font_name)
     end
 end
 
 ---@param player_id string
 function FontSystem:cleanupPlayer(player_id)
     Log:debug_data("Font assets cleanup", {player_id = player_id})
+    self.player_generation = self.player_generation or {}
+    self.player_generation[player_id] = (self.player_generation[player_id] or 0) + 1
+    if self._allocation_in_progress then self._allocation_in_progress[player_id] = nil end
+    if self.player_provided_paths then self.player_provided_paths[player_id] = nil end
     if not self.player_instances or not self.player_instances[player_id] then return end
 
     for instance_id, _ in pairs(self.player_instances[player_id]) do
@@ -395,8 +456,7 @@ function FontSystem:ensureAssetAllocated(player_id, font_name)
         error("Unknown font: " .. tostring(font_name))
     end
 
-    Net.provide_asset_for_player(player_id, font_def.texture_path)
-    Net.provide_asset_for_player(player_id, font_def.anim_path)  -- already with /server/
+    self:provideFontAssets(player_id, font_name)
 
     local sprite_id = "font_" .. font_name .. "_" .. player_id
     -- Individual font animations contain glyph states, not an IDLE state.
@@ -624,31 +684,51 @@ end
 -- Asynchronous font allocation (one font every 0.5 seconds)
 -- --------------------------------------------------------------------
 function FontSystem:allocateAllFontsForPlayer(player_id)
-    Log:debug_data("Font asset allocation requested", {player_id = player_id})
-    -- Run in a coroutine so we can sleep without blocking
+    self._allocation_in_progress = self._allocation_in_progress or {}
+    local generation = self.player_generation and self.player_generation[player_id]
+    if not generation or not self.player_assets or not self.player_assets[player_id] then
+        return nil
+    end
+    if self._allocation_in_progress[player_id] == generation then
+        return nil -- another caller is already warming this connection's fonts
+    end
+    self._allocation_in_progress[player_id] = generation
+    Log:debug_data("Font asset allocation requested", {
+        player_id = player_id, generation = generation,
+    })
+
     return async.run(function()
-        -- Collect all font names
-        local font_names = {}
-        for name, _ in pairs(FONTS) do
-            table.insert(font_names, name)
-        end
-
-        for _, font_name in ipairs(font_names) do
-            -- Check if player is still connected (player_assets table exists)
-            if not self.player_assets or not self.player_assets[player_id] then
-                print("Player " .. player_id .. " disconnected during font allocation, aborting.")
-                return
+        local ok, err = pcall(function()
+            -- Priority fonts are already ready. Warm the other fonts in a
+            -- deterministic order, without competing background passes.
+            local names = ordered_font_names()
+            for _, font_name in ipairs(names) do
+                if not self.player_assets or not self.player_assets[player_id]
+                    or self.player_generation[player_id] ~= generation then
+                    return
+                end
+                self:ensureAssetAllocated(player_id, font_name)
+                -- Keep nonessential allocations spaced out to avoid flooding
+                -- the client. Priority fonts don't incur a startup wait.
+                if not self._priority_font_set then
+                    self._priority_font_set = {}
+                    for _, critical in ipairs(PRIORITY_FONTS) do
+                        self._priority_font_set[critical] = true
+                    end
+                end
+                if not self._priority_font_set[font_name] and font_name ~= names[#names] then
+                    async.await(Async.sleep(1))
+                end
             end
-
-            -- Allocate this font
-            self:ensureAssetAllocated(player_id, font_name)
-
-            -- Wait 0.5 seconds before next allocation (if not the last)
-            if _ < #font_names then
-                async.await(Async.sleep(1))
-            end
+        end)
+        if self._allocation_in_progress[player_id] == generation then
+            self._allocation_in_progress[player_id] = nil
         end
-        print("All fonts allocated for player " .. player_id)
+        if not ok then
+            Log:error_data("Font allocation failed", {
+                player_id = player_id, generation = generation, error = tostring(err),
+            })
+        end
     end)
 end
 
@@ -668,6 +748,18 @@ function FontSystem:init()
         end)
         if not ok then
             print("Error in player_request handler:", err)
+        end
+    end)
+
+    Net:on("player_join", function(event)
+        local player_id = event and event.player_id
+        if player_id and (not self.player_assets or not self.player_assets[player_id]) then
+            local ok, err = pcall(function() self:setupPlayer(player_id) end)
+            if not ok then
+                Log:error_data("Player join font setup failed", {
+                    player_id = player_id, error = tostring(err),
+                })
+            end
         end
     end)
 
