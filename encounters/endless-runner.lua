@@ -22,7 +22,7 @@ end
 -- Define encounters
 local Encounter1 = {
     name = "Encounter1",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 10,
     enemies = {
         { name = "Boomer", rank = 1 },
@@ -61,7 +61,7 @@ local Encounter1 = {
 -- Named boss encounter, explicitly selected from .bosses.
 local BossTest = {
     name = "BossTest",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 0,
     enemies = {
         { name = "Boomer", rank = 1 },
@@ -98,7 +98,7 @@ local BossTest = {
 -- Second regular encounter, included in the weighted .encounters pool.
 local Encounter2 = {
     name = "Encounter2",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 10,
     enemies = {
         { name = "Fishy", rank = 1 },
@@ -137,7 +137,7 @@ local Encounter2 = {
 -- as normal and boss encounters; none of these are random overworld battles.
 local SpecialTest = {
     name = "SpecialTest",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 1,
     enemies = {
         { name = "Fishy", rank = 2 },

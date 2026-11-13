@@ -37,7 +37,7 @@ end
 -- Define encounters
 local Encounter1 = {
     name = "Encounter1",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 10,
     enemies = {
         { name = "Boomer", rank = 1 },
@@ -76,7 +76,7 @@ local Encounter1 = {
 -- Define encounters
 local BossTest = {
     name = "BossTest",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 0,
     enemies = {
         { name = "Boomer", rank = 1 },
@@ -115,7 +115,7 @@ local BossTest = {
 
 local Encounter2 = {
     name = "Encounter2",
-    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters.zip",
+    path = "/server/assets/ezlibs-assets/ezencounters/ezencounters-runner.zip",
     weight = 10,
     enemies = {
         { name = "Fishy", rank = 1 },
