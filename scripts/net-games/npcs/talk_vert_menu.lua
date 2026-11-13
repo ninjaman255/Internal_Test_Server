@@ -8,7 +8,7 @@ local TalkPresets = require("scripts/net-games/npcs/talk_presets")
 local Dialogue = require("scripts/net-games/dialogue/dialogue")
 local Prompt = require("scripts/net-games/dialogue/prompt")
 local PromptVertical = require("scripts/net-games/dialogue/prompt_vertical")
-local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "TALK-MENU", {console = false, maxBufferSize = 1})
+local DebugLog = require("scripts/net-games/logging").get("TALK-MENU")
 
 local TalkVertMenu = {}
 local flows = {}
@@ -142,30 +142,49 @@ local function begin_confirmation(pid, state, choice_id, choice_text)
     end
 end
 
+-- Complete the goodbye handoff synchronously after the menu finishes its
+-- closing animation. No gap where its textbox is erased and recreated.
+local function show_goodbye(pid, state)
+    if flows[pid] ~= state or state.goodbye_started then return end
+    state.goodbye_started = true
+    state.exiting = false
+    set_indicator(state.ui, true)
+    local box_id, err = Dialogue.start(pid,
+        {state.flow.exit_goodbye_text or "Thanks for stopping by!"}, {
+            reuse_existing_box = true,
+            ui = state.ui,
+            on_complete = function()
+                if flows[pid] == state then
+                    flows[pid] = nil
+                    if state.on_close then
+                        local ok, callback_err = pcall(state.on_close, pid, "exit")
+                        if not ok then DebugLog:error_data("Talk menu close callback failed", {
+                            player_id = pid, error = tostring(callback_err),
+                        }) end
+                    end
+                end
+            end,
+        })
+    if not box_id then
+        DebugLog:error_data("Talk menu goodbye failed", {
+            player_id = pid, error = tostring(err),
+        })
+        flows[pid] = nil
+    end
+end
+
 local function ensure_tick()
     if tick_attached then return end
     tick_attached = true
     Net:on("tick", function()
         for pid, state in pairs(flows) do
+            -- Fallback for an abnormal menu teardown. Ordinary exits use
+            -- _post_close_cb and begin goodbye in the same tick as finalization.
             if state.exiting and not PromptVertical.instances[pid] then
-                state.exiting = false
-                set_indicator(state.ui, true)
-                local box_id, err = Dialogue.start(pid,
-                    {state.flow.exit_goodbye_text or "Thanks for stopping by!"}, {
-                        reuse_existing_box = true,
-                        ui = state.ui,
-                        on_complete = function()
-                            if flows[pid] == state then flows[pid] = nil end
-                        end,
-                    })
-                if not box_id then
-                    DebugLog:error_data("Talk menu goodbye failed", {
-                        player_id = pid, error = tostring(err),
-                    })
-                    flows[pid] = nil
-                end
-            elseif not state.exiting and not pending_menu(pid, state)
-                and not Prompt.instances[pid] and not Dialogue.is_active(pid) then
+                show_goodbye(pid, state)
+            elseif not state.exiting and not state.goodbye_started
+                and not pending_menu(pid, state) and not Prompt.instances[pid]
+                and not Dialogue.is_active(pid) then
                 flows[pid] = nil
             end
         end
@@ -203,7 +222,9 @@ function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
         exit_id = menu_cfg.exit_id or "exit",
         confirm_skip = flow.confirm.skip_ids or {},
         post_skip = flow.post_select.skip_ids or {},
-        menu = nil, exiting = false,
+        menu = nil, exiting = false, goodbye_started = false,
+        on_close = menu_cfg.on_close,
+        on_select = menu_cfg.on_select,
     }
     local menu_id, err = PromptVertical.menu(player_id, {
         reuse_existing_box = true,
@@ -228,9 +249,18 @@ function TalkVertMenu.open(player_id, bot_name, talk_cfg, menu_cfg)
             state.menu = menu
             local choice_id = (choice and choice.id) or index
             local choice_text = tostring(choice and choice.text or "???")
+            if state.on_select then
+                local ok, callback_err = pcall(state.on_select, player_id, choice_id, choice_text, index)
+                if not ok then DebugLog:error_data("Talk menu selection callback failed", {
+                    player_id = player_id, error = tostring(callback_err),
+                }) end
+            end
             if choice_id == state.exit_id then
                 play_sfx(player_id, flow.sfx.close)
                 state.exiting = true
+                -- The menu finalizer runs this callback after its input session
+                -- closes. Its surface handoff lease lasts through this call.
+                menu._post_close_cb = function() show_goodbye(player_id, state) end
                 PromptVertical.close(player_id, "exit", {keep_textbox = true})
                 return
             end

@@ -20,9 +20,10 @@ local InputSystem = require("scripts/input-controller/main")
 -- ===========================================================
 -- INITIALIZATION
 -- ===========================================================
--- scripts/displayer/displayer.lua initializes its singleton before returning
--- from require(). Calling :init() here registers another set of Net event
--- callbacks (notably timer-display player_join), so use the loaded instance.
+-- Displayer is a self-initializing singleton. Calling init() here a second
+-- time duplicates engine event listeners and discards live renderer state.
+local MainLog = require("scripts/net-games/logging").get("STARTUP")
+MainLog:info("Net Games UI subsystem loaded")
 
 -- ===========================================================
 -- CACHE MANAGEMENT

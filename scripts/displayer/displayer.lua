@@ -1,28 +1,30 @@
 --[[
 displayer.lua – Unified API for all text, timer, and sprite‑based display systems.
 Sub‑APIs:
-  .Font / .Text / .TimerDisplay / .Nameplate / .ScrollingText / .ScrollingSprite
+  .Font / .Text / .TimerDisplay / .ScrollingText / .ScrollingSprite
   .Timer / .TextPanel (= .SlicedPanel) / .SlicedSprite / .Builder
 Path convention: All texture and animation paths MUST include the "/server/" prefix.
 ]]
 
+local CoreLog = require("scripts/displayer/logging").get("CORE")
 local Displayer = {}
 Displayer.__index = Displayer
 
 local fontSystem
 local textDisplay
 local timerDisplay
-local nameplateInstance
 local scrollingTextList
 local scrollingSpriteList
 local timerSystem
 local slicedSprite
 
 function Displayer:init()
+    -- Idempotent: other systems must not register a second set of engine hooks.
+    if self._initialized then return self end
+    self._initialized = true
     self.Font            = {}
     self.Text            = {}
     self.TimerDisplay    = {}
-    self.Nameplate       = {}
     self.ScrollingText   = {}
     self.ScrollingSprite = {}
     self.Timer           = {}
@@ -34,8 +36,6 @@ function Displayer:init()
     fontSystem           = require("scripts/displayer/font-system")
     textDisplay          = require("scripts/displayer/text-display")
     timerDisplay         = require("scripts/displayer/timer-display")
-    local NameplateClass = require("scripts/displayer/nameplate")
-    nameplateInstance    = NameplateClass:new(fontSystem)
     scrollingTextList    = require("scripts/displayer/scrolling-text-list")
     scrollingSpriteList  = require("scripts/displayer/scrolling-sprite-list")
     timerSystem          = require("scripts/displayer/timer-system")
@@ -44,10 +44,6 @@ function Displayer:init()
     self:_setupFontAPI()
     self:_setupTextAPI()
     self:_setupTimerDisplayAPI()
-    if nameplateInstance then
-        nameplateInstance:setTextAPI(self.Text)
-    end
-    self:_setupNameplateAPI()
     self:_setupScrollingTextAPI()
     self:_setupScrollingSpriteAPI()
     self:_setupTimerAPI()
@@ -57,8 +53,10 @@ function Displayer:init()
     self.SlicedPanel = self.TextPanel
 
     Net:on("player_join", function(event)
+        CoreLog:debug_data("Displayer player joined", {player_id = event.player_id})
         fontSystem:allocateAllFontsForPlayer(event.player_id)
     end)
+    CoreLog:info("Displayer initialized")
     return self
 end
 
@@ -424,16 +422,6 @@ function Displayer:_setupTimerDisplayAPI()
     api.createGlobalCountdown = function(did, x, y, o) timerDisplay:createGlobalCountdownDisplay(did, x, y, o) end
     api.remove                = function(pid, did) timerDisplay:removeDisplay(pid, did) end
     api.setPosition           = function(pid, did, x, y) timerDisplay:setDisplayPosition(pid, did, x, y) end
-end
-
--- ---------------------------------------------------------------------------
--- Nameplate API
--- ---------------------------------------------------------------------------
-function Displayer:_setupNameplateAPI()
-    local api = self.Nameplate
-    api.attach      = function(pid, pd, bid, bd, cfg) nameplateInstance:attach(pid, pd, bid, bd, cfg) end
-    api.erase       = function(pid, pd, bd) nameplateInstance:erase(pid, pd, bd) end
-    api.begin_close = function(pid, pd, bd, cfg) nameplateInstance:begin_close(pid, pd, bd, cfg) end
 end
 
 -- ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+local Log = require("scripts/displayer/logging").get("TIMER")
 --[[
 timer-display.lua – Displays timers and countdowns using the font system.
 Listens to timer events and updates the displayed text.
@@ -310,6 +311,7 @@ end
 ---@param type string
 ---@param options TimerDisplayOptions
 function TimerDisplay:_createDisplay(player_id, display_id, x, y, type, options)
+    Log:debug_data("Timer display created", {player_id = player_id, display_id = display_id, kind = type})
     print("_createDisplay:", player_id, display_id, x, y, type)
     self.displays[player_id] = self.displays[player_id] or {}
     if self.displays[player_id][display_id] then
@@ -479,6 +481,7 @@ end
 ---@param player_id string
 ---@param display_id string
 function TimerDisplay:removeDisplay(player_id, display_id)
+    Log:debug_data("Timer display removed", {player_id = player_id, display_id = display_id})
     if not display_id then return end
 
     local player_displays = self.displays[player_id]

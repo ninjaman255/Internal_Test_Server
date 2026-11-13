@@ -1,3 +1,4 @@
+local Log = require("scripts/displayer/logging").get("FONT")
 --[[
 font-system.lua – Unified font rendering with per‑player sprite asset management.
 Uses boom to load animation data.
@@ -354,6 +355,7 @@ end
 
 ---@param player_id string
 function FontSystem:cleanupPlayer(player_id)
+    Log:debug_data("Font assets cleanup", {player_id = player_id})
     if not self.player_instances or not self.player_instances[player_id] then return end
 
     for instance_id, _ in pairs(self.player_instances[player_id]) do
@@ -622,6 +624,7 @@ end
 -- Asynchronous font allocation (one font every 0.5 seconds)
 -- --------------------------------------------------------------------
 function FontSystem:allocateAllFontsForPlayer(player_id)
+    Log:debug_data("Font asset allocation requested", {player_id = player_id})
     -- Run in a coroutine so we can sleep without blocking
     return async.run(function()
         -- Collect all font names

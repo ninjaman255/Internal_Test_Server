@@ -1,3 +1,4 @@
+local Log = require("scripts/displayer/logging").get("TEXT")
 -- Unified text renderer for static text, marquee text, and BN-style typewriter boxes.
 -- Public coordinates are virtual 240x160 coordinates.
 -- Hardened with deterministic marquee IDs, pixel-snapped updates, real paging,
@@ -715,6 +716,8 @@ function TextDisplay:removeMarquee(player_id, marquee_id)
 end
 
 function TextDisplay:createTextBox(player_id, box_id, text, x, y, width, height, options)
+    Log:debug_data("Textbox create", {player_id = player_id, box_id = box_id,
+        x = x, y = y, width = width, height = height, font = options and options.font})
     local opts = copy_options(options)
     opts.mode = "typewriter"
     opts.width = width
@@ -728,6 +731,7 @@ function TextDisplay:advanceTextBox(player_id, box_id)
 end
 
 function TextDisplay:closeTextBox(player_id, box_id)
+    Log:debug_data("Textbox close requested", {player_id = player_id, box_id = box_id})
     return self:remove(player_id, box_id)
 end
 
@@ -749,6 +753,8 @@ function TextDisplay:getTextBoxData(player_id, box_id)
 end
 
 function TextDisplay:resetTextBox(player_id, box_id, text, options)
+    Log:debug_data("Textbox reset", {player_id = player_id, box_id = box_id,
+        font = options and options.font})
     return self:reset(player_id, box_id, text, options)
 end
 

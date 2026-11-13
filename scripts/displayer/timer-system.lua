@@ -1,3 +1,4 @@
+local Log = require("scripts/displayer/logging").get("TIMER")
 -- Timer System with Global and Player-specific Timers
 
 Timer = {}
@@ -245,6 +246,7 @@ function Timer:resumePlayerCountdown(player_id, countdown_id)
 end
 
 function Timer:removePlayerTimer(player_id, timer_id)
+    Log:debug_data("Player timer removed", {player_id = player_id, timer_id = timer_id})
     Net:emit("timer_remove", { player_id = player_id, timer_id = timer_id })
     self.timers[player_id][timer_id] = nil
 end
@@ -256,6 +258,7 @@ end
 
 -- Global Timer Methods
 function Timer:createGlobalTimer(timer_id, duration, callback, loop)
+    Log:debug_data("Global timer created", {timer_id = timer_id, duration = duration, loop = loop})
     loop = loop or false
     self.global_timers[timer_id] = {
         duration = duration,
@@ -387,6 +390,7 @@ function Timer:syncGlobalTimers(player_id)
 end
 
 function Timer:createPlayerTimer(player_id, timer_id, duration, callback, loop)
+    Log:debug_data("Player timer created", {player_id = player_id, timer_id = timer_id, duration = duration})
     if not self.timers[player_id] then
         self.timers[player_id] = {}
     end

@@ -6,7 +6,7 @@
 
 local Direction = require("scripts/libs/direction")
 local Dialogue  = require("scripts/net-games/dialogue/dialogue")
-local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "DEMO-PROGS", {console = false, maxBufferSize = 1})
+local DebugLog = require("scripts/net-games/logging").get("DEMO-PROGS")
 
 local DEBUG = true
 local function dbg(msg)

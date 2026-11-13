@@ -5,10 +5,11 @@ local PlayerControl = require("scripts/player-control/main")
 -- displayer no longer exposes internal fields (pages, current_page, backdrop indicator).
 -- These parts will need to be reimplemented using the available APIs.
 
+local Nameplate = require("scripts/net-games/ui/nameplate-service")
 local Displayer  = require("scripts/displayer/displayer")
 local TextDisplay = require("scripts/displayer/text-display")
-local Visuals = require("scripts/net-games/dialogue/visuals")
-local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "VERTICAL-MENU", {console = false, maxBufferSize = 1})
+local Visuals = require("scripts/net-games/ui/textbox-surface")
+local DebugLog = require("scripts/net-games/logging").get("VERTICAL-MENU")
 
 
 local MENUDBG = true
@@ -536,7 +537,7 @@ function PromptMenuInstance:render_textbox()
     if not can_reuse and ui.nameplate then
         local bd = Displayer.Text.getTextBoxData(self.player_id, self.box_id)
         if bd then
-            Displayer.Nameplate.attach(self.player_id, nil, self.box_id,
+            Nameplate.attach(self.player_id, nil, self.box_id,
                 Visuals.nameplate_box_data(ui, bd), ui.nameplate)
         end
     end
@@ -1355,6 +1356,8 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
         remaining_ids[#remaining_ids + 1] = text_id
     end
     for _, text_id in ipairs(remaining_ids) do erase_text(inst, text_id) end
+    local handoff = (keep and inst._post_close_cb and inst.backdrop_id)
+        and Visuals.hold(player_id, inst.backdrop_id) or nil
     if inst.backdrop_id then erase_backdrop(player_id) end
 
     if not keep then
@@ -1378,6 +1381,7 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
             player_id = player_id, box_id = inst.box_id, error = tostring(err),
         }) end
     end
+    Visuals.release_hold(handoff)
 end
 
 function PromptVertical.close(player_id, _reason, opts)

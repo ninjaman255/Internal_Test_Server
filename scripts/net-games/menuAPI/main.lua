@@ -12,6 +12,7 @@ local InputSystem = require("scripts/input-controller/main")
 local UISafe = require("scripts/net-games/ui-safe")
 local PlayerControl = require("scripts/player-control/main")
 
+local MenuLog = require("scripts/net-games/logging").get("MENU")
 local MenuAPI = {}
 _G.MenuAPI = MenuAPI
 
@@ -488,6 +489,7 @@ local function handle_cancel(st)
 end
 
 function MenuAPI.open(player_id, spec)
+    MenuLog:info_data("Menu open requested", {player_id = player_id, menu_type = spec and spec.type})
     spec = spec or {}
     local type_id = resolve_type(spec.type or spec.menu_type)
     local def = MENU_TYPES[type_id]
@@ -577,6 +579,7 @@ end
 MenuAPI.push = MenuAPI.open
 
 function MenuAPI.close(player_id,opts)
+    MenuLog:info_data("Menu close requested", {player_id = player_id})
     opts=opts or {}
     local st=active(player_id)
     if not st then return false end

@@ -6,14 +6,15 @@
 
 require("scripts/net-games/main")
 
+local Nameplate = require("scripts/net-games/ui/nameplate-service")
 local Displayer   = require("scripts/displayer/displayer")
 local TextDisplay = require("scripts/displayer/text-display")
-local Visuals = require("scripts/net-games/dialogue/visuals")
+local Visuals = require("scripts/net-games/ui/textbox-surface")
 local PlayerControl = require("scripts/player-control/main")
 local C           = require("scripts/net-games/dialogue/constants")
 local Prompt      = require("scripts/net-games/dialogue/prompt")
 local PromptVertical = require("scripts/net-games/dialogue/prompt_vertical")
-local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "DIALOGUE", {console = false, maxBufferSize = 1})
+local DebugLog = require("scripts/net-games/logging").get("DIALOGUE")
 
 local Dialogue = {}
 Dialogue.instances = {}
@@ -89,7 +90,7 @@ local function close_instance(player_id, reason)
     if bd and inst.ui and inst.ui.nameplate then
         -- Nameplate owns its own close animation. Text teardown can proceed in
         -- parallel; the input lock remains until the textbox registry entry is gone.
-        pcall(Displayer.Nameplate.begin_close, player_id, nil, bd, inst.ui.nameplate)
+        pcall(Nameplate.begin_close, player_id, nil, bd, inst.ui.nameplate)
     end
 
     if inst.box_id then
@@ -342,7 +343,7 @@ function Dialogue.start(player_id, script, opts)
 
     if (not can_reuse) and ui and ui.nameplate then
         local bd = Displayer.Text.getTextBoxData(player_id, box_id)
-        if bd then Displayer.Nameplate.attach(player_id, nil, box_id,
+        if bd then Nameplate.attach(player_id, nil, box_id,
             Visuals.nameplate_box_data(visual_ui, bd), ui.nameplate) end
     end
 

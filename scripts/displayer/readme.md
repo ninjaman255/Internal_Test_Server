@@ -29,13 +29,16 @@
 | `Displayer.Font` | `font-system.lua` | Font glyph allocation, drawing, updating, erasing, and measurement |
 | `Displayer.Text` | `text-display.lua`, `text-layout.lua` | Static text, marquees, text boxes, layout and markup |
 | `Displayer.TimerDisplay` | `timer-display.lua` | Visual representation of player/global timers and countdowns |
-| `Displayer.Nameplate` | `nameplate.lua` | Nameplate attached to a text box |
 | `Displayer.ScrollingText` | `scrolling-text-list.lua` | Scrolling text entries within a bounded list |
 | `Displayer.ScrollingSprite` | `scrolling-sprite-list.lua` | Scrolling grid/list of sprites |
 | `Displayer.Timer` | `timer-system.lua` | Player and global timers/countdowns |
 | `Displayer.TextPanel` | `sliced-sprite.lua` | Sliced-panel drawing and text-panel lifecycle |
 
 The implementation also exposes `Displayer:formatTime(seconds, is_countdown)` and `Displayer:getScreenDimensions()`.
+
+Displayer diagnostic files are written under `scripts/_DEBUGGING/displayer/` with
+subsystem streams for `CORE`, `FONT`, `TEXT`, `TIMER`, `SLICED-SPRITE`,
+`SCROLLING-TEXT`, and `SCROLLING-SPRITE`, mirrored to `_FULL-log.log`.
 
 ### Directory
 
@@ -228,12 +231,13 @@ The display module reads timer-system values and renders the time using font gly
 ## 🪧 Part 6 — Nameplates
 
 ```lua
-Displayer.Nameplate.attach(player_id, player_data, box_id, box_data, cfg)
-Displayer.Nameplate.erase(player_id, player_data, box_data)
-Displayer.Nameplate.begin_close(player_id, player_data, box_data, cfg)
+local Nameplate = require("scripts/net-games/ui/nameplate-service")
+Nameplate.attach(player_id, player_data, box_id, box_data, cfg)
+Nameplate.erase(player_id, player_data, box_data)
+Nameplate.begin_close(player_id, player_data, box_data, cfg)
 ```
 
-The wrapper forwards these calls to `nameplate.lua`. The nameplate uses font and animation support to draw its frame/text and maintains data associated with the textbox. `cfg` may be a string or a table in the implementation. Table fields used by the implementation include text and layout/animation settings; confirm the defaults in `nameplate.lua` when changing anchors, frame tint, padding, bobbing, or close timing. The caller is expected to provide the player/text-box data objects supplied by the text-display API.
+Nameplates are now a Net Games UI concern, implemented in `scripts/net-games/ui/nameplate.lua`, not part of the Displayer rendering API. The nameplate uses font and animation support to draw its frame/text and maintains data associated with the textbox. `cfg` may be a string or a table in the implementation. Table fields used by the implementation include text and layout/animation settings; confirm the defaults in `nameplate.lua` when changing anchors, frame tint, padding, bobbing, or close timing. The caller is expected to provide the player/text-box data objects supplied by the text-display API.
 
 <a id="part-7"></a>
 ## 📜 Part 7 — Scrolling Text Lists

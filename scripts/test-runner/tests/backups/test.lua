@@ -7,6 +7,7 @@ Run this after a player joins, passing their player_id.
 Now safely cancels all steps if the player disconnects.
 ]]
 
+local Nameplate = require("scripts/net-games/ui/nameplate-service")
 local Displayer = require("scripts/displayer/displayer")
 local ColorPicker = require("scripts/color-picker/color-picker")   -- added for rainbow
 
@@ -136,7 +137,7 @@ local steps = {
         )
         schedule(2, function()
             -- Attach nameplate
-            Displayer.Nameplate.attach(Test.player_id, {}, Test.box_id,
+            Nameplate.attach(Test.player_id, {}, Test.box_id,
                 Displayer.Text.getTextBoxData(Test.player_id, Test.box_id), "Speaker")
             schedule(5, function()
                 -- Advance text box
@@ -145,7 +146,7 @@ local steps = {
                 schedule(3, function()
                     -- Begin closing
                     print("Closing nameplate and text box")
-                    Displayer.Nameplate.begin_close(Test.player_id, {},
+                    Nameplate.begin_close(Test.player_id, {},
                         Displayer.Text.getTextBoxData(Test.player_id, Test.box_id))
                     schedule(1, function()
                         Displayer.Text.closeTextBox(Test.player_id, Test.box_id)

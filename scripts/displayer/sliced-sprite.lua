@@ -1,3 +1,4 @@
+local Log = require("scripts/displayer/logging").get("SLICED-SPRITE")
 -- scripts/displayer/sliced-sprite.lua
 --
 -- Reusable 3-slice, configurable 5-slice, and 9-slice sprite rendering.
@@ -709,6 +710,7 @@ function SlicedSprite.draw9(player_id, logical_id, x, y, width, height, style, o
 end
 
 function SlicedSprite.erase(player_id, logical_id)
+    Log:debug_data("Sliced sprite erased", {player_id = player_id, logical_id = logical_id})
     local state = players[player_id]
     if not state then return false end
 

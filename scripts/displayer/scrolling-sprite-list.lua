@@ -1,3 +1,4 @@
+local Log = require("scripts/displayer/logging").get("SCROLLING-SPRITE")
 --[[
 scrolling-sprite-list.lua – Scrolling grid of sprite instances.
 Uses AnimationEngine for entry delays and scrolling tweens.
@@ -392,6 +393,7 @@ function ScrollingSpriteList:_drawBackdrop(player_id, list_id, config)
 end
 
 function ScrollingSpriteList:createScrollingList(player_id, list_id, x, y, width, height, config)
+    Log:debug_data("Scrolling sprite list created", {player_id = player_id, list_id = list_id, width = width, height = height})
     config = config or {}
     if not self.player_lists then self.player_lists = {} end
     if not self.player_lists[player_id] then self:setupPlayer(player_id) end
@@ -594,6 +596,7 @@ function ScrollingSpriteList:getList(player_id, list_id)
 end
 
 function ScrollingSpriteList:removeScrollingList(player_id, list_id)
+    Log:debug_data("Scrolling sprite list removed", {player_id = player_id, list_id = list_id})
     local list_object = self:getList(player_id, list_id)
     if list_object then list_object:destroy() end
 end

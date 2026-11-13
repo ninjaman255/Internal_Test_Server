@@ -1,3 +1,4 @@
+local Log = require("scripts/net-games/logging").get("BOT")
 -- scripts/net-games/npcs/npc_api.lua
 -- Purpose: Remove NPC boilerplate (interaction wiring, busy guards, face-player, SFX helper).
 -- This does NOT contain dialogue/menu content defaults.
@@ -49,7 +50,10 @@ function M.bind_confirm_interaction(bot_id, bot_pos, handler, opts)
       M.face_player(bot_id, bot_pos, player_id)
     end
 
-    handler(player_id)
+    local ok, err = pcall(handler, player_id)
+    if not ok then Log:error_data("NPC interaction handler failed", {
+      player_id = player_id, bot_id = bot_id, error = tostring(err),
+    }) end
   end)
 end
 

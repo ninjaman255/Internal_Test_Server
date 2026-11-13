@@ -2,11 +2,12 @@ local PlayerControl = require("scripts/player-control/main")
 -- scripts/net-games/dialogue/prompt.lua
 -- Hardened YES/NO prompt using the public TextLayout service.
 
+local Nameplate = require("scripts/net-games/ui/nameplate-service")
 local Displayer  = require("scripts/displayer/displayer")
 local TextLayout = require("scripts/displayer/text-layout")
 local TextDisplay = require("scripts/displayer/text-display")
-local Visuals = require("scripts/net-games/dialogue/visuals")
-local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "PROMPT", {console = false, maxBufferSize = 1})
+local Visuals = require("scripts/net-games/ui/textbox-surface")
+local DebugLog = require("scripts/net-games/logging").get("PROMPT")
 
 
 local Prompt = {}
@@ -256,7 +257,7 @@ function PromptInstance:render_initial()
 
     if (not (existing and self.reuse_existing_box)) and ui.nameplate then
         local bd = Displayer.Text.getTextBoxData(player_id, self.box_id)
-        if bd then Displayer.Nameplate.attach(player_id, nil, self.box_id,
+        if bd then Nameplate.attach(player_id, nil, self.box_id,
             Visuals.nameplate_box_data(ui, bd), ui.nameplate) end
     end
 end
@@ -399,9 +400,16 @@ function PromptInstance:update(dt)
             player_id = player_id, box_id = self.box_id,
             selection = selection, choice = selection == 1 and "yes" or "no",
         })
+        local handoff = Visuals.hold(player_id, self.backdrop_id)
         Prompt.close(player_id, "confirm", { keep_textbox = true })
         local ok, err
         if selection == 1 then ok, err = pcall(self.on_yes) else ok, err = pcall(self.on_no) end
+        local active_surface = Visuals.release_hold(handoff)
+        -- If neither a nested menu nor a follow-up dialogue took ownership,
+        -- discard the old prompt text rather than leave orphan glyphs behind.
+        if handoff and not active_surface then
+            Displayer.Text.closeTextBox(player_id, self.box_id)
+        end
         if not ok then DebugLog:error_data("Prompt selection callback failed", {
             player_id = player_id, box_id = self.box_id, error = tostring(err),
         }) end
@@ -424,8 +432,16 @@ function PromptInstance:update(dt)
             play_cursor_move_sfx(player_id)
             self:render_cursor()
         else
+            local handoff = Visuals.hold(player_id, self.backdrop_id)
             Prompt.close(player_id, "cancel_no", { keep_textbox = true })
-            self.on_no()
+            local ok, err = pcall(self.on_no)
+            local active_surface = Visuals.release_hold(handoff)
+            if handoff and not active_surface then
+                Displayer.Text.closeTextBox(player_id, self.box_id)
+            end
+            if not ok then DebugLog:error_data("Prompt No callback failed", {
+                player_id = player_id, box_id = self.box_id, error = tostring(err),
+            }) end
         end
     end
 end
@@ -501,7 +517,7 @@ function Prompt.close(player_id, _reason, opts)
 
     if not keep then
         local bd = Displayer.Text.getTextBoxData(player_id, inst.box_id)
-        if bd and inst.ui.nameplate then pcall(Displayer.Nameplate.begin_close, player_id, nil, bd, inst.ui.nameplate) end
+        if bd and inst.ui.nameplate then pcall(Nameplate.begin_close, player_id, nil, bd, inst.ui.nameplate) end
         Displayer.Text.closeTextBox(player_id, inst.box_id)
     end
 

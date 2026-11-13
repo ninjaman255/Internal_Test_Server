@@ -4,7 +4,7 @@
 -- Placement preflight prevents a missing Tiled object from aborting startup.
 
 local M = {}
-local DebugLog = require("scripts/logger/logger").register_subsystem("net-games-dialogue", "DEMO-PROGS", {console = false, maxBufferSize = 1})
+local DebugLog = require("scripts/net-games/logging").get("DEMO-PROGS")
 local AREA_ID = "default"
 local initialized = false
 
