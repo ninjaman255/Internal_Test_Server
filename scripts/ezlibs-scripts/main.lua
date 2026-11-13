@@ -71,6 +71,9 @@ local object_registry = require('scripts/ezlibs-scripts/object_registry')
 object_registry.load_all()
 
 eznpcs.load_npcs()
+-- Initialize the authored net-games dialogue/menu NPCs once the map objects exist.
+-- This does not start the demo test runner or create competing input listeners.
+require("scripts/net-games/npcs/default-test-npcs").activate()
 npc_behaviors.attach_all() -- attach Tiled NPC Behavior objects after base NPCs exist
 ezrushroads.init()  -- group roads after all objects are cached
 

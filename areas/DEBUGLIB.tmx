@@ -302,23 +302,13 @@
   <object id="107" type="Dark Hole Buffed Virus" gid="6" x="256" y="32" width="50" height="30">
    <properties>
     <property name="AI Type" propertytype="LiberationAIType" value="shockwave_line"/>
-    <property name="Battle Attack Multiplier" type="float" value="1"/>
-    <property name="Battle Defense Multiplier" type="float" value="1"/>
-    <property name="Battle Scale" type="float" value="1.5"/>
-    <property name="Battle Scale Scope" propertytype="LiberationBattleScaleScope" value="All"/>
     <property name="Boss ID 1" value="ShadeMan_02"/>
     <property name="Direction" propertytype="Direction" value="Down Right"/>
-    <property name="Encounter Category" propertytype="LiberationEncounterCategory" value="special_encounters"/>
-    <property name="Encounter Mode" propertytype="LiberationEncounterMode" value="Auto"/>
     <property name="Enemy Config" type="object" value="112"/>
-    <property name="Max HP" type="int" value="240"/>
-    <property name="Minion Health Override" value="240"/>
     <property name="OW Attack Damage" type="int" value="20"/>
-    <property name="OW Bot Encounter" value="Roll"/>
+    <property name="OW Bot Encounter" value="Mettaur"/>
     <property name="OW Scale" type="float" value="1.5"/>
     <property name="Spawns" value="Mettaur"/>
-    <property name="Starting HP" type="int" value="240"/>
-    <property name="scale" value="1.5"/>
    </properties>
   </object>
   <object id="108" type="Music Definition" x="48" y="16">
@@ -491,15 +481,8 @@
   <object id="112" name="DEBUGLIB - Buffed Virus Stats" type="Liberation Enemy Config" x="336" y="48">
    <properties>
     <property name="AI Type" propertytype="LiberationAIType" value="shockwave_line"/>
-    <property name="Battle Attack Multiplier" type="float" value="20"/>
-    <property name="Battle Scale" type="float" value="1.5"/>
-    <property name="Encounter Category" propertytype="LiberationEncounterCategory" value="special_encounters"/>
-    <property name="Encounter Mode" propertytype="LiberationEncounterMode" value="Fixed"/>
-    <property name="Max HP" type="int" value="240"/>
     <property name="OW Attack Damage" type="int" value="20"/>
     <property name="OW Bot Encounter" value="Mettaur"/>
-    <property name="OW Scale" type="float" value="1.5"/>
-    <property name="Starting HP" type="int" value="240"/>
    </properties>
    <point/>
   </object>

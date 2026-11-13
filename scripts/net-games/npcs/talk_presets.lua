@@ -167,6 +167,13 @@ P.vert_menus = {
     anchor = "textbox",
     offset_x = 1,
     offset_y = -199,
+    -- Position a uniformly scaled frame above the textbox with screen margins.
+    -- These switches affect only this menu layout (not the shop preset).
+    scale = 1.75,
+    center_horizontal = true,
+    align_above_textbox = true,
+    textbox_gap_px = 13,
+    scale_screen_offsets = true,
 
     width = 160,
     height = 64,
@@ -174,7 +181,7 @@ P.vert_menus = {
     visible_rows = 5,
     row_height = 14,
     padding_x = 48,
-    padding_y = 4,
+    padding_y = 10,
 
     -- menu text intro animation (Pink parity)
     text_intro_enabled = true,

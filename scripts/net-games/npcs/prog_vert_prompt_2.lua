@@ -168,6 +168,11 @@ local function build_layout_config()
     anchor = "textbox",
     offset_x = 1,
     offset_y = -199,
+    scale = 1.75,
+    center_horizontal = true,
+    align_above_textbox = true,
+    textbox_gap_px = 13,
+    scale_screen_offsets = true,
 
     width = 160,
     height = 64,
@@ -181,7 +186,7 @@ local function build_layout_config()
     -- NOTE: if you reserve mug space, you usually want a bigger left padding
     -- so the menu text doesn't crowd the mug.
     padding_x = 48,
-    padding_y = 4,
+    padding_y = 10,
 
     -- Scrollbar is part of the "physical menu" (always fine to show)
     scrollbar_x = 452,

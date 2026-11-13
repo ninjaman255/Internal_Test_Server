@@ -268,47 +268,87 @@ local function leave_party(player)
     end
 end
 
+-- Resolve cleanup destinations against the currently loaded areas. Map-configured
+-- destinations can be missing (for example, undernet1), and Net object lookups
+-- raise native errors for unknown area ids.
+local function loaded_area_id(reference)
+    if type(reference) ~= "string" or reference == "" then return nil end
+    local area_ids = Net.list_areas() or {}
+    for _, candidate in ipairs(area_ids) do
+        if candidate == reference then return candidate end
+    end
+    for _, candidate in ipairs(area_ids) do
+        if Net.get_area_name(candidate) == reference then return candidate end
+    end
+    return nil
+end
+
+local function safe_respawn_position(area_id)
+    if not area_id then return nil end
+    local ok, spawn = pcall(Net.get_object_by_name, area_id, "Liberation Respawn")
+    if ok and spawn then return spawn end
+    -- A valid area may have a configured spawn instead of a named object.
+    local spawn_ok, default_spawn = pcall(Net.get_spawn_position, area_id)
+    if spawn_ok then return default_spawn end
+    return nil
+end
+
 remove_instance = function(area_id)
     local instance = instances[area_id]
     if not instance then return end
 
     local area_name = Net.get_area_name(area_id)
-    local respawn_area = respawn_table[area_name]
-    local spawn
-    if respawn_area ~= nil then
-        spawn = Net.get_object_by_name(respawn_area, "Liberation Respawn")
-    else
-        respawn_area = "default"
-        spawn = Net.get_spawn_position("default")
+    local configured_area = respawn_table[area_name]
+    local respawn_area = loaded_area_id(configured_area)
+    local spawn = safe_respawn_position(respawn_area)
+
+    if configured_area and not respawn_area then
+        log:warn_data("Liberation respawn area not loaded; using fallback", {
+            instance_area_id = area_id,
+            base_area_id = instance.base_area_id,
+            configured_respawn_area = configured_area,
+        })
+    end
+
+    if not spawn then
+        local fallback = loaded_area_id("default")
+        if fallback then
+            respawn_area = fallback
+            spawn = safe_respawn_position(fallback)
+        end
     end
 
     log:info_data("Removing liberation instance", {
         instance_area_id = area_id,
         area_name = area_name,
         base_area_id = instance.base_area_id,
+        configured_respawn_area = configured_area,
         respawn_area = respawn_area,
         spawn_found = spawn ~= nil,
     })
 
     if not spawn then
-        log:error_data("No respawn point found for instance", {
+        log:error_data("No valid respawn point found; continuing instance cleanup", {
             instance_area_id = area_id,
             area_name = area_name,
-            respawn_area = respawn_area,
+            configured_respawn_area = configured_area,
         })
-        for _, player in ipairs(instance:get_players()) do
-            if player then player.activity = nil end
-        end
-    else
-        for _, player in ipairs(instance:get_players()) do
-            if player then
-                -- Do not pull members who never completed their transfer out of
-                -- the waiting area during a partial-start rollback.
-                if Net.get_player_area(player.id) == area_id then
-                    Net.transfer_player(player.id, respawn_area, true, spawn.x, spawn.y, spawn.z)
+    end
+
+    for _, player in ipairs(instance:get_players()) do
+        if player then
+            if spawn and Net.get_player_area(player.id) == area_id then
+                local ok, err = pcall(Net.transfer_player,
+                    player.id, respawn_area, true, spawn.x, spawn.y, spawn.z)
+                if not ok then
+                    log:error_data("Liberation respawn transfer failed", {
+                        player_id = player.id,
+                        respawn_area = respawn_area,
+                        error = tostring(err),
+                    })
                 end
-                player.activity = nil
             end
+            player.activity = nil
         end
     end
 

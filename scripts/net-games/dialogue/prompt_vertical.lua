@@ -6,7 +6,9 @@ local PlayerControl = require("scripts/player-control/main")
 -- These parts will need to be reimplemented using the available APIs.
 
 local Displayer  = require("scripts/displayer/displayer")
-local Input      = require("scripts/input/input")
+local TextDisplay = require("scripts/displayer/text-display")
+local Visuals = require("scripts/net-games/dialogue/visuals")
+
 
 local MENUDBG = true
 local function mdbg(pid, msg)
@@ -52,53 +54,18 @@ local function play_cursor_move_sfx(player_id)
     end
 end
 
--- Backdrop handling (same as dialogue)
-local BACKDROP_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
-local player_backdrop_sprite = {}
-
-local function ensure_backdrop_sprite(player_id)
-    if player_backdrop_sprite[player_id] then return end
-    local sprite_id = "pvert_backdrop_" .. player_id
-    Net.provide_asset_for_player(player_id, BACKDROP_TEXTURE)
-    Net.player_alloc_sprite(player_id, sprite_id, { texture_path = BACKDROP_TEXTURE })
-    player_backdrop_sprite[player_id] = sprite_id
-end
-
-local function draw_backdrop(player_id, backdrop, z)
-    if not backdrop then return nil end
-    ensure_backdrop_sprite(player_id)
-    local sprite_id = player_backdrop_sprite[player_id]
-    local x = backdrop.x or 0
-    local y = backdrop.y or 0
-    local width = backdrop.width or 240
-    local height = backdrop.height or 160
-    local r = backdrop.r or 0
-    local g = backdrop.g or 0
-    local b = backdrop.b or 0
-    local opacity = backdrop.opacity or 200
-    local a = backdrop.a or 255
-    local draw_id = "pvert_backdrop_" .. player_id
-    Net.player_draw_sprite(player_id, sprite_id, {
-        id = draw_id,
-        x = x * 2,
-        y = y * 2,
-        z = z - 1,
-        sx = width * 2,
-        sy = height * 2,
-        r = r, g = g, b = b,
-        opacity = opacity,
-        a = a,
-        color_mode = 0,
-    })
-    return draw_id
+-- Panel frames and mugshots use native server rendering with existing assets.
+local function draw_backdrop(player_id, ui)
+    return Visuals.draw(player_id, "pvert_backdrop_" .. tostring(player_id), ui)
 end
 
 local function erase_backdrop(player_id)
-    Net.player_erase_sprite(player_id, "pvert_backdrop_" .. player_id)
+    Visuals.erase(player_id, "pvert_backdrop_" .. tostring(player_id))
 end
 
 -- Text drawing helpers using Displayer.Font
 local function get_text_width(text, font, scale)
+    font = Visuals.font_for_displayer(font)
     local w = 0
     for i = 1, #text do
         local ch = text:sub(i, i)
@@ -112,6 +79,7 @@ local function get_text_width(text, font, scale)
 end
 
 local function draw_text(inst, text, x, y, font, scale, z, id, tint)
+    font = Visuals.font_for_displayer(font)
     -- x, y are screen coordinates; convert to virtual
     local vx = x / 2
     local vy = y / 2
@@ -144,7 +112,10 @@ local function draw_text(inst, text, x, y, font, scale, z, id, tint)
             end
         end
         local gw, _ = Displayer.Font.getGlyphDimensions(font, ch)
-        cx = cx + gw * scale + 1 * scale
+        -- cx is virtual (240x160) but glyph dimensions are in source pixels.
+        -- Match Displayer.Font.getVirtualAdvance: scale into screen pixels,
+        -- then convert the result back to virtual units.
+        cx = cx + ((gw + 1) * scale) / 2
     end
     if #glyph_ids > 0 then
         inst.text_glyphs = inst.text_glyphs or {}
@@ -161,18 +132,25 @@ local function erase_text(inst, id)
     end
 end
 
-local LISTENER_ATTACHED = false
-local function ensure_listener()
-    if LISTENER_ATTACHED then return end
-    LISTENER_ATTACHED = true
-    Input.attach_virtual_input_listener()
+local function begin_session(player_id, opts)
+    local parent = opts.parent_session
+    return PlayerControl.begin(player_id, {
+        profile = "menu", owner = "net-games:vertical-prompt", parent = parent,
+        capture = parent == nil, handoff_free_camera = opts.handoff_free_camera == true,
+    })
 end
 
-local function set_input_locked(player_id, locked)
-    if locked then
-        if PlayerControl.acquire_capture then pcall(PlayerControl.acquire_capture, player_id, "net-games:dialogue") end
-    else
-        if PlayerControl.release_capture then pcall(PlayerControl.release_capture, player_id, "net-games:dialogue") end
+local function pressed(session, action, allow_repeat)
+    if not session then return false end
+    local ctrl, owner = session:input()
+    if not ctrl then return false end
+    if ctrl:is_action_pressed(action, owner) then return true end
+    return allow_repeat and ctrl:is_action_repeated(action, owner) or false
+end
+
+local function guard(session, seconds)
+    if session and session:is_current() then
+        session:guard_input(seconds or 0, {"Up", "Down", "Left", "Right", "Confirm", "Cancel"})
     end
 end
 
@@ -191,11 +169,11 @@ local function ensure_tick()
     PromptVertical._tick_attached = true
     Net:on("tick", function(event)
         for player_id, inst in pairs(PromptVertical.instances) do
-            local state = Displayer.Text.getTextBoxState(player_id, inst.box_id)
-            if not state then
-                PromptVertical.close(player_id, "textbox_missing")
+            local bd = Displayer.Text.getTextBoxData(player_id, inst.box_id)
+            if not bd then
+                PromptVertical._finalize_close(player_id, "textbox_missing")
             else
-                inst:update(event.delta_time or 0)
+                inst:update(event and event.delta_time or 0)
             end
         end
     end)
@@ -303,7 +281,7 @@ end
 local function normalize_ui(ui)
     local o = {
         box_id = ui.box_id,
-        font  = ui.font or "THIN_BLACK",
+        font  = Visuals.font_for_displayer(ui.font or "THIN_BLACK"),
         scale = ui.scale or 2.0,
         z     = ui.z or 100,
         x = ui.x or 8,
@@ -337,9 +315,16 @@ local function normalize_layout(layout)
         offset_x = layout.offset_x or 0,
         offset_y = layout.offset_y or -200,
         gap      = layout.gap or 4,
+        -- New layout behavior is explicitly opted into by a menu preset.
+        -- Legacy layouts retain their original 2x pixel geometry.
+        center_horizontal = layout.center_horizontal == true,
+        align_above_textbox = layout.align_above_textbox == true,
+        textbox_gap_px = tonumber(layout.textbox_gap_px) or 13,
+        screen_width_px = tonumber(layout.screen_width_px) or 480,
+        scale_screen_offsets = layout.scale_screen_offsets == true,
         width  = layout.width  or 160,
         height = layout.height or 64,
-        font  = layout.font  or "THIN_BLACK",
+        font  = Visuals.font_for_displayer(layout.font or "THIN_BLACK"),
         scale = layout.scale or 2.0,
         z     = layout.z or 130,
         frame = layout.frame,
@@ -362,13 +347,13 @@ local function normalize_layout(layout)
         text_intro_slide_px       = tonumber(layout.text_intro_slide_px or 10) or 10,
         monies_label_enabled = (layout.monies_label_enabled == true),
         monies_label_text    = layout.monies_label_text,
-        monies_label_font    = layout.monies_label_font,
+        monies_label_font    = Visuals.font_for_displayer(layout.monies_label_font),
         monies_label_pad_x   = layout.monies_label_pad_x,
         monies_label_pad_y   = layout.monies_label_pad_y,
         monies_label_z_add   = layout.monies_label_z_add,
         monies_amount_enabled  = (layout.monies_amount_enabled == true),
         monies_amount_text     = layout.monies_amount_text,
-        monies_amount_font     = layout.monies_amount_font,
+        monies_amount_font     = Visuals.font_for_displayer(layout.monies_amount_font),
         monies_amount_offset_x = layout.monies_amount_offset_x,
         monies_amount_offset_y = layout.monies_amount_offset_y,
         shop_item_enabled = (layout.shop_item_enabled == true),
@@ -382,6 +367,14 @@ local function normalize_layout(layout)
         shop_item_h = tonumber(layout.shop_item_h or 0) or 0,
         shop_exit_w = tonumber(layout.shop_exit_w or 0) or 0,
         shop_exit_h = tonumber(layout.shop_exit_h or 0) or 0,
+        -- Optional two-column shop layout from the older server. Overflow is
+        -- rendered by the current scale-aware, pixel-snapped Displayer marquee.
+        shop_columns_enabled = layout.shop_columns_enabled == true,
+        shop_price_col_x = tonumber(layout.shop_price_col_x) or 92,
+        shop_price_width = tonumber(layout.shop_price_width) or 44,
+        shop_name_speed = tonumber(layout.shop_name_speed) or 22,
+        shop_price_speed = tonumber(layout.shop_price_speed) or 22,
+        shop_compact_prices = layout.shop_compact_prices ~= false,
     }
     o.visible_rows = math.max(1, o.visible_rows)
     return o
@@ -418,6 +411,7 @@ function PromptMenuInstance:new(player_id, opts)
     o._sprites_allocated = false
     o.question = tostring(opts.question or "Choose:")
     o.options  = opts.options or { { text = "Exit" } }
+    if #o.options == 0 then o.options[1] = {text = "Exit", id = "exit"} end
     for i = 1, #o.options do
         local v = o.options[i]
         if type(v) == "string" then
@@ -457,6 +451,7 @@ function PromptMenuInstance:new(player_id, opts)
     }
     o.menu_text_ids = {}
     o.text_glyphs = {}  -- maps id -> list of glyph instance ids
+    o.shop_marquees = {} -- only selected, overflowing name/price use Displayer.Text
     o.cursor_phase = 0
     o.cursor_base_x = nil
     o.cursor_base_y = nil
@@ -495,27 +490,41 @@ function PromptMenuInstance:render_textbox()
         speed = ui.typing_speed,
         type_sound = ui.type_sfx_path,
         type_sound_min_dt = ui.type_sfx_min_dt,
+        max_lines = ui.backdrop and ui.backdrop.max_lines or nil,
     }
 
     -- Draw backdrop if provided
-    if ui.backdrop then
-        self.backdrop_id = draw_backdrop(self.player_id, ui.backdrop, ui.z)
+    if ui.backdrop or ui.mugshot then
+        self.backdrop_id = draw_backdrop(self.player_id, ui)
     end
 
-    if self.reuse_existing_box then
-        -- Recreate (overwrites)
-        Displayer.Text.createTextBox(self.player_id, self.box_id, self.question,
-                                     ui.x, ui.y, ui.w, ui.h, text_options)
+    local x_v, y_v, w_v, h_v = Visuals.text_rect(ui)
+    local existing = Displayer.Text.getTextBoxData(self.player_id, self.box_id)
+    local can_reuse = self.reuse_existing_box and existing
+        and existing.marked_for_removal ~= true
+    if can_reuse then
+        -- Reset rather than destroying the textbox. The old server deliberately
+        -- retained the same window/nameplate between Yes/No and menu screens.
+        -- The modern TextDisplay owns pagination, scale and glyph cleanup.
+        TextDisplay:resetTextBox(self.player_id, self.box_id, self.question, {
+            x = x_v, y = y_v, width = w_v, height = h_v,
+            font = ui.font, scale = ui.scale, z = ui.z,
+            speed = ui.typing_speed,
+            type_sound = ui.type_sfx_path,
+            type_sound_min_dt = ui.type_sfx_min_dt,
+            max_lines = ui.backdrop and ui.backdrop.max_lines or nil,
+        })
     else
         Displayer.Text.createTextBox(self.player_id, self.box_id, self.question,
-                                     ui.x, ui.y, ui.w, ui.h, text_options)
+                                     x_v, y_v, w_v, h_v, text_options)
     end
 
-    -- Attach nameplate if provided and not reusing
-    if not self.reuse_existing_box and ui.nameplate then
+    -- Attach nameplate only if a new textbox was actually created.
+    if not can_reuse and ui.nameplate then
         local bd = Displayer.Text.getTextBoxData(self.player_id, self.box_id)
         if bd then
-            Displayer.Nameplate.attach(self.player_id, nil, self.box_id, bd, ui.nameplate)
+            Displayer.Nameplate.attach(self.player_id, nil, self.box_id,
+                Visuals.nameplate_box_data(ui, bd), ui.nameplate)
         end
     end
 end
@@ -530,6 +539,16 @@ function PromptMenuInstance:menu_origin()
     local ty = (self.ui.backdrop and self.ui.backdrop.y) or bd.y or self.ui.y or 0
     local mx = tx + (L.offset_x or 0)
     local my = ty + (L.offset_y or 0) - (L.gap or 0)
+    -- Sprite animation frames have a bottom-right origin. Position their
+    -- bottom-right at menu_origin + MENU_W/H * scale (see render_menu_window).
+    -- Optional centered/above-textbox placement keeps the whole frame on-screen
+    -- when using a smaller visual scale, without moving the textbox itself.
+    if L.center_horizontal then
+        mx = (L.screen_width_px - MENU_W * L.scale) / 2 + (L.offset_x or 0)
+    end
+    if L.align_above_textbox then
+        my = ty - L.textbox_gap_px - MENU_H * L.scale
+    end
     return mx, my
 end
 
@@ -577,9 +596,19 @@ function PromptMenuInstance:render_menu_window()
     draw_menu_frame_overlay(self, self.draw.menu_frame, x, y, L.z + 1, L.scale, anim, L.frame)
 end
 
+function PromptMenuInstance:clear_shop_marquees()
+    for id in pairs(self.shop_marquees) do
+        Displayer.Text.removeMarquee(self.player_id, id)
+        self.shop_marquees[id] = nil
+    end
+end
+
 function PromptMenuInstance:clear_menu_text()
+    self:clear_shop_marquees()
     for _, id in ipairs(self.menu_text_ids) do
         erase_text(self, id)
+        erase_text(self, id .. "_name")
+        erase_text(self, id .. "_price")
     end
     self.menu_text_ids = {}
 end
@@ -603,10 +632,9 @@ function PromptMenuInstance:update_scroll_for_selection(force)
 end
 
 local function set_textbox_indicator_enabled(player_id, box_id, enabled)
-    -- In the new displayer, the backdrop indicator is not exposed.
-    -- This functionality will need to be reimplemented separately.
-    -- For now, we do nothing and warn.
-    print("WARNING: set_textbox_indicator_enabled called but not supported in new displayer")
+    -- TextDisplay exposes a read-only snapshot of backdrop configuration.
+    -- Do not mutate this snapshot or replace the upgraded Displayer renderer.
+    -- Menu cursor/highlight already convey the interactive state.
 end
 
 function PromptMenuInstance:menu_overlays_visible()
@@ -656,6 +684,69 @@ function PromptMenuInstance:update_cursor_bob(dt)
     end
     draw_sprite(self, self.spr.CURSOR, self.draw.cursor, x, self.cursor_base_y,
                 (self.layout.z + 3), self.layout.scale)
+end
+
+-- Old shop-column *behavior*, without its character-index scroll algorithm.
+-- The modern Displayer owns text measurement, scaling, clipping and scrolling.
+local function compact_price(value)
+    if type(value) ~= "number" then return tostring(value or "") end
+    local n = math.max(0, math.floor(value))
+    if n >= 1000000 then return (string.format("%.1fm", n / 1000000):gsub("%.0m$", "m")) end
+    if n >= 1000 then return (string.format("%.1fk", n / 1000):gsub("%.0k$", "k")) end
+    return tostring(n)
+end
+
+local function fit_text(text, font, scale, max_width)
+    if get_text_width(text, font, scale) <= max_width then return text end
+    local fitted = ""
+    for i = 1, #text do
+        local next_text = text:sub(1, i)
+        if get_text_width(next_text, font, scale) > max_width then break end
+        fitted = next_text
+    end
+    return fitted
+end
+
+local function render_shop_column(inst, text, x, y, width, id, selected, speed, tint)
+    -- screen x/y and available width are converted to the virtual coordinates
+    -- expected by the upgraded TextDisplay renderer.
+    local scale = tonumber(inst.layout.scale) or 2.0
+    local font = Visuals.font_for_displayer(inst.layout.font)
+    if selected and not inst.locked and not inst._text_intro_active
+        and get_text_width(text, font, scale) > width then
+        erase_text(inst, id)
+        local marquee_id = id .. "_marquee"
+        local signature = table.concat({text, tostring(x), tostring(y),
+            tostring(width), tostring(scale), tostring(speed), tostring(tint.opacity)}, ":")
+        inst._shop_marquee_seen[marquee_id] = true
+        -- Keep the current marquee animation alive across unrelated redraws
+        -- (such as the shop-item intro), rather than restarting every tick.
+        if inst.shop_marquees[marquee_id] ~= signature then
+            if inst.shop_marquees[marquee_id] then
+                Displayer.Text.removeMarquee(inst.player_id, marquee_id)
+            end
+            Displayer.Text.drawMarquee(inst.player_id, marquee_id, text, y / 2, {
+                x = x / 2, font = font, scale = scale, z = inst.layout.z + 2,
+                speed = speed, loops = true, pixel_snap = true,
+                opacity = tint.opacity,
+                viewport = {x = x / 2, y = y / 2,
+                    width = width / 2, height = (8 * scale) / 2},
+            })
+            inst.shop_marquees[marquee_id] = signature
+        end
+    else
+        draw_text(inst, fit_text(text, font, scale, width), x, y,
+            font, scale, inst.layout.z + 2, id, tint)
+    end
+end
+
+-- Older menu layout offsets are authored as screen pixels at a 2x sprite
+-- scale; scale these only for presets that opt into a smaller frame.
+local function frame_offset(layout, value)
+    if layout.scale_screen_offsets then
+        return value * ((tonumber(layout.scale) or 2.0) / 2.0)
+    end
+    return value
 end
 
 function PromptMenuInstance:render_menu_contents(force)
@@ -783,10 +874,11 @@ function PromptMenuInstance:render_menu_contents(force)
 
     local scale = tonumber(L.scale) or 2.0
     local row_h = (tonumber(L.row_height) or 12) * scale
-    local cx = x0 + (L.padding_x or 0)
-    local cy = y0 + (L.padding_y or 0)
+    local cx = x0 + frame_offset(L, L.padding_x or 0)
+    local cy = y0 + frame_offset(L, L.padding_y or 0)
 
     if redraw_text then
+        self._shop_marquee_seen = {}
         for i = 0, rows - 1 do
             local idx = top + i
             local tx = cx
@@ -811,20 +903,51 @@ function PromptMenuInstance:render_menu_contents(force)
                 if self.locked and (idx ~= sel) then
                     opacity = math.floor(opacity * (self.lock_dim_alpha or 0.35))
                 end
-                draw_text(self, text, tx + xoff, ty, L.font, scale, (L.z + 2), display_id, { opacity = opacity })
+                local opt = self.options[idx]
+                if L.shop_columns_enabled and type(opt) == "table"
+                    and opt.shop_name ~= nil and opt.shop_price ~= nil then
+                    erase_text(self, display_id)
+                    local price_x = cx + L.shop_price_col_x * scale
+                    local name_width = math.max(1, (price_x - tx) / 2 - 2 * scale)
+                    local price_width = math.max(1, L.shop_price_width * scale / 2)
+                    local price_text = L.shop_compact_prices and compact_price(opt.shop_price)
+                        or tostring(opt.shop_price)
+                    render_shop_column(self, tostring(opt.shop_name), tx + xoff, ty,
+                        name_width, display_id .. "_name", idx == sel,
+                        L.shop_name_speed, {opacity = opacity})
+                    render_shop_column(self, price_text, price_x + xoff, ty,
+                        price_width, display_id .. "_price", idx == sel,
+                        L.shop_price_speed, {opacity = opacity})
+                else
+                    erase_text(self, display_id .. "_name")
+                    erase_text(self, display_id .. "_price")
+                    draw_text(self, text, tx + xoff, ty, L.font, scale,
+                        (L.z + 2), display_id, { opacity = opacity })
+                end
             else
                 erase_text(self, display_id)
+                erase_text(self, display_id .. "_name")
+                erase_text(self, display_id .. "_price")
             end
         end
+        -- When rows scroll or the selection moves, retire marquees that no
+        -- longer represent the active selected shop row.
+        for id in pairs(self.shop_marquees) do
+            if not self._shop_marquee_seen[id] then
+                Displayer.Text.removeMarquee(self.player_id, id)
+                self.shop_marquees[id] = nil
+            end
+        end
+        self._shop_marquee_seen = nil
     end
 
     local sel_row = sel - top
     if sel_row >= 0 and sel_row < rows then
         if self.state == STATE.MENU then
-            local hx = x0 + (L.highlight_inset_x or 0)
+            local hx = x0 + frame_offset(L, L.highlight_inset_x or 0)
             local hy = cy + (sel_row * row_h) + ((L.highlight_inset_y or 0) * scale)
             draw_sprite(self, self.spr.HILITE, self.draw.hilite, hx, hy, (L.z + 1), L.scale)
-            local curx = x0 + (L.cursor_offset_x or 0)
+            local curx = x0 + frame_offset(L, L.cursor_offset_x or 0)
             local cury = cy + (sel_row * row_h) + ((L.cursor_offset_y or 0) * scale)
             self.cursor_base_x = curx
             self.cursor_base_y = cury
@@ -847,9 +970,9 @@ function PromptMenuInstance:render_menu_contents(force)
     end
 
     if total > rows then
-        local track_x = x0 + (L.scrollbar_x or 0)
-        local track_y = y0 + (L.scrollbar_y or 0)
-        local track_h = (L.scrollbar_h or 0)
+        local track_x = x0 + frame_offset(L, L.scrollbar_x or 0)
+        local track_y = y0 + frame_offset(L, L.scrollbar_y or 0)
+        local track_h = frame_offset(L, L.scrollbar_h or 0)
         local scale = tonumber(L.scale) or 2.0
         local indicator_h = (tonumber(L.scroll_indicator_h) or 8) * scale
         local max_top = math.max(1, total - rows + 1)
@@ -897,22 +1020,15 @@ function PromptMenuInstance:become_ready()
         end
         self:render_menu_contents(true)
     end
-    local held = {}
-    if Input.is_down(self.player_id, "up")      then table.insert(held, "up") end
-    if Input.is_down(self.player_id, "down")    then table.insert(held, "down") end
-    if Input.is_down(self.player_id, "confirm") then table.insert(held, "confirm") end
-    if Input.is_down(self.player_id, "cancel")  then table.insert(held, "cancel") end
-    if #held > 0 then
-        Input.consume(self.player_id)
-        Input.require_release(self.player_id, held)
-    end
+    guard(self.control_session, 0)
 end
 
 function PromptMenuInstance:select_current()
     local idx = self.selection_index
     local choice = self.options[idx]
     if self.selection_behavior == "callback_only" and type(self.on_choose) == "function" then
-        pcall(function() self.on_choose(choice, idx, self) end)
+        local ok, err = pcall(self.on_choose, choice, idx, self)
+        if not ok then print("[PromptVertical] choice callback failed: "..tostring(err)) end
         return
     end
     self._post_close_cb = function() self.on_select(choice, idx) end
@@ -949,7 +1065,12 @@ end
 function PromptMenuInstance:update(_dt)
     local dt = math.min(_dt or 0, 1/30)
     local player_id = self.player_id
+    local session = self.control_session
+    if not session or not session:is_current() then return end
     local st = Displayer.Text.getTextBoxState(player_id, self.box_id)
+    if self.backdrop_id then
+        Visuals.update(player_id, self.backdrop_id, self.ui, st)
+    end
 
     if self.wait_textbox_open_idle then
         if st == "opening" then
@@ -968,7 +1089,7 @@ function PromptMenuInstance:update(_dt)
             })
             return
         end
-        Input.consume(player_id)
+        guard(session, 0)
         return
     end
 
@@ -1022,72 +1143,39 @@ function PromptMenuInstance:update(_dt)
     end
 
     if st == "printing" then
-        Input.pop(player_id, "up")
-        Input.pop(player_id, "down")
-        Input.pop(player_id, "cancel")
-        if self.state == STATE.TEXT then
-            local bd = Displayer.Text.getTextBoxData(player_id, self.box_id)
-            -- In new displayer, bd.pages and bd.current_page are not exposed.
-            -- We'll approximate the last page detection by checking if the text box is completed.
-            local is_last_page = (st == "printing" and false) or (st == "waiting") -- simple approximation
-            if is_last_page then
-                set_textbox_indicator_enabled(self.player_id, self.box_id, false)
-            end
-        end
-        if Input.is_down(player_id, "confirm") then
-            Input.pop(player_id, "confirm")
+        -- The current Displayer exposes accurate page_count/current_page.
+        -- Only the final page should transition into selectable menu mode.
+        if pressed(session, "Confirm") then
             if self._text_intro_active and not self._text_intro_boosted then
                 self._text_intro_boosted = true
                 self._text_intro_speed_mult = 5
             end
             Displayer.Text.advanceTextBox(player_id, self.box_id)
+            guard(session, 0)
         end
         return
     end
 
-    if (st == "waiting") and (self.state == STATE.TEXT) then
-        Input.pop(player_id, "up")
-        Input.pop(player_id, "down")
-        Input.pop(player_id, "cancel")
+    if st == "waiting" and self.state == STATE.TEXT then
         local bd = Displayer.Text.getTextBoxData(player_id, self.box_id)
-        -- Approximate last page detection: if text box is waiting and we have advanced through all pages?
-        -- Since we can't access pages, we'll assume that after the first waiting state, we are ready.
-        -- This may need refinement.
-        local is_last_page = true -- assume after first waiting we are ready
-        if is_last_page then
-            set_textbox_indicator_enabled(self.player_id, self.box_id, false)
+        local last_page = bd and (bd.current_page or 1) >= (bd.page_count or 1)
+        if last_page then
+            set_textbox_indicator_enabled(player_id, self.box_id, false)
             self:become_ready()
-            return
-        end
-        if Input.pop(player_id, "confirm") then
+        elseif pressed(session, "Confirm") then
             Displayer.Text.advanceTextBox(player_id, self.box_id)
-            Input.consume(player_id)
-            Input.require_release(player_id, { "confirm" })
-            return
+            guard(session, 0)
         end
         return
     end
 
-    if self.state ~= STATE.MENU then
-        Input.pop(player_id, "up")
-        Input.pop(player_id, "down")
-        Input.pop(player_id, "confirm")
-        Input.pop(player_id, "cancel")
-        return
-    end
-
-    if self.locked then
-        Input.pop(player_id, "up")
-        Input.pop(player_id, "down")
-        Input.pop(player_id, "left")
-        Input.pop(player_id, "right")
-        return
-    end
+    if self.state ~= STATE.MENU then return end
+    if self.locked then return end
 
     local total = #self.options
     self:update_cursor_bob(dt)
 
-    if Input.pop(player_id, "up") then
+    if pressed(session, "Up", true) then
         local prev = self.selection_index
         if self.selection_index <= 1 then
             self.selection_index = total
@@ -1098,12 +1186,12 @@ function PromptMenuInstance:update(_dt)
             self:restart_shop_item_intro()
             local sc_changed = self:update_scroll_for_selection(false)
             play_cursor_move_sfx(player_id)
-            self:render_menu_contents(sc_changed)
+            self:render_menu_contents(true)
         end
         return
     end
 
-    if Input.pop(player_id, "down") then
+    if pressed(session, "Down", true) then
         local prev = self.selection_index
         if self.selection_index >= total then
             self.selection_index = 1
@@ -1114,17 +1202,17 @@ function PromptMenuInstance:update(_dt)
             self:restart_shop_item_intro()
             local sc_changed = self:update_scroll_for_selection(false)
             play_cursor_move_sfx(player_id)
-            self:render_menu_contents(sc_changed)
+            self:render_menu_contents(true)
         end
         return
     end
 
-    if Input.pop(player_id, "confirm") then
+    if pressed(session, "Confirm") then
         self:select_current()
         return
     end
 
-    if Input.pop(player_id, "cancel") then
+    if pressed(session, "Cancel") then
         self:do_cancel()
         return
     end
@@ -1132,15 +1220,25 @@ end
 
 -- Public API
 function PromptVertical.menu(player_id, opts)
-    ensure_listener()
     ensure_tick()
+    -- Replacing an animating menu must finalize its visual/resource ownership
+    -- immediately, not leave two sessions and two sets of sprites alive.
     if PromptVertical.instances[player_id] then
-        PromptVertical.close(player_id, "replace")
+        PromptVertical._finalize_close(player_id, "replace", { keep_textbox = true })
     end
-    set_input_locked(player_id, true)
-    Input.consume(player_id)
-    local inst = PromptMenuInstance:new(player_id, opts or {})
+    opts = opts or {}
+    local session, err = begin_session(player_id, opts)
+    if not session then return nil, err end
+    guard(session, 0.10)
+    local ok, inst = pcall(PromptMenuInstance.new, PromptMenuInstance, player_id, opts)
+    if not ok then session:close(); return nil, inst end
+    inst.control_session = session
     PromptVertical.instances[player_id] = inst
+    session:on_close(function()
+        if PromptVertical.instances[player_id] ~= inst then return end
+        -- Abnormal teardown (disconnect, owner closed): remove our overlays.
+        PromptVertical._finalize_close(player_id, "session_closed")
+    end)
     return inst.box_id
 end
 
@@ -1148,7 +1246,8 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
     local inst = PromptVertical.instances[player_id]
     if not inst then return end
     opts = opts or {}
-    local keep = (opts.keep_textbox == true)
+    local keep = opts.keep_textbox == true
+    PromptVertical.instances[player_id] = nil
 
     erase_sprite(player_id, inst.draw.menu_bg)
     erase_sprite(player_id, inst.draw.menu_frame)
@@ -1156,38 +1255,31 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
     erase_sprite(player_id, inst.draw.cursor)
     erase_sprite(player_id, inst.draw.scroll)
     erase_sprite(player_id, inst.draw.shop_item)
+    erase_sprite(player_id, inst.draw.shop_exit)
     inst:clear_menu_text()
     erase_text(inst, inst.draw.monies)
     erase_text(inst, inst.draw.monies_amount)
-    if inst.backdrop_id then
-        erase_backdrop(player_id)
-    end
+    if inst.backdrop_id then erase_backdrop(player_id) end
 
     if not keep then
         Displayer.Text.closeTextBox(player_id, inst.box_id)
     else
         set_textbox_indicator_enabled(player_id, inst.box_id, false)
-        Input.consume(player_id)
-        Input.clear_require_release(player_id, { "confirm", "cancel" })
-        Input.swallow(player_id, 0.10)
     end
 
-    set_input_locked(player_id, false)
-
-    if not keep then
-        Input.consume(player_id)
-        if Input.is_down(player_id, "confirm") or Input.is_down(player_id, "cancel") then
-            Input.require_release(player_id, { "confirm", "cancel" })
-        end
+    guard(inst.control_session, 0.10)
+    if inst.control_session and inst.control_session:is_alive() then
+        inst.control_session:close()
     end
-
-    if inst._post_close_cb then
+    -- Callbacks run only after the old session is released, so they can
+    -- safely open their next prompt or dialogue in the same tick.
+    if inst._post_close_cb and _reason ~= "replace" and _reason ~= "session_closed"
+        and _reason ~= "textbox_missing" then
         local cb = inst._post_close_cb
         inst._post_close_cb = nil
-        pcall(cb)
+        local ok, err = pcall(cb)
+        if not ok then print("[PromptVertical] selection callback error: "..tostring(err)) end
     end
-
-    PromptVertical.instances[player_id] = nil
 end
 
 function PromptVertical.close(player_id, _reason, opts)

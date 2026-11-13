@@ -150,6 +150,38 @@ local function copy_music_definition(music)
     }
 end
 
+-- A player can turn around only when the battle formation places their
+-- territory between enemy territory on both sides. Inspect authored teams
+-- rather than relying exclusively on the overworld's panel-derived terrain.
+-- When no teams were authored, ezencounters constructs them from `terrain`.
+local function is_surrounded_battle_formation(teams, terrain)
+    if type(teams) ~= "table" then
+        return terrain == "surrounded"
+    end
+
+    -- Match the actual left -> player -> right layout on at least one row.
+    -- A row must have an enemy tile on either side of a player tile; merely
+    -- having enemy tiles elsewhere on the battlefield is not sufficient.
+    for _, row in ipairs(teams) do
+        if type(row) == "table" then
+            local enemy_on_left = false
+            local player_in_middle = false
+            for x = 1, 6 do
+                local team = tonumber(row[x])
+                if team == 1 then
+                    if player_in_middle then
+                        return true
+                    end
+                    enemy_on_left = true
+                elseif team == 2 and enemy_on_left then
+                    player_in_middle = true
+                end
+            end
+        end
+    end
+    return false
+end
+
 local function build_encounter_data(encounter_definition, overrides, persistent_enemy)
     local data = {}
 
@@ -198,14 +230,13 @@ local function build_encounter_data(encounter_definition, overrides, persistent_
     -- Do not mutate the cached encounter definition or regular EZEncounters.
     data.no_battle_rewards = true
 
-    -- Liberation flipping belongs to the WORLD formation, never to an
-    -- encounter's authored flip flag. The editor can carry these same
-    -- encounter definitions to regular ezencounters / the Endless Runner,
-    -- but those games should keep their own flip behavior.
-    -- `terrain` is resolved by PanelEncounters.resolve_terrain() before
-    -- build_encounter_data is called for each liberation battle.
+    -- The actual battle teams determine whether players are surrounded.
+    -- When there is no authored teams matrix, ezencounters derives it from
+    -- the overworld terrain. Override the encounter's authored flip flag for
+    -- Liberation only; regular encounters and Endless Runner stay unchanged.
     if type(data.freedom_mission) == "table" then
-        data.freedom_mission.player_can_flip = (data.terrain == "surrounded")
+        data.freedom_mission.player_can_flip =
+            is_surrounded_battle_formation(data.teams, data.terrain)
     end
 
     local health_applied = false
