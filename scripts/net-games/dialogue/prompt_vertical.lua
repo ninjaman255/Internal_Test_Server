@@ -79,9 +79,11 @@ local function get_text_width(text, font, scale)
 end
 
 local function draw_text(inst, text, x, y, font, scale, z, id, tint)
-    -- x, y are screen coordinates; convert to virtual
-    local vx = x / 2
-    local vy = y / 2
+    -- Stable glyph IDs keep scrolling and the per-frame text intro from
+    -- allocating a new set of client sprites on every redraw. A reused ID
+    -- updates the character in place; only characters absent from the new
+    -- row are erased. FontSystem still owns all scaling and glyph animation.
+    local vx, vy = x / 2, y / 2
     local opts = {
         scale = scale,
         z = z,
@@ -93,33 +95,32 @@ local function draw_text(inst, text, x, y, font, scale, z, id, tint)
         ro = 0,
         color_mode = 0,
     }
-    -- Erase previous glyphs for this id
-    if inst.text_glyphs and inst.text_glyphs[id] then
-        for _, instance_id in ipairs(inst.text_glyphs[id]) do
-            Displayer.Font.eraseGlyph(inst.player_id, instance_id)
-        end
-        inst.text_glyphs[id] = nil
-    end
-    local glyph_ids = {}
+    local previous = (inst.text_glyphs and inst.text_glyphs[id]) or {}
+    local old_ids = {}
+    for _, glyph_id in ipairs(previous) do old_ids[glyph_id] = true end
+    local next_ids = {}
     local cx = vx
     for i = 1, #text do
         local ch = text:sub(i, i)
+        local glyph_id = tostring(id) .. "_glyph_" .. tostring(i)
         if ch ~= " " then
-            local instance_id = Displayer.Font.drawGlyph(inst.player_id, font, ch, cx, vy, opts)
-            if instance_id then
-                table.insert(glyph_ids, instance_id)
+            opts.instance_id = glyph_id
+            local drawn = Displayer.Font.drawGlyph(inst.player_id, font, ch, cx, vy, opts)
+            if drawn then
+                next_ids[#next_ids + 1] = glyph_id
+                old_ids[glyph_id] = nil
             end
         end
         local gw, _ = Displayer.Font.getGlyphDimensions(font, ch)
-        -- cx is virtual (240x160) but glyph dimensions are in source pixels.
-        -- Match Displayer.Font.getVirtualAdvance: scale into screen pixels,
-        -- then convert the result back to virtual units.
         cx = cx + ((gw + 1) * scale) / 2
     end
-    if #glyph_ids > 0 then
-        inst.text_glyphs = inst.text_glyphs or {}
-        inst.text_glyphs[id] = glyph_ids
+    -- Remove glyphs that were in an earlier (possibly longer) row. This also
+    -- handles new whitespace at locations where a glyph used to be drawn.
+    for glyph_id in pairs(old_ids) do
+        Displayer.Font.eraseGlyph(inst.player_id, glyph_id)
     end
+    inst.text_glyphs = inst.text_glyphs or {}
+    inst.text_glyphs[id] = #next_ids > 0 and next_ids or nil
 end
 
 local function erase_text(inst, id)
@@ -754,6 +755,11 @@ local function render_shop_column(inst, text, x, y, width, id, selected, speed, 
             inst.shop_marquees[marquee_id] = signature
         end
     else
+        local marquee_id = id .. "_marquee"
+        if inst.shop_marquees[marquee_id] then
+            Displayer.Text.removeMarquee(inst.player_id, marquee_id)
+            inst.shop_marquees[marquee_id] = nil
+        end
         draw_text(inst, fit_text(text, font, scale, width), x, y,
             font, scale, inst.layout.z + 2, id, tint)
     end
@@ -1342,6 +1348,13 @@ function PromptVertical._finalize_close(player_id, _reason, opts)
     inst:clear_menu_text()
     erase_text(inst, inst.draw.monies)
     erase_text(inst, inst.draw.monies_amount)
+    -- Sweep tracked glyphs, including any row or shop-column IDs left by a
+    -- transition/replacement. These IDs are owned only by this menu instance.
+    local remaining_ids = {}
+    for text_id in pairs(inst.text_glyphs or {}) do
+        remaining_ids[#remaining_ids + 1] = text_id
+    end
+    for _, text_id in ipairs(remaining_ids) do erase_text(inst, text_id) end
     if inst.backdrop_id then erase_backdrop(player_id) end
 
     if not keep then

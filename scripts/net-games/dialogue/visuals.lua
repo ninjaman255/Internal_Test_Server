@@ -11,6 +11,10 @@ local players = {}  -- per-player allocated sprite assets and active draw instan
 local PANEL_TEXTURE = "/server/assets/net-games/displayer/textbox.png"
 local PANEL_ANIMATION = "/server/assets/net-games/displayer/textbox.animation"
 local PANEL_FRAME = "/server/assets/net-games/displayer/textbox_frame_gray.png"
+-- Exact opaque interior pixels extracted from textbox.png, with every blue
+-- frame pixel removed. Draw with the neutral, tintable frame above it: no blue
+-- frame can appear when a nested prompt releases or refreshes its surface.
+local PANEL_NEUTRAL_FILL = "/server/assets/net-games/displayer/textbox_fill_neutral.png"
 local SOLID_TEXTURE = "/server/assets/net-games/displayer/empty_white.png"
 local SOLID_TEXTURE_SIZE = 4  -- actual source image is 4x4 pixels
 
@@ -179,17 +183,21 @@ function Visuals.draw(player_id, draw_id, ui)
     if type(b) == "table" then
         local style = b.style or "black_box"
         if style == "textbox_panel" or style == "textbox_panel_frame_tint" then
-            local sprite_id = asset(player_id, PANEL_TEXTURE, PANEL_ANIMATION, "OPEN_IDLE")
             local x = (tonumber(b.x) or tonumber(ui.x) or 0) + (tonumber(b.render_offset_x) or 0)
             local y = (tonumber(b.y) or tonumber(ui.y) or 0) + (tonumber(b.render_offset_y) or 0)
-            -- Existing textbox.animation uses the 240x63 OPEN_IDLE frame; its
-            -- sprite origin and 2x scale are the same as the original renderer.
-            Net.player_draw_sprite(player_id, sprite_id, {
-                id = draw_id, x = x, y = y, z = z,
-                sx = scale, sy = scale, anim_state = "OPEN_IDLE",
-                r = 255, g = 255, b = 255, a = 255, opacity = 255,
-            })
             if style == "textbox_panel_frame_tint" then
+                -- The blue textbox artwork cannot be used as a base for a
+                -- tinted frame: during handoffs, any temporarily exposed blue
+                -- layer looks like the NPC palette reverted. Keep the fill
+                -- and tinted frame as separate pieces of ONE owned surface.
+                -- Both assets use the original textbox.animation states,
+                -- frame sizes, and origin coordinates without any changes.
+                local fill = asset(player_id, PANEL_NEUTRAL_FILL, PANEL_ANIMATION, "OPEN_IDLE")
+                Net.player_draw_sprite(player_id, fill, {
+                    id = draw_id .. "_fill", x = x, y = y, z = z,
+                    sx = scale, sy = scale, anim_state = "OPEN_IDLE",
+                    r = 255, g = 255, b = 255, a = 255, opacity = 255,
+                })
                 local frame = asset(player_id, PANEL_FRAME, PANEL_ANIMATION, "OPEN_IDLE")
                 Net.player_draw_sprite(player_id, frame, {
                     id = draw_id .. "_frame", x = x, y = y, z = z + 0.01,
@@ -198,6 +206,21 @@ function Visuals.draw(player_id, draw_id, ui)
                     b = tonumber(b.b) or 255, a = tonumber(b.a) or 255,
                     opacity = tonumber(b.opacity) or 255,
                     color_mode = tonumber(b.color_mode) or 2,
+                })
+                DebugLog:debug_data("Neutral textbox fill and tinted frame drawn", {
+                    player_id = player_id, box_id = ui.box_id,
+                    r = tonumber(b.r) or 255, g = tonumber(b.g) or 255,
+                    b = tonumber(b.b) or 255,
+                    fill = PANEL_NEUTRAL_FILL, frame = PANEL_FRAME,
+                })
+            else
+                -- Non-colorized panels intentionally retain the original
+                -- blue Battle Network textbox artwork.
+                local sprite_id = asset(player_id, PANEL_TEXTURE, PANEL_ANIMATION, "OPEN_IDLE")
+                Net.player_draw_sprite(player_id, sprite_id, {
+                    id = draw_id, x = x, y = y, z = z,
+                    sx = scale, sy = scale, anim_state = "OPEN_IDLE",
+                    r = 255, g = 255, b = 255, a = 255, opacity = 255,
                 })
             end
         else
@@ -249,6 +272,7 @@ function Visuals.erase(player_id, draw_id)
     local native = surface.native_draw_id
     Net.player_erase_sprite(player_id, native)
     Net.player_erase_sprite(player_id, native .. "_frame")
+    Net.player_erase_sprite(player_id, native .. "_fill")
     Net.player_erase_sprite(player_id, native .. "_mug")
     data.surfaces[surface.surface_key] = nil
 end
