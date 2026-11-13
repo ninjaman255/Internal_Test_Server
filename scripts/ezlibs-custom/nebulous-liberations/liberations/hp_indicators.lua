@@ -8,8 +8,24 @@ local NetGames = require("scripts/net-games/main")
 
 local HPIndicators = {}
 
-local FONT_TEXTURE = "/server/assets/net-games/fonts/separated/fonts_thick.png"
-local FONT_ANIMATION = "/server/assets/net-games/fonts/separated/fonts_thick.animation"
+-- World bots can briefly display their entire texture before an animation
+-- state is applied. Use pixel-exact 6x10 crops of Displayer's THICK numeral
+-- frames so an unanimated HP bot can never expose the whole font atlas.
+-- Each bot still uses Net Games' normal map-element bot/animation flow.
+local DIGIT_ASSET_ROOT = "/server/assets/net-games/fonts/separated/hp-digits/"
+local DIGIT_ASSETS = {}
+for digit = 0, 9 do
+    local text = tostring(digit)
+    local prefix = DIGIT_ASSET_ROOT .. "fonts_thick_digit_" .. text
+    DIGIT_ASSETS[text] = {
+        texture = prefix .. ".png",
+        animation = prefix .. ".animation",
+        -- OpenNetBattle bots may select a directional IDLE state after
+        -- spawning, turning, or moving. All eight IDLE states show this exact
+        -- digit; its original THICK_<digit> state remains in the asset.
+        state = "IDLE_D",
+    }
+end
 local DIGIT_WIDTH = 6
 local DIGIT_HEIGHT = 10
 local ACTOR_Z_LIFT = 3
@@ -76,9 +92,13 @@ end
 local function get_digit_position(target, index, digit_count)
     local x, y, z = get_target_position(target)
     local _, horizontal_offset = get_digit_layout(target.hp, index, digit_count)
-    local offset_x, offset_y = map_offset(horizontal_offset, DIGIT_HEIGHT, ACTOR_Z_LIFT)
-    offset_x, offset_y = fix_offsets(offset_x, offset_y)
-    return x + offset_x, y + offset_y, z + ACTOR_Z_LIFT
+    -- Snap the common vertical anchor only once for the whole HP value.
+    -- Rounding each digit's combined X/Y offset independently changes x+y,
+    -- which shifts its projected screen Y and produces uneven baselines.
+    local base_x, base_y = map_offset(0, DIGIT_HEIGHT, ACTOR_Z_LIFT)
+    base_x, base_y = fix_offsets(base_x, base_y)
+    local digit_x, digit_y = map_offset(horizontal_offset, 0, 0)
+    return x + base_x + digit_x, y + base_y + digit_y, z + ACTOR_Z_LIFT
 end
 
 local function remove_viewer_digits(viewer_id, target)
@@ -108,9 +128,9 @@ local function render_player_for_viewer(state, viewer_id, target)
             NetGames.add_map_element,
             name,
             viewer_id,
-            FONT_TEXTURE,
-            FONT_ANIMATION,
-            "THICK_" .. digit,
+            DIGIT_ASSETS[digit].texture,
+            DIGIT_ASSETS[digit].animation,
+            DIGIT_ASSETS[digit].state,
             x, y, z,
             true
         )
@@ -145,9 +165,9 @@ local function render_enemy_for_viewer(state, viewer_id, target)
             NetGames.add_map_element,
             name,
             viewer_id,
-            FONT_TEXTURE,
-            FONT_ANIMATION,
-            "THICK_" .. digit,
+            DIGIT_ASSETS[digit].texture,
+            DIGIT_ASSETS[digit].animation,
+            DIGIT_ASSETS[digit].state,
             x, y, z,
             true
         )
@@ -226,11 +246,33 @@ function HPIndicators.register(instance)
     instance.hp_indicator_state = state
     instances_by_area[instance.area_id] = instance
 
+    -- Preload every possible HP numeral into the mission area and each viewer.
+    -- Do this before creating the first HP bot; later HP changes can use any
+    -- digit without triggering a fresh per-player asset download.
+    for digit = 0, 9 do
+        local asset = DIGIT_ASSETS[tostring(digit)]
+        local ok_texture, texture_result = pcall(Net.provide_asset, instance.area_id, asset.texture)
+        local ok_animation, animation_result = pcall(Net.provide_asset, instance.area_id, asset.animation)
+        if not ok_texture or texture_result == false or not ok_animation or animation_result == false then
+            print("[Liberations][HPIndicators] Area digit font provisioning failed for "
+                .. tostring(digit) .. ": "
+                .. tostring(not ok_texture and texture_result or not ok_animation and animation_result or false))
+        end
+    end
+
     for _, player in ipairs(instance.players or {}) do
         state.viewers[player.id] = true
         instances_by_player[player.id] = instance
-        pcall(Net.provide_asset_for_player, player.id, FONT_TEXTURE)
-        pcall(Net.provide_asset_for_player, player.id, FONT_ANIMATION)
+        for digit = 0, 9 do
+            local asset = DIGIT_ASSETS[tostring(digit)]
+            local ok_texture, texture_result = pcall(Net.provide_asset_for_player, player.id, asset.texture)
+            local ok_animation, animation_result = pcall(Net.provide_asset_for_player, player.id, asset.animation)
+            if not ok_texture or texture_result == false or not ok_animation or animation_result == false then
+                print("[Liberations][HPIndicators] Player digit font provisioning failed for "
+                    .. tostring(player.id) .. " digit " .. tostring(digit) .. ": "
+                    .. tostring(not ok_texture and texture_result or not ok_animation and animation_result or false))
+            end
+        end
     end
 
     for _, player in ipairs(instance.players or {}) do

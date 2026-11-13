@@ -140,6 +140,9 @@ Constants.AbilityIDs = {
 
 -- Asset paths for preloading
 Constants.PreloadAssets = {
+    -- Shared THICK font remains available for other mission UI consumers.
+    "/server/assets/net-games/fonts/separated/fonts_thick.png",
+    "/server/assets/net-games/fonts/separated/fonts_thick.animation",
     "/server/assets/ezlibs-custom/nebulous-liberations/ui/options-ui.png",
     "/server/assets/ezlibs-custom/nebulous-liberations/ui/options-ui.animation",
     "/server/assets/ezlibs-custom/nebulous-liberations/tiles/attack indicator.png",
@@ -170,5 +173,15 @@ Constants.PreloadAssets = {
     "/server/assets/net-games/meters/liberation-order-points/point-total-3slice.png",
     "/server/assets/net-games/meters/liberation-order-points/point-total-3slice.animation",
 }
+
+-- HP world bots need only one numeral each, not the full 64x128 THICK atlas.
+-- These 6x10 images are pixel-exact crops of the THICK frames and retain
+-- matching THICK_0 .. THICK_9 animation state names.
+local HP_DIGIT_ASSET_ROOT = "/server/assets/net-games/fonts/separated/hp-digits/"
+for digit = 0, 9 do
+    local base = HP_DIGIT_ASSET_ROOT .. "fonts_thick_digit_" .. tostring(digit)
+    Constants.PreloadAssets[#Constants.PreloadAssets + 1] = base .. ".png"
+    Constants.PreloadAssets[#Constants.PreloadAssets + 1] = base .. ".animation"
+end
 
 return Constants
