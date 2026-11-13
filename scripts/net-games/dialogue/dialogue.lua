@@ -235,10 +235,6 @@ function Dialogue.start(player_id, script, opts)
         end
     end
 
-    -- Old NPC presets used THIN_BLACK. Resolve to a currently valid atlas
-    -- through the dialogue caller; leave Displayer untouched.
-    o.font = Visuals.font_for_displayer(o.font)
-
     local control_session, control_error = begin_session(player_id, o)
     if o.input_mode ~= C.InputMode.OVERLAY_ONLY and not control_session then
         return nil, control_error

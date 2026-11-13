@@ -1,0 +1,35 @@
+imagePath="fonts_gradient_gold.png"
+
+animation state="GRADIENT_GOLD_0"
+frame duration="1" x="1" y="1" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_1"
+frame duration="1" x="9" y="1" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_2"
+frame duration="1" x="17" y="1" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_3"
+frame duration="1" x="1" y="13" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_4"
+frame duration="1" x="9" y="13" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_5"
+frame duration="1" x="17" y="13" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_6"
+frame duration="1" x="1" y="25" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_7"
+frame duration="1" x="9" y="25" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_8"
+frame duration="1" x="17" y="25" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_9"
+frame duration="1" x="1" y="37" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GOLD_ "
+frame duration="1" x="0" y="0" w="0" h="0" originx="0" originy="0" flipx="0" flipy="0"
+

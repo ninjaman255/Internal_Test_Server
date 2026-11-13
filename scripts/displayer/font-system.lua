@@ -21,116 +21,114 @@ local async = require("scripts/utils/async")  -- assume Async.sleep is available
 -- --------------------------------------------------------------------
 ---@type table<string, {texture_path:string, anim_path:string, prefix:string}>
 local FONTS = {
-    -- Light variants (compressed sheet)
+    -- Light variants: one pixel-exact PNG and animation per family.
     THICK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_thick.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_thick.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_thick.animation",
         prefix = "THICK"
     },
     THIN = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_thin.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_thin.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_thin.animation",
         prefix = "THIN"
     },
     WIDE = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_wide.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_wide.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_wide.animation",
         prefix = "WIDE"
     },
     TINY = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_tiny.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_tiny.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_tiny.animation",
         prefix = "TINY"
     },
     BATTLE = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_battle.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_battle.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_battle.animation",
         prefix = "BATTLE"
     },
     GRADIENT = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient.animation",
         prefix = "GRADIENT"
     },
     GRADIENT_GOLD = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_gold.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_gold.animation",
         prefix = "GRADIENT_GOLD"
     },
     GRADIENT_ORANGE = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_orange.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_orange.animation",
         prefix = "GRADIENT_ORANGE"
     },
     GRADIENT_GREEN = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_green.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_green.animation",
         prefix = "GRADIENT_GREEN"
     },
     GRADIENT_TALL = {
-        texture_path = "/server/assets/net-games/fonts/fonts_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_tall.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_tall.animation",
         prefix = "GRADIENT_TALL"
     },
-    -- Shimmer font (light)
     SHIMMER = {
         texture_path = "/server/assets/net-games/fonts/fonts_shimmer.png",
         anim_path    = "/server/assets/net-games/fonts/fonts_shimmer.animation",
         prefix = "SHIMMER"
     },
 
-    -- Dark variants (dark sheet)
+    -- Dark variants: one pixel-exact PNG and animation per family.
     THICK_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_thick.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_thick_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_thick_black.animation",
         prefix = "THICK"
     },
     THIN_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_thin.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_thin_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_thin_black.animation",
         prefix = "THIN"
     },
     WIDE_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_wide.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_wide_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_wide_black.animation",
         prefix = "WIDE"
     },
     TINY_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_tiny.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_tiny_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_tiny_black.animation",
         prefix = "TINY"
     },
     BATTLE_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_battle.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_battle_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_battle_black.animation",
         prefix = "BATTLE"
     },
     GRADIENT_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_black.animation",
         prefix = "GRADIENT"
     },
     GRADIENT_GOLD_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_gold_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_gold_black.animation",
         prefix = "GRADIENT_GOLD"
     },
     GRADIENT_ORANGE_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_orange_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_orange_black.animation",
         prefix = "GRADIENT_ORANGE"
     },
     GRADIENT_GREEN_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_green_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_green_black.animation",
         prefix = "GRADIENT_GREEN"
     },
     GRADIENT_TALL_BLACK = {
-        texture_path = "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        anim_path    = "/server/assets/net-games/fonts/fonts_gradient.animation",
+        texture_path = "/server/assets/net-games/fonts/separated/fonts_gradient_tall_black.png",
+        anim_path    = "/server/assets/net-games/fonts/separated/fonts_gradient_tall_black.animation",
         prefix = "GRADIENT_TALL"
     },
-    -- Shimmer font (dark)
     SHIMMER_BLACK = {
         texture_path = "/server/assets/net-games/fonts/fonts_black_shimmer.png",
         anim_path    = "/server/assets/net-games/fonts/fonts_shimmer.animation",
@@ -399,10 +397,20 @@ function FontSystem:ensureAssetAllocated(player_id, font_name)
     Net.provide_asset_for_player(player_id, font_def.anim_path)  -- already with /server/
 
     local sprite_id = "font_" .. font_name .. "_" .. player_id
+    -- Individual font animations contain glyph states, not an IDLE state.
+    -- Start from a valid state; each actual glyph draw sets its own state.
+    local states = AVAILABLE_STATES[font_name] or {}
+    local initial_state = font_def.prefix .. "_A"
+    if not states[initial_state] then
+        initial_state = font_def.prefix .. "_0"
+    end
+    if not states[initial_state] then
+        error("No initial glyph state for font " .. tostring(font_name))
+    end
     Net.player_alloc_sprite(player_id, sprite_id, {
         texture_path = font_def.texture_path,
         anim_path    = font_def.anim_path,  -- full path
-        anim_state   = "IDLE"   -- some default state
+        anim_state   = initial_state
     })
 
     self.player_assets[player_id][font_name] = sprite_id

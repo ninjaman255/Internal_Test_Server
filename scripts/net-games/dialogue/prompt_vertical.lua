@@ -65,7 +65,6 @@ end
 
 -- Text drawing helpers using Displayer.Font
 local function get_text_width(text, font, scale)
-    font = Visuals.font_for_displayer(font)
     local w = 0
     for i = 1, #text do
         local ch = text:sub(i, i)
@@ -79,7 +78,6 @@ local function get_text_width(text, font, scale)
 end
 
 local function draw_text(inst, text, x, y, font, scale, z, id, tint)
-    font = Visuals.font_for_displayer(font)
     -- x, y are screen coordinates; convert to virtual
     local vx = x / 2
     local vy = y / 2
@@ -281,7 +279,7 @@ end
 local function normalize_ui(ui)
     local o = {
         box_id = ui.box_id,
-        font  = Visuals.font_for_displayer(ui.font or "THIN_BLACK"),
+        font  = (ui.font or "THIN_BLACK"),
         scale = ui.scale or 2.0,
         z     = ui.z or 100,
         x = ui.x or 8,
@@ -324,7 +322,7 @@ local function normalize_layout(layout)
         scale_screen_offsets = layout.scale_screen_offsets == true,
         width  = layout.width  or 160,
         height = layout.height or 64,
-        font  = Visuals.font_for_displayer(layout.font or "THIN_BLACK"),
+        font  = (layout.font or "THIN_BLACK"),
         scale = layout.scale or 2.0,
         z     = layout.z or 130,
         frame = layout.frame,
@@ -347,13 +345,13 @@ local function normalize_layout(layout)
         text_intro_slide_px       = tonumber(layout.text_intro_slide_px or 10) or 10,
         monies_label_enabled = (layout.monies_label_enabled == true),
         monies_label_text    = layout.monies_label_text,
-        monies_label_font    = Visuals.font_for_displayer(layout.monies_label_font),
+        monies_label_font    = (layout.monies_label_font),
         monies_label_pad_x   = layout.monies_label_pad_x,
         monies_label_pad_y   = layout.monies_label_pad_y,
         monies_label_z_add   = layout.monies_label_z_add,
         monies_amount_enabled  = (layout.monies_amount_enabled == true),
         monies_amount_text     = layout.monies_amount_text,
-        monies_amount_font     = Visuals.font_for_displayer(layout.monies_amount_font),
+        monies_amount_font     = (layout.monies_amount_font),
         monies_amount_offset_x = layout.monies_amount_offset_x,
         monies_amount_offset_y = layout.monies_amount_offset_y,
         shop_item_enabled = (layout.shop_item_enabled == true),
@@ -711,7 +709,7 @@ local function render_shop_column(inst, text, x, y, width, id, selected, speed, 
     -- screen x/y and available width are converted to the virtual coordinates
     -- expected by the upgraded TextDisplay renderer.
     local scale = tonumber(inst.layout.scale) or 2.0
-    local font = Visuals.font_for_displayer(inst.layout.font)
+    local font = inst.layout.font
     if selected and not inst.locked and not inst._text_intro_active
         and get_text_width(text, font, scale) > width then
         erase_text(inst, id)

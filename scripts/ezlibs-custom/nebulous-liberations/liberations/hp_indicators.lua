@@ -8,8 +8,8 @@ local NetGames = require("scripts/net-games/main")
 
 local HPIndicators = {}
 
-local FONT_TEXTURE = "/server/assets/net-games/fonts/fonts_compressed.png"
-local FONT_ANIMATION = "/server/assets/net-games/fonts/fonts_compressed.animation"
+local FONT_TEXTURE = "/server/assets/net-games/fonts/separated/fonts_thick.png"
+local FONT_ANIMATION = "/server/assets/net-games/fonts/separated/fonts_thick.animation"
 local DIGIT_WIDTH = 6
 local DIGIT_HEIGHT = 10
 local ACTOR_Z_LIFT = 3

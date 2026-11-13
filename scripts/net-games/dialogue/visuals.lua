@@ -71,20 +71,8 @@ function Visuals.text_rect(ui)
     return x, y, w, h
 end
 
--- These are font choices for the net-games NPC presets, not modifications
--- to Displayer. Some old preset names refer to glyph animation layouts that
--- do not fit the currently supplied compressed atlases. Select an existing,
--- compatible dark/light font for those screens instead of changing the renderer.
-local FONT_FALLBACKS = {
-    THIN = "THICK", THIN_BLACK = "THICK_BLACK",
-    WIDE = "THICK", WIDE_BLACK = "THICK_BLACK",
-    TINY = "THICK", TINY_BLACK = "THICK_BLACK",
-}
-
-function Visuals.font_for_displayer(font)
-    if font == nil then return nil end
-    return FONT_FALLBACKS[font] or font
-end
+-- Fonts are selected by the NPC caller without remapping.
+-- Displayer and its font metrics remain the rendering authority.
 
 -- The NPC nameplate anchors to the original padded textbox rectangle,
 -- not to the narrower, mugshot-excluding rectangle used by the text engine.
@@ -101,6 +89,15 @@ function Visuals.nameplate_box_data(ui, data)
     copy.width = math.max(1, (tonumber(b.width) or copy.width or 0) - 2 * px)
     copy.height = math.max(1, (tonumber(b.height) or copy.height or 0) - 2 * py)
     copy.inner_x, copy.inner_y = copy.x, copy.y
+    -- Nameplate.attach positions its frame relative to the *visible* textbox.
+    -- getTextBoxData returns a snapshot without the sprite backdrop offsets.
+    -- Preserve them here so the original NPC gap_y (59 screen pixels) offsets
+    -- the real panel position instead of pushing the plate too far upward.
+    -- Keep the source backdrop untouched (other overlays may reuse it).
+    copy.backdrop = {
+        render_offset_x = tonumber(b.render_offset_x) or 0,
+        render_offset_y = tonumber(b.render_offset_y) or 0,
+    }
     return copy
 end
 

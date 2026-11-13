@@ -75,7 +75,7 @@ local function normalize_ui(ui)
     ui = ui or {}
     local o = {
         box_id = ui.box_id,
-        font = Visuals.font_for_displayer(ui.font or "THIN_BLACK"),
+        font = (ui.font or "THIN_BLACK"),
         scale = ui.scale or 2.0,
         z = ui.z or 100,
         x = ui.x or 8, y = ui.y or 110,

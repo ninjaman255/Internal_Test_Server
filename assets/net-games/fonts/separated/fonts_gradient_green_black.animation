@@ -1,0 +1,35 @@
+imagePath="fonts_gradient_green_black.png"
+
+animation state="GRADIENT_GREEN_0"
+frame duration="0.05" x="1" y="1" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_1"
+frame duration="0.05" x="9" y="1" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_2"
+frame duration="0.05" x="17" y="1" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_3"
+frame duration="0.05" x="1" y="13" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_4"
+frame duration="0.05" x="9" y="13" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_5"
+frame duration="0.05" x="17" y="13" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_6"
+frame duration="0.05" x="1" y="25" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_7"
+frame duration="0.05" x="9" y="25" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_8"
+frame duration="0.05" x="17" y="25" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_9"
+frame duration="0.05" x="1" y="37" w="7" h="11" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_GREEN_ "
+frame duration="10" x="0" y="0" w="0" h="0" originx="0" originy="0" flipx="0" flipy="0"
+

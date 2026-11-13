@@ -14,18 +14,8 @@ local AnimationEngine = require("scripts/animation-engine/animation-engine")
 local boom = require("scripts/boom/main")
 local InputSystem = require("scripts/input-controller/main")
 
-local assets = {
-        "/server/assets/net-games/fonts/fonts_compressed.png",
-        "/server/assets/net-games/fonts/fonts_wide.animation",
-        "/server/assets/net-games/fonts/fonts_gradient.animation",
-        "/server/assets/net-games/fonts/fonts_thick.animation",
-        "/server/assets/net-games/fonts/fonts_battle.animation",
-        "/server/assets/net-games/fonts/fonts_thin.animation",
-        "/server/assets/net-games/fonts/fonts_tiny.animation",
-        "/server/assets/net-games/fonts/fonts_compressed.animation",
-        "/server/assets/net-games/fonts/fonts_dark_compressed.png",
-        "/server/assets/net-games/fonts/fonts_dark_compressed.animation"
-    }
+-- Font assets are provisioned by scripts/displayer/font-system.lua.
+-- Keep this single source of truth instead of a duplicate preload list.
 
 -- ===========================================================
 -- INITIALIZATION
@@ -132,11 +122,7 @@ end
 -- ===========================================================
 -- ASSET PROVISION
 -- ===========================================================
-Net:on("player_request", function(event)
-    for _, asset in ipairs(assets) do
-        Net.provide_asset_for_player(event.player_id, asset)
-    end    
-end)
+-- FontSystem owns the font player_request provisioning hook.
 
 -- ===========================================================
 -- PLAYER MOVEMENT FUNCTIONS

@@ -59,10 +59,7 @@ local function display_id_for(font_name)
 end
 
 local function show(player_id)
-    -- Ensure dark font texture is provided
-    pcall(function()
-        Net.provide_asset_for_player(player_id, "/server/assets/net-games/fonts/fonts_dark_compressed.png")
-    end)
+    -- Displayer.Text provides each font's dedicated texture and animation.
 
     local x = 12   -- virtual x
     local y = 10   -- virtual y

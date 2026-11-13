@@ -1,0 +1,188 @@
+imagePath="fonts_wide_black.png"
+
+animation state="WIDE_A"
+frame duration="0.05" x="23" y="1" w="7" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_B"
+frame duration="0.05" x="57" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_C"
+frame duration="0.05" x="1" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_D"
+frame duration="0.05" x="8" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_E"
+frame duration="0.05" x="15" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_F"
+frame duration="0.05" x="22" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_G"
+frame duration="0.05" x="29" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_H"
+frame duration="0.05" x="36" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_I"
+frame duration="0.05" x="43" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_J"
+frame duration="0.05" x="50" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_K"
+frame duration="0.05" x="57" y="27" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_L"
+frame duration="0.05" x="1" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_M"
+frame duration="0.05" x="8" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_N"
+frame duration="0.05" x="15" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_O"
+frame duration="0.05" x="22" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_P"
+frame duration="0.05" x="29" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_Q"
+frame duration="0.05" x="31" y="1" w="7" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_R"
+frame duration="0.05" x="43" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_S"
+frame duration="0.05" x="50" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_T"
+frame duration="0.05" x="57" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_U"
+frame duration="0.05" x="1" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_V"
+frame duration="0.05" x="8" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_W"
+frame duration="0.05" x="15" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_X"
+frame duration="0.05" x="22" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_Y"
+frame duration="0.05" x="29" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_Z"
+frame duration="0.05" x="36" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_0"
+frame duration="0.05" x="8" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_1"
+frame duration="0.05" x="15" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_2"
+frame duration="0.05" x="22" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_3"
+frame duration="0.05" x="29" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_4"
+frame duration="0.05" x="36" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_5"
+frame duration="0.05" x="43" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_6"
+frame duration="0.05" x="50" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_7"
+frame duration="0.05" x="57" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_8"
+frame duration="0.05" x="1" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_9"
+frame duration="0.05" x="8" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_("
+frame duration="0.05" x="15" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_)"
+frame duration="0.05" x="22" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE__"
+frame duration="0.05" x="16" y="1" w="6" h="6" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_-"
+frame duration="0.05" x="50" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_+"
+frame duration="0.05" x="36" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_="
+frame duration="0.05" x="36" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_\"
+frame duration="0.05" x="43" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_/"
+frame duration="0.05" x="1" y="15" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_<"
+frame duration="0.05" x="29" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_>"
+frame duration="0.05" x="43" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_?"
+frame duration="0.05" x="50" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_,"
+frame duration="0.05" x="43" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_."
+frame duration="0.05" x="57" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_!"
+frame duration="0.05" x="39" y="1" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_@"
+frame duration="0.05" x="1" y="1" w="7" h="7" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_#"
+frame duration="0.05" x="9" y="1" w="6" h="6" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_$"
+frame duration="0.05" x="46" y="1" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_%"
+frame duration="0.05" x="53" y="1" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_^"
+frame duration="0.05" x="50" y="39" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_&"
+frame duration="0.05" x="1" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_*"
+frame duration="0.05" x="29" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_'"
+frame duration="0.05" x="8" y="9" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_QUOTE"
+frame duration="0.05" x="36" y="33" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_:"
+frame duration="0.05" x="15" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_;"
+frame duration="0.05" x="22" y="21" w="6" h="5" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="WIDE_ "
+frame duration="10" x="0" y="0" w="0" h="0" originx="0" originy="0" flipx="0" flipy="0"
+

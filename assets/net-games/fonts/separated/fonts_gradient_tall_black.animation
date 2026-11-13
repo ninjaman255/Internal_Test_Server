@@ -1,0 +1,41 @@
+imagePath="fonts_gradient_tall_black.png"
+
+animation state="GRADIENT_TALL_0"
+frame duration="0.05" x="1" y="1" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_1"
+frame duration="0.05" x="9" y="1" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_2"
+frame duration="0.05" x="17" y="1" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_3"
+frame duration="0.05" x="1" y="14" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_4"
+frame duration="0.05" x="9" y="14" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_5"
+frame duration="0.05" x="17" y="14" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_6"
+frame duration="0.05" x="1" y="27" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_7"
+frame duration="0.05" x="9" y="27" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_8"
+frame duration="0.05" x="17" y="27" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_9"
+frame duration="0.05" x="1" y="40" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_S"
+frame duration="0.05" x="17" y="40" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_:"
+frame duration="0.05" x="9" y="40" w="7" h="12" originx="0" originy="0" flipx="0" flipy="0"
+
+animation state="GRADIENT_TALL_ "
+frame duration="10" x="0" y="0" w="0" h="0" originx="0" originy="0" flipx="0" flipy="0"
+
